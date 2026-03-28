@@ -5,6 +5,7 @@ import {
   waVerificationQueue,
   waProjectHypotheses,
   waRawMessages,
+  waDedupKeys,
 } from "@shared/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { matchCandidate, type MatchResult } from './HistoricalMatcher.js';
@@ -41,6 +42,37 @@ export interface ReconciliationReport {
   verificationQueueSize: number;
 }
 
+async function extractSenderNames(
+  candidates: Array<{ id: number; sourceMessageId: number | null }>
+): Promise<Map<number, string>> {
+  const senderMap = new Map<number, string>();
+  const messageIds = candidates
+    .map(c => c.sourceMessageId)
+    .filter((id): id is number => id !== null);
+
+  if (messageIds.length === 0) return senderMap;
+
+  const rawMessages = await db.select({
+    id: waRawMessages.id,
+    sender: waRawMessages.sender,
+  })
+    .from(waRawMessages)
+    .where(inArray(waRawMessages.id, messageIds));
+
+  const msgSenderMap = new Map<number, string>();
+  for (const msg of rawMessages) {
+    msgSenderMap.set(msg.id, msg.sender);
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.sourceMessageId && msgSenderMap.has(candidate.sourceMessageId)) {
+      senderMap.set(candidate.id, msgSenderMap.get(candidate.sourceMessageId)!);
+    }
+  }
+
+  return senderMap;
+}
+
 export async function runReconciliation(
   batchId: number,
   otherBatchIds: number[] = [],
@@ -54,6 +86,8 @@ export async function runReconciliation(
     throw new Error(`No candidates found for batch ${batchId}. Run extraction first.`);
   }
 
+  const senderNameMap = await extractSenderNames(candidates);
+
   const dedupResults = await deduplicateCandidates(batchId);
 
   let crossDedupResults: DedupResult[] = [];
@@ -66,7 +100,7 @@ export async function runReconciliation(
     allDedups.filter(d => d.isDuplicate).map(d => d.candidateId)
   );
 
-  const transactionDateMap = await buildTransactionDateMap(candidates.map(c => c.id));
+  const transactionDateMap = await buildTransactionDateMap(candidates.map((c: { id: number }) => c.id));
 
   const projectHypotheses = await db.select()
     .from(waProjectHypotheses)
@@ -98,6 +132,17 @@ export async function runReconciliation(
     candidateId: number;
     reason: string;
     priority: Priority;
+  }> = [];
+
+  const canonicalCreations: Array<{
+    candidateId: number;
+    matchResult: MatchResult;
+    amount: number;
+    dateStr: string;
+    projId: string | null;
+    category: string | null;
+    candidateType: string;
+    description: string | null;
   }> = [];
 
   for (const candidate of candidates) {
@@ -135,12 +180,14 @@ export async function runReconciliation(
       if (numMatch) transferNumber = numMatch[0];
     }
 
+    const senderName = senderNameMap.get(candidate.id) || null;
+
     const matchResult = await matchCandidate(
       amount,
       candidate.candidateType,
       candidate.category,
       transferNumber,
-      null,
+      senderName,
       candidate.description || '',
       dateStr,
       projHyp?.projectId || null
@@ -151,6 +198,17 @@ export async function runReconciliation(
       .where(eq(waExtractionCandidates.id, candidate.id));
 
     byMatchStatus[matchResult.matchStatus] = (byMatchStatus[matchResult.matchStatus] || 0) + 1;
+
+    canonicalCreations.push({
+      candidateId: candidate.id,
+      matchResult,
+      amount,
+      dateStr,
+      projId: projHyp?.projectId || null,
+      category: candidate.category,
+      candidateType: candidate.candidateType,
+      description: candidate.description,
+    });
 
     switch (matchResult.matchStatus) {
       case 'exact_match':
@@ -216,6 +274,52 @@ export async function runReconciliation(
     }
   }
 
+  const canonicalIdMap = new Map<number, number>();
+  for (const entry of canonicalCreations) {
+    let status: string;
+    let excludeReason: string | null = null;
+
+    switch (entry.matchResult.matchStatus) {
+      case 'exact_match':
+        status = 'already_in_erp';
+        excludeReason = `Matched to ${entry.matchResult.matchedTable}#${entry.matchResult.matchedRecordId}`;
+        break;
+      case 'near_match':
+        status = 'pending_review';
+        break;
+      case 'conflict':
+        status = 'conflict';
+        break;
+      case 'new_entry':
+        status = 'ready_for_posting';
+        break;
+      default:
+        status = 'unclassified';
+    }
+
+    try {
+      const [canonical] = await db.insert(waCanonicalTransactions).values({
+        status,
+        transactionType: entry.candidateType,
+        amount: entry.amount.toString(),
+        description: entry.description,
+        transactionDate: entry.dateStr,
+        projectId: entry.projId,
+        category: entry.category,
+        mergedFromCandidates: [entry.candidateId],
+        excludeReason,
+      }).returning();
+
+      canonicalIdMap.set(entry.candidateId, canonical.id);
+
+      await db.update(waExtractionCandidates)
+        .set({ canonicalTransactionId: canonical.id })
+        .where(eq(waExtractionCandidates.id, entry.candidateId));
+    } catch (err: any) {
+      console.error(`[Reconciliation] Failed to create canonical transaction for candidate ${entry.candidateId}:`, err.message);
+    }
+  }
+
   const carpenterFlags: CarpenterAggregationFlag[] = [];
   for (const candidate of candidates) {
     const projHyp = projectMap.get(candidate.id);
@@ -236,7 +340,7 @@ export async function runReconciliation(
   }
 
   const loanResults = reconcileLoans(
-    candidates.map(c => ({
+    candidates.map((c: typeof candidates[0]) => ({
       id: c.id,
       candidateType: c.candidateType,
       amount: c.amount,
@@ -271,6 +375,8 @@ export async function runReconciliation(
   }
 
   for (const [candidateId, { reason, priority }] of uniqueVerifications) {
+    const canonicalTransactionId = canonicalIdMap.get(candidateId) || null;
+
     const existingVQ = await db.select({ id: waVerificationQueue.id })
       .from(waVerificationQueue)
       .where(eq(waVerificationQueue.candidateId, candidateId))
@@ -278,14 +384,24 @@ export async function runReconciliation(
 
     if (existingVQ.length > 0) {
       await db.update(waVerificationQueue)
-        .set({ reason, priority })
+        .set({ reason, priority, canonicalTransactionId })
         .where(eq(waVerificationQueue.candidateId, candidateId));
     } else {
       await db.insert(waVerificationQueue).values({
         candidateId,
         reason,
         priority,
+        canonicalTransactionId,
       });
+    }
+  }
+
+  for (const [candidateId, canonicalId] of canonicalIdMap) {
+    try {
+      await db.update(waDedupKeys)
+        .set({ canonicalTransactionId: canonicalId })
+        .where(eq(waDedupKeys.candidateId, candidateId));
+    } catch (_) {
     }
   }
 

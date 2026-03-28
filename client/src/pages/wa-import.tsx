@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -17,7 +18,8 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
   Upload, CheckCircle, XCircle, AlertTriangle, Eye, ThumbsUp, ThumbsDown,
   Play, BarChart3, Users, Wallet, FileText, Package, TrendingUp, Clock,
-  RefreshCw, Shield, Hash,
+  RefreshCw, Shield, Hash, Pencil, Merge, Split, Search, Plus, Trash2,
+  Link2, ArrowLeftRight,
 } from "lucide-react";
 
 const PROJECT_MAP: Record<string, string> = {
@@ -68,6 +70,23 @@ export default function WAImportDashboard() {
   const [approveNotes, setApproveNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
 
+  const [editDialog, setEditDialog] = useState<{ candidateId: number; amount: string; description: string } | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState<number[]>([]);
+  const [mergeProjectId, setMergeProjectId] = useState("");
+
+  const [splitDialog, setSplitDialog] = useState<{ candidateId: number; amount: string; description: string } | null>(null);
+  const [splitProjectId, setSplitProjectId] = useState("");
+  const [splitItems, setSplitItems] = useState<{ amount: string; description: string }[]>([{ amount: '', description: '' }, { amount: '', description: '' }]);
+
+  const [aliasDialog, setAliasDialog] = useState(false);
+  const [newAliasName, setNewAliasName] = useState("");
+  const [newAliasWorkerId, setNewAliasWorkerId] = useState("");
+  const [workerSearchQuery, setWorkerSearchQuery] = useState("");
+
   const batchesQuery = useQuery<any[]>({ queryKey: ['/api/wa-import/batches'] });
 
   const candidatesQuery = useQuery<any[]>({
@@ -86,6 +105,24 @@ export default function WAImportDashboard() {
     queryKey: ['/api/wa-import/custodian-statements'],
     queryFn: () => fetch(`/api/wa-import/custodian-statements`).then(r => r.json()),
     enabled: activeTab === 'custodians',
+  });
+
+  const aliasesQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/aliases'],
+    queryFn: () => fetch(`/api/wa-import/aliases`).then(r => r.json()),
+    enabled: activeTab === 'aliases',
+  });
+
+  const loansQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/inter-contractor-loans'],
+    queryFn: () => fetch(`/api/wa-import/inter-contractor-loans`).then(r => r.json()),
+    enabled: activeTab === 'loans',
+  });
+
+  const workersSearchQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/workers-search', workerSearchQuery],
+    queryFn: () => fetch(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`).then(r => r.json()),
+    enabled: aliasDialog && workerSearchQuery.length > 0,
   });
 
   const approveMutation = useMutation({
@@ -144,6 +181,70 @@ export default function WAImportDashboard() {
     onSuccess: () => {
       toast({ title: "تم الاستخراج بنجاح" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const editCandidateMutation = useMutation({
+    mutationFn: (data: { candidateId: number; amount?: string; description?: string }) =>
+      apiRequest('PATCH', `/api/wa-import/candidate/${data.candidateId}`, {
+        amount: data.amount,
+        description: data.description,
+      }),
+    onSuccess: () => {
+      toast({ title: "تم التعديل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
+      setEditDialog(null);
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: (data: { candidateIds: number[]; projectId: string }) =>
+      apiRequest('POST', `/api/wa-import/candidates/merge`, data),
+    onSuccess: () => {
+      toast({ title: "تم الدمج بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
+      setMergeMode(false);
+      setMergeSelected([]);
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const splitMutation = useMutation({
+    mutationFn: (data: { candidateId: number; projectId: string; splits: { amount: string; description: string }[] }) =>
+      apiRequest('POST', `/api/wa-import/candidate/${data.candidateId}/split`, {
+        projectId: data.projectId,
+        splits: data.splits,
+      }),
+    onSuccess: () => {
+      toast({ title: "تم التقسيم بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
+      setSplitDialog(null);
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const createAliasMutation = useMutation({
+    mutationFn: (data: { aliasName: string; canonicalWorkerId: string }) =>
+      apiRequest('POST', `/api/wa-import/aliases`, data),
+    onSuccess: () => {
+      toast({ title: "تمت إضافة الاسم المستعار" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
+      setAliasDialog(false);
+      setNewAliasName("");
+      setNewAliasWorkerId("");
+      setWorkerSearchQuery("");
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteAliasMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest('DELETE', `/api/wa-import/aliases/${id}`),
+    onSuccess: () => {
+      toast({ title: "تم الحذف" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
     },
     onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
@@ -214,6 +315,12 @@ export default function WAImportDashboard() {
     if (key === 'matchStatus') setFilterStatus(value);
   }, []);
 
+  const toggleMergeCandidate = (id: number) => {
+    setMergeSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="container mx-auto p-4 space-y-4" data-testid="wa-import-page">
       <UnifiedFilterDashboard
@@ -231,7 +338,7 @@ export default function WAImportDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-main">
-        <TabsList className="w-full justify-start" data-testid="tabs-list">
+        <TabsList className="w-full justify-start flex-wrap gap-1" data-testid="tabs-list">
           <TabsTrigger value="batches" className="gap-1.5" data-testid="tab-batches">
             <Upload className="w-4 h-4" /> الدُفعات
           </TabsTrigger>
@@ -248,6 +355,12 @@ export default function WAImportDashboard() {
           </TabsTrigger>
           <TabsTrigger value="custodians" className="gap-1.5" data-testid="tab-custodians">
             <Wallet className="w-4 h-4" /> أمناء العُهد
+          </TabsTrigger>
+          <TabsTrigger value="aliases" className="gap-1.5" data-testid="tab-aliases">
+            <Users className="w-4 h-4" /> الأسماء المستعارة
+          </TabsTrigger>
+          <TabsTrigger value="loans" className="gap-1.5" data-testid="tab-loans">
+            <ArrowLeftRight className="w-4 h-4" /> قروض المقاولين
           </TabsTrigger>
         </TabsList>
 
@@ -317,8 +430,8 @@ export default function WAImportDashboard() {
         <TabsContent value="review" className="mt-4">
           <div className="space-y-4">
             {selectedBatchId && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="text-sm">
                     دُفعة #{selectedBatchId}
                   </Badge>
@@ -326,14 +439,53 @@ export default function WAImportDashboard() {
                     {filteredCandidates.length} من {candidates.length} مرشح
                   </span>
                 </div>
-                <Button size="sm" data-testid="button-bulk-approve"
-                  onClick={() => {
-                    const pid = prompt('أدخل معرف المشروع للموافقة الجماعية');
-                    if (pid) bulkApproveMutation.mutate({ batchId: selectedBatchId, projectId: pid, minConfidence: 0.95 });
-                  }}
-                  disabled={bulkApproveMutation.isPending}>
-                  <ThumbsUp className="w-3.5 h-3.5 ml-1.5" /> موافقة جماعية (≥95%)
-                </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {mergeMode ? (
+                    <>
+                      <span className="text-sm text-muted-foreground">
+                        تم تحديد {mergeSelected.length} للدمج
+                      </span>
+                      <Select value={mergeProjectId} onValueChange={setMergeProjectId}>
+                        <SelectTrigger className="w-40" data-testid="select-merge-project">
+                          <SelectValue placeholder="المشروع" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PROJECT_MAP).map(([id, name]) => (
+                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" data-testid="button-confirm-merge"
+                        onClick={() => {
+                          if (mergeSelected.length < 2) { toast({ title: "اختر على الأقل 2 مرشحين", variant: "destructive" }); return; }
+                          if (!mergeProjectId) { toast({ title: "اختر المشروع", variant: "destructive" }); return; }
+                          mergeMutation.mutate({ candidateIds: mergeSelected, projectId: mergeProjectId });
+                        }}
+                        disabled={mergeMutation.isPending}>
+                        <Merge className="w-3.5 h-3.5 ml-1.5" /> دمج ({mergeSelected.length})
+                      </Button>
+                      <Button size="sm" variant="outline" data-testid="button-cancel-merge"
+                        onClick={() => { setMergeMode(false); setMergeSelected([]); }}>
+                        إلغاء
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="outline" data-testid="button-start-merge"
+                        onClick={() => setMergeMode(true)}>
+                        <Merge className="w-3.5 h-3.5 ml-1.5" /> دمج
+                      </Button>
+                      <Button size="sm" data-testid="button-bulk-approve"
+                        onClick={() => {
+                          const pid = prompt('أدخل معرف المشروع للموافقة الجماعية');
+                          if (pid) bulkApproveMutation.mutate({ batchId: selectedBatchId, projectId: pid, minConfidence: 0.95 });
+                        }}
+                        disabled={bulkApproveMutation.isPending}>
+                        <ThumbsUp className="w-3.5 h-3.5 ml-1.5" /> موافقة جماعية
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -372,6 +524,7 @@ export default function WAImportDashboard() {
                   <Table data-testid="table-candidates">
                     <TableHeader>
                       <TableRow>
+                        {mergeMode && <TableHead className="w-10"></TableHead>}
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>النوع</TableHead>
                         <TableHead>المبلغ</TableHead>
@@ -379,14 +532,25 @@ export default function WAImportDashboard() {
                         <TableHead>الثقة</TableHead>
                         <TableHead>المطابقة</TableHead>
                         <TableHead>الفئة</TableHead>
-                        <TableHead className="w-28">إجراءات</TableHead>
+                        <TableHead className="w-36">إجراءات</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredCandidates.map((c: any) => {
                         const confidence = parseFloat(c.confidence || '0');
                         return (
-                          <TableRow key={c.id} data-testid={`row-candidate-${c.id}`}>
+                          <TableRow key={c.id} data-testid={`row-candidate-${c.id}`}
+                            className={mergeSelected.includes(c.id) ? 'bg-blue-50 dark:bg-blue-950/30' : ''}>
+                            {mergeMode && (
+                              <TableCell>
+                                <input type="checkbox"
+                                  checked={mergeSelected.includes(c.id)}
+                                  onChange={() => toggleMergeCandidate(c.id)}
+                                  disabled={!!c.canonicalTransactionId}
+                                  data-testid={`checkbox-merge-${c.id}`}
+                                  className="w-4 h-4" />
+                              </TableCell>
+                            )}
                             <TableCell className="font-medium text-muted-foreground">{c.id}</TableCell>
                             <TableCell data-testid={`text-type-${c.id}`}>
                               <Badge variant="outline">{c.candidateType}</Badge>
@@ -410,16 +574,28 @@ export default function WAImportDashboard() {
                               <span className="text-sm text-muted-foreground">{c.category || '-'}</span>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
+                              <div className="flex gap-1 flex-wrap">
                                 {!c.canonicalTransactionId && (
                                   <>
-                                    <Button size="sm" variant="default" className="h-7 w-7 p-0" data-testid={`button-approve-${c.id}`}
+                                    <Button size="icon" variant="default" data-testid={`button-approve-${c.id}`}
                                       onClick={() => { setApproveDialog({ candidateId: c.id, description: c.description || '' }); setApproveProjectId(''); setApproveNotes(''); }}>
                                       <ThumbsUp className="w-3.5 h-3.5" />
                                     </Button>
-                                    <Button size="sm" variant="destructive" className="h-7 w-7 p-0" data-testid={`button-reject-${c.id}`}
+                                    <Button size="icon" variant="destructive" data-testid={`button-reject-${c.id}`}
                                       onClick={() => { setRejectDialog({ candidateId: c.id, description: c.description || '' }); setRejectReason(''); }}>
                                       <ThumbsDown className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="outline" data-testid={`button-edit-${c.id}`}
+                                      onClick={() => { setEditDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' }); setEditAmount(c.amount || '0'); setEditDescription(c.description || ''); }}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="outline" data-testid={`button-split-${c.id}`}
+                                      onClick={() => {
+                                        setSplitDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' });
+                                        setSplitProjectId('');
+                                        setSplitItems([{ amount: '', description: '' }, { amount: '', description: '' }]);
+                                      }}>
+                                      <Split className="w-3.5 h-3.5" />
                                     </Button>
                                   </>
                                 )}
@@ -564,31 +740,31 @@ export default function WAImportDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                         <p className="text-xs text-muted-foreground mb-1">مُستلم</p>
                         <p className="font-bold text-green-700 dark:text-green-300 tabular-nums" data-testid={`text-received-${i}`}>
                           {stmt.totalReceived?.toLocaleString('ar')}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-md border border-red-200 dark:border-red-800">
                         <p className="text-xs text-muted-foreground mb-1">مصروف</p>
                         <p className="font-bold text-red-700 dark:text-red-300 tabular-nums" data-testid={`text-disbursed-${i}`}>
                           {stmt.totalDisbursed?.toLocaleString('ar')}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
                         <p className="text-xs text-muted-foreground mb-1">مُصفّى</p>
                         <p className="font-bold text-blue-700 dark:text-blue-300 tabular-nums" data-testid={`text-settled-${i}`}>
                           {stmt.totalSettled?.toLocaleString('ar')}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-md border border-yellow-200 dark:border-yellow-800">
                         <p className="text-xs text-muted-foreground mb-1">رصيد معلق</p>
                         <p className="font-bold text-yellow-700 dark:text-yellow-300 tabular-nums" data-testid={`text-unsettled-${i}`}>
                           {stmt.unsettledBalance?.toLocaleString('ar')}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-md border border-purple-200 dark:border-purple-800">
                         <p className="text-xs text-muted-foreground mb-1">حساب شخصي</p>
                         <p className="font-bold text-purple-700 dark:text-purple-300 tabular-nums" data-testid={`text-personal-${i}`}>
                           {stmt.personalAccountTotal?.toLocaleString('ar')}
@@ -600,6 +776,138 @@ export default function WAImportDashboard() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="aliases" className="mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-semibold" data-testid="text-aliases-title">إدارة الأسماء المستعارة</h3>
+              <Button size="sm" data-testid="button-add-alias" onClick={() => { setAliasDialog(true); setNewAliasName(""); setNewAliasWorkerId(""); setWorkerSearchQuery(""); }}>
+                <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة اسم مستعار
+              </Button>
+            </div>
+
+            {aliasesQuery.isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (aliasesQuery.data || []).length === 0 ? (
+              <Card className="p-12 text-center">
+                <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                  <Users className="h-12 w-12 opacity-20" />
+                  <p className="text-lg" data-testid="text-no-aliases">لا توجد أسماء مستعارة</p>
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <Table data-testid="table-aliases">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>الاسم المستعار</TableHead>
+                        <TableHead>معرف العامل</TableHead>
+                        <TableHead>تاريخ الإنشاء</TableHead>
+                        <TableHead className="w-20">إجراءات</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(aliasesQuery.data || []).map((alias: any) => (
+                        <TableRow key={alias.id} data-testid={`row-alias-${alias.id}`}>
+                          <TableCell className="text-muted-foreground">{alias.id}</TableCell>
+                          <TableCell className="font-medium" data-testid={`text-alias-name-${alias.id}`}>
+                            {alias.aliasName}
+                          </TableCell>
+                          <TableCell data-testid={`text-alias-worker-${alias.id}`}>
+                            <Badge variant="outline">{alias.canonicalWorkerId}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {alias.createdAt ? new Date(alias.createdAt).toLocaleDateString('ar') : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button size="icon" variant="destructive" data-testid={`button-delete-alias-${alias.id}`}
+                              onClick={() => {
+                                if (confirm('هل أنت متأكد من حذف هذا الاسم المستعار؟')) {
+                                  deleteAliasMutation.mutate(alias.id);
+                                }
+                              }}
+                              disabled={deleteAliasMutation.isPending}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="loans" className="mt-4">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold" data-testid="text-loans-title">قروض بين المقاولين</h3>
+
+            {loansQuery.isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (loansQuery.data || []).length === 0 ? (
+              <Card className="p-12 text-center">
+                <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                  <ArrowLeftRight className="h-12 w-12 opacity-20" />
+                  <p className="text-lg" data-testid="text-no-loans">لا توجد قروض بين المقاولين</p>
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <Table data-testid="table-loans">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>المبلغ</TableHead>
+                        <TableHead>الوصف</TableHead>
+                        <TableHead>الحالة</TableHead>
+                        <TableHead>الثقة</TableHead>
+                        <TableHead>الفئة</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(loansQuery.data || []).map((loan: any) => (
+                        <TableRow key={loan.id} data-testid={`row-loan-${loan.id}`}>
+                          <TableCell className="text-muted-foreground">{loan.id}</TableCell>
+                          <TableCell className="font-semibold tabular-nums" data-testid={`text-loan-amount-${loan.id}`}>
+                            {parseFloat(loan.amount || '0').toLocaleString('ar')} ر.ي
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate" dir="rtl" data-testid={`text-loan-desc-${loan.id}`}>
+                            {loan.description || '-'}
+                          </TableCell>
+                          <TableCell data-testid={`text-loan-status-${loan.id}`}>
+                            {matchStatusBadge(loan.matchStatus || 'new_entry')}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${confidenceColor(parseFloat(loan.confidence || '0'))}`}
+                              data-testid={`text-loan-confidence-${loan.id}`}>
+                              {(parseFloat(loan.confidence || '0') * 100).toFixed(0)}%
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground" data-testid={`text-loan-category-${loan.id}`}>
+                            {loan.category || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -652,6 +960,162 @@ export default function WAImportDashboard() {
               if (rejectDialog) rejectMutation.mutate({ candidateId: rejectDialog.candidateId, reason: rejectReason });
             }} disabled={rejectMutation.isPending} data-testid="button-confirm-reject">
               <ThumbsDown className="w-3.5 h-3.5 ml-1.5" /> رفض
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editDialog} onOpenChange={() => setEditDialog(null)}>
+        <DialogContent data-testid="dialog-edit">
+          <DialogHeader>
+            <DialogTitle>تعديل المرشح</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">المبلغ</label>
+              <Input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                data-testid="input-edit-amount" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">الوصف</label>
+              <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                data-testid="input-edit-description" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(null)} data-testid="button-cancel-edit">إلغاء</Button>
+            <Button onClick={() => {
+              if (editDialog) editCandidateMutation.mutate({
+                candidateId: editDialog.candidateId,
+                amount: editAmount,
+                description: editDescription,
+              });
+            }} disabled={editCandidateMutation.isPending} data-testid="button-confirm-edit">
+              <Pencil className="w-3.5 h-3.5 ml-1.5" /> حفظ التعديل
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!splitDialog} onOpenChange={() => setSplitDialog(null)}>
+        <DialogContent data-testid="dialog-split" className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تقسيم المرشح</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground" dir="rtl">
+              المبلغ الأصلي: {parseFloat(splitDialog?.amount || '0').toLocaleString('ar')} ر.ي — {splitDialog?.description}
+            </p>
+            <Select value={splitProjectId} onValueChange={setSplitProjectId}>
+              <SelectTrigger data-testid="select-split-project">
+                <SelectValue placeholder="اختر المشروع" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PROJECT_MAP).map(([id, name]) => (
+                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {splitItems.map((item, idx) => (
+              <div key={idx} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground">المبلغ {idx + 1}</label>
+                  <Input type="number" value={item.amount}
+                    onChange={e => {
+                      const updated = [...splitItems];
+                      updated[idx] = { ...updated[idx], amount: e.target.value };
+                      setSplitItems(updated);
+                    }}
+                    data-testid={`input-split-amount-${idx}`} />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground">الوصف {idx + 1}</label>
+                  <Input value={item.description}
+                    onChange={e => {
+                      const updated = [...splitItems];
+                      updated[idx] = { ...updated[idx], description: e.target.value };
+                      setSplitItems(updated);
+                    }}
+                    data-testid={`input-split-desc-${idx}`} />
+                </div>
+                {splitItems.length > 2 && (
+                  <Button size="icon" variant="outline" data-testid={`button-remove-split-${idx}`}
+                    onClick={() => setSplitItems(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button variant="outline" size="sm" data-testid="button-add-split-row"
+              onClick={() => setSplitItems(prev => [...prev, { amount: '', description: '' }])}>
+              <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة جزء
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSplitDialog(null)} data-testid="button-cancel-split">إلغاء</Button>
+            <Button onClick={() => {
+              if (!splitProjectId) { toast({ title: "اختر المشروع", variant: "destructive" }); return; }
+              const validSplits = splitItems.filter(s => s.amount && parseFloat(s.amount) > 0);
+              if (validSplits.length < 2) { toast({ title: "أدخل على الأقل جزئين", variant: "destructive" }); return; }
+              if (splitDialog) splitMutation.mutate({
+                candidateId: splitDialog.candidateId,
+                projectId: splitProjectId,
+                splits: validSplits,
+              });
+            }} disabled={splitMutation.isPending} data-testid="button-confirm-split">
+              <Split className="w-3.5 h-3.5 ml-1.5" /> تقسيم
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={aliasDialog} onOpenChange={setAliasDialog}>
+        <DialogContent data-testid="dialog-add-alias">
+          <DialogHeader>
+            <DialogTitle>إضافة اسم مستعار</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">الاسم المستعار</label>
+              <Input value={newAliasName} onChange={e => setNewAliasName(e.target.value)}
+                placeholder="مثال: ابو فارس"
+                data-testid="input-new-alias-name" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">بحث عن عامل</label>
+              <Input value={workerSearchQuery} onChange={e => setWorkerSearchQuery(e.target.value)}
+                placeholder="اكتب اسم العامل..."
+                data-testid="input-worker-search" />
+            </div>
+            {workersSearchQuery.data && workersSearchQuery.data.length > 0 && (
+              <div className="max-h-40 overflow-y-auto border rounded-md">
+                {workersSearchQuery.data.map((w: any) => (
+                  <div key={w.id}
+                    className={`p-2 cursor-pointer text-sm hover-elevate ${newAliasWorkerId === w.id ? 'bg-primary/10' : ''}`}
+                    onClick={() => setNewAliasWorkerId(w.id)}
+                    data-testid={`option-worker-${w.id}`}>
+                    <span className="font-medium">{w.name}</span>
+                    <span className="text-xs text-muted-foreground mr-2">({w.id})</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {newAliasWorkerId && (
+              <div className="text-sm">
+                <Badge variant="outline" data-testid="badge-selected-worker">
+                  <Link2 className="w-3 h-3 ml-1" /> {newAliasWorkerId}
+                </Badge>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAliasDialog(false)} data-testid="button-cancel-alias">إلغاء</Button>
+            <Button onClick={() => {
+              if (!newAliasName.trim()) { toast({ title: "أدخل الاسم المستعار", variant: "destructive" }); return; }
+              if (!newAliasWorkerId) { toast({ title: "اختر العامل", variant: "destructive" }); return; }
+              createAliasMutation.mutate({ aliasName: newAliasName.trim(), canonicalWorkerId: newAliasWorkerId });
+            }} disabled={createAliasMutation.isPending} data-testid="button-confirm-alias">
+              <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة
             </Button>
           </DialogFooter>
         </DialogContent>

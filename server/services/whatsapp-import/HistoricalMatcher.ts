@@ -1,5 +1,5 @@
 import { db } from "../../db.js";
-import { fundTransfers, materialPurchases, transportationExpenses, workerMiscExpenses } from "@shared/schema";
+import { fundTransfers, materialPurchases, transportationExpenses, workerMiscExpenses, workerAttendance, workers } from "@shared/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { normalizeArabicText } from './ArabicAmountParser.js';
 import { getDateWindow } from './FingerprintEngine.js';
@@ -184,6 +184,138 @@ export async function matchAgainstTransportation(
   return { matchStatus: 'new_entry', matchedTable: null, matchedRecordId: null, matchConfidence: 0, matchReason: 'no match in transportation_expenses' };
 }
 
+export async function matchAgainstWorkerAttendance(
+  amount: number,
+  workerId: string | null,
+  dateStr: string,
+  projectId: string | null
+): Promise<MatchResult> {
+  const { start, end } = getDateWindow(dateStr, 1);
+
+  const conditions = [
+    gte(workerAttendance.attendanceDate, start),
+    lte(workerAttendance.attendanceDate, end),
+  ];
+
+  if (workerId) {
+    conditions.push(eq(workerAttendance.worker_id, workerId));
+  }
+
+  if (projectId) {
+    conditions.push(eq(workerAttendance.project_id, projectId));
+  }
+
+  const matches = await db.select()
+    .from(workerAttendance)
+    .where(and(...conditions))
+    .limit(5);
+
+  const amountMatches = matches.filter((m: { totalPay: string | null; paidAmount: string | null }) => {
+    const totalPay = parseFloat(m.totalPay || '0');
+    const paidAmount = parseFloat(m.paidAmount || '0');
+    return Math.abs(totalPay - amount) < 1 || Math.abs(paidAmount - amount) < 1;
+  });
+
+  if (amountMatches.length === 1) {
+    let confidence = 0.7;
+    if (workerId && amountMatches[0].worker_id === workerId) confidence += 0.15;
+    if (projectId && amountMatches[0].project_id === projectId) confidence += 0.1;
+
+    return {
+      matchStatus: 'near_match',
+      matchedTable: 'worker_attendance',
+      matchedRecordId: amountMatches[0].id,
+      matchConfidence: Math.min(confidence, 0.99),
+      matchReason: `worker+date+amount match in worker_attendance, confidence: ${confidence}`,
+    };
+  }
+
+  if (amountMatches.length > 1) {
+    return {
+      matchStatus: 'conflict',
+      matchedTable: 'worker_attendance',
+      matchedRecordId: amountMatches[0].id,
+      matchConfidence: 0.4,
+      matchReason: `${amountMatches.length} potential matches in worker_attendance within ±1 day`,
+    };
+  }
+
+  return { matchStatus: 'new_entry', matchedTable: null, matchedRecordId: null, matchConfidence: 0, matchReason: 'no match in worker_attendance' };
+}
+
+export async function matchAgainstWorkerMiscExpenses(
+  amount: number,
+  description: string,
+  dateStr: string,
+  projectId: string | null
+): Promise<MatchResult> {
+  const { start, end } = getDateWindow(dateStr, 2);
+  const amountStr = amount.toString();
+
+  const conditions = [
+    eq(workerMiscExpenses.amount, amountStr),
+    gte(workerMiscExpenses.date, start),
+    lte(workerMiscExpenses.date, end),
+  ];
+
+  if (projectId) {
+    conditions.push(eq(workerMiscExpenses.project_id, projectId));
+  }
+
+  const matches = await db.select()
+    .from(workerMiscExpenses)
+    .where(and(...conditions))
+    .limit(5);
+
+  if (matches.length === 0) {
+    return { matchStatus: 'new_entry', matchedTable: null, matchedRecordId: null, matchConfidence: 0, matchReason: 'no match in worker_misc_expenses' };
+  }
+
+  for (const match of matches) {
+    let confidence = 0.65;
+
+    if (description && match.description) {
+      const descSim = arabicNameSimilarity(description, match.description);
+      if (descSim > 0.6) confidence += 0.2;
+    }
+
+    if (projectId && match.project_id === projectId) {
+      confidence += 0.1;
+    }
+
+    if (confidence >= 0.75) {
+      return {
+        matchStatus: 'near_match',
+        matchedTable: 'worker_misc_expenses',
+        matchedRecordId: match.id,
+        matchConfidence: Math.min(confidence, 0.99),
+        matchReason: `amount+date+description match in worker_misc_expenses, confidence: ${confidence}`,
+      };
+    }
+  }
+
+  if (matches.length > 1) {
+    return {
+      matchStatus: 'conflict',
+      matchedTable: 'worker_misc_expenses',
+      matchedRecordId: matches[0].id,
+      matchConfidence: 0.4,
+      matchReason: `${matches.length} potential matches in worker_misc_expenses within ±2 days`,
+    };
+  }
+
+  return { matchStatus: 'new_entry', matchedTable: null, matchedRecordId: null, matchConfidence: 0, matchReason: 'no strong match in worker_misc_expenses' };
+}
+
+export async function resolveWorkerIdFromName(name: string): Promise<string | null> {
+  if (!name) return null;
+  const matches = await db.select({ id: workers.id })
+    .from(workers)
+    .where(eq(workers.name, name))
+    .limit(1);
+  return matches.length > 0 ? matches[0].id : null;
+}
+
 export async function matchCandidate(
   amount: number,
   candidateType: string,
@@ -207,11 +339,29 @@ export async function matchCandidate(
     return matchAgainstMaterialPurchases(amount, senderName, description, dateStr, projectId);
   }
 
+  if (category && ['wages', 'labor', 'attendance', 'worker_payment'].includes(category)) {
+    const workerId = senderName ? await resolveWorkerIdFromName(senderName) : null;
+    const waMatch = await matchAgainstWorkerAttendance(amount, workerId, dateStr, projectId);
+    if (waMatch.matchStatus !== 'new_entry') return waMatch;
+  }
+
+  if (category && ['misc', 'miscellaneous', 'نثريات', 'misc_expense'].includes(category)) {
+    const miscMatch = await matchAgainstWorkerMiscExpenses(amount, description, dateStr, projectId);
+    if (miscMatch.matchStatus !== 'new_entry') return miscMatch;
+  }
+
   const ftMatch = await matchAgainstFundTransfers(amount, null, senderName, dateStr, projectId);
   if (ftMatch.matchStatus !== 'new_entry') return ftMatch;
 
   const mpMatch = await matchAgainstMaterialPurchases(amount, null, description, dateStr, projectId);
   if (mpMatch.matchStatus !== 'new_entry') return mpMatch;
+
+  const miscMatch = await matchAgainstWorkerMiscExpenses(amount, description, dateStr, projectId);
+  if (miscMatch.matchStatus !== 'new_entry') return miscMatch;
+
+  const workerId = senderName ? await resolveWorkerIdFromName(senderName) : null;
+  const waMatch = await matchAgainstWorkerAttendance(amount, workerId, dateStr, projectId);
+  if (waMatch.matchStatus !== 'new_entry') return waMatch;
 
   return { matchStatus: 'new_entry', matchedTable: null, matchedRecordId: null, matchConfidence: 0, matchReason: 'no match found in any ERP table' };
 }

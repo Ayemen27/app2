@@ -12,6 +12,7 @@ import { clusterMessages, type RawMessageForClustering } from './ContextClusteri
 import { inferProject, getBestProjectHypothesis } from './ProjectInferenceEngine.js';
 import { detectSpecialTransaction } from './SpecialTransactionDetectors.js';
 import { computeConfidence, categorizeExpense, categorizeTransferReceipt, type ScoringContext } from './ScoringAndCategorization.js';
+import { waAliasService } from './WhatsAppAliasService.js';
 
 export interface ExtractionResult {
   batchId: number;
@@ -57,6 +58,21 @@ export class WhatsAppExtractionService {
 
     result.totalMessages = messages.length;
 
+    for (const msg of messages) {
+      try {
+        const dateValidation = validateInlineDate(msg.messageText || '', new Date(msg.waTimestamp), chatSource);
+        if (dateValidation.inlineClaimedDate || dateValidation.dateMismatchReason) {
+          await db.update(waRawMessages)
+            .set({
+              inlineClaimedDate: dateValidation.inlineClaimedDate,
+              dateMismatchReason: dateValidation.dateMismatchReason,
+            })
+            .where(eq(waRawMessages.id, msg.id));
+        }
+      } catch (_err) {
+      }
+    }
+
     const mediaAssets = await db.select()
       .from(waMediaAssets)
       .where(eq(waMediaAssets.batchId, batchId));
@@ -71,11 +87,11 @@ export class WhatsAppExtractionService {
     }
 
     const duplicates = findDuplicateTextBlocks(
-      messages.map(m => ({ id: m.id, messageText: m.messageText, sender: m.sender }))
+      messages.map((m: { id: number; messageText: string; sender: string }) => ({ id: m.id, messageText: m.messageText, sender: m.sender }))
     );
     result.duplicateTextBlocks = duplicates.size;
 
-    const clusterInput: RawMessageForClustering[] = messages.map(m => ({
+    const clusterInput: RawMessageForClustering[] = messages.map((m: typeof messages[0]) => ({
       id: m.id,
       waTimestamp: new Date(m.waTimestamp),
       sender: m.sender,
@@ -285,14 +301,21 @@ export class WhatsAppExtractionService {
       ambiguousWorkerName: false,
     };
 
+    const workerResolution = await this.resolveWorkerFromText(msg.messageText || special.description || '');
+
     const confidence = computeConfidence(special.candidateType, scoringCtx);
+
+    let description = special.description;
+    if (workerResolution.workerId && workerResolution.workerAlias) {
+      description = `${description} [عامل: ${workerResolution.workerAlias}]`;
+    }
 
     const [candidate] = await db.insert(waExtractionCandidates).values({
       batchId,
       sourceMessageId: msg.id,
       amount: special.amount.toString(),
       currency: 'YER',
-      description: special.description,
+      description,
       patternType: special.candidateType,
       confidence: confidence.finalScore.toString(),
       confidenceBreakdownJson: confidence,
@@ -339,18 +362,28 @@ export class WhatsAppExtractionService {
       ambiguousWorkerName: false,
     };
 
+    const workerResolution = await this.resolveWorkerFromText(expense.description || msg.messageText || '');
+    if (workerResolution.workerId) {
+      scoringCtx.ambiguousWorkerName = false;
+    }
+
     const confidence = computeConfidence(patternType, scoringCtx);
 
     const dateValidation = validateInlineDate(msg.messageText || '', new Date(msg.waTimestamp), chatSource);
     const reviewFlags: string[] = [];
     if (dateValidation.dateMismatchReason) reviewFlags.push('date_mismatch');
 
+    let description = expense.description;
+    if (workerResolution.workerId && workerResolution.workerAlias) {
+      description = `${description} [عامل: ${workerResolution.workerAlias}]`;
+    }
+
     const [candidate] = await db.insert(waExtractionCandidates).values({
       batchId,
       sourceMessageId: msg.id,
       amount: expense.amount.toString(),
       currency: 'YER',
-      description: expense.description,
+      description,
       patternType,
       confidence: confidence.finalScore.toString(),
       confidenceBreakdownJson: confidence,
@@ -414,6 +447,20 @@ export class WhatsAppExtractionService {
         inferenceMethod: h.inferenceMethod,
       });
     }
+  }
+
+  private async resolveWorkerFromText(text: string): Promise<{ workerId: string | null; workerAlias: string | null }> {
+    const words = text.split(/\s+/).filter(w => w.length > 1);
+    for (let len = 3; len >= 1; len--) {
+      for (let i = 0; i <= words.length - len; i++) {
+        const phrase = words.slice(i, i + len).join(' ');
+        const workerId = await waAliasService.resolveAlias(phrase);
+        if (workerId) {
+          return { workerId, workerAlias: phrase };
+        }
+      }
+    }
+    return { workerId: null, workerAlias: null };
   }
 
   async getExtractionCandidates(batchId: number) {

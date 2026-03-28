@@ -76,7 +76,7 @@ export class WhatsAppIngestionService {
 
     let chatContent = '';
     let chatSource = 'other';
-    const mediaFiles: Array<{ filePath: string; originalFilename: string; sha256: string; mimeType: string; fileSize: number }> = [];
+    const mediaFiles: Array<{ filePath: string; originalFilename: string; sha256: string; mimeType: string; fileSize: number; mediaStatus?: string; skipReason?: string }> = [];
 
     try {
       const AdmZip = (await import('adm-zip')).default;
@@ -111,6 +111,16 @@ export class WhatsAppIngestionService {
         } else {
           const mimeType = getMimeType(entryName);
           if (!mimeType) {
+            console.log(`[WAImport] Skipped unsupported media file: ${path.basename(entryName)}`);
+            mediaFiles.push({
+              filePath: path.join(batchDir, path.basename(entryName)),
+              originalFilename: path.basename(entryName),
+              sha256: computeSha256FromBuffer(entry.getData()),
+              mimeType: 'application/octet-stream',
+              fileSize: entry.header.size,
+              mediaStatus: 'skipped_unsupported' as const,
+              skipReason: `Unsupported file extension: ${path.extname(entryName).toLowerCase()}`,
+            });
             continue;
           }
 
@@ -175,8 +185,8 @@ export class WhatsAppIngestionService {
 
       for (const media of mediaFiles) {
         const linkedMessageId = messagesByAttachment.get(media.originalFilename) || null;
-        const mediaStatus = media.fileSize > MAX_MEDIA_SIZE ? 'skipped_too_large' : 'processed';
-        const skipReason = media.fileSize > MAX_MEDIA_SIZE ? `File size ${(media.fileSize / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_MEDIA_SIZE / 1024 / 1024}MB limit` : null;
+        const mediaStatus = media.mediaStatus || (media.fileSize > MAX_MEDIA_SIZE ? 'skipped_too_large' : 'processed');
+        const skipReason = media.skipReason || (media.fileSize > MAX_MEDIA_SIZE ? `File size ${(media.fileSize / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_MEDIA_SIZE / 1024 / 1024}MB limit` : null);
 
         await db.insert(waMediaAssets).values({
           batchId: batch.id,
@@ -236,6 +246,15 @@ export class WhatsAppIngestionService {
         }
       } catch {
         throw error;
+      }
+    } finally {
+      try {
+        if (fs.existsSync(batchDir)) {
+          fs.rmSync(batchDir, { recursive: true, force: true });
+          console.log(`[WAImport] Cleaned up temp directory: ${batchDir}`);
+        }
+      } catch (cleanupErr) {
+        console.warn(`[WAImport] Failed to clean up temp directory ${batchDir}:`, cleanupErr);
       }
     }
   }

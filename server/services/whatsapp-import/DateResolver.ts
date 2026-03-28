@@ -16,8 +16,8 @@ export async function buildTransactionDateMap(
     .where(inArray(waExtractionCandidates.id, candidateIds));
 
   const messageIds = candidates
-    .filter(c => c.sourceMessageId !== null)
-    .map(c => c.sourceMessageId!);
+    .filter((c: { sourceMessageId: number | null }) => c.sourceMessageId !== null)
+    .map((c: { sourceMessageId: number | null }) => c.sourceMessageId!);
 
   const messageTimestamps = new Map<number, Date>();
 

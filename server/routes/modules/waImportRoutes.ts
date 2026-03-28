@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import { z } from "zod";
 import { requireAuth, requireAdminOrEditor, requireRole, type AuthenticatedRequest } from "../../middleware/auth.js";
 import { waIngestionService } from "../../services/whatsapp-import/WhatsAppIngestionService.js";
 import { waAliasService } from "../../services/whatsapp-import/WhatsAppAliasService.js";
@@ -12,12 +13,77 @@ import {
   bulkApprove,
   postApprovedTransaction,
   generatePostingPlan,
+  updateCandidateFields,
+  mergeCandidates,
+  splitCandidate,
 } from "../../services/whatsapp-import/WhatsAppPostingService.js";
 import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 },
+});
+
+const idParamSchema = z.object({ id: z.string().regex(/^\d+$/) });
+const candidateIdParamSchema = z.object({ candidateId: z.string().regex(/^\d+$/) });
+const workerIdParamSchema = z.object({ workerId: z.string().min(1) });
+
+const paginationQuerySchema = z.object({
+  limit: z.string().regex(/^\d+$/).optional(),
+  offset: z.string().regex(/^\d+$/).optional(),
+});
+
+const searchQuerySchema = z.object({
+  q: z.string().max(200).optional().default(''),
+});
+
+const createAliasSchema = z.object({
+  aliasName: z.string().min(1).max(200),
+  canonicalWorkerId: z.string().min(1),
+});
+
+const updateAliasSchema = z.object({
+  aliasName: z.string().min(1).max(200).optional(),
+  canonicalWorkerId: z.string().min(1).optional(),
+});
+
+const reconcileBodySchema = z.object({
+  otherBatchIds: z.array(z.number().int().positive()).optional().default([]),
+  tolerancePercent: z.number().min(0).max(100).optional().default(1),
+});
+
+const updateCandidateSchema = z.object({
+  amount: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+  description: z.string().max(1000).optional(),
+}).refine(d => d.amount !== undefined || d.description !== undefined, {
+  message: "Provide amount or description to update",
+});
+
+const mergeBodySchema = z.object({
+  candidateIds: z.array(z.number().int().positive()).min(2),
+  projectId: z.string().min(1),
+});
+
+const splitBodySchema = z.object({
+  projectId: z.string().min(1),
+  splits: z.array(z.object({
+    amount: z.string().regex(/^\d+(\.\d+)?$/),
+    description: z.string().max(1000).optional(),
+  })).min(2),
+});
+
+const approveBodySchema = z.object({
+  projectId: z.string().min(1),
+  notes: z.string().optional(),
+});
+
+const rejectBodySchema = z.object({
+  reason: z.string().min(1),
+});
+
+const bulkApproveBodySchema = z.object({
+  minConfidence: z.number().min(0).max(1).optional().default(0.95),
+  projectId: z.string().min(1),
 });
 
 const waImportRouter = Router();
@@ -68,7 +134,11 @@ waImportRouter.get("/batches", requireAuth, requireAdminOrEditor, async (_req, r
 
 waImportRouter.get("/batch/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const batch = await waIngestionService.getBatch(parseInt(req.params.id));
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    }
+    const batch = await waIngestionService.getBatch(parseInt(params.data.id));
     if (!batch) {
       return res.status(404).json({ error: "Batch not found" });
     }
@@ -81,10 +151,18 @@ waImportRouter.get("/batch/:id", requireAuth, requireAdminOrEditor, async (req, 
 
 waImportRouter.get("/batch/:id/messages", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 100;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    }
+    const query = paginationQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      return res.status(400).json({ error: "Invalid pagination params", details: query.error.issues });
+    }
+    const limit = query.data.limit ? parseInt(query.data.limit) : 100;
+    const offset = query.data.offset ? parseInt(query.data.offset) : 0;
     const messages = await waIngestionService.getBatchMessages(
-      parseInt(req.params.id),
+      parseInt(params.data.id),
       Math.min(limit, 500),
       offset
     );
@@ -97,7 +175,11 @@ waImportRouter.get("/batch/:id/messages", requireAuth, requireAdminOrEditor, asy
 
 waImportRouter.get("/batch/:id/media", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const media = await waIngestionService.getBatchMedia(parseInt(req.params.id));
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    }
+    const media = await waIngestionService.getBatchMedia(parseInt(params.data.id));
     res.json(media);
   } catch (error) {
     console.error("[WAImport] Get media error:", error);
@@ -117,13 +199,13 @@ waImportRouter.get("/aliases", requireAuth, requireAdminOrEditor, async (_req, r
 
 waImportRouter.post("/aliases", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
   try {
-    const { aliasName, canonicalWorkerId } = req.body;
-    if (!aliasName || !canonicalWorkerId) {
-      return res.status(400).json({ error: "aliasName and canonicalWorkerId are required" });
+    const body = createAliasSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid alias data", details: body.error.issues });
     }
     const alias = await waAliasService.createAlias({
-      aliasName,
-      canonicalWorkerId,
+      aliasName: body.data.aliasName,
+      canonicalWorkerId: body.data.canonicalWorkerId,
       createdBy: req.user!.user_id,
     });
     res.json(alias);
@@ -138,7 +220,15 @@ waImportRouter.post("/aliases", requireAuth, requireAdminOrEditor, async (req: A
 
 waImportRouter.put("/aliases/:id", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
   try {
-    const alias = await waAliasService.updateAlias(parseInt(req.params.id), req.body);
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    }
+    const body = updateAliasSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid alias data", details: body.error.issues });
+    }
+    const alias = await waAliasService.updateAlias(parseInt(params.data.id), body.data);
     if (!alias) {
       return res.status(404).json({ error: "Alias not found" });
     }
@@ -151,7 +241,11 @@ waImportRouter.put("/aliases/:id", requireAuth, requireAdminOrEditor, async (req
 
 waImportRouter.delete("/aliases/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    await waAliasService.deleteAlias(parseInt(req.params.id));
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    }
+    await waAliasService.deleteAlias(parseInt(params.data.id));
     res.json({ success: true });
   } catch (error) {
     console.error("[WAImport] Delete alias error:", error);
@@ -191,7 +285,9 @@ waImportRouter.get("/custodian-summaries", requireAuth, requireAdminOrEditor, as
 
 waImportRouter.get("/custodian/:workerId/entries", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const entries = await waCustodianService.getEntriesByCustodian(req.params.workerId);
+    const params = workerIdParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid worker ID", details: params.error.issues });
+    const entries = await waCustodianService.getEntriesByCustodian(params.data.workerId);
     res.json(entries);
   } catch (error) {
     console.error("[WAImport] Get custodian entries error:", error);
@@ -201,7 +297,9 @@ waImportRouter.get("/custodian/:workerId/entries", requireAuth, requireAdminOrEd
 
 waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const batchId = parseInt(req.params.id);
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
     const batch = await waIngestionService.getBatch(batchId);
     if (!batch) {
       return res.status(404).json({ error: "Batch not found" });
@@ -223,7 +321,9 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, asy
 
 waImportRouter.get("/batch/:id/candidates", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const candidates = await waExtractionService.getExtractionCandidates(parseInt(req.params.id));
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const candidates = await waExtractionService.getExtractionCandidates(parseInt(params.data.id));
     res.json(candidates);
   } catch (error) {
     console.error("[WAImport] Get candidates error:", error);
@@ -233,7 +333,9 @@ waImportRouter.get("/batch/:id/candidates", requireAuth, requireAdminOrEditor, a
 
 waImportRouter.get("/candidate/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const data = await waExtractionService.getCandidateWithEvidence(parseInt(req.params.id));
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    const data = await waExtractionService.getCandidateWithEvidence(parseInt(params.data.id));
     if (!data) {
       return res.status(404).json({ error: "Candidate not found" });
     }
@@ -246,10 +348,17 @@ waImportRouter.get("/candidate/:id", requireAuth, requireAdminOrEditor, async (r
 
 waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const batchId = parseInt(req.params.id);
-    const { otherBatchIds = [], tolerancePercent = 1 } = req.body || {};
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    }
+    const body = reconcileBodySchema.safeParse(req.body || {});
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid reconciliation params", details: body.error.issues });
+    }
+    const batchId = parseInt(params.data.id);
 
-    const report = await runReconciliation(batchId, otherBatchIds, tolerancePercent);
+    const report = await runReconciliation(batchId, body.data.otherBatchIds, body.data.tolerancePercent);
     res.json(report);
   } catch (error: any) {
     console.error("[WAImport] Reconciliation error:", error);
@@ -262,7 +371,9 @@ waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, a
 
 waImportRouter.get("/batch/:id/verification-queue", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const batchId = parseInt(req.params.id);
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
     const { db: database } = await import("../../db.js");
     const { waVerificationQueue, waExtractionCandidates } = await import("@shared/schema");
     const { eq, and } = await import("drizzle-orm");
@@ -281,13 +392,18 @@ waImportRouter.get("/batch/:id/verification-queue", requireAuth, requireAdminOrE
 
 waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const candidateId = parseInt(req.params.id);
-    const { projectId, notes } = req.body;
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    }
+    const body = approveBodySchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid approval data", details: body.error.issues });
+    }
     const reviewerId = (req as any).user?.user_id;
-    if (!projectId) return res.status(400).json({ error: "projectId is required" });
     if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
 
-    const result = await approveCandidate(candidateId, reviewerId, projectId, notes);
+    const result = await approveCandidate(parseInt(params.data.id), reviewerId, body.data.projectId, body.data.notes);
     res.json(result);
   } catch (error: any) {
     console.error("[WAImport] Approve error:", error);
@@ -297,13 +413,18 @@ waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor,
 
 waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const candidateId = parseInt(req.params.id);
-    const { reason } = req.body;
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    }
+    const body = rejectBodySchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid rejection data", details: body.error.issues });
+    }
     const reviewerId = (req as any).user?.user_id;
-    if (!reason) return res.status(400).json({ error: "reason is required" });
     if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
 
-    await rejectCandidate(candidateId, reviewerId, reason);
+    await rejectCandidate(parseInt(params.data.id), reviewerId, body.data.reason);
     res.json({ success: true });
   } catch (error: any) {
     console.error("[WAImport] Reject error:", error);
@@ -313,13 +434,18 @@ waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, 
 
 waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const batchId = parseInt(req.params.id);
-    const { minConfidence = 0.95, projectId } = req.body;
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    }
+    const body = bulkApproveBodySchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: "Invalid bulk approve data", details: body.error.issues });
+    }
     const reviewerId = (req as any).user?.user_id;
-    if (!projectId) return res.status(400).json({ error: "projectId is required" });
     if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
 
-    const result = await bulkApprove(batchId, reviewerId, minConfidence, projectId);
+    const result = await bulkApprove(parseInt(params.data.id), reviewerId, body.data.minConfidence, body.data.projectId);
     res.json(result);
   } catch (error: any) {
     console.error("[WAImport] Bulk approve error:", error);
@@ -329,7 +455,9 @@ waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor
 
 waImportRouter.post("/batch/:id/dry-run", requireAuth, requireRole('admin'), async (req, res) => {
   try {
-    const batchId = parseInt(req.params.id);
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
     const plan = await generatePostingPlan(batchId);
     res.json({ dryRun: true, items: plan, totalAmount: plan.reduce((sum, p) => sum + p.amount, 0) });
   } catch (error: any) {
@@ -340,7 +468,9 @@ waImportRouter.post("/batch/:id/dry-run", requireAuth, requireRole('admin'), asy
 
 waImportRouter.post("/canonical/:id/post", requireAuth, requireRole('admin'), async (req, res) => {
   try {
-    const canonicalId = parseInt(req.params.id);
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid canonical ID", details: params.error.issues });
+    const canonicalId = parseInt(params.data.id);
     const postedBy = (req as any).user?.user_id;
     if (!postedBy) return res.status(401).json({ error: "User not identified" });
 
@@ -364,7 +494,9 @@ waImportRouter.get("/custodian-statements", requireAuth, requireAdminOrEditor, a
 
 waImportRouter.get("/review-actions/:candidateId", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const candidateId = parseInt(req.params.candidateId);
+    const params = candidateIdParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    const candidateId = parseInt(params.data.candidateId);
     const { db: database } = await import("../../db.js");
     const { waReviewActions } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
@@ -377,6 +509,101 @@ waImportRouter.get("/review-actions/:candidateId", requireAuth, requireAdminOrEd
   } catch (error) {
     console.error("[WAImport] Review actions error:", error);
     res.status(500).json({ error: "Failed to get review actions" });
+  }
+});
+
+waImportRouter.patch("/candidate/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    const body = updateCandidateSchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid update data", details: body.error.issues });
+    const candidateId = parseInt(params.data.id);
+    const reviewerId = (req as any).user?.user_id;
+    if (!reviewerId) return res.status(401).json({ error: "User not identified" });
+
+    const updated = await updateCandidateFields(candidateId, reviewerId, body.data);
+    res.json(updated);
+  } catch (error: any) {
+    console.error("[WAImport] Update candidate error:", error);
+    res.status(500).json({ error: error.message || "Failed to update candidate" });
+  }
+});
+
+waImportRouter.post("/candidates/merge", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const body = mergeBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid merge data", details: body.error.issues });
+    const reviewerId = (req as any).user?.user_id;
+    if (!reviewerId) return res.status(401).json({ error: "User not identified" });
+
+    const result = await mergeCandidates(body.data.candidateIds, reviewerId, body.data.projectId);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Merge candidates error:", error);
+    res.status(500).json({ error: error.message || "Failed to merge candidates" });
+  }
+});
+
+waImportRouter.post("/candidate/:id/split", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
+    const body = splitBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid split data", details: body.error.issues });
+    const candidateId = parseInt(params.data.id);
+    const reviewerId = (req as any).user?.user_id;
+    if (!reviewerId) return res.status(401).json({ error: "User not identified" });
+
+    const result = await splitCandidate(candidateId, reviewerId, body.data.projectId, body.data.splits as { amount: string; description: string }[]);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Split candidate error:", error);
+    res.status(500).json({ error: error.message || "Failed to split candidate" });
+  }
+});
+
+waImportRouter.get("/inter-contractor-loans", requireAuth, requireAdminOrEditor, async (_req, res) => {
+  try {
+    const { db: database } = await import("../../db.js");
+    const { waExtractionCandidates } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const loans = await database.select()
+      .from(waExtractionCandidates)
+      .where(eq(waExtractionCandidates.candidateType, 'loan'));
+
+    res.json(loans);
+  } catch (error) {
+    console.error("[WAImport] Inter-contractor loans error:", error);
+    res.status(500).json({ error: "Failed to get inter-contractor loans" });
+  }
+});
+
+waImportRouter.get("/workers-search", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const query = searchQuerySchema.safeParse(req.query);
+    if (!query.success) return res.status(400).json({ error: "Invalid search query", details: query.error.issues });
+    const q = query.data.q;
+    const { db: database } = await import("../../db.js");
+    const { workers } = await import("@shared/schema");
+    const { ilike } = await import("drizzle-orm");
+
+    let results;
+    if (q) {
+      results = await database.select({ id: workers.id, name: workers.name })
+        .from(workers)
+        .where(ilike(workers.name, `%${q}%`))
+        .limit(20);
+    } else {
+      results = await database.select({ id: workers.id, name: workers.name })
+        .from(workers)
+        .limit(50);
+    }
+    res.json(results);
+  } catch (error) {
+    console.error("[WAImport] Workers search error:", error);
+    res.status(500).json({ error: "Failed to search workers" });
   }
 });
 

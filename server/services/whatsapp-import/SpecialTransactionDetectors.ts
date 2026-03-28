@@ -104,6 +104,79 @@ export function detectCustodianReceipt(messageText: string): SpecialTransactionR
   };
 }
 
+const DATE_LINE_PATTERNS = [
+  /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+  /(\d{1,2})\/(\d{1,2})\/(\d{2})/,
+  /(\d{1,2})-(\d{1,2})-(\d{4})/,
+  /(\d{1,2})\/(\d{1,2})/,
+];
+
+const RECIPIENT_KEYWORDS = [
+  'نجار', 'حداد', 'سائق', 'سواق', 'عامل', 'ملحم', 'كهربائي',
+];
+
+function extractDateFromLine(line: string): string | null {
+  for (const pat of DATE_LINE_PATTERNS) {
+    const m = line.match(pat);
+    if (m) {
+      const day = m[1].padStart(2, '0');
+      const month = m[2].padStart(2, '0');
+      let year = m[3] ? m[3] : new Date().getFullYear().toString();
+      if (year.length === 2) year = '20' + year;
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  const dayNames: Record<string, string> = {
+    'السبت': 'السبت', 'الاحد': 'الاحد', 'الأحد': 'الاحد',
+    'الاثنين': 'الاثنين', 'الإثنين': 'الاثنين',
+    'الثلاثاء': 'الثلاثاء', 'الاربعاء': 'الاربعاء', 'الأربعاء': 'الاربعاء',
+    'الخميس': 'الخميس', 'الجمعة': 'الجمعة',
+  };
+
+  for (const dayName of Object.keys(dayNames)) {
+    const dayDatePattern = new RegExp(dayName + '\\s*(\\d{1,2})\\/(\\d{1,2})');
+    const m = line.match(dayDatePattern);
+    if (m) {
+      const day = m[1].padStart(2, '0');
+      const month = m[2].padStart(2, '0');
+      const year = new Date().getFullYear().toString();
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  return null;
+}
+
+function extractRecipientFromLine(line: string): string | null {
+  const normalized = normalizeArabicText(line);
+
+  for (const [key, canonical] of Object.entries(CUSTODIAN_NAMES)) {
+    if (normalized.includes(key)) {
+      return canonical;
+    }
+  }
+
+  for (const keyword of RECIPIENT_KEYWORDS) {
+    const idx = normalized.indexOf(keyword);
+    if (idx !== -1) {
+      const surrounding = normalized.slice(Math.max(0, idx - 20), idx + keyword.length + 20).trim();
+      const words = surrounding.split(/\s+/).filter(w => w.length > 1 && !/^\d/.test(w));
+      if (words.length > 0) {
+        return words.slice(0, 3).join(' ');
+      }
+    }
+  }
+
+  const namePattern = /(?:اجرة|أجرة|حق|مال)\s+([\u0600-\u06FF\s]{3,30})/;
+  const nameMatch = normalized.match(namePattern);
+  if (nameMatch) {
+    return nameMatch[1].trim();
+  }
+
+  return null;
+}
+
 export function detectSettlement(messageText: string): SpecialTransactionResult | null {
   const text = normalizeArabicTextPreserveLines(messageText);
 
@@ -121,11 +194,15 @@ export function detectSettlement(messageText: string): SpecialTransactionResult 
     const amounts = extractAllAmounts(normalized);
     if (amounts.length > 0) {
       const arabicDesc = normalized.replace(/\d[\d,.]*\s*/g, '').trim();
+
+      const extractedDate = extractDateFromLine(normalized);
+      const extractedRecipient = extractRecipientFromLine(normalized);
+
       items.push({
         description: arabicDesc || normalized,
         amount: amounts[0].value,
-        date: null,
-        recipient: null,
+        date: extractedDate,
+        recipient: extractedRecipient,
       });
       totalAmount += amounts[0].value;
     }

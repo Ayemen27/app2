@@ -17,7 +17,7 @@ export async function deduplicateCandidates(batchId: number): Promise<DedupResul
     .from(waExtractionCandidates)
     .where(eq(waExtractionCandidates.batchId, batchId));
 
-  const dateMap = await buildTransactionDateMap(candidates.map(c => c.id));
+  const dateMap = await buildTransactionDateMap(candidates.map((c: { id: number }) => c.id));
 
   const results: DedupResult[] = [];
 
@@ -97,7 +97,7 @@ export async function crossChatDedup(
     .from(waExtractionCandidates)
     .where(inArray(waExtractionCandidates.batchId, otherBatchIds));
 
-  const allIds = [...candidates.map(c => c.id), ...otherCandidates.map(c => c.id)];
+  const allIds = [...candidates.map((c: { id: number }) => c.id), ...otherCandidates.map((c: { id: number }) => c.id)];
   const dateMap = await buildTransactionDateMap(allIds);
 
   const results: DedupResult[] = [];
@@ -117,7 +117,7 @@ export async function crossChatDedup(
     }
 
     if (transferNumber) {
-      const crossMatch = otherCandidates.find(other =>
+      const crossMatch = otherCandidates.find((other: typeof candidates[0]) =>
         other.candidateType === 'transfer' &&
         other.description?.includes(transferNumber!)
       );
@@ -142,7 +142,7 @@ export async function crossChatDedup(
       const startDate = new Date(start);
       const endDate = new Date(end);
 
-      const amountMatch = otherCandidates.find(other => {
+      const amountMatch = otherCandidates.find((other: typeof candidates[0]) => {
         const otherAmount = parseFloat(other.amount || '0');
         if (Math.abs(otherAmount - amount) > 0.01) return false;
 

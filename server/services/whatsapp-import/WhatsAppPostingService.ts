@@ -81,8 +81,8 @@ export async function generatePostingPlan(batchId: number): Promise<PostingPlanI
     .where(eq(waExtractionCandidates.batchId, batchId));
 
   const approvedCandidateIds = candidates
-    .filter(c => c.canonicalTransactionId !== null)
-    .map(c => c.canonicalTransactionId!);
+    .filter((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId !== null)
+    .map((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId!);
 
   if (approvedCandidateIds.length === 0) return [];
 
@@ -233,6 +233,38 @@ export async function postApprovedTransaction(
     };
   }
 
+  const idempotencyKey = `wa_post_canonical_${canonicalTransactionId}`;
+  const existingByKey = await db.select()
+    .from(waPostingResults)
+    .where(
+      and(
+        eq(waPostingResults.idempotencyKey, idempotencyKey),
+        eq(waPostingResults.postingStatus, 'success')
+      )
+    )
+    .limit(1);
+
+  if (existingByKey.length > 0) {
+    const attemptNum = await getNextAttemptNumber(canonicalTransactionId);
+    await db.insert(waPostingResults).values({
+      canonicalTransactionId,
+      targetTable: existingByKey[0].targetTable,
+      postingStatus: 'skipped_duplicate',
+      postedBy,
+      attemptNumber: attemptNum,
+      errorMessage: 'idempotency_key_duplicate',
+      idempotencyKey: `${idempotencyKey}_skip_${Date.now()}`,
+    });
+    return {
+      canonicalTransactionId,
+      status: 'skipped_duplicate',
+      targetTable: existingByKey[0].targetTable,
+      targetRecordId: existingByKey[0].targetRecordId,
+      errorMessage: 'idempotency_key_duplicate',
+      attemptNumber: attemptNum,
+    };
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -286,7 +318,7 @@ export async function postApprovedTransaction(
     await client.query(
       `INSERT INTO wa_posting_results (canonical_transaction_id, target_table, target_record_id, posted_by, posting_status, idempotency_key, attempt_number)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [canonicalTransactionId, targetTable, targetRecordId, postedBy, 'success', `post_${canonicalTransactionId}_${Date.now()}`, attemptNum]
+      [canonicalTransactionId, targetTable, targetRecordId, postedBy, 'success', idempotencyKey, attemptNum]
     );
 
     await client.query('COMMIT');
@@ -354,8 +386,8 @@ export async function postBatchApproved(
     .where(eq(waExtractionCandidates.batchId, batchId));
 
   const canonicalIds = batchCandidates
-    .filter(c => c.canonicalTransactionId !== null)
-    .map(c => c.canonicalTransactionId!);
+    .filter((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId !== null)
+    .map((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId!);
 
   if (canonicalIds.length === 0) return [];
 
@@ -396,12 +428,9 @@ export async function approveCandidate(
   const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
 
   let dateStr: string | null = null;
-  if (c.sourceMessageId) {
-    try {
-      const waDate = await getTransactionDate(c.sourceMessageId);
-      dateStr = waDate ? formatDateForFingerprint(new Date(waDate)) : null;
-    } catch { /* fallback below */ }
-  }
+  try {
+    dateStr = await getTransactionDate(c.id, c.sourceMessageId, c.createdAt ? new Date(c.createdAt) : null);
+  } catch { /* fallback below */ }
   if (!dateStr && c.createdAt) {
     dateStr = formatDateForFingerprint(new Date(c.createdAt));
   }
@@ -471,6 +500,136 @@ export async function rejectCandidate(
     afterState: { status: 'excluded', reason },
     notes: reason,
   });
+}
+
+export async function updateCandidateFields(
+  candidateId: number,
+  reviewerId: string,
+  updates: { amount?: string; description?: string }
+): Promise<any> {
+  const candidate = await db.select()
+    .from(waExtractionCandidates)
+    .where(eq(waExtractionCandidates.id, candidateId))
+    .limit(1);
+
+  if (candidate.length === 0) throw new Error('Candidate not found');
+  const c = candidate[0];
+  if (c.canonicalTransactionId) throw new Error('Cannot edit a reviewed candidate');
+
+  const beforeState = { amount: c.amount, description: c.description };
+  const setFields: any = {};
+  if (updates.amount !== undefined) setFields.amount = updates.amount;
+  if (updates.description !== undefined) setFields.description = updates.description;
+
+  const [updated] = await db.update(waExtractionCandidates)
+    .set(setFields)
+    .where(eq(waExtractionCandidates.id, candidateId))
+    .returning();
+
+  await db.insert(waReviewActions).values({
+    actionType: 'edit',
+    candidateId,
+    reviewerId,
+    beforeState,
+    afterState: setFields,
+    notes: 'Inline edit',
+  });
+
+  return updated;
+}
+
+export async function mergeCandidates(
+  candidateIds: number[],
+  reviewerId: string,
+  projectId: string
+): Promise<{ canonicalId: number }> {
+  if (candidateIds.length < 2) throw new Error('Need at least 2 candidates to merge');
+
+  const candidates = await db.select()
+    .from(waExtractionCandidates)
+    .where(sql`${waExtractionCandidates.id} = ANY(${candidateIds})`);
+
+  if (candidates.length !== candidateIds.length) throw new Error('Some candidates not found');
+  if (candidates.some((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId)) throw new Error('Some candidates already reviewed');
+
+  const totalAmount = candidates.reduce((sum: number, c: { amount: string | null }) => sum + safeParseNum(c.amount), 0);
+  const descriptions = candidates.map((c: { description: string | null }) => c.description).filter(Boolean).join(' + ');
+
+  const [canonical] = await db.insert(waCanonicalTransactions).values({
+    status: 'confirmed',
+    transactionType: candidates[0].candidateType,
+    amount: totalAmount.toString(),
+    description: descriptions || null,
+    projectId,
+    category: candidates[0].category,
+    mergedFromCandidates: candidateIds,
+  }).returning();
+
+  for (const c of candidates) {
+    await db.update(waExtractionCandidates)
+      .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
+      .where(eq(waExtractionCandidates.id, c.id));
+  }
+
+  await db.insert(waReviewActions).values({
+    actionType: 'merge',
+    canonicalTransactionId: canonical.id,
+    reviewerId,
+    beforeState: { candidateIds },
+    afterState: { status: 'confirmed', totalAmount, projectId },
+    notes: `Merged ${candidateIds.length} candidates`,
+  });
+
+  return { canonicalId: canonical.id };
+}
+
+export async function splitCandidate(
+  candidateId: number,
+  reviewerId: string,
+  projectId: string,
+  splits: { amount: string; description: string }[]
+): Promise<{ canonicalIds: number[] }> {
+  if (splits.length < 2) throw new Error('Need at least 2 splits');
+
+  const candidate = await db.select()
+    .from(waExtractionCandidates)
+    .where(eq(waExtractionCandidates.id, candidateId))
+    .limit(1);
+
+  if (candidate.length === 0) throw new Error('Candidate not found');
+  const c = candidate[0];
+  if (c.canonicalTransactionId) throw new Error('Candidate already reviewed');
+
+  const canonicalIds: number[] = [];
+
+  for (const split of splits) {
+    const [canonical] = await db.insert(waCanonicalTransactions).values({
+      status: 'confirmed',
+      transactionType: c.candidateType,
+      amount: split.amount,
+      description: split.description,
+      projectId,
+      category: c.category,
+      mergedFromCandidates: [candidateId],
+    }).returning();
+    canonicalIds.push(canonical.id);
+  }
+
+  await db.update(waExtractionCandidates)
+    .set({ canonicalTransactionId: canonicalIds[0], matchStatus: 'new_entry' })
+    .where(eq(waExtractionCandidates.id, candidateId));
+
+  await db.insert(waReviewActions).values({
+    actionType: 'split',
+    canonicalTransactionId: canonicalIds[0],
+    candidateId,
+    reviewerId,
+    beforeState: { amount: c.amount, description: c.description },
+    afterState: { splits, canonicalIds },
+    notes: `Split into ${splits.length} transactions`,
+  });
+
+  return { canonicalIds };
 }
 
 export async function bulkApprove(

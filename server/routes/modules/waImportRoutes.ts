@@ -409,7 +409,7 @@ waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEdito
     res.json(result);
   } catch (error: any) {
     console.error("[WAImport] Media processing error:", error);
-    res.status(500).json({ error: error.message || "Failed to process media" });
+    res.status(500).json({ error: "فشل في معالجة الوسائط" });
   }
 });
 
@@ -424,6 +424,12 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, asy
     }
     if (batch.status !== 'completed') {
       return res.status(400).json({ error: `Batch status is '${batch.status}', must be 'completed' to extract` });
+    }
+
+    try {
+      await processMediaForBatch(batchId);
+    } catch (ocrErr) {
+      console.warn("[WAImport] OCR pre-processing failed (non-blocking):", ocrErr);
     }
 
     const result = await waExtractionService.extractFromBatch(batchId);

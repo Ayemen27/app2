@@ -159,8 +159,19 @@ export function parseNajm(messageText: string): TransferReceiptResult | null {
 export function parseGenericTransfer(messageText: string): TransferReceiptResult | null {
   const text = normalizeArabicText(easternToWestern(messageText));
 
-  const transferKeywords = ['حوالة', 'تحويل', 'ارسال', 'استلام'];
-  if (!transferKeywords.some(k => text.includes(k))) {
+  const strongKeywords = ['حوالة', 'تحويل'];
+  const weakKeywords = ['ارسال', 'استلام'];
+  const hasStrongKeyword = strongKeywords.some(k => text.includes(k));
+  const hasWeakKeyword = weakKeywords.some(k => text.includes(k));
+
+  if (!hasStrongKeyword && !hasWeakKeyword) {
+    return null;
+  }
+
+  const hasTransferNumber = /\d{6,}/.test(text);
+  const hasRecipientLabel = /(?:المستلم|إلى|الى|لـ)\s*:/.test(text);
+
+  if (hasWeakKeyword && !hasStrongKeyword && !hasTransferNumber && !hasRecipientLabel) {
     return null;
   }
 

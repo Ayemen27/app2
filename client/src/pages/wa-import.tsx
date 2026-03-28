@@ -239,12 +239,13 @@ export default function WAImportDashboard() {
   const processMediaMutation = useMutation({
     mutationFn: (batchId: number) =>
       apiRequest('POST', `/api/wa-import/batch/${batchId}/process-media`, {}),
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, batchId: number) => {
       toast({
         title: "تمت معالجة الوسائط",
         description: `تمت المعالجة: ${data.processed || 0} | فشل: ${data.failed || 0} | تم تخطيه: ${data.skipped || 0}`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'media'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'media'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
     },
     onError: (err: any) => toast({ title: "خطأ في معالجة الوسائط", description: err.message, variant: "destructive" }),
   });

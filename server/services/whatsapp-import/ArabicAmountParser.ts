@@ -41,10 +41,10 @@ const THOUSANDS_PATTERNS = [
 
 const HALF_SUFFIX_RE = /\s*و\s*(?:نص|نصف)/;
 
-function applyHalfSuffix(normalized: string, matchEnd: number, baseValue: number): number {
+function applyHalfSuffix(normalized: string, matchEnd: number, baseValue: number, unitScale: number): number {
   const rest = normalized.slice(matchEnd);
   if (HALF_SUFFIX_RE.test(rest.slice(0, 10))) {
-    return baseValue + baseValue / 2;
+    return baseValue + unitScale / 2;
   }
   return baseValue;
 }
@@ -56,18 +56,28 @@ export function parseArabicAmount(text: string): ParsedAmount | null {
     const m = normalized.match(pat);
     if (m) {
       let val = safeParseNum(m[1]) * 1_000_000;
-      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val);
+      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val, 1_000_000);
       if (val > 0) {
         return { value: val, raw: m[0], currency: 'YER' };
       }
     }
   }
 
+  const bareThousandHalf = normalized.match(/(?:^|\s)(?:الف|ألف)\s*و\s*(?:نص|نصف)(?:\s|$)/);
+  if (bareThousandHalf) {
+    return { value: 1500, raw: bareThousandHalf[0].trim(), currency: 'YER' };
+  }
+
+  const bareThousand = normalized.match(/(?:^|\s)(?:الف|ألف)(?:\s|$)/);
+  if (bareThousand && !normalized.match(/\d\s*(?:الف|ألف)/)) {
+    return { value: 1000, raw: bareThousand[0].trim(), currency: 'YER' };
+  }
+
   for (const pat of THOUSANDS_PATTERNS) {
     const m = normalized.match(pat);
     if (m) {
       let val = safeParseNum(m[1]) * 1000;
-      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val);
+      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val, 1000);
       if (val > 0) {
         return { value: val, raw: m[0], currency: 'YER' };
       }
@@ -109,16 +119,23 @@ export function extractAllAmounts(text: string): ParsedAmount[] {
   let m;
   while ((m = millionsRe.exec(normalized)) !== null) {
     let val = safeParseNum(m[1]) * 1_000_000;
-    val = applyHalfSuffix(normalized, m.index + m[0].length, val);
+    val = applyHalfSuffix(normalized, m.index + m[0].length, val, 1_000_000);
     if (val > 0) {
       results.push({ value: val, raw: m[0], currency: 'YER' });
+    }
+  }
+
+  const bareThousandHalfRe = /(?:^|\s)(?:الف|ألف)\s*و\s*(?:نص|نصف)/g;
+  while ((m = bareThousandHalfRe.exec(normalized)) !== null) {
+    if (!results.some(r => r.value === 1500)) {
+      results.push({ value: 1500, raw: m[0].trim(), currency: 'YER' });
     }
   }
 
   const thousandsRe = /(\d+)\s*(?:الف|آلاف|ألف)/g;
   while ((m = thousandsRe.exec(normalized)) !== null) {
     let val = safeParseNum(m[1]) * 1000;
-    val = applyHalfSuffix(normalized, m.index + m[0].length, val);
+    val = applyHalfSuffix(normalized, m.index + m[0].length, val, 1000);
     if (val > 0 && !results.some(r => r.value === val)) {
       results.push({ value: val, raw: m[0], currency: 'YER' });
     }

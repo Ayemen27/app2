@@ -2703,12 +2703,23 @@ export class DeploymentEngine {
     this.updateStepProgress(deploymentId, "gradle-build", 5, "فحص Gradle Wrapper...");
     const remoteDir = "/home/administrator/app2";
 
-    const gradlewCheck = await this.execWithLog(
-      deploymentId,
-      `${sshCmd} 'cd ${remoteDir}/android && test -f gradlew && echo GRADLEW_EXISTS || echo GRADLEW_MISSING'`,
-      "Gradle Wrapper Check",
-      15000
-    );
+    let gradlewCheck = "";
+    for (let gwAttempt = 0; gwAttempt < 3; gwAttempt++) {
+      try {
+        gradlewCheck = await this.execWithLog(
+          deploymentId,
+          `${sshCmd} 'cd ${remoteDir}/android && test -f gradlew && echo GRADLEW_EXISTS || echo GRADLEW_MISSING'`,
+          "Gradle Wrapper Check",
+          15000
+        );
+        if (gradlewCheck.includes("GRADLEW_EXISTS") || gradlewCheck.includes("GRADLEW_MISSING")) break;
+      } catch (gwErr: any) {
+        if (gwAttempt < 2) {
+          await this.addLog(deploymentId, `⚠️ Gradle wrapper check SSH error (${gwAttempt + 1}/3), retrying...`, "warn");
+          await new Promise(r => setTimeout(r, 3000));
+        } else throw gwErr;
+      }
+    }
 
     if (gradlewCheck.includes("GRADLEW_MISSING")) {
       await this.addLog(deploymentId, "⚠️ gradlew مفقود — جاري الإنشاء التلقائي...", "warn");
@@ -2725,14 +2736,24 @@ export class DeploymentEngine {
       }
     }
 
-    const keystoreCheck = await this.execWithLog(
-      deploymentId,
-      `${sshCmd} "if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo 'KEYSTORE_FILE_OK'; else for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_COPIED' && break; fi; done; fi; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS' || echo 'KEYSTORE_MISSING'"`,
-      "Keystore Check",
-      15000
-    );
-
-    const hasKeystore = keystoreCheck.includes("KEYSTORE_EXISTS");
+    let hasKeystore = false;
+    for (let ksAttempt = 0; ksAttempt < 3; ksAttempt++) {
+      try {
+        const keystoreCheck = await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo 'KEYSTORE_FILE_OK'; else for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_COPIED' && break; fi; done; fi; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS' || echo 'KEYSTORE_MISSING'"`,
+          "Keystore Check",
+          15000
+        );
+        hasKeystore = keystoreCheck.includes("KEYSTORE_EXISTS");
+        if (hasKeystore) break;
+      } catch (ksErr: any) {
+        if (ksAttempt < 2) {
+          await this.addLog(deploymentId, `⚠️ Keystore check SSH error (attempt ${ksAttempt + 1}/3), retrying...`, "warn");
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+    }
     const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
     const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
     const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
@@ -2749,12 +2770,22 @@ export class DeploymentEngine {
     if (canSignRelease) {
       const safePass = keystorePassword.replace(/'/g, "'\\''");
       const safeKeyPass = keystoreKeyPassword.replace(/'/g, "'\\''");
-      await this.execWithLog(
-        deploymentId,
-        `${sshCmd} "printf '%s' '${safePass}' > /tmp/.ks_pass && printf '%s' '${safeKeyPass}' > /tmp/.ks_key_pass && chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
-        "Write Signing Secrets",
-        30000
-      );
+      for (let wsAttempt = 0; wsAttempt < 3; wsAttempt++) {
+        try {
+          const wsResult = await this.execWithLog(
+            deploymentId,
+            `${sshCmd} "printf '%s' '${safePass}' > /tmp/.ks_pass && printf '%s' '${safeKeyPass}' > /tmp/.ks_key_pass && chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
+            "Write Signing Secrets",
+            30000
+          );
+          if (wsResult.includes("SECRETS_WRITTEN")) break;
+        } catch (wsErr: any) {
+          if (wsAttempt < 2) {
+            await this.addLog(deploymentId, `⚠️ Write secrets SSH error (${wsAttempt + 1}/3), retrying...`, "warn");
+            await new Promise(r => setTimeout(r, 3000));
+          } else throw wsErr;
+        }
+      }
     }
 
     const envExports = canSignRelease
@@ -2806,10 +2837,23 @@ export class DeploymentEngine {
       `./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`,
     ].filter(Boolean).join("\n");
 
-    await execAsync(
-      `${sshCmd} "cat > ${scriptPath} << 'AXION_SCRIPT_EOF'\n${scriptContent}\nAXION_SCRIPT_EOF\nchmod +x ${scriptPath} && rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
-      { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
-    );
+    const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
+    let gradleLaunched = false;
+    for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
+      try {
+        await execAsync(
+          `${sshCmd} "cat > ${scriptPath} << 'AXION_SCRIPT_EOF'\n${scriptContent}\nAXION_SCRIPT_EOF\nchmod +x ${scriptPath} && rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
+          { timeout: 30000, env: sshEnv }
+        );
+        gradleLaunched = true;
+        break;
+      } catch (launchErr: any) {
+        if (launchAttempt < 2) {
+          await this.addLog(deploymentId, `⚠️ فشل إطلاق Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
+          await new Promise(r => setTimeout(r, 5000));
+        } else throw launchErr;
+      }
+    }
 
     await this.addLog(deploymentId, "⏳ بناء Gradle جارٍ في الخلفية... مراقبة دورية كل 20 ثانية", "info");
 

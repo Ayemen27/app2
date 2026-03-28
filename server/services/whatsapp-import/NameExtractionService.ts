@@ -7,6 +7,7 @@ import {
 import type { WaEntityAlias } from "@shared/schema";
 import { eq, sql, and, isNull } from "drizzle-orm";
 import { normalizeArabicText } from './ArabicAmountParser.js';
+import { getModelManager } from '../ai-agent/ModelManager.js';
 
 export interface ExtractedName {
   name: string;
@@ -42,6 +43,61 @@ export function normalizeForMatching(text: string): string {
 }
 
 const ARABIC_NAME_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]{2,}/;
+
+const BLOCKED_WORDS = new Set([
+  'السبيات', 'النجاره', 'النجارة', 'النقل', 'المواصلات', 'السيارات', 'الشاحنات',
+  'البترول', 'البنزين', 'الديزل', 'السولار', 'الوقود', 'الزيت',
+  'الحديد', 'الخرسانة', 'الخرسانه', 'الاسمنت', 'الإسمنت', 'الرمل', 'البلوك', 'الطوب',
+  'الزلط', 'الحصى', 'البحص', 'الماء', 'المياه', 'الخشب', 'الالمنيوم',
+  'الشاص', 'الشاصي', 'الهيلكس', 'الدينا', 'القلاب', 'الكرين', 'الحفار',
+  'البكلين', 'البوكلين', 'اللودر', 'الخلاطة', 'الخلاطه', 'المكسر', 'الونش',
+  'التريلا', 'التريله', 'الباص', 'التاكسي', 'الموتر', 'السياره', 'السيارة',
+  'الابيار', 'الآبار', 'البئر', 'المشروع', 'الموقع', 'البيت', 'المنزل',
+  'العماره', 'العمارة', 'الفيلا', 'المسجد', 'الجامع', 'المدرسة', 'المدرسه',
+  'الشارع', 'الطريق', 'الجسر', 'السد', 'الخزان',
+  'المضخة', 'المضخه', 'الماطور', 'الكهرباء', 'الكهربا', 'المولد',
+  'الصبة', 'الصبه', 'القواعد', 'الاعمدة', 'الاعمده', 'السقف', 'الجدار',
+  'السباكة', 'السباكه', 'الدهان', 'البلاط', 'السيراميك', 'الجبس',
+  'المسامير', 'البراغي', 'الانابيب', 'المواسير', 'الاسلاك',
+  'الفطور', 'الغداء', 'العشاء', 'الاكل', 'الأكل', 'القات',
+  'التامين', 'التأمين', 'الضريبة', 'الضرائب', 'الزكاة', 'الزكاه',
+]);
+
+const BLOCKED_PHRASES_RE = /^(?:السبيات|النقل|المواصلات|البترول|الديزل|السولار|الحديد|الخرسانة|الرمل|الاسمنت|البلوك|الخشب)/;
+
+function isBlockedCandidate(name: string): boolean {
+  const normalized = normalizeForMatching(name);
+  const words = normalized.split(/\s+/);
+
+  if (words.length > 4) return true;
+
+  if (words.length >= 2 && words.filter(w => w.startsWith('وال') || w.startsWith('و')).length >= 2) return true;
+
+  for (const word of words) {
+    if (BLOCKED_WORDS.has(word)) return true;
+  }
+
+  if (BLOCKED_PHRASES_RE.test(normalized)) return true;
+
+  if (/^\d+$/.test(normalized)) return true;
+
+  return false;
+}
+
+function isLikelyPersonOrCompany(name: string, entityType: string): boolean {
+  const normalized = normalizeForMatching(name);
+  const words = normalized.split(/\s+/);
+
+  if (words.length === 1 && words[0].length < 3) return false;
+
+  if (entityType === 'شركة' || entityType === 'محل_مواد_بناء') return true;
+
+  if (/^(?:ابو|أبو|ام|أم)\s/.test(normalized)) return true;
+
+  if (words.length <= 3 && !isBlockedCandidate(name)) return true;
+
+  return false;
+}
 
 export async function runNameExtractionMigration(): Promise<{ success: boolean; details: string[] }> {
   const details: string[] = [];

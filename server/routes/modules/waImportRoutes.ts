@@ -106,8 +106,10 @@ const reconcileBodySchema = z.object({
 const updateCandidateSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   description: z.string().max(1000).optional(),
-}).refine(d => d.amount !== undefined || d.description !== undefined, {
-  message: "Provide amount or description to update",
+  candidateType: z.enum(['expense', 'transfer', 'loan', 'custodian_receipt', 'settlement', 'salary', 'inline_expense', 'structured_receipt']).optional(),
+  category: z.string().max(100).optional(),
+}).refine(d => d.amount !== undefined || d.description !== undefined || d.candidateType !== undefined || d.category !== undefined, {
+  message: "Provide at least one field to update",
 });
 
 const mergeBodySchema = z.object({
@@ -239,17 +241,56 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     if (isNaN(batchId)) return res.status(400).json({ error: "Invalid batch ID" });
 
     const { db: database } = await import("../../db.js");
-    const { waImportBatches, waEntityAliases } = await import("@shared/schema");
-    const { eq } = await import("drizzle-orm");
+    const {
+      waImportBatches, waEntityAliases, waRawMessages, waMediaAssets,
+      waExtractionCandidates, waTransactionEvidenceLinks, waCanonicalTransactions,
+      waProjectHypotheses, waVerificationQueue, waPostingResults, waReviewActions,
+      waDedupKeys, waCustodianEntries
+    } = await import("@shared/schema");
+    const { eq, inArray, sql } = await import("drizzle-orm");
 
     const batch = await database.select().from(waImportBatches).where(eq(waImportBatches.id, batchId)).limit(1);
     if (batch.length === 0) return res.status(404).json({ error: "Batch not found" });
 
+    const candidateIds = (await database.select({ id: waExtractionCandidates.id })
+      .from(waExtractionCandidates)
+      .where(eq(waExtractionCandidates.batchId, batchId))
+    ).map(c => c.id);
+
+    const canonicalIds = candidateIds.length > 0
+      ? (await database.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+          .from(waExtractionCandidates)
+          .where(eq(waExtractionCandidates.batchId, batchId))
+        ).map(c => c.canonicalTransactionId).filter(Boolean) as number[]
+      : [];
+
+    if (canonicalIds.length > 0) {
+      await database.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
+      await database.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
+      await database.delete(waDedupKeys).where(inArray(waDedupKeys.canonicalTransactionId, canonicalIds));
+      await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
+      await database.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
+    }
+
+    if (candidateIds.length > 0) {
+      await database.delete(waTransactionEvidenceLinks).where(inArray(waTransactionEvidenceLinks.candidateId, candidateIds));
+      await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.candidateId, candidateIds));
+    }
+
+    if (canonicalIds.length > 0) {
+      await database.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, canonicalIds));
+    }
+
+    await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
+    await database.delete(waProjectHypotheses).where(eq(waProjectHypotheses.batchId, batchId));
+
+    await database.delete(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
+    await database.delete(waRawMessages).where(eq(waRawMessages.batchId, batchId));
     await database.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
     await database.delete(waImportBatches).where(eq(waImportBatches.id, batchId));
 
-    console.log(`[WAImport] Batch #${batchId} deleted by ${req.user?.email}`);
-    res.json({ success: true, message: `تم حذف الدُفعة #${batchId}` });
+    console.log(`[WAImport] Batch #${batchId} fully deleted (${candidateIds.length} candidates, ${canonicalIds.length} canonical) by ${req.user?.email}`);
+    res.json({ success: true, message: `تم حذف الدُفعة #${batchId} وجميع بياناتها` });
   } catch (error: any) {
     console.error("[WAImport] Delete batch error:", error);
     res.status(500).json({ error: error.message || "Failed to delete batch" });

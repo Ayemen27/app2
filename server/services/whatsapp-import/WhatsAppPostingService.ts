@@ -583,7 +583,7 @@ export async function rejectCandidate(
 export async function updateCandidateFields(
   candidateId: number,
   reviewerId: string,
-  updates: { amount?: string; description?: string }
+  updates: { amount?: string; description?: string; candidateType?: string; category?: string }
 ): Promise<any> {
   const client = await pool.connect();
   try {
@@ -597,7 +597,7 @@ export async function updateCandidateFields(
     const c = lockedRes.rows[0];
     if (c.canonical_transaction_id) throw new Error('Cannot edit a reviewed candidate');
 
-    const beforeState = { amount: c.amount, description: c.description };
+    const beforeState = { amount: c.amount, description: c.description, candidate_type: c.candidate_type, category: c.category };
     const setClauses: string[] = [];
     const params: any[] = [];
     let paramIdx = 1;
@@ -609,6 +609,14 @@ export async function updateCandidateFields(
     if (updates.description !== undefined) {
       setClauses.push(`description = $${paramIdx++}`);
       params.push(updates.description);
+    }
+    if (updates.candidateType !== undefined) {
+      setClauses.push(`candidate_type = $${paramIdx++}`);
+      params.push(updates.candidateType);
+    }
+    if (updates.category !== undefined) {
+      setClauses.push(`category = $${paramIdx++}`);
+      params.push(updates.category);
     }
 
     params.push(candidateId);

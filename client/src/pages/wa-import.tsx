@@ -21,7 +21,7 @@ import {
   Play, BarChart3, Users, Wallet, FileText, Package, TrendingUp, Clock,
   RefreshCw, Shield, Hash, Pencil, Merge, Split, Search, Plus, Trash2,
   Link2, ArrowLeftRight, Paperclip, Image, Download, File,
-  UserCheck, Loader2, CheckCircle2,
+  UserCheck, Loader2, CheckCircle2, ChevronDown, ChevronUp, Calendar,
 } from "lucide-react";
 
 function confidenceColor(c: number): string {
@@ -65,9 +65,11 @@ export default function WAImportDashboard() {
   const [approveNotes, setApproveNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
 
-  const [editDialog, setEditDialog] = useState<{ candidateId: number; amount: string; description: string } | null>(null);
+  const [editDialog, setEditDialog] = useState<{ candidateId: number; amount: string; description: string; candidateType: string; category: string } | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCandidateType, setEditCandidateType] = useState("");
+  const [editCategory, setEditCategory] = useState("");
 
   const [autoLinkFilter, setAutoLinkFilter] = useState('all');
   const [mergeMode, setMergeMode] = useState(false);
@@ -82,6 +84,8 @@ export default function WAImportDashboard() {
 
   const [selectedCandidateId, setSelectedCandidateId] = useState<number | null>(null);
   const [confidenceFilter, setConfidenceFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
 
   const [aliasDialog, setAliasDialog] = useState(false);
   const [newAliasName, setNewAliasName] = useState("");
@@ -211,6 +215,12 @@ export default function WAImportDashboard() {
     enabled: activeTab === 'autolinks' && !!selectedBatchId,
   });
 
+  const mediaQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/batch', selectedBatchId, 'media'],
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/media`),
+    enabled: activeTab === 'media' && !!selectedBatchId,
+  });
+
   const verifyAutoLinkMutation = useMutation({
     mutationFn: (data: { linkId: number; decision: 'accepted' | 'rejected' }) =>
       apiRequest(`/api/wa-import/auto-links/${data.linkId}/verify?batchId=${selectedBatchId}`, 'POST', { decision: data.decision }),
@@ -336,7 +346,7 @@ export default function WAImportDashboard() {
     setPipelineError(null);
 
     try {
-      let mediaResult: any = { skipped: 0, processed: 0, failed: 0 };
+      let mediaResult: any = { skipped: 0, processed: 0, failed: 0, previouslyProcessed: 0, totalAssets: 0, newlyProcessed: 0 };
       try {
         mediaResult = await apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {});
       } catch (_e) { /* non-blocking */ }
@@ -369,15 +379,20 @@ export default function WAImportDashboard() {
   }, [queryClient]);
 
   const checkAIAndExtract = useCallback(async (batchId: number) => {
+    let aiAvailable = false;
+    let aiActiveModel = '';
     try {
       const aiStatus = await apiRequest(`/api/wa-import/ai-status`, 'GET');
       setAiStatusData(aiStatus);
+      aiAvailable = !!aiStatus.available;
+      aiActiveModel = aiStatus.activeModel || '';
       if (!aiStatus.available) {
         setPipelineStage('ai_check');
         return;
       }
     } catch (_e) {}
     setPipelineStage('extract');
+    setPipelineResults(prev => ({ ...prev, extractEngine: aiAvailable ? { method: 'ai', model: aiActiveModel || 'AI' } : { method: 'regex' } }));
     try {
       const extResult = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
       setPipelineResults(prev => ({ ...prev, extract: extResult }));
@@ -393,6 +408,7 @@ export default function WAImportDashboard() {
   const proceedWithoutAI = useCallback(async () => {
     if (!pipelineBatchId) return;
     setPipelineStage('extract');
+    setPipelineResults(prev => ({ ...prev, extractEngine: { method: 'regex' } }));
     setPipelineError(null);
     try {
       const extResult = await apiRequest(`/api/wa-import/batch/${pipelineBatchId}/extract`, 'POST', {});
@@ -512,10 +528,12 @@ export default function WAImportDashboard() {
   });
 
   const editCandidateMutation = useMutation({
-    mutationFn: (data: { candidateId: number; amount?: string; description?: string }) =>
+    mutationFn: (data: { candidateId: number; amount?: string; description?: string; candidateType?: string; category?: string }) =>
       apiRequest(`/api/wa-import/candidate/${data.candidateId}`, 'PATCH', {
         amount: data.amount,
         description: data.description,
+        candidateType: data.candidateType,
+        category: data.category,
       }),
     onSuccess: () => {
       toast({ title: "تم التعديل بنجاح" });
@@ -578,6 +596,18 @@ export default function WAImportDashboard() {
   const candidates = candidatesQuery.data || [];
   const batches = batchesQuery.data || [];
 
+  const getCandidateDateKey = useCallback((c: any) => {
+    if (!c.messageDate) return 'unknown';
+    const d = new Date(c.messageDate);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const availableDates = useMemo(() => {
+    const dateSet = new Set<string>();
+    candidates.forEach((c: any) => dateSet.add(getCandidateDateKey(c)));
+    return Array.from(dateSet).sort().reverse();
+  }, [candidates, getCandidateDateKey]);
+
   const filteredCandidates = useMemo(() => {
     return candidates.filter((c: any) => {
       if (filterStatus !== 'all' && c.matchStatus !== filterStatus) return false;
@@ -587,6 +617,7 @@ export default function WAImportDashboard() {
         if (confidenceFilter === 'medium' && (conf < 0.5 || conf >= 0.8)) return false;
         if (confidenceFilter === 'low' && conf >= 0.5) return false;
       }
+      if (dateFilter !== 'all' && getCandidateDateKey(c) !== dateFilter) return false;
       if (searchValue) {
         const s = searchValue.toLowerCase();
         return (c.description || '').toLowerCase().includes(s)
@@ -595,7 +626,17 @@ export default function WAImportDashboard() {
       }
       return true;
     });
-  }, [candidates, filterStatus, confidenceFilter, searchValue]);
+  }, [candidates, filterStatus, confidenceFilter, searchValue, dateFilter, getCandidateDateKey]);
+
+  const groupedByDate = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    filteredCandidates.forEach((c: any) => {
+      const key = getCandidateDateKey(c);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [filteredCandidates, getCandidateDateKey]);
 
   const statsCount = useMemo(() => ({
     total: candidates.length,
@@ -710,7 +751,7 @@ export default function WAImportDashboard() {
         searchPlaceholder="بحث في المرشحين..."
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        onReset={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); }}
+        onReset={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); setDateFilter('all'); }}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-main">
@@ -718,6 +759,7 @@ export default function WAImportDashboard() {
           {[
             { value: 'batches', label: 'الدُفعات', icon: Upload, badge: 0 },
             { value: 'review', label: 'المراجعة', icon: Eye, badge: statsCount.total - statsCount.reviewed },
+            { value: 'media', label: 'الوسائط', icon: Image, badge: mediaQuery.data?.length || 0 },
             { value: 'reconciliation', label: 'المطابقة', icon: BarChart3, badge: 0 },
             { value: 'custodians', label: 'أمناء العُهد', icon: Wallet, badge: 0 },
             { value: 'aliases', label: 'الأسماء المستعارة', icon: Users, badge: 0 },
@@ -902,6 +944,22 @@ export default function WAImportDashboard() {
                       </Button>
                     ))}
                   </div>
+                  {availableDates.length > 1 && (
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger className="w-44 h-8 text-xs" data-testid="select-date-filter">
+                        <Calendar className="w-3.5 h-3.5 ml-1 opacity-60" />
+                        <SelectValue placeholder="فلترة حسب التاريخ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع التواريخ</SelectItem>
+                        {availableDates.map(d => (
+                          <SelectItem key={d} value={d}>
+                            {d === 'unknown' ? 'بدون تاريخ' : new Date(d + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {mergeMode ? (
@@ -988,7 +1046,7 @@ export default function WAImportDashboard() {
                 <div className="flex flex-col items-center gap-4 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 opacity-20" />
                   <p className="text-lg">لا توجد نتائج مطابقة للفلاتر</p>
-                  <Button variant="outline" onClick={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); }}>
+                  <Button variant="outline" onClick={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); setDateFilter('all'); }}>
                     مسح الفلاتر
                   </Button>
                 </div>
@@ -996,14 +1054,53 @@ export default function WAImportDashboard() {
             )}
 
             {selectedBatchId && filteredCandidates.length > 0 && (
-              <UnifiedCardGrid columns={1} data-testid="table-candidates">
-                {filteredCandidates.map((c: any) => {
+              <div className="space-y-3" data-testid="table-candidates">
+              {groupedByDate.map(([dateKey, groupCandidates]) => {
+                const isCollapsed = collapsedDates.has(dateKey);
+                const toggleCollapse = () => {
+                  setCollapsedDates(prev => {
+                    const next = new Set(prev);
+                    if (next.has(dateKey)) next.delete(dateKey); else next.add(dateKey);
+                    return next;
+                  });
+                };
+                const dateLabel = dateKey === 'unknown'
+                  ? 'بدون تاريخ'
+                  : new Date(dateKey + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+                const groupTotal = groupCandidates.reduce((s: number, c: any) => s + parseFloat(c.amount || '0'), 0);
+
+                return (
+                  <div key={dateKey} className="border rounded-lg overflow-hidden bg-card" data-testid={`date-group-${dateKey}`}>
+                    <button
+                      onClick={toggleCollapse}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors text-sm font-medium"
+                      data-testid={`button-toggle-date-${dateKey}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        <Calendar className="w-4 h-4 opacity-60" />
+                        <span>{dateLabel}</span>
+                        <Badge variant="secondary" className="text-xs">{groupCandidates.length} مرشح</Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-normal">
+                        إجمالي: {groupTotal.toLocaleString('ar')} ر.ي
+                      </span>
+                    </button>
+
+                    {!isCollapsed && (
+                      <UnifiedCardGrid columns={1} className="p-2 gap-2">
+                {groupCandidates.map((c: any) => {
                   const confidence = parseFloat(c.confidence || '0');
                   const isExpanded = selectedCandidateId === c.id;
                   const hasActions = !c.canonicalTransactionId || !['confirmed', 'posted', 'excluded'].includes(c.canonicalStatus || '');
 
+                  const typeAr: Record<string, string> = { expense: 'مصروف', transfer: 'تحويل', loan: 'قرض', custodian_receipt: 'أمانة', settlement: 'تسوية', salary: 'راتب', inline_expense: 'مصروف', structured_receipt: 'إيصال' };
+                  const catAr: Record<string, string> = { meals: 'وجبات', miscellaneous: 'متنوع', transport: 'نقل', materials: 'مواد', labor: 'أجور', fuel: 'وقود', equipment: 'معدات', utilities: 'مرافق', rent: 'إيجار', maintenance: 'صيانة', communication: 'اتصالات', other: 'أخرى' };
+                  const typeLabel = typeAr[c.candidateType] || c.candidateType;
+                  const catLabel = c.category ? (catAr[c.category] || c.category) : '';
+
                   const candidateBadges: { label: string; variant?: "default" | "secondary" | "destructive" | "outline" | "success" | "warning"; className?: string }[] = [
-                    { label: c.candidateType, variant: 'outline' as const },
+                    { label: typeLabel, variant: 'outline' as const },
                     { label: `${(confidence * 100).toFixed(0)}%`, variant: 'outline' as const, className: confidenceColor(confidence) },
                     ...(c.matchStatus ? [(() => {
                       const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -1015,7 +1112,7 @@ export default function WAImportDashboard() {
                       const info = map[c.matchStatus] || { label: c.matchStatus, variant: "outline" as const };
                       return { label: info.label, variant: info.variant };
                     })()] : []),
-                    ...(c.category ? [{ label: c.category, variant: 'secondary' as const }] : []),
+                    ...(catLabel ? [{ label: catLabel, variant: 'secondary' as const }] : []),
                     ...(c.canonicalTransactionId ? [{ label: 'تمت المراجعة', variant: 'success' as const }] : []),
                   ];
 
@@ -1030,7 +1127,7 @@ export default function WAImportDashboard() {
                     },
                     {
                       icon: Pencil, label: 'تعديل', color: 'default' as const,
-                      onClick: () => { setEditDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' }); setEditAmount(c.amount || '0'); setEditDescription(c.description || ''); },
+                      onClick: () => { setEditDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '', candidateType: c.candidateType || 'expense', category: c.category || '' }); setEditAmount(c.amount || '0'); setEditDescription(c.description || ''); setEditCandidateType(c.candidateType || 'expense'); setEditCategory(c.category || ''); },
                     },
                     {
                       icon: Split, label: 'تقسيم', color: 'orange' as const,
@@ -1152,6 +1249,8 @@ export default function WAImportDashboard() {
                     </div>
                   ) : null;
 
+                  const msgDate = c.messageDate ? new Date(c.messageDate).toLocaleDateString('ar-YE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+
                   return (
                     <UnifiedCard
                       key={c.id}
@@ -1161,10 +1260,12 @@ export default function WAImportDashboard() {
                       badges={candidateBadges}
                       fields={[
                         { label: 'المبلغ', value: `${parseFloat(c.amount || '0').toLocaleString('ar')} ر.ي`, emphasis: true, icon: Wallet },
-                        { label: 'النوع', value: c.candidateType || '-', icon: FileText },
+                        { label: 'النوع', value: typeLabel, icon: FileText },
                         { label: 'الثقة', value: `${(confidence * 100).toFixed(0)}%`, color: confidence >= 0.9 ? 'success' : confidence >= 0.7 ? 'warning' : 'danger', icon: TrendingUp },
                         { label: 'المطابقة', value: (() => { const map: Record<string, string> = { exact_match: 'مطابق', near_match: 'قريب', conflict: 'تعارض', new_entry: 'جديد' }; return map[c.matchStatus] || c.matchStatus || '-'; })(), icon: Search },
-                        { label: 'الفئة', value: c.category || '-', icon: Package },
+                        { label: 'الفئة', value: catLabel || '-', icon: Package },
+                        ...(c.senderName ? [{ label: 'المرسل', value: c.senderName, icon: Users }] : []),
+                        ...(msgDate ? [{ label: 'التاريخ', value: msgDate, icon: Clock }] : []),
                       ]}
                       actions={candidateActions}
                       onClick={() => setSelectedCandidateId(isExpanded ? null : c.id)}
@@ -1174,9 +1275,155 @@ export default function WAImportDashboard() {
                     />
                   );
                 })}
-              </UnifiedCardGrid>
+                      </UnifiedCardGrid>
+                    )}
+                  </div>
+                );
+              })}
+              </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="media" className="mt-4">
+          {!selectedBatchId ? (
+            <Card className="p-12 text-center">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                <Image className="h-12 w-12 opacity-20" />
+                <p className="text-lg">اختر دُفعة أولاً لعرض الوسائط</p>
+              </div>
+            </Card>
+          ) : mediaQuery.isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : mediaQuery.isError ? (
+            <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+              <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-10 w-10" />
+                <p className="text-lg font-medium">فشل تحميل الوسائط</p>
+                <Button variant="outline" size="sm" onClick={() => mediaQuery.refetch()}>
+                  <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {(() => {
+                const mediaItems = mediaQuery.data || [];
+                const statusMap: Record<string, { label: string; color: string }> = {
+                  ocr_completed: { label: 'تم OCR', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+                  ai_analyzed: { label: 'تم التحليل بالذكاء', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+                  pending: { label: 'قيد الانتظار', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
+                  error: { label: 'خطأ', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+                  ocr_failed: { label: 'فشل OCR', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+                  skipped_unsupported: { label: 'غير مدعوم', color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+                  skipped_too_large: { label: 'كبير جداً', color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+                  processed: { label: 'تمت المعالجة', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+                };
+                const processed = mediaItems.filter((m: any) => ['ocr_completed', 'ai_analyzed', 'processed'].includes(m.mediaStatus));
+                const pending = mediaItems.filter((m: any) => m.mediaStatus === 'pending');
+                const failed = mediaItems.filter((m: any) => ['error', 'ocr_failed'].includes(m.mediaStatus));
+                const skipped = mediaItems.filter((m: any) => ['skipped_unsupported', 'skipped_too_large'].includes(m.mediaStatus));
+
+                return (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <Card className="p-3 text-center">
+                        <p className="text-2xl font-bold text-primary" data-testid="media-stat-total">{mediaItems.length}</p>
+                        <p className="text-[10px] text-muted-foreground">إجمالي الملفات</p>
+                      </Card>
+                      <Card className="p-3 text-center">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="media-stat-processed">{processed.length}</p>
+                        <p className="text-[10px] text-muted-foreground">تمت المعالجة</p>
+                      </Card>
+                      <Card className="p-3 text-center">
+                        <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400" data-testid="media-stat-pending">{pending.length}</p>
+                        <p className="text-[10px] text-muted-foreground">قيد الانتظار</p>
+                      </Card>
+                      <Card className="p-3 text-center">
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="media-stat-failed">{failed.length + skipped.length}</p>
+                        <p className="text-[10px] text-muted-foreground">فشل / تخطي</p>
+                      </Card>
+                    </div>
+
+                    {mediaItems.length === 0 ? (
+                      <Card className="p-12 text-center">
+                        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                          <Image className="h-12 w-12 opacity-20" />
+                          <p className="text-lg">لا توجد وسائط في هذه الدُفعة</p>
+                        </div>
+                      </Card>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {mediaItems.map((m: any) => {
+                          const isImage = (m.mimeType || '').startsWith('image/');
+                          const status = statusMap[m.mediaStatus] || { label: m.mediaStatus, color: 'bg-gray-100 text-gray-600' };
+                          const hasText = !!m.ocrText;
+                          return (
+                            <Card key={m.id} className="overflow-hidden" data-testid={`media-card-${m.id}`}>
+                              {isImage && m.fileAvailable && (
+                                <div className="h-32 bg-muted flex items-center justify-center overflow-hidden">
+                                  <img
+                                    src={`/api/wa-import/media/${m.id}/file`}
+                                    alt={m.originalFilename}
+                                    className="max-h-full max-w-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              )}
+                              {!isImage && (
+                                <div className="h-20 bg-muted/50 flex items-center justify-center">
+                                  <File className="w-8 h-8 text-muted-foreground/50" />
+                                </div>
+                              )}
+                              <CardContent className="p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-medium truncate flex-1" title={m.originalFilename} dir="ltr">
+                                    {m.originalFilename}
+                                  </p>
+                                  <Badge className={`text-[10px] shrink-0 ${status.color}`}>
+                                    {status.label}
+                                  </Badge>
+                                </div>
+                                {m.fileSizeBytes && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    الحجم: {(m.fileSizeBytes / 1024).toFixed(0)} KB
+                                  </p>
+                                )}
+                                {hasText && (
+                                  <details className="text-xs">
+                                    <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" data-testid={`media-text-toggle-${m.id}`}>
+                                      عرض النص المستخرج
+                                    </summary>
+                                    <pre className="mt-1 p-2 bg-muted rounded text-[10px] max-h-32 overflow-auto whitespace-pre-wrap" dir="auto">
+                                      {m.ocrText}
+                                    </pre>
+                                  </details>
+                                )}
+                                {m.skipReason && (
+                                  <p className="text-[10px] text-red-500 dark:text-red-400">السبب: {m.skipReason}</p>
+                                )}
+                                {m.fileAvailable && (
+                                  <a href={`/api/wa-import/media/${m.id}/file`} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                    data-testid={`media-download-${m.id}`}>
+                                    <Download className="w-3 h-3" /> تحميل الملف
+                                  </a>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="reconciliation" className="mt-4">
@@ -1743,7 +1990,7 @@ export default function WAImportDashboard() {
       </Dialog>
 
       <Dialog open={!!editDialog} onOpenChange={() => setEditDialog(null)}>
-        <DialogContent data-testid="dialog-edit">
+        <DialogContent data-testid="dialog-edit" dir="rtl">
           <DialogHeader>
             <DialogTitle>تعديل المرشح</DialogTitle>
           </DialogHeader>
@@ -1758,6 +2005,41 @@ export default function WAImportDashboard() {
               <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)}
                 data-testid="input-edit-description" />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">النوع</label>
+              <Select value={editCandidateType} onValueChange={setEditCandidateType}>
+                <SelectTrigger data-testid="select-edit-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">مصروف</SelectItem>
+                  <SelectItem value="transfer">تحويل</SelectItem>
+                  <SelectItem value="loan">قرض</SelectItem>
+                  <SelectItem value="custodian_receipt">أمانة</SelectItem>
+                  <SelectItem value="settlement">تسوية</SelectItem>
+                  <SelectItem value="salary">راتب</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">الفئة</label>
+              <Select value={editCategory || '_none'} onValueChange={v => setEditCategory(v === '_none' ? '' : v)}>
+                <SelectTrigger data-testid="select-edit-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">بدون فئة</SelectItem>
+                  <SelectItem value="meals">وجبات</SelectItem>
+                  <SelectItem value="materials">مواد</SelectItem>
+                  <SelectItem value="transport">نقل</SelectItem>
+                  <SelectItem value="labor">أجور</SelectItem>
+                  <SelectItem value="fuel">وقود</SelectItem>
+                  <SelectItem value="equipment">معدات</SelectItem>
+                  <SelectItem value="utilities">مرافق</SelectItem>
+                  <SelectItem value="rent">إيجار</SelectItem>
+                  <SelectItem value="maintenance">صيانة</SelectItem>
+                  <SelectItem value="communication">اتصالات</SelectItem>
+                  <SelectItem value="miscellaneous">متنوع</SelectItem>
+                  <SelectItem value="other">أخرى</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialog(null)} data-testid="button-cancel-edit">إلغاء</Button>
@@ -1766,6 +2048,8 @@ export default function WAImportDashboard() {
                 candidateId: editDialog.candidateId,
                 amount: editAmount,
                 description: editDescription,
+                candidateType: editCandidateType,
+                category: editCategory,
               });
             }} disabled={editCandidateMutation.isPending} data-testid="button-confirm-edit">
               <Pencil className="w-3.5 h-3.5 ml-1.5" /> حفظ التعديل
@@ -1950,7 +2234,22 @@ export default function WAImportDashboard() {
                           </span>
 
                           {isDone && stage.key === 'media' && pipelineResults.media && (
-                            <span className="text-xs text-muted-foreground">تمت معالجة {pipelineResults.media.processed || 0} ملف</span>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-xs text-muted-foreground">
+                                إجمالي: {pipelineResults.media.totalAssets || 0} ملف
+                              </span>
+                              <div className="flex items-center gap-2 text-[10px]">
+                                {(pipelineResults.media.previouslyProcessed > 0) && (
+                                  <span className="text-blue-600 dark:text-blue-400">سابق: {pipelineResults.media.previouslyProcessed}</span>
+                                )}
+                                {(pipelineResults.media.newlyProcessed > 0) && (
+                                  <span className="text-green-600 dark:text-green-400">جديد: {pipelineResults.media.newlyProcessed}</span>
+                                )}
+                                {(pipelineResults.media.failed > 0) && (
+                                  <span className="text-red-600 dark:text-red-400">فشل: {pipelineResults.media.failed}</span>
+                                )}
+                              </div>
+                            </div>
                           )}
                           {isDone && stage.key === 'names' && pipelineResults.names && (
                             <span className="text-xs text-muted-foreground">{pipelineResults.names.totalNames || 0} اسم ({pipelineResults.names.newNames || 0} جديد)</span>
@@ -1959,18 +2258,41 @@ export default function WAImportDashboard() {
                             <span className="text-xs text-muted-foreground">تم ربط {pipelineResults.autoLink.linked || 0} تلقائياً</span>
                           )}
                           {isDone && stage.key === 'extract' && pipelineResults.extract && (
-                            <span className="text-xs text-muted-foreground">
-                              {pipelineResults.extract.candidatesCreated || 0} مرشح
-                              {pipelineResults.extract.resumed && ` (استئناف، ${pipelineResults.extract.previousCandidates || 0} سابق)`}
-                            </span>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-xs text-muted-foreground">
+                                {pipelineResults.extract.candidatesCreated || 0} مرشح
+                                {pipelineResults.extract.resumed && ` (استئناف، ${pipelineResults.extract.previousCandidates || 0} سابق)`}
+                              </span>
+                              {pipelineResults.extractEngine && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${pipelineResults.extractEngine.method === 'ai' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                                  {pipelineResults.extractEngine.method === 'ai'
+                                    ? `🤖 ${pipelineResults.extractEngine.model}`
+                                    : '⚡ Regex'}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
 
                         {isActive && stage.key !== 'linking' && (
-                          <div className="mt-2">
+                          <div className="mt-2 space-y-1.5">
                             <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                               <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
                             </div>
+                            {stage.key === 'extract' && pipelineResults.extractEngine && (
+                              <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${pipelineResults.extractEngine.method === 'ai' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                                <span className={`w-2 h-2 rounded-full animate-pulse ${pipelineResults.extractEngine.method === 'ai' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                                {pipelineResults.extractEngine.method === 'ai'
+                                  ? `🤖 ذكاء اصطناعي: ${pipelineResults.extractEngine.model}`
+                                  : '⚡ نظام Regex (تعبيرات نمطية)'}
+                              </div>
+                            )}
+                            {stage.key === 'media' && (
+                              <span className="text-[10px] text-muted-foreground">جارٍ تحليل الصور والمستندات بـ OCR...</span>
+                            )}
+                            {stage.key === 'names' && (
+                              <span className="text-[10px] text-muted-foreground">جارٍ استخراج الأسماء من الرسائل...</span>
+                            )}
                           </div>
                         )}
 

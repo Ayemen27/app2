@@ -414,7 +414,10 @@ export class ModelManager {
         throw new Error(`Model is loading, please wait: ${errorText}`);
       }
       if (response.status === 429) {
-        throw new Error(`Rate limit exceeded: ${errorText}`);
+        throw new Error(`Rate limit exceeded (429): ${errorText}`);
+      }
+      if (response.status === 402) {
+        throw new Error(`Credits depleted (402): ${errorText}`);
       }
       throw new Error(`Hugging Face API error (${response.status}): ${errorText}`);
     }

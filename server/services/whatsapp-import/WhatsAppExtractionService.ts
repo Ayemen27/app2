@@ -74,11 +74,11 @@ export class WhatsAppExtractionService {
     await waAliasService.loadCache();
     await transferCompanyRegistry.loadCompanies();
 
-    const existingCandidates = await db.select({ messageId: waExtractionCandidates.messageId })
+    const existingCandidates = await db.select({ sourceMessageId: waExtractionCandidates.sourceMessageId })
       .from(waExtractionCandidates)
       .where(eq(waExtractionCandidates.batchId, batchId));
 
-    const processedMessageIds = new Set(existingCandidates.map(c => c.messageId));
+    const processedMessageIds = new Set(existingCandidates.map(c => c.sourceMessageId).filter(Boolean));
     const isResuming = processedMessageIds.size > 0;
     if (isResuming) {
       console.log(`[WAExtraction] استئناف: تم تخطي ${processedMessageIds.size} رسالة معالجة سابقاً`);
@@ -765,18 +765,39 @@ export class WhatsAppExtractionService {
   }
 
   async getExtractionCandidates(batchId: number) {
-    const candidates = await db.select()
+    const candidates = await db.select({
+      id: waExtractionCandidates.id,
+      batchId: waExtractionCandidates.batchId,
+      sourceMessageId: waExtractionCandidates.sourceMessageId,
+      amount: waExtractionCandidates.amount,
+      currency: waExtractionCandidates.currency,
+      description: waExtractionCandidates.description,
+      patternType: waExtractionCandidates.patternType,
+      confidence: waExtractionCandidates.confidence,
+      confidenceBreakdownJson: waExtractionCandidates.confidenceBreakdownJson,
+      projectHypothesisId: waExtractionCandidates.projectHypothesisId,
+      category: waExtractionCandidates.category,
+      candidateType: waExtractionCandidates.candidateType,
+      matchStatus: waExtractionCandidates.matchStatus,
+      reviewFlags: waExtractionCandidates.reviewFlags,
+      canonicalTransactionId: waExtractionCandidates.canonicalTransactionId,
+      createdAt: waExtractionCandidates.createdAt,
+      sourceMessageText: waRawMessages.messageText,
+      senderName: waRawMessages.sender,
+      messageDate: waRawMessages.waTimestamp,
+    })
       .from(waExtractionCandidates)
+      .leftJoin(waRawMessages, eq(waExtractionCandidates.sourceMessageId, waRawMessages.id))
       .where(eq(waExtractionCandidates.batchId, batchId))
       .orderBy(waExtractionCandidates.id);
 
     if (candidates.length === 0) return candidates;
 
     const canonicalIds = candidates
-      .filter((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId !== null)
-      .map((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId!);
+      .filter((c) => c.canonicalTransactionId !== null)
+      .map((c) => c.canonicalTransactionId!);
 
-    if (canonicalIds.length === 0) return candidates.map((c: typeof candidates[0]) => ({ ...c, canonicalStatus: null }));
+    if (canonicalIds.length === 0) return candidates.map((c) => ({ ...c, canonicalStatus: null }));
 
     const canonicals = await db.select({ id: waCanonicalTransactions.id, status: waCanonicalTransactions.status })
       .from(waCanonicalTransactions)
@@ -784,7 +805,7 @@ export class WhatsAppExtractionService {
 
     const statusMap = new Map(canonicals.map((ct: { id: number; status: string | null }) => [ct.id, ct.status]));
 
-    return candidates.map((c: typeof candidates[0]) => ({
+    return candidates.map((c) => ({
       ...c,
       canonicalStatus: c.canonicalTransactionId ? statusMap.get(c.canonicalTransactionId) || null : null,
     }));

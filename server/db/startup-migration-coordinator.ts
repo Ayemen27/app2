@@ -88,9 +88,9 @@ export async function runAllStartupMigrations(): Promise<void> {
     `);
 
     const waCheckConstraints = [
-      { table: 'wa_extraction_candidates', col: 'candidate_type', vals: ['expense','transfer','loan','personal_account','custodian_receipt','settlement'] },
+      { table: 'wa_extraction_candidates', col: 'candidate_type', vals: ['expense','transfer','loan','personal_account','custodian_receipt','settlement','salary','inline_expense','structured_receipt'] },
       { table: 'wa_extraction_candidates', col: 'match_status', vals: ['exact_match','near_match','conflict','new_entry'] },
-      { table: 'wa_media_assets', col: 'media_status', vals: ['processed','skipped_too_large','skipped_unsupported','error'] },
+      { table: 'wa_media_assets', col: 'media_status', vals: ['processed','skipped_too_large','skipped_unsupported','error','ocr_completed','ai_analyzed','ocr_failed','pending'] },
       { table: 'wa_posting_results', col: 'posting_status', vals: ['success','failed','skipped_duplicate'] },
       { table: 'wa_verification_queue', col: 'priority', vals: ['P1_critical','P2_high','P3_medium','P4_low'] },
     ];
@@ -99,10 +99,11 @@ export async function runAllStartupMigrations(): Promise<void> {
       const valList = c.vals.map(v => `'${v}'`).join(', ');
       await client.query(`
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${constraintName}') THEN
-            ALTER TABLE ${c.table} ADD CONSTRAINT ${constraintName}
-              CHECK (${c.col} IN (${valList}));
+          IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${constraintName}') THEN
+            ALTER TABLE ${c.table} DROP CONSTRAINT ${constraintName};
           END IF;
+          ALTER TABLE ${c.table} ADD CONSTRAINT ${constraintName}
+            CHECK (${c.col} IN (${valList}));
         END $$;
       `);
     }

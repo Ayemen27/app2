@@ -10,6 +10,9 @@ export interface MediaProcessingResult {
   failed: number;
   skipped: number;
   totalText: number;
+  previouslyProcessed: number;
+  totalAssets: number;
+  newlyProcessed: number;
 }
 
 async function ocrImage(filePath: string): Promise<string> {
@@ -47,14 +50,20 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
     failed: 0,
     skipped: 0,
     totalText: 0,
+    previouslyProcessed: 0,
+    totalAssets: 0,
+    newlyProcessed: 0,
   };
 
   const assets = await db.select()
     .from(waMediaAssets)
     .where(eq(waMediaAssets.batchId, batchId));
 
+  result.totalAssets = assets.length;
+
   for (const asset of assets) {
     if (asset.ocrText) {
+      result.previouslyProcessed++;
       result.skipped++;
       continue;
     }
@@ -191,5 +200,7 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
     }
   }
 
+  result.newlyProcessed = result.processed;
+  console.log(`[MediaProcessing] Batch ${batchId}: total=${result.totalAssets}, previouslyProcessed=${result.previouslyProcessed}, newlyProcessed=${result.newlyProcessed}, failed=${result.failed}, skipped=${result.skipped}`);
   return result;
 }

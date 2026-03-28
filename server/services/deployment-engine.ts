@@ -2791,10 +2791,23 @@ export class DeploymentEngine {
     const gradleExitFile = `/tmp/axion_gradle_${buildId}.exit`;
     const gradleLogFile = `/tmp/axion_gradle_${buildId}.log`;
 
-    const gradleScript = `${trapCleanup}cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`;
+    const scriptPath = `/tmp/axion_gradle_${buildId}.sh`;
+    const scriptContent = [
+      `#!/bin/bash`,
+      trapCleanup ? `trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT` : "",
+      `cd ${remoteDir}/android`,
+      `export JAVA_HOME=$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)`,
+      `export PATH=$JAVA_HOME/bin:$PATH`,
+      `export ANDROID_HOME=/opt/android-sdk`,
+      canSignRelease ? `export KEYSTORE_PASSWORD=$(cat /tmp/.ks_pass)` : "",
+      canSignRelease ? `export KEYSTORE_ALIAS='${keystoreAlias}'` : "",
+      canSignRelease ? `export KEYSTORE_KEY_PASSWORD=$(cat /tmp/.ks_key_pass)` : "",
+      `chmod +x gradlew`,
+      `./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`,
+    ].filter(Boolean).join("\n");
 
     await execAsync(
-      `${sshCmd} "rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${gradleScript} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
+      `${sshCmd} "cat > ${scriptPath} << 'AXION_SCRIPT_EOF'\n${scriptContent}\nAXION_SCRIPT_EOF\nchmod +x ${scriptPath} && rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
       { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
     );
 
@@ -2844,9 +2857,11 @@ export class DeploymentEngine {
         }
       } catch (pollErr: any) {
         if (pollErr instanceof CancellationError) throw pollErr;
-        if (pollErr.message?.includes("exit") && !pollErr.message?.includes("255")) throw pollErr;
+        const msg = pollErr.message || "";
+        const isSSHError = msg.includes("255") || msg.includes("Command failed: sshpass") || msg.includes("Connection refused") || msg.includes("Connection reset");
+        if (!isSSHError && (msg.includes("Gradle build failed") || msg.includes("Gradle process lost"))) throw pollErr;
         const elapsed = Math.round((Date.now() - startTime) / 1000);
-        await this.addLog(deploymentId, `⚠️ [${elapsed}s] خطأ مراقبة مؤقت، سيتم إعادة المحاولة...`, "warn");
+        await this.addLog(deploymentId, `⚠️ [${elapsed}s] خطأ مراقبة مؤقت (SSH)، سيتم إعادة المحاولة...`, "warn");
       }
     }
 

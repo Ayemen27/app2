@@ -15,6 +15,7 @@ import { detectCarpenterAggregation, reconcileLoans, type CarpenterAggregationFl
 import { formatDateForFingerprint } from './FingerprintEngine.js';
 import { buildTransactionDateMap } from './DateResolver.js';
 import { safeParseNum } from '../../utils/safe-numbers.js';
+import { autoLinkingService, type AutoLinkSummary } from './AutoLinkingService.js';
 
 export type Priority = 'P1_critical' | 'P2_high' | 'P3_medium' | 'P4_low';
 
@@ -43,6 +44,7 @@ export interface ReconciliationReport {
   carpenterFlags: CarpenterAggregationFlag[];
   loanResults: LoanReconciliationResult[];
   verificationQueueSize: number;
+  autoLinkSummary?: AutoLinkSummary;
 }
 
 async function extractSenderNames(
@@ -445,6 +447,14 @@ export async function runReconciliation(
     console.error('[Reconciliation] Custodian reconciliation failed:', e);
   }
 
+  let autoLinkSummary: AutoLinkSummary | undefined;
+  try {
+    await autoLinkingService.generateAutoLinks(batchId);
+    autoLinkSummary = autoLinkingService.getAutoLinkSummary(batchId);
+  } catch (e) {
+    console.error('[Reconciliation] Auto-linking failed:', e);
+  }
+
   const unresolvedDelta = totalAmount - matchedAmount - newEntryAmount - duplicateAmount - conflictAmount;
   const withinTolerance = Math.abs(unresolvedDelta) <= (totalAmount * tolerancePercent / 100);
 
@@ -473,6 +483,7 @@ export async function runReconciliation(
     carpenterFlags,
     loanResults,
     verificationQueueSize: uniqueVerifications.size,
+    autoLinkSummary,
   };
 }
 

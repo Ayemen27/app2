@@ -15,6 +15,7 @@ import { computeConfidence, categorizeExpense, categorizeTransferReceipt, type S
 import { waAliasService } from './WhatsAppAliasService.js';
 import { analyzeFinancialWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
 import type { MessageForAI, AIFinancialResult } from './AIExtractionOrchestrator.js';
+import { createMetricsCollector, storeMetrics } from './AIMetricsService.js';
 
 const AI_TRANSACTION_TYPE_TO_PATTERN: Record<string, string> = {
   'تحويل': 'structured_receipt',
@@ -35,7 +36,11 @@ export interface ExtractionResult {
 }
 
 export class WhatsAppExtractionService {
+  private metricsCollector = createMetricsCollector();
+
   async extractFromBatch(batchId: number): Promise<ExtractionResult> {
+    this.metricsCollector.reset();
+
     const result: ExtractionResult = {
       batchId,
       totalMessages: 0,
@@ -129,8 +134,9 @@ export class WhatsAppExtractionService {
       }
     }
 
-    let aiResultsByMsgIndex = new Map<number, AIFinancialResult>();
+    let aiResultsByMsgIndex = new Map<number, AIFinancialResult[]>();
     if (isAIAvailable()) {
+      const aiStartTime = Date.now();
       try {
         const messagesForAI: MessageForAI[] = messages.map((m: typeof messages[0], idx: number) => ({
           index: idx,
@@ -141,12 +147,16 @@ export class WhatsAppExtractionService {
           hasImage: mediaByMessageId.has(m.id),
         }));
         const aiResults = await analyzeFinancialWithAI(messagesForAI);
+        this.metricsCollector.recordAICall(Date.now() - aiStartTime, true);
         for (const aiResult of aiResults) {
           if (aiResult.messageIndex !== undefined) {
-            aiResultsByMsgIndex.set(aiResult.messageIndex, aiResult);
+            const existing = aiResultsByMsgIndex.get(aiResult.messageIndex) || [];
+            existing.push(aiResult);
+            aiResultsByMsgIndex.set(aiResult.messageIndex, existing);
           }
         }
       } catch (err: any) {
+        this.metricsCollector.recordAICall(Date.now() - aiStartTime, false, err.message);
         result.errors.push(`AI pre-pass failed: ${err.message}`);
       }
     }
@@ -159,8 +169,22 @@ export class WhatsAppExtractionService {
     for (const cluster of clusters) {
       try {
         const anchorIndex = msgIdToIndex.get(cluster.anchorMessageId);
-        const clusterAIResult = anchorIndex !== undefined ? aiResultsByMsgIndex.get(anchorIndex) : undefined;
+        const clusterAIResults = anchorIndex !== undefined ? aiResultsByMsgIndex.get(anchorIndex) : undefined;
+        const clusterAIResult = clusterAIResults?.[0];
         await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords, ocrTextByMessageId, clusterAIResult);
+        if (clusterAIResults && clusterAIResults.length > 1) {
+          const anchorMsg = messages.find((m: any) => m.id === cluster.anchorMessageId);
+          if (anchorMsg) {
+            for (let i = 1; i < clusterAIResults.length; i++) {
+              const extraAI = clusterAIResults[i];
+              if (extraAI.isTransaction && extraAI.confidence >= 0.75) {
+                this.metricsCollector.recordAIHit();
+                const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[extraAI.transactionType] || 'inline_expense';
+                await this.createAICandidate(extraAI, patternType, anchorMsg, batchId, chatSource, cluster.memberMessageIds, cluster.mediaMessageIds, mediaByMessageId, true, result, projectKeywords);
+              }
+            }
+          }
+        }
       } catch (err: any) {
         result.errors.push(`Cluster ${cluster.anchorMessageId}: ${err.message}`);
         for (const memberId of cluster.memberMessageIds) {
@@ -174,12 +198,26 @@ export class WhatsAppExtractionService {
 
       try {
         const msgIndex = msgIdToIndex.get(msg.id);
-        const msgAIResult = msgIndex !== undefined ? aiResultsByMsgIndex.get(msgIndex) : undefined;
+        const msgAIResults = msgIndex !== undefined ? aiResultsByMsgIndex.get(msgIndex) : undefined;
+        const msgAIResult = msgAIResults?.[0];
         await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords, ocrTextByMessageId, msgAIResult);
+        if (msgAIResults && msgAIResults.length > 1) {
+          for (let i = 1; i < msgAIResults.length; i++) {
+            const extraAI = msgAIResults[i];
+            if (extraAI.isTransaction && extraAI.confidence >= 0.75) {
+              this.metricsCollector.recordAIHit();
+              const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[extraAI.transactionType] || 'inline_expense';
+              await this.createAICandidate(extraAI, patternType, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
+            }
+          }
+        }
       } catch (err: any) {
         result.errors.push(`Message ${msg.id}: ${err.message}`);
       }
     }
+
+    const metrics = this.metricsCollector.buildMetrics(batchId, result.totalMessages, result.candidatesCreated, result.excluded);
+    storeMetrics(batchId, metrics);
 
     return result;
   }
@@ -203,6 +241,7 @@ export class WhatsAppExtractionService {
 
     if (aiResult) {
       if (aiResult.isTransaction && aiResult.confidence >= 0.75) {
+        this.metricsCollector.recordAIHit();
         const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[aiResult.transactionType] || 'inline_expense';
         await this.createAICandidate(aiResult, patternType, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
         return;
@@ -229,18 +268,21 @@ export class WhatsAppExtractionService {
 
     const transferResult = await tryParseTransferReceiptAsync(textToAnalyze);
     if (transferResult) {
+      this.metricsCollector.recordRegexHit();
       await this.createTransferCandidate(transferResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
       return;
     }
 
     const specialResult = detectSpecialTransaction(textToAnalyze);
     if (specialResult) {
+      this.metricsCollector.recordRegexHit();
       await this.createSpecialCandidate(specialResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
       return;
     }
 
     const expenses = extractExpenses(textToAnalyze);
     if (expenses.length > 0) {
+      this.metricsCollector.recordRegexHit();
       for (const expense of expenses) {
         await this.createExpenseCandidate(expense, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, expenses.length > 1, true, result, projectKeywords);
       }
@@ -261,6 +303,7 @@ export class WhatsAppExtractionService {
   ) {
     if (aiResult) {
       if (aiResult.isTransaction && aiResult.confidence >= 0.75) {
+        this.metricsCollector.recordAIHit();
         const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[aiResult.transactionType] || 'inline_expense';
         await this.createAICandidate(aiResult, patternType, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
         return;
@@ -315,6 +358,7 @@ export class WhatsAppExtractionService {
 
     const transferResult = await tryParseTransferReceiptAsync(text);
     if (transferResult) {
+      this.metricsCollector.recordRegexHit();
       if (ocrText && !transferResult.transferNumber) {
         const ocrTransferNum = ocrText.match(/(\d{6,})/);
         if (ocrTransferNum) transferResult.transferNumber = ocrTransferNum[1];
@@ -329,6 +373,7 @@ export class WhatsAppExtractionService {
 
     const specialResult = detectSpecialTransaction(text);
     if (specialResult) {
+      this.metricsCollector.recordRegexHit();
       if (ocrText) {
         specialResult.description = `${specialResult.description} [OCR: ${ocrText.substring(0, 100)}]`;
       }
@@ -338,6 +383,7 @@ export class WhatsAppExtractionService {
 
     const expenses = extractExpenses(text);
     if (expenses.length > 0) {
+      this.metricsCollector.recordRegexHit();
       for (const expense of expenses) {
         if (ocrText && expenses.length === 1) {
           const ocrAmounts = ocrText.match(/\d[\d,.]+/g);
@@ -381,6 +427,7 @@ export class WhatsAppExtractionService {
     const confidence = computeConfidence(patternType, scoringCtx);
 
     let candidateType: string;
+    this.metricsCollector.recordConfidence(confidence.finalScore, aiResult.transactionType || 'غير_محدد');
     if (aiResult.transactionType === 'تحويل') {
       candidateType = 'transfer';
     } else if (aiResult.transactionType === 'قرض') {
@@ -460,6 +507,7 @@ export class WhatsAppExtractionService {
     };
 
     const confidence = computeConfidence(transfer.patternType || 'structured_receipt', scoringCtx);
+    this.metricsCollector.recordConfidence(confidence.finalScore, 'transfer');
     const cat = categorizeTransferReceipt();
 
     const dateValidation = validateInlineDate(msg.messageText || '', new Date(msg.waTimestamp), chatSource);
@@ -516,6 +564,7 @@ export class WhatsAppExtractionService {
     const workerResolution = await this.resolveWorkerFromText(msg.messageText || special.description || '');
 
     const confidence = computeConfidence(special.candidateType, scoringCtx);
+    this.metricsCollector.recordConfidence(confidence.finalScore, special.candidateType);
 
     let description = special.description;
     if (workerResolution.workerId && workerResolution.workerAlias) {
@@ -582,6 +631,7 @@ export class WhatsAppExtractionService {
     }
 
     const confidence = computeConfidence(patternType, scoringCtx);
+    this.metricsCollector.recordConfidence(confidence.finalScore, 'expense');
 
     const dateValidation = validateInlineDate(msg.messageText || '', new Date(msg.waTimestamp), chatSource);
     const reviewFlags: string[] = [];

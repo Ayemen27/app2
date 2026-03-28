@@ -21,6 +21,7 @@ import {
   Play, BarChart3, Users, Wallet, FileText, Package, TrendingUp, Clock,
   RefreshCw, Shield, Hash, Pencil, Merge, Split, Search, Plus, Trash2,
   Link2, ArrowLeftRight, Paperclip, Image, Download, File,
+  UserCheck, Loader2, CheckCircle2,
 } from "lucide-react";
 
 function confidenceColor(c: number): string {
@@ -68,6 +69,7 @@ export default function WAImportDashboard() {
   const [editAmount, setEditAmount] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
+  const [autoLinkFilter, setAutoLinkFilter] = useState('all');
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeSelected, setMergeSelected] = useState<number[]>([]);
   const [mergeProjectId, setMergeProjectId] = useState("");
@@ -202,7 +204,41 @@ export default function WAImportDashboard() {
     enabled: activeTab === 'loans',
   });
 
-  const workersSearchQuery = useQuery<any[]>({
+  const autoLinksQuery = useQuery<{ links: any[]; summary: any }>({
+    queryKey: ['/api/wa-import/batch', selectedBatchId, 'auto-links'],
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/auto-links`),
+    enabled: activeTab === 'autolinks' && !!selectedBatchId,
+  });
+
+  const verifyAutoLinkMutation = useMutation({
+    mutationFn: (data: { linkId: number; decision: 'accepted' | 'rejected' }) =>
+      apiRequest(`/api/wa-import/auto-links/${data.linkId}/verify?batchId=${selectedBatchId}`, 'POST', { decision: data.decision }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'auto-links'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const bulkVerifyAutoLinksMutation = useMutation({
+    mutationFn: (minConfidence: number) =>
+      apiRequest(`/api/wa-import/batch/${selectedBatchId}/auto-links/bulk-verify`, 'POST', { minConfidence }),
+    onSuccess: (data: any) => {
+      toast({ title: "تمت الموافقة الجماعية", description: `تمت الموافقة على ${data.accepted || 0} رابط` });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'auto-links'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const regenerateAutoLinksMutation = useMutation({
+    mutationFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/auto-links/generate`, 'POST'),
+    onSuccess: () => {
+      toast({ title: "تم التحديث", description: "تم إعادة توليد الروابط التلقائية" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'auto-links'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const workersSearchQuery = useQuery<{ workers: any[]; projects: any[]; accounts: any[]; all: any[] }>({
     queryKey: ['/api/wa-import/workers-search', workerSearchQuery],
     queryFn: () => apiRequest(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`),
     enabled: aliasDialog && workerSearchQuery.length > 0,
@@ -661,6 +697,7 @@ export default function WAImportDashboard() {
             { value: 'reconciliation', label: 'المطابقة', icon: BarChart3, badge: 0 },
             { value: 'custodians', label: 'أمناء العُهد', icon: Wallet, badge: 0 },
             { value: 'aliases', label: 'الأسماء المستعارة', icon: Users, badge: 0 },
+            { value: 'autolinks', label: 'الربط التلقائي', icon: UserCheck, badge: (autoLinksQuery.data?.summary?.pending || 0) },
             { value: 'loans', label: 'قروض المقاولين', icon: ArrowLeftRight, badge: 0 },
           ].map(tab => {
             const Icon = tab.icon;
@@ -1417,6 +1454,214 @@ export default function WAImportDashboard() {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="autolinks" className="mt-4">
+          <div className="space-y-4">
+            {!selectedBatchId ? (
+              <Card className="p-12 text-center">
+                <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                  <UserCheck className="h-12 w-12 opacity-20" />
+                  <p className="text-lg" data-testid="text-select-batch-autolinks">اختر دُفعة أولاً من تبويب الدُفعات</p>
+                  <Button variant="outline" size="sm" onClick={() => setActiveTab('batches')} data-testid="btn-go-batches-autolinks">
+                    <Upload className="w-4 h-4 ml-1.5" /> الذهاب للدُفعات
+                  </Button>
+                </div>
+              </Card>
+            ) : autoLinksQuery.isError ? (
+              <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-autolinks">
+                  <AlertTriangle className="h-10 w-10" />
+                  <p className="text-lg font-medium">فشل تحميل الروابط التلقائية</p>
+                  <p className="text-sm text-red-500">{(autoLinksQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                  <Button variant="outline" size="sm" onClick={() => autoLinksQuery.refetch()} data-testid="btn-retry-autolinks">
+                    <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                  </Button>
+                </div>
+              </Card>
+            ) : autoLinksQuery.isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (() => {
+              const links = autoLinksQuery.data?.links || [];
+              const summary = autoLinksQuery.data?.summary || { total: 0, verified: 0, pending: 0, rejected: 0, highConfidence: 0, mediumConfidence: 0, lowConfidence: 0 };
+
+              const filteredLinks = links.filter((link: any) => {
+                if (autoLinkFilter === 'all') return true;
+                if (autoLinkFilter === 'pending') return link.status === 'pending';
+                if (autoLinkFilter === 'accepted') return link.status === 'accepted';
+                if (autoLinkFilter === 'rejected') return link.status === 'rejected';
+                if (autoLinkFilter === 'high') return link.confidence > 0.85;
+                if (autoLinkFilter === 'medium') return link.confidence >= 0.60 && link.confidence <= 0.85;
+                if (autoLinkFilter === 'low') return link.confidence < 0.60;
+                return true;
+              });
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2" data-testid="autolinks-summary">
+                    {[
+                      { label: 'الإجمالي', value: summary.total, color: 'text-foreground' },
+                      { label: 'تم التحقق', value: summary.verified, color: 'text-green-600 dark:text-green-400' },
+                      { label: 'قيد الانتظار', value: summary.pending, color: 'text-yellow-600 dark:text-yellow-400' },
+                      { label: 'مرفوض', value: summary.rejected, color: 'text-red-600 dark:text-red-400' },
+                      { label: 'ثقة عالية', value: summary.highConfidence, color: 'text-green-600 dark:text-green-400' },
+                      { label: 'ثقة متوسطة', value: summary.mediumConfidence, color: 'text-yellow-600 dark:text-yellow-400' },
+                      { label: 'ثقة منخفضة', value: summary.lowConfidence, color: 'text-red-600 dark:text-red-400' },
+                    ].map((stat, idx) => (
+                      <Card key={idx} className="p-3 text-center">
+                        <p className={`text-xl font-bold ${stat.color}`} data-testid={`stat-autolink-${idx}`}>{stat.value}</p>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Select value={autoLinkFilter} onValueChange={setAutoLinkFilter}>
+                        <SelectTrigger className="w-[160px]" data-testid="select-autolink-filter">
+                          <SelectValue placeholder="تصفية" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">الكل</SelectItem>
+                          <SelectItem value="pending">قيد الانتظار</SelectItem>
+                          <SelectItem value="accepted">مقبول</SelectItem>
+                          <SelectItem value="rejected">مرفوض</SelectItem>
+                          <SelectItem value="high">ثقة عالية (&gt;85%)</SelectItem>
+                          <SelectItem value="medium">ثقة متوسطة (60-85%)</SelectItem>
+                          <SelectItem value="low">ثقة منخفضة (&lt;60%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Badge variant="outline" data-testid="badge-autolink-count">{filteredLinks.length} رابط</Badge>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => regenerateAutoLinksMutation.mutate()}
+                        disabled={regenerateAutoLinksMutation.isPending}
+                        data-testid="btn-regenerate-autolinks"
+                      >
+                        {regenerateAutoLinksMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin ml-1.5" /> : <RefreshCw className="w-4 h-4 ml-1.5" />}
+                        إعادة التوليد
+                      </Button>
+                      {summary.pending > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={() => bulkVerifyAutoLinksMutation.mutate(0.90)}
+                          disabled={bulkVerifyAutoLinksMutation.isPending}
+                          data-testid="btn-bulk-approve-autolinks"
+                        >
+                          {bulkVerifyAutoLinksMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin ml-1.5" /> : <CheckCircle2 className="w-4 h-4 ml-1.5" />}
+                          موافقة جماعية (&gt;90%)
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {filteredLinks.length === 0 ? (
+                    <Card className="p-12 text-center">
+                      <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                        <UserCheck className="h-12 w-12 opacity-20" />
+                        <p className="text-lg" data-testid="text-no-autolinks">لا توجد روابط تلقائية {autoLinkFilter !== 'all' ? 'بهذا الفلتر' : 'لهذه الدُفعة'}</p>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredLinks.map((link: any) => {
+                        const confPercent = Math.round(link.confidence * 100);
+                        const confBadgeClass = confPercent > 85
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                          : confPercent >= 60
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+                        const statusBadge = link.status === 'accepted'
+                          ? <Badge variant="default" className="bg-green-600" data-testid={`badge-status-${link.id}`}><CheckCircle className="w-3 h-3 ml-1" /> مقبول</Badge>
+                          : link.status === 'rejected'
+                            ? <Badge variant="destructive" data-testid={`badge-status-${link.id}`}><XCircle className="w-3 h-3 ml-1" /> مرفوض</Badge>
+                            : <Badge variant="secondary" data-testid={`badge-status-${link.id}`}><Clock className="w-3 h-3 ml-1" /> قيد الانتظار</Badge>;
+
+                        const linkTypeLabel = link.linkType === 'worker' ? 'عامل'
+                          : link.linkType === 'supplier' ? 'مورد'
+                            : link.linkType === 'project' ? 'مشروع'
+                              : link.linkType;
+
+                        return (
+                          <Card key={link.id} className="p-4" data-testid={`autolink-card-${link.id}`}>
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="flex-1 min-w-0 space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-xs" data-testid={`badge-type-${link.id}`}>
+                                    {linkTypeLabel}
+                                  </Badge>
+                                  <Badge className={`text-xs ${confBadgeClass}`} data-testid={`badge-confidence-${link.id}`}>
+                                    {confPercent}%
+                                  </Badge>
+                                  {statusBadge}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">المصدر:</span>
+                                    <p className="font-medium truncate" dir="rtl" data-testid={`text-source-${link.id}`}>{link.sourceText}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">الكيان المطابق:</span>
+                                    <p className="font-medium truncate" dir="rtl" data-testid={`text-entity-${link.id}`}>{link.linkedEntityName}</p>
+                                  </div>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground" data-testid={`text-reason-${link.id}`}>
+                                  <span className="font-medium">السبب:</span> {link.matchReason}
+                                </div>
+
+                                {link.evidence && link.evidence.length > 0 && (
+                                  <div className="text-xs text-muted-foreground space-y-0.5" data-testid={`text-evidence-${link.id}`}>
+                                    {link.evidence.map((ev: any, i: number) => (
+                                      <p key={i}><span className="font-medium">{ev.method}:</span> {ev.detail}</p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {link.status === 'pending' && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-green-600 border-green-200 dark:border-green-800"
+                                    onClick={() => verifyAutoLinkMutation.mutate({ linkId: link.id, decision: 'accepted' })}
+                                    disabled={verifyAutoLinkMutation.isPending}
+                                    data-testid={`btn-accept-autolink-${link.id}`}
+                                  >
+                                    <ThumbsUp className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 border-red-200 dark:border-red-800"
+                                    onClick={() => verifyAutoLinkMutation.mutate({ linkId: link.id, decision: 'rejected' })}
+                                    disabled={verifyAutoLinkMutation.isPending}
+                                    data-testid={`btn-reject-autolink-${link.id}`}
+                                  >
+                                    <ThumbsDown className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </TabsContent>
       </Tabs>
 
       <Dialog open={!!approveDialog} onOpenChange={() => setApproveDialog(null)}>
@@ -1595,9 +1840,9 @@ export default function WAImportDashboard() {
                 placeholder="اكتب اسم العامل..."
                 data-testid="input-worker-search" />
             </div>
-            {workersSearchQuery.data && workersSearchQuery.data.length > 0 && (
+            {workersSearchQuery.data?.all && workersSearchQuery.data.all.length > 0 && (
               <div className="max-h-40 overflow-y-auto border rounded-md">
-                {workersSearchQuery.data.map((w: any) => (
+                {workersSearchQuery.data.all.map((w: any) => (
                   <div key={w.id}
                     className={`p-2 cursor-pointer text-sm hover-elevate ${newAliasWorkerId === w.id ? 'bg-primary/10' : ''}`}
                     onClick={() => setNewAliasWorkerId(w.id)}

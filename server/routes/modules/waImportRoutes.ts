@@ -23,6 +23,7 @@ import {
 import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
 import { processMediaForBatch } from "../../services/whatsapp-import/MediaProcessingService.js";
 import { nameExtractionService, runNameExtractionMigration, normalizeForMatching } from "../../services/whatsapp-import/NameExtractionService.js";
+import { autoLinkingService } from "../../services/whatsapp-import/AutoLinkingService.js";
 
 const ALLOWED_MEDIA_ROOT = path.resolve("uploads/wa-import");
 
@@ -1267,6 +1268,105 @@ waImportRouter.delete("/transfer-companies/:id", requireAuth, requireRole('admin
   } catch (error) {
     console.error("[WAImport] Delete transfer company error:", error);
     res.status(500).json({ error: "Failed to delete transfer company" });
+  }
+});
+
+const verifyAutoLinkBodySchema = z.object({
+  decision: z.enum(['accepted', 'rejected']),
+});
+
+const bulkVerifyAutoLinksBodySchema = z.object({
+  minConfidence: z.number().min(0).max(1).optional().default(0.90),
+});
+
+waImportRouter.get("/batch/:id/auto-links", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
+
+    let links = autoLinkingService.getAutoLinks(batchId);
+    if (links.length === 0) {
+      links = await autoLinkingService.generateAutoLinks(batchId);
+    }
+    const summary = autoLinkingService.getAutoLinkSummary(batchId);
+    res.json({ links, summary });
+  } catch (error: any) {
+    console.error("[WAImport] Get auto-links error:", error);
+    res.status(500).json({ error: error.message || "Failed to get auto-links" });
+  }
+});
+
+waImportRouter.post("/batch/:id/auto-links/generate", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
+
+    const links = await autoLinkingService.generateAutoLinks(batchId);
+    const summary = autoLinkingService.getAutoLinkSummary(batchId);
+    res.json({ links, summary });
+  } catch (error: any) {
+    console.error("[WAImport] Generate auto-links error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate auto-links" });
+  }
+});
+
+waImportRouter.post("/auto-links/:id/verify", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid link ID", details: params.error.issues });
+    const body = verifyAutoLinkBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid body", details: body.error.issues });
+
+    const linkId = parseInt(params.data.id);
+    const userId = req.user!.user_id;
+
+    const batchIdParam = req.query.batchId ? parseInt(req.query.batchId as string) : null;
+    if (!batchIdParam) {
+      return res.status(400).json({ error: "batchId query parameter is required" });
+    }
+
+    const result = autoLinkingService.verifyLink(batchIdParam, linkId, body.data.decision, userId);
+    if (!result) return res.status(404).json({ error: "Auto-link not found" });
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Verify auto-link error:", error);
+    res.status(500).json({ error: error.message || "Failed to verify auto-link" });
+  }
+});
+
+waImportRouter.post("/batch/:id/auto-links/bulk-verify", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const body = bulkVerifyAutoLinksBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid body", details: body.error.issues });
+
+    const batchId = parseInt(params.data.id);
+    const userId = req.user!.user_id;
+    const result = autoLinkingService.bulkVerify(batchId, body.data.minConfidence, userId);
+    const summary = autoLinkingService.getAutoLinkSummary(batchId);
+    res.json({ ...result, summary });
+  } catch (error: any) {
+    console.error("[WAImport] Bulk verify auto-links error:", error);
+    res.status(500).json({ error: error.message || "Failed to bulk verify auto-links" });
+  }
+});
+
+waImportRouter.get("/batch/:id/metrics", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const { getMetrics } = await import("../../services/whatsapp-import/AIMetricsService.js");
+    const metrics = getMetrics(parseInt(params.data.id));
+    if (!metrics) {
+      return res.status(404).json({ error: "No metrics found for this batch. Run extraction first." });
+    }
+    res.json(metrics);
+  } catch (error) {
+    console.error("[WAImport] Get metrics error:", error);
+    res.status(500).json({ error: "Failed to get batch metrics" });
   }
 });
 

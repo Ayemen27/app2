@@ -1744,6 +1744,43 @@ export default function WAImportDashboard() {
                       <span className="text-sm font-medium">توجد أسماء غير مربوطة تحتاج ربط يدوي</span>
                     </div>
 
+                    {(() => {
+                      const allNames = discoveredNamesQuery.data || [];
+                      const totalCount = allNames.length;
+                      const linkedCount = allNames.filter((n: any) => n.canonicalEntityId).length;
+                      const dismissedCount = allNames.filter((n: any) => n.isActive === false).length;
+                      const unlinkedCount = allNames.filter((n: any) => !n.canonicalEntityId && n.isActive !== false).length;
+                      const linkedPercent = totalCount > 0 ? Math.round((linkedCount / totalCount) * 100) : 0;
+
+                      return (
+                        <div className="grid grid-cols-4 gap-2 text-center" data-testid="linking-stats">
+                          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-2">
+                            <div className="text-lg font-bold text-blue-700 dark:text-blue-300" data-testid="stat-total">{totalCount}</div>
+                            <div className="text-[10px] text-blue-600 dark:text-blue-400">إجمالي مكتشف</div>
+                          </div>
+                          <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-2">
+                            <div className="text-lg font-bold text-green-700 dark:text-green-300" data-testid="stat-linked">{linkedCount}</div>
+                            <div className="text-[10px] text-green-600 dark:text-green-400">تم ربطه</div>
+                          </div>
+                          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-2">
+                            <div className="text-lg font-bold text-amber-700 dark:text-amber-300" data-testid="stat-unlinked">{unlinkedCount}</div>
+                            <div className="text-[10px] text-amber-600 dark:text-amber-400">بانتظار الربط</div>
+                          </div>
+                          <div className="rounded-lg bg-gray-50 dark:bg-gray-950/30 p-2">
+                            <div className="text-lg font-bold text-gray-700 dark:text-gray-300" data-testid="stat-dismissed">{dismissedCount}</div>
+                            <div className="text-[10px] text-gray-600 dark:text-gray-400">تم تجاهله</div>
+                          </div>
+                          <div className="col-span-4">
+                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden flex">
+                              {linkedPercent > 0 && <div className="h-full bg-green-500 transition-all" style={{ width: `${linkedPercent}%` }} />}
+                              {dismissedCount > 0 && <div className="h-full bg-gray-400 transition-all" style={{ width: `${Math.round((dismissedCount / totalCount) * 100)}%` }} />}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{linkedPercent}% مكتمل</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex gap-2">
                       <Input
                         placeholder="بحث في الأسماء..."

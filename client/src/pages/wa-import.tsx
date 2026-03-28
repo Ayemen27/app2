@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,13 +21,6 @@ import {
   RefreshCw, Shield, Hash, Pencil, Merge, Split, Search, Plus, Trash2,
   Link2, ArrowLeftRight,
 } from "lucide-react";
-
-const PROJECT_MAP: Record<string, string> = {
-  '6c9d8a97': 'زين-الجراحي',
-  '7212655c': 'زين-التحيتا',
-  '00735182': 'محمد-الجراحي',
-  'b23ad9a5': 'محمد-التحيتا',
-};
 
 function confidenceColor(c: number): string {
   if (c >= 0.9) return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
@@ -86,6 +79,45 @@ export default function WAImportDashboard() {
   const [newAliasName, setNewAliasName] = useState("");
   const [newAliasWorkerId, setNewAliasWorkerId] = useState("");
   const [workerSearchQuery, setWorkerSearchQuery] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/wa-import/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'فشل الرفع' }));
+        throw new Error(err.error || 'فشل الرفع');
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "تم الاستيراد بنجاح", description: `دُفعة #${data.batch?.id || ''} — ${data.batch?.totalMessages || 0} رسالة` });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+      setActiveTab('batches');
+    },
+    onError: (err: any) => toast({ title: "خطأ في الاستيراد", description: err.message, variant: "destructive" }),
+  });
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      toast({ title: "نوع ملف غير مدعوم", description: "يرجى اختيار ملف .zip من تصدير واتساب", variant: "destructive" });
+      return;
+    }
+    uploadMutation.mutate(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [uploadMutation, toast]);
+
+  const projectsQuery = useQuery<{ id: string; name: string }[]>({ queryKey: ['/api/wa-import/projects'] });
+  const projectsList = projectsQuery.data || [];
 
   const batchesQuery = useQuery<any[]>({ queryKey: ['/api/wa-import/batches'] });
 
@@ -458,8 +490,8 @@ export default function WAImportDashboard() {
                           <SelectValue placeholder="المشروع" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(PROJECT_MAP).map(([id, name]) => (
-                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                          {projectsList.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -931,8 +963,8 @@ export default function WAImportDashboard() {
                 <SelectValue placeholder="اختر المشروع" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(PROJECT_MAP).map(([id, name]) => (
-                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                {projectsList.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1019,8 +1051,8 @@ export default function WAImportDashboard() {
                 <SelectValue placeholder="اختر المشروع" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(PROJECT_MAP).map(([id, name]) => (
-                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                {projectsList.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1128,6 +1160,36 @@ export default function WAImportDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".zip"
+        className="hidden"
+        onChange={handleFileSelect}
+        data-testid="input-file-upload"
+      />
+
+      <Button
+        size="lg"
+        className="fixed bottom-6 left-6 z-50 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all p-0"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploadMutation.isPending}
+        data-testid="button-upload-zip"
+      >
+        {uploadMutation.isPending ? (
+          <RefreshCw className="h-6 w-6 animate-spin" />
+        ) : (
+          <Upload className="h-6 w-6" />
+        )}
+      </Button>
+
+      {uploadMutation.isPending && (
+        <div className="fixed bottom-6 left-24 z-50 bg-background border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2" data-testid="status-upload-progress">
+          <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm">جاري استيراد المحادثة...</span>
+        </div>
+      )}
     </div>
   );
 }

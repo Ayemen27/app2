@@ -3,6 +3,7 @@ import { waExtractionCandidates, waDedupKeys } from "@shared/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { computeFingerprint, computeCrossMatchKey, formatDateForFingerprint, getDateWindow, type FingerprintComponents } from './FingerprintEngine.js';
 import { buildTransactionDateMap } from './DateResolver.js';
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 export interface DedupResult {
   candidateId: number;
@@ -22,7 +23,7 @@ export async function deduplicateCandidates(batchId: number): Promise<DedupResul
   const results: DedupResult[] = [];
 
   for (const candidate of candidates) {
-    const amount = parseFloat(candidate.amount || '0');
+    const amount = safeParseNum(candidate.amount);
     const dateStr = dateMap.get(candidate.id)
       || (candidate.createdAt ? formatDateForFingerprint(new Date(candidate.createdAt)) : '');
 
@@ -106,7 +107,7 @@ export async function crossChatDedup(
   for (const candidate of candidates) {
     if (alreadyFlagged.has(candidate.id)) continue;
 
-    const amount = parseFloat(candidate.amount || '0');
+    const amount = safeParseNum(candidate.amount);
     const dateStr = dateMap.get(candidate.id)
       || (candidate.createdAt ? formatDateForFingerprint(new Date(candidate.createdAt)) : '');
 
@@ -143,7 +144,7 @@ export async function crossChatDedup(
       const endDate = new Date(end);
 
       const amountMatch = otherCandidates.find((other: typeof candidates[0]) => {
-        const otherAmount = parseFloat(other.amount || '0');
+        const otherAmount = safeParseNum(other.amount);
         if (Math.abs(otherAmount - amount) > 0.01) return false;
 
         const otherDateStr = dateMap.get(other.id);

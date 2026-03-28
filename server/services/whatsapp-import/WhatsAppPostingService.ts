@@ -434,55 +434,57 @@ export async function approveCandidate(
     dateStr = formatDateForFingerprint(new Date(c.createdAt));
   }
 
-  if (c.canonicalTransactionId) {
-    const existing = await db.select().from(waCanonicalTransactions)
-      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
-    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
-      throw new Error('Candidate already confirmed/posted');
-    }
-    await db.update(waCanonicalTransactions)
-      .set({ status: 'confirmed', projectId, transactionDate: dateStr, reviewNotes: notes || null })
-      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
+  return await db.transaction(async (tx: any) => {
+    if (c.canonicalTransactionId) {
+      const existing = await tx.select().from(waCanonicalTransactions)
+        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
+      if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+        throw new Error('Candidate already confirmed/posted');
+      }
+      await tx.update(waCanonicalTransactions)
+        .set({ status: 'confirmed', projectId, transactionDate: dateStr, reviewNotes: notes || null })
+        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
 
-    await db.insert(waReviewActions).values({
+      await tx.insert(waReviewActions).values({
+        actionType: 'approve',
+        canonicalTransactionId: c.canonicalTransactionId,
+        candidateId,
+        reviewerId,
+        beforeState,
+        afterState: { status: 'confirmed', projectId },
+        notes: notes || null,
+      });
+
+      return { canonicalId: c.canonicalTransactionId };
+    }
+
+    const [canonical] = await tx.insert(waCanonicalTransactions).values({
+      status: 'confirmed',
+      transactionType: c.candidateType,
+      amount: c.amount,
+      description: c.description,
+      transactionDate: dateStr,
+      projectId,
+      category: c.category,
+      mergedFromCandidates: [c.id],
+    }).returning();
+
+    await tx.update(waExtractionCandidates)
+      .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
+      .where(eq(waExtractionCandidates.id, candidateId));
+
+    await tx.insert(waReviewActions).values({
       actionType: 'approve',
-      canonicalTransactionId: c.canonicalTransactionId,
+      canonicalTransactionId: canonical.id,
       candidateId,
       reviewerId,
       beforeState,
       afterState: { status: 'confirmed', projectId },
-      notes: notes || null,
+      notes,
     });
 
-    return { canonicalId: c.canonicalTransactionId };
-  }
-
-  const [canonical] = await db.insert(waCanonicalTransactions).values({
-    status: 'confirmed',
-    transactionType: c.candidateType,
-    amount: c.amount,
-    description: c.description,
-    transactionDate: dateStr,
-    projectId,
-    category: c.category,
-    mergedFromCandidates: [c.id],
-  }).returning();
-
-  await db.update(waExtractionCandidates)
-    .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
-    .where(eq(waExtractionCandidates.id, candidateId));
-
-  await db.insert(waReviewActions).values({
-    actionType: 'approve',
-    canonicalTransactionId: canonical.id,
-    candidateId,
-    reviewerId,
-    beforeState,
-    afterState: { status: 'confirmed', projectId },
-    notes,
+    return { canonicalId: canonical.id };
   });
-
-  return { canonicalId: canonical.id };
 }
 
 export async function rejectCandidate(
@@ -500,42 +502,44 @@ export async function rejectCandidate(
   const c = candidate[0];
   const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
 
-  let canonicalId: number;
+  await db.transaction(async (tx: any) => {
+    let canonicalId: number;
 
-  if (c.canonicalTransactionId) {
-    const existing = await db.select().from(waCanonicalTransactions)
-      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
-    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
-      throw new Error('Candidate already confirmed/posted — cannot reject');
+    if (c.canonicalTransactionId) {
+      const existing = await tx.select().from(waCanonicalTransactions)
+        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
+      if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+        throw new Error('Candidate already confirmed/posted — cannot reject');
+      }
+      await tx.update(waCanonicalTransactions)
+        .set({ status: 'excluded', excludeReason: reason })
+        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
+      canonicalId = c.canonicalTransactionId;
+    } else {
+      const [canonical] = await tx.insert(waCanonicalTransactions).values({
+        status: 'excluded',
+        transactionType: c.candidateType,
+        amount: c.amount,
+        description: c.description,
+        excludeReason: reason,
+        mergedFromCandidates: [c.id],
+      }).returning();
+      canonicalId = canonical.id;
+
+      await tx.update(waExtractionCandidates)
+        .set({ canonicalTransactionId: canonicalId })
+        .where(eq(waExtractionCandidates.id, candidateId));
     }
-    await db.update(waCanonicalTransactions)
-      .set({ status: 'excluded', excludeReason: reason })
-      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
-    canonicalId = c.canonicalTransactionId;
-  } else {
-    const [canonical] = await db.insert(waCanonicalTransactions).values({
-      status: 'excluded',
-      transactionType: c.candidateType,
-      amount: c.amount,
-      description: c.description,
-      excludeReason: reason,
-      mergedFromCandidates: [c.id],
-    }).returning();
-    canonicalId = canonical.id;
 
-    await db.update(waExtractionCandidates)
-      .set({ canonicalTransactionId: canonicalId })
-      .where(eq(waExtractionCandidates.id, candidateId));
-  }
-
-  await db.insert(waReviewActions).values({
-    actionType: 'reject',
-    canonicalTransactionId: canonicalId,
-    candidateId,
-    reviewerId,
-    beforeState,
-    afterState: { status: 'excluded', reason },
-    notes: reason,
+    await tx.insert(waReviewActions).values({
+      actionType: 'reject',
+      canonicalTransactionId: canonicalId,
+      candidateId,
+      reviewerId,
+      beforeState,
+      afterState: { status: 'excluded', reason },
+      notes: reason,
+    });
   });
 }
 
@@ -592,32 +596,34 @@ export async function mergeCandidates(
   const totalAmount = candidates.reduce((sum: number, c: { amount: string | null }) => sum + safeParseNum(c.amount), 0);
   const descriptions = candidates.map((c: { description: string | null }) => c.description).filter(Boolean).join(' + ');
 
-  const [canonical] = await db.insert(waCanonicalTransactions).values({
-    status: 'confirmed',
-    transactionType: candidates[0].candidateType,
-    amount: totalAmount.toString(),
-    description: descriptions || null,
-    projectId,
-    category: candidates[0].category,
-    mergedFromCandidates: candidateIds,
-  }).returning();
+  return await db.transaction(async (tx: any) => {
+    const [canonical] = await tx.insert(waCanonicalTransactions).values({
+      status: 'confirmed',
+      transactionType: candidates[0].candidateType,
+      amount: totalAmount.toString(),
+      description: descriptions || null,
+      projectId,
+      category: candidates[0].category,
+      mergedFromCandidates: candidateIds,
+    }).returning();
 
-  for (const c of candidates) {
-    await db.update(waExtractionCandidates)
-      .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
-      .where(eq(waExtractionCandidates.id, c.id));
-  }
+    for (const c of candidates) {
+      await tx.update(waExtractionCandidates)
+        .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
+        .where(eq(waExtractionCandidates.id, c.id));
+    }
 
-  await db.insert(waReviewActions).values({
-    actionType: 'merge',
-    canonicalTransactionId: canonical.id,
-    reviewerId,
-    beforeState: { candidateIds },
-    afterState: { status: 'confirmed', totalAmount, projectId },
-    notes: `Merged ${candidateIds.length} candidates`,
+    await tx.insert(waReviewActions).values({
+      actionType: 'merge',
+      canonicalTransactionId: canonical.id,
+      reviewerId,
+      beforeState: { candidateIds },
+      afterState: { status: 'confirmed', totalAmount, projectId },
+      notes: `Merged ${candidateIds.length} candidates`,
+    });
+
+    return { canonicalId: canonical.id };
   });
-
-  return { canonicalId: canonical.id };
 }
 
 export async function splitCandidate(
@@ -650,36 +656,38 @@ export async function splitCandidate(
     throw new Error(`Split total (${splitTotal}) does not match original amount (${originalAmount})`);
   }
 
-  const canonicalIds: number[] = [];
+  return await db.transaction(async (tx: any) => {
+    const canonicalIds: number[] = [];
 
-  for (const split of splits) {
-    const [canonical] = await db.insert(waCanonicalTransactions).values({
-      status: 'confirmed',
-      transactionType: c.candidateType,
-      amount: split.amount,
-      description: split.description,
-      projectId,
-      category: c.category,
-      mergedFromCandidates: [candidateId],
-    }).returning();
-    canonicalIds.push(canonical.id);
-  }
+    for (const split of splits) {
+      const [canonical] = await tx.insert(waCanonicalTransactions).values({
+        status: 'confirmed',
+        transactionType: c.candidateType,
+        amount: split.amount,
+        description: split.description,
+        projectId,
+        category: c.category,
+        mergedFromCandidates: [candidateId],
+      }).returning();
+      canonicalIds.push(canonical.id);
+    }
 
-  await db.update(waExtractionCandidates)
-    .set({ canonicalTransactionId: canonicalIds[0], matchStatus: 'new_entry' })
-    .where(eq(waExtractionCandidates.id, candidateId));
+    await tx.update(waExtractionCandidates)
+      .set({ canonicalTransactionId: canonicalIds[0], matchStatus: 'new_entry' })
+      .where(eq(waExtractionCandidates.id, candidateId));
 
-  await db.insert(waReviewActions).values({
-    actionType: 'split',
-    canonicalTransactionId: canonicalIds[0],
-    candidateId,
-    reviewerId,
-    beforeState: { amount: c.amount, description: c.description },
-    afterState: { splits, canonicalIds },
-    notes: `Split into ${splits.length} transactions`,
+    await tx.insert(waReviewActions).values({
+      actionType: 'split',
+      canonicalTransactionId: canonicalIds[0],
+      candidateId,
+      reviewerId,
+      beforeState: { amount: c.amount, description: c.description },
+      afterState: { splits, canonicalIds },
+      notes: `Split into ${splits.length} transactions`,
+    });
+
+    return { canonicalIds };
   });
-
-  return { canonicalIds };
 }
 
 export async function bulkApprove(

@@ -1,4 +1,5 @@
 import { normalizeArabicText, easternToWestern } from './ArabicAmountParser.js';
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 export interface TransferReceiptResult {
   transferNumber: string;
@@ -27,12 +28,12 @@ export function parseRashadBahir(messageText: string): TransferReceiptResult | n
 
   const amountMatch = text.match(/(?:مبلغ\s*الحوالة|المبلغ)\s*:?\s*(\d[\d,.]*)/);
   if (amountMatch) {
-    amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    amount = safeParseNum(amountMatch[1]);
   }
 
   const feeMatch = text.match(/(?:خدمة\s*(?:التحويل|تحويل)|رسوم|عمولة)\s*:?\s*(\d[\d,.]*)/);
   if (feeMatch) {
-    fee = parseFloat(feeMatch[1].replace(/,/g, ''));
+    fee = safeParseNum(feeMatch[1]);
   }
 
   const recipientMatch = text.match(/(?:المستلم|اسم\s*المستلم)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
@@ -76,13 +77,13 @@ export function parseHoushabi(messageText: string): TransferReceiptResult | null
   let amount = 0;
   const amountMatch = text.match(/(?:مبلغ|المبلغ|حوالة)\s*:?\s*(\d[\d,.]*)/);
   if (amountMatch) {
-    amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    amount = safeParseNum(amountMatch[1]);
   }
 
   if (!amount) {
     const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
     if (numMatch && numMatch[1] !== transferNumber) {
-      amount = parseFloat(numMatch[1]);
+      amount = safeParseNum(numMatch[1]);
     }
   }
 
@@ -122,13 +123,13 @@ export function parseNajm(messageText: string): TransferReceiptResult | null {
   let amount = 0;
   const amountMatch = text.match(/(?:مبلغ|المبلغ|حوالة)\s*:?\s*(\d[\d,.]*)/);
   if (amountMatch) {
-    amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    amount = safeParseNum(amountMatch[1]);
   }
 
   if (!amount) {
     const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
     if (numMatch && numMatch[1] !== transferNumber) {
-      amount = parseFloat(numMatch[1]);
+      amount = safeParseNum(numMatch[1]);
     }
   }
 

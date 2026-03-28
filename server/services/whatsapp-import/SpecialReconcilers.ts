@@ -1,4 +1,5 @@
 import { normalizeArabicText } from './ArabicAmountParser.js';
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 const MOHAMMAD_HASSAN_NAJJAR_ID = 'd9f327e5';
 const JARAHI_PROJECT_IDS = ['6c9d8a97', '00735182'];
@@ -67,11 +68,11 @@ export function reconcileLoans(
   for (const loan of loans) {
     if (matched.has(loan.id)) continue;
 
-    const loanAmount = parseFloat(loan.amount || '0');
+    const loanAmount = safeParseNum(loan.amount);
     const matchingLoan = loans.find(
       other => other.id !== loan.id &&
       !matched.has(other.id) &&
-      Math.abs(parseFloat(other.amount || '0') - loanAmount) < 1
+      Math.abs(safeParseNum(other.amount) - loanAmount) < 1
     );
 
     if (matchingLoan) {

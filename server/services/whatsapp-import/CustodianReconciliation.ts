@@ -1,6 +1,7 @@
 import { db } from "../../db.js";
 import { waCustodianEntries, workers, waWorkerAliases } from "@shared/schema";
 import { eq, or, ilike } from "drizzle-orm";
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 export interface CustodianStatement {
   custodianWorkerId: string;
@@ -80,9 +81,9 @@ export async function generateCustodianStatement(
   const entryDetails: CustodianEntryDetail[] = [];
 
   for (const entry of entries) {
-    const received = parseFloat(entry.receivedAmount || '0');
-    const disbursed = parseFloat(entry.disbursedAmount || '0');
-    const settled = parseFloat(entry.settledAmount || '0');
+    const received = safeParseNum(entry.receivedAmount);
+    const disbursed = safeParseNum(entry.disbursedAmount);
+    const settled = safeParseNum(entry.settledAmount);
 
     totalReceived += received;
     totalDisbursed += disbursed;

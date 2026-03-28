@@ -3,6 +3,7 @@ import { fundTransfers, materialPurchases, transportationExpenses, workerMiscExp
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { normalizeArabicText } from './ArabicAmountParser.js';
 import { getDateWindow } from './FingerprintEngine.js';
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 export type MatchStatus = 'exact_match' | 'near_match' | 'conflict' | 'new_entry';
 
@@ -211,8 +212,8 @@ export async function matchAgainstWorkerAttendance(
     .limit(5);
 
   const amountMatches = matches.filter((m: { totalPay: string | null; paidAmount: string | null }) => {
-    const totalPay = parseFloat(m.totalPay || '0');
-    const paidAmount = parseFloat(m.paidAmount || '0');
+    const totalPay = safeParseNum(m.totalPay);
+    const paidAmount = safeParseNum(m.paidAmount);
     return Math.abs(totalPay - amount) < 1 || Math.abs(paidAmount - amount) < 1;
   });
 

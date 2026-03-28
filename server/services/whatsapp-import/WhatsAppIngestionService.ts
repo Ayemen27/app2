@@ -248,14 +248,7 @@ export class WhatsAppIngestionService {
         throw error;
       }
     } finally {
-      try {
-        if (fs.existsSync(batchDir)) {
-          fs.rmSync(batchDir, { recursive: true, force: true });
-          console.log(`[WAImport] Cleaned up temp directory: ${batchDir}`);
-        }
-      } catch (cleanupErr) {
-        console.warn(`[WAImport] Failed to clean up temp directory ${batchDir}:`, cleanupErr);
-      }
+      console.log(`[WAImport] Media files preserved in: ${batchDir}`);
     }
   }
 

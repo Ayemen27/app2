@@ -95,7 +95,7 @@ waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, upload.single(
     }
 
     const file = (req as any).file;
-    if (!file.originalname.endsWith(".zip")) {
+    if (!file.originalname.toLowerCase().endsWith(".zip")) {
       return res.status(400).json({ error: "Only ZIP files are accepted" });
     }
 
@@ -119,6 +119,43 @@ waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, upload.single(
     }
     console.error("[WAImport] Upload error:", error);
     res.status(500).json({ error: "Failed to process upload" });
+  }
+});
+
+waImportRouter.get("/projects", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { db: database } = await import("../../db.js");
+    const { projects, userProjectPermissions } = await import("@shared/schema");
+    const { eq, and, inArray } = await import("drizzle-orm");
+
+    const conditions: any[] = [eq(projects.is_active, true)];
+
+    if (req.user?.role !== 'admin') {
+      const userPerms = await database.select({ project_id: userProjectPermissions.project_id })
+        .from(userProjectPermissions)
+        .where(and(
+          eq(userProjectPermissions.user_id, req.user!.user_id),
+          eq(userProjectPermissions.canView, true)
+        ));
+      const allowedIds = userPerms.map(p => p.project_id);
+      if (allowedIds.length > 0) {
+        conditions.push(inArray(projects.id, allowedIds));
+      } else {
+        return res.json([]);
+      }
+    }
+
+    const activeProjects = await database.select({
+      id: projects.id,
+      name: projects.name,
+    })
+      .from(projects)
+      .where(and(...conditions));
+
+    res.json(activeProjects);
+  } catch (error) {
+    console.error("[WAImport] Get projects error:", error);
+    res.status(500).json({ error: "Failed to get projects" });
   }
 });
 

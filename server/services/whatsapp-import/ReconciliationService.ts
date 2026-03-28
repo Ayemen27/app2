@@ -14,6 +14,7 @@ import { reconcileAllCustodians, type CustodianStatement } from './CustodianReco
 import { detectCarpenterAggregation, reconcileLoans, type CarpenterAggregationFlag, type LoanReconciliationResult } from './SpecialReconcilers.js';
 import { formatDateForFingerprint } from './FingerprintEngine.js';
 import { buildTransactionDateMap } from './DateResolver.js';
+import { safeParseNum } from '../../utils/safe-numbers.js';
 
 export type Priority = 'P1_critical' | 'P2_high' | 'P3_medium' | 'P4_low';
 
@@ -109,7 +110,7 @@ export async function runReconciliation(
   const projectMap = new Map<number, { projectId: string; confidence: string | null }>();
   for (const hyp of projectHypotheses) {
     const existing = projectMap.get(hyp.candidateId);
-    if (!existing || parseFloat(hyp.confidence || '0') > parseFloat(existing.confidence || '0')) {
+    if (!existing || safeParseNum(hyp.confidence) > safeParseNum(existing.confidence)) {
       projectMap.set(hyp.candidateId, { projectId: hyp.projectId, confidence: hyp.confidence });
     }
   }
@@ -146,7 +147,7 @@ export async function runReconciliation(
   }> = [];
 
   for (const candidate of candidates) {
-    const amount = parseFloat(candidate.amount || '0');
+    const amount = safeParseNum(candidate.amount);
     totalAmount += amount;
 
     const cat = candidate.category || 'uncategorized';
@@ -239,7 +240,7 @@ export async function runReconciliation(
         break;
     }
 
-    const confidence = parseFloat(candidate.confidence || '0');
+    const confidence = safeParseNum(candidate.confidence);
     if (confidence < 0.85 && matchResult.matchStatus === 'new_entry') {
       verificationItems.push({
         candidateId: candidate.id,
@@ -264,59 +265,13 @@ export async function runReconciliation(
       });
     }
 
-    const projConfidence = parseFloat(projHyp?.confidence || '0');
+    const projConfidence = safeParseNum(projHyp?.confidence);
     if (projConfidence > 0 && projConfidence < 0.80) {
       verificationItems.push({
         candidateId: candidate.id,
         reason: `Low project confidence: ${projConfidence}`,
         priority: 'P3_medium',
       });
-    }
-  }
-
-  const canonicalIdMap = new Map<number, number>();
-  for (const entry of canonicalCreations) {
-    let status: string;
-    let excludeReason: string | null = null;
-
-    switch (entry.matchResult.matchStatus) {
-      case 'exact_match':
-        status = 'already_in_erp';
-        excludeReason = `Matched to ${entry.matchResult.matchedTable}#${entry.matchResult.matchedRecordId}`;
-        break;
-      case 'near_match':
-        status = 'pending_review';
-        break;
-      case 'conflict':
-        status = 'conflict';
-        break;
-      case 'new_entry':
-        status = 'ready_for_posting';
-        break;
-      default:
-        status = 'unclassified';
-    }
-
-    try {
-      const [canonical] = await db.insert(waCanonicalTransactions).values({
-        status,
-        transactionType: entry.candidateType,
-        amount: entry.amount.toString(),
-        description: entry.description,
-        transactionDate: entry.dateStr,
-        projectId: entry.projId,
-        category: entry.category,
-        mergedFromCandidates: [entry.candidateId],
-        excludeReason,
-      }).returning();
-
-      canonicalIdMap.set(entry.candidateId, canonical.id);
-
-      await db.update(waExtractionCandidates)
-        .set({ canonicalTransactionId: canonical.id })
-        .where(eq(waExtractionCandidates.id, entry.candidateId));
-    } catch (err: any) {
-      console.error(`[Reconciliation] Failed to create canonical transaction for candidate ${entry.candidateId}:`, err.message);
     }
   }
 
@@ -374,36 +329,83 @@ export async function runReconciliation(
     }
   }
 
-  for (const [candidateId, { reason, priority }] of uniqueVerifications) {
-    const canonicalTransactionId = canonicalIdMap.get(candidateId) || null;
+  const canonicalIdMap = await db.transaction(async (tx: any) => {
+    const idMap = new Map<number, number>();
 
-    const existingVQ = await db.select({ id: waVerificationQueue.id })
-      .from(waVerificationQueue)
-      .where(eq(waVerificationQueue.candidateId, candidateId))
-      .limit(1);
+    for (const entry of canonicalCreations) {
+      let status: string;
+      let excludeReason: string | null = null;
 
-    if (existingVQ.length > 0) {
-      await db.update(waVerificationQueue)
-        .set({ reason, priority, canonicalTransactionId })
-        .where(eq(waVerificationQueue.candidateId, candidateId));
-    } else {
-      await db.insert(waVerificationQueue).values({
-        candidateId,
-        reason,
-        priority,
-        canonicalTransactionId,
-      });
+      switch (entry.matchResult.matchStatus) {
+        case 'exact_match':
+          status = 'already_in_erp';
+          excludeReason = `Matched to ${entry.matchResult.matchedTable}#${entry.matchResult.matchedRecordId}`;
+          break;
+        case 'near_match':
+          status = 'pending_review';
+          break;
+        case 'conflict':
+          status = 'conflict';
+          break;
+        case 'new_entry':
+          status = 'ready_for_posting';
+          break;
+        default:
+          status = 'unclassified';
+      }
+
+      const [canonical] = await tx.insert(waCanonicalTransactions).values({
+        status,
+        transactionType: entry.candidateType,
+        amount: entry.amount.toString(),
+        description: entry.description,
+        transactionDate: entry.dateStr,
+        projectId: entry.projId,
+        category: entry.category,
+        mergedFromCandidates: [entry.candidateId],
+        excludeReason,
+      }).returning();
+
+      idMap.set(entry.candidateId, canonical.id);
+
+      await tx.update(waExtractionCandidates)
+        .set({ canonicalTransactionId: canonical.id })
+        .where(eq(waExtractionCandidates.id, entry.candidateId));
     }
-  }
 
-  for (const [candidateId, canonicalId] of canonicalIdMap) {
-    try {
-      await db.update(waDedupKeys)
-        .set({ canonicalTransactionId: canonicalId })
-        .where(eq(waDedupKeys.candidateId, candidateId));
-    } catch (_) {
+    for (const [candidateId, { reason, priority }] of uniqueVerifications) {
+      const canonicalTransactionId = idMap.get(candidateId) || null;
+
+      const existingVQ = await tx.select({ id: waVerificationQueue.id })
+        .from(waVerificationQueue)
+        .where(eq(waVerificationQueue.candidateId, candidateId))
+        .limit(1);
+
+      if (existingVQ.length > 0) {
+        await tx.update(waVerificationQueue)
+          .set({ reason, priority, canonicalTransactionId })
+          .where(eq(waVerificationQueue.candidateId, candidateId));
+      } else {
+        await tx.insert(waVerificationQueue).values({
+          candidateId,
+          reason,
+          priority,
+          canonicalTransactionId,
+        });
+      }
     }
-  }
+
+    for (const [candidateId, canonicalId] of idMap) {
+      try {
+        await tx.update(waDedupKeys)
+          .set({ canonicalTransactionId: canonicalId })
+          .where(eq(waDedupKeys.candidateId, candidateId));
+      } catch (_) {
+      }
+    }
+
+    return idMap;
+  });
 
   let custodianStatements: CustodianStatement[] = [];
   try {

@@ -18,8 +18,9 @@ const JARAHI_KEYWORDS = ['الجراحي', 'جراحي'];
 const TAHITA_KEYWORDS = ['التحيتا', 'التحيتاء', 'الحوش', 'تحيتا'];
 const SITALBIAR_KEYWORDS = ['الست الابيار', 'ست الابيار', 'ستة ابيار', 'ست ابيار'];
 
-const ZAIN_WORK_KEYWORDS = ['صب', 'قواعد', 'خرسان', 'حفر', 'تصليح', 'ابار', 'بئر'];
+const ZAIN_WORK_KEYWORDS = ['صب', 'قواعد', 'خرسان', 'حفر', 'تصليح'];
 const MOHAMAD_WORK_KEYWORDS = ['منصة', 'ألواح', 'الواح', 'تركيب', 'تركيب المنصة', 'تركيب الألواح'];
+const MOHAMAD_IDENTITY_KEYWORDS = ['المهندس محمد', 'مهندس محمد', 'محمد المهندس'];
 
 export function inferProject(
   messageText: string,
@@ -37,9 +38,11 @@ export function inferProject(
   const hasSitAlbiar = SITALBIAR_KEYWORDS.some(k => text.includes(k));
   const hasZainWork = ZAIN_WORK_KEYWORDS.some(k => text.includes(k));
   const hasMohamadWork = MOHAMAD_WORK_KEYWORDS.some(k => text.includes(k));
+  const hasMohamadIdentity = MOHAMAD_IDENTITY_KEYWORDS.some(k => text.includes(k));
+  const hasMohamadSignal = hasMohamadWork || hasMohamadIdentity;
 
   const foundKeywords: string[] = [];
-  for (const k of [...JARAHI_KEYWORDS, ...TAHITA_KEYWORDS, ...SITALBIAR_KEYWORDS, ...ZAIN_WORK_KEYWORDS, ...MOHAMAD_WORK_KEYWORDS]) {
+  for (const k of [...JARAHI_KEYWORDS, ...TAHITA_KEYWORDS, ...SITALBIAR_KEYWORDS, ...ZAIN_WORK_KEYWORDS, ...MOHAMAD_WORK_KEYWORDS, ...MOHAMAD_IDENTITY_KEYWORDS]) {
     if (text.includes(k)) foundKeywords.push(k);
   }
 

@@ -346,7 +346,8 @@ export class WhatsAppExtractionService {
     fromCluster: boolean,
     result: ExtractionResult
   ) {
-    const hypotheses = inferProject(expense.description || msg.messageText || '', chatSource);
+    const fullText = [msg.messageText, expense.description].filter(Boolean).join(' ');
+    const hypotheses = inferProject(fullText || '', chatSource);
     const bestProject = getBestProjectHypothesis(hypotheses);
     const cat = categorizeExpense(expense.description);
 

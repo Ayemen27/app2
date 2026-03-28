@@ -18,8 +18,8 @@ const JARAHI_KEYWORDS = ['الجراحي', 'جراحي'];
 const TAHITA_KEYWORDS = ['التحيتا', 'التحيتاء', 'الحوش', 'تحيتا'];
 const SITALBIAR_KEYWORDS = ['الست الابيار', 'ست الابيار', 'ستة ابيار', 'ست ابيار'];
 
-const ZAIN_WORK_KEYWORDS = ['صب', 'قواعد', 'خرسان', 'حفر', 'تصليح'];
-const MOHAMAD_WORK_KEYWORDS = ['منصة', 'ألواح', 'الواح', 'تركيب', 'تركيب المنصة', 'تركيب الألواح'];
+const ZAIN_WORK_KEYWORDS = ['حفر', 'تصليح'];
+const MOHAMAD_WORK_KEYWORDS = ['صب', 'صبه', 'صبة', 'قواعد', 'خرسان', 'منصة', 'ألواح', 'الواح', 'تركيب', 'تركيب المنصة', 'تركيب الألواح'];
 const MOHAMAD_IDENTITY_KEYWORDS = ['المهندس محمد', 'مهندس محمد', 'محمد المهندس'];
 
 export function inferProject(
@@ -47,12 +47,12 @@ export function inferProject(
   }
 
   if (hasJarahi) {
-    if (hasMohamadWork) {
+    if (hasMohamadSignal) {
       hypotheses.push({
         projectId: PROJECT_IDS.MOHAMAD_JARAHI,
-        confidence: 0.90,
+        confidence: hasMohamadIdentity ? 0.92 : 0.90,
         evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_jarahi+mohamad_work',
+        inferenceMethod: hasMohamadIdentity ? 'keyword_jarahi+mohamad_identity' : 'keyword_jarahi+mohamad_work',
       });
     } else if (isZainChat || hasZainWork) {
       hypotheses.push({
@@ -78,12 +78,12 @@ export function inferProject(
   }
 
   if (hasTahita || hasSitAlbiar) {
-    if (hasMohamadWork) {
+    if (hasMohamadSignal) {
       hypotheses.push({
         projectId: PROJECT_IDS.MOHAMAD_TAHITA,
-        confidence: 0.90,
+        confidence: hasMohamadIdentity ? 0.92 : 0.90,
         evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_tahita+mohamad_work',
+        inferenceMethod: hasMohamadIdentity ? 'keyword_tahita+mohamad_identity' : 'keyword_tahita+mohamad_work',
       });
     } else if (isZainChat || hasZainWork) {
       hypotheses.push({
@@ -116,12 +116,12 @@ export function inferProject(
         evidenceKeywords: foundKeywords,
         inferenceMethod: 'zain_work_keywords_no_location',
       });
-    } else if (hasMohamadWork) {
+    } else if (hasMohamadSignal) {
       hypotheses.push({
         projectId: PROJECT_IDS.MOHAMAD_JARAHI,
-        confidence: 0.50,
+        confidence: hasMohamadIdentity ? 0.55 : 0.50,
         evidenceKeywords: foundKeywords,
-        inferenceMethod: 'mohamad_work_keywords_no_location',
+        inferenceMethod: hasMohamadIdentity ? 'mohamad_identity_no_location' : 'mohamad_work_keywords_no_location',
       });
     }
   }

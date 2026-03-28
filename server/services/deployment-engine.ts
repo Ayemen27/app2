@@ -572,27 +572,32 @@ export class DeploymentEngine {
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
       const buildId = deploymentId.substring(0, 8);
-      const pidFile = `/tmp/axion_build_${buildId}.pid`;
-      const exitFile = `/tmp/axion_build_${buildId}.exit`;
-      const logFile = `/tmp/axion_build_${buildId}.log`;
       const remoteDir = "/home/administrator/app2";
+      const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
+
+      const buildPidFile = `/tmp/axion_build_${buildId}.pid`;
+      const buildExitFile = `/tmp/axion_build_${buildId}.exit`;
+      const buildLogFile = `/tmp/axion_build_${buildId}.log`;
+      const gradlePidFile = `/tmp/axion_gradle_${buildId}.pid`;
+      const gradleExitFile = `/tmp/axion_gradle_${buildId}.exit`;
+      const gradleLogFile = `/tmp/axion_gradle_${buildId}.log`;
 
       const { stdout } = await execAsync(
         `${sshCmd} "` +
         `BUILD_STATUS='idle'; ` +
-        `if [ -f ${exitFile} ]; then ` +
-        `  EC=\\$(cat ${exitFile}); ` +
-        `  if [ \\$EC -eq 0 ]; then BUILD_STATUS='done'; else BUILD_STATUS=\\"failed:\\$EC\\"; fi; ` +
-        `elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then ` +
-        `  BUILD_STATUS='building'; ` +
-        `fi; ` +
-        `LINES=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); ` +
-        `LAST=\\$(tail -1 ${logFile} 2>/dev/null || echo ''); ` +
+        `for PF in ${buildPidFile} ${gradlePidFile}; do ` +
+        `  EF=\\$(echo \\$PF | sed 's/.pid/.exit/'); ` +
+        `  LF=\\$(echo \\$PF | sed 's/.pid/.log/'); ` +
+        `  if [ -f \\$EF ]; then EC=\\$(cat \\$EF); if [ \\$EC -eq 0 ]; then BUILD_STATUS='done'; else BUILD_STATUS=\\"failed:\\$EC\\"; fi; break; ` +
+        `  elif [ -f \\$PF ] && kill -0 \\$(cat \\$PF) 2>/dev/null; then BUILD_STATUS='building'; break; fi; ` +
+        `done; ` +
+        `LINES=0; for LF in ${buildLogFile} ${gradleLogFile}; do if [ -f \\$LF ]; then LINES=\\$(wc -l < \\$LF 2>/dev/null || echo 0); break; fi; done; ` +
+        `LAST=''; for LF in ${buildLogFile} ${gradleLogFile}; do if [ -f \\$LF ]; then LAST=\\$(tail -1 \\$LF 2>/dev/null || echo ''); break; fi; done; ` +
         `PM2=\\$(pm2 jlist 2>/dev/null | python3 -c \\"import sys,json; apps=json.load(sys.stdin); print(','.join([a['name']+':'+a['pm2_env']['status'] for a in apps]))\\" 2>/dev/null || echo 'unknown'); ` +
         `DIST=\\$(test -f ${remoteDir}/dist/public/index.html && echo 'yes' || echo 'no'); ` +
         `echo \\"STATUS:\\$BUILD_STATUS|LINES:\\$LINES|PM2:\\$PM2|DIST:\\$DIST|LAST:\\$LAST\\"` +
         `"`,
-        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+        { timeout: 15000, env: sshEnv }
       );
 
       const raw = stdout.trim();
@@ -2823,9 +2828,9 @@ export class DeploymentEngine {
     const gradleLogFile = `/tmp/axion_gradle_${buildId}.log`;
 
     const scriptPath = `/tmp/axion_gradle_${buildId}.sh`;
-    const scriptContent = [
+    const scriptLines = [
       `#!/bin/bash`,
-      trapCleanup ? `trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT` : "",
+      canSignRelease ? `trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT` : "",
       `cd ${remoteDir}/android`,
       `export JAVA_HOME=$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)`,
       `export PATH=$JAVA_HOME/bin:$PATH`,
@@ -2836,16 +2841,33 @@ export class DeploymentEngine {
       `chmod +x gradlew`,
       `./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`,
     ].filter(Boolean).join("\n");
+    const scriptB64 = Buffer.from(scriptLines).toString("base64");
 
     const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
-    let gradleLaunched = false;
     for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
       try {
         await execAsync(
-          `${sshCmd} "cat > ${scriptPath} << 'AXION_SCRIPT_EOF'\n${scriptContent}\nAXION_SCRIPT_EOF\nchmod +x ${scriptPath} && rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
-          { timeout: 30000, env: sshEnv }
+          `${sshCmd} "echo '${scriptB64}' | base64 -d > ${scriptPath} && chmod +x ${scriptPath}"`,
+          { timeout: 15000, env: sshEnv }
         );
-        gradleLaunched = true;
+        break;
+      } catch (uploadErr: any) {
+        if (launchAttempt < 2) {
+          await this.addLog(deploymentId, `⚠️ فشل رفع سكريبت Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
+          await new Promise(r => setTimeout(r, 3000));
+        } else throw uploadErr;
+      }
+    }
+    for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
+      try {
+        const launchResult = await execAsync(
+          `${sshCmd} "if [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo ALREADY_RUNNING; else rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo LAUNCHED_\\$PID; fi"`,
+          { timeout: 15000, env: sshEnv }
+        );
+        const out = launchResult.stdout?.toString().trim() || "";
+        if (out.includes("ALREADY_RUNNING")) {
+          await this.addLog(deploymentId, "♻️ Gradle build already running from previous attempt — resuming poll", "info");
+        }
         break;
       } catch (launchErr: any) {
         if (launchAttempt < 2) {
@@ -3076,8 +3098,13 @@ export class DeploymentEngine {
         15000
       );
       await this.addLog(deploymentId, `📂 مجلد الإصدارات: ${releasesDir}`, "info");
-    } catch {
-      await this.addLog(deploymentId, `⚠️ لم يتم التحقق من APK — قد يكون متاحاً في: ${remotePath}`, "warn");
+    } catch (retrieveErr: any) {
+      const msg = retrieveErr.message || "";
+      const isSSH = msg.includes("255") || msg.includes("Command failed: sshpass") || msg.includes("Connection refused");
+      if (isSSH) {
+        throw new Error(`❌ فشل التحقق من APK بسبب خطأ SSH — يرجى إعادة المحاولة: ${msg.slice(0, 200)}`);
+      }
+      throw retrieveErr;
     }
   }
 
@@ -5256,19 +5283,23 @@ echo 'MAINACTIVITY_FIXED'"`,
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
       const buildId = deploymentId.substring(0, 8);
-      const pidFile = `/tmp/axion_build_${buildId}.pid`;
-      const exitFile = `/tmp/axion_build_${buildId}.exit`;
-      const logFile = `/tmp/axion_build_${buildId}.log`;
+      const prefixes = [`/tmp/axion_build_${buildId}`, `/tmp/axion_gradle_${buildId}`];
+      const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
 
-      const { stdout } = await execAsync(
-        `${sshCmd} "if [ -f ${pidFile} ]; then PID=\\$(cat ${pidFile}); kill \\$PID 2>/dev/null && echo KILLED:\\$PID || echo ALREADY_DEAD; rm -f ${pidFile} ${exitFile}; else echo NO_PID_FILE; fi"`,
-        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
-      );
-      const result = stdout.trim();
-      console.log(`[DeploymentEngine] killRemoteBuildProcess(${buildId}): ${result}`);
-
-      if (result.startsWith("KILLED:")) {
-        await this.addLog(deploymentId, `🛑 تم إيقاف عملية البناء على السيرفر البعيد (PID: ${result.replace("KILLED:", "")})`, "warn");
+      for (const prefix of prefixes) {
+        const pidFile = `${prefix}.pid`;
+        const exitFile = `${prefix}.exit`;
+        try {
+          const { stdout } = await execAsync(
+            `${sshCmd} "if [ -f ${pidFile} ]; then PID=\\$(cat ${pidFile}); kill \\$PID 2>/dev/null && echo KILLED:\\$PID || echo ALREADY_DEAD; rm -f ${pidFile} ${exitFile}; else echo NO_PID_FILE; fi"`,
+            { timeout: 15000, env: sshEnv }
+          );
+          const result = stdout.trim();
+          console.log(`[DeploymentEngine] killRemoteBuildProcess(${prefix}): ${result}`);
+          if (result.startsWith("KILLED:")) {
+            await this.addLog(deploymentId, `🛑 تم إيقاف عملية البناء (PID: ${result.replace("KILLED:", "")})`, "warn");
+          }
+        } catch {}
       }
     } catch (err: any) {
       console.error(`[DeploymentEngine] killRemoteBuildProcess failed:`, err?.message);

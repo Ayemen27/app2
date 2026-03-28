@@ -3658,8 +3658,8 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🚀 بدء البناء في الخلفية على السيرفر (SSH-resilient)...", "info");
 
     await execAsync(
-      `${sshCmd} "cd ${remoteDir} && nohup bash -c 'export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' & echo \\$! > ${pidFile} && cat ${pidFile}"`,
-      { timeout: 30000 }
+      `${sshCmd} "cd ${remoteDir} && nohup bash -lc 'export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build; echo \\$? > ${exitFile}' > ${logFile} 2>&1 & echo \\$! > ${pidFile} && cat ${pidFile}"`,
+      { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
     );
 
     await this.addLog(deploymentId, "⏳ بناء التطبيق جارٍ... مراقبة دورية كل 15 ثانية", "info");
@@ -3695,10 +3695,16 @@ echo 'MAINACTIVITY_FIXED'"`,
             await this.addLog(deploymentId, `✅ اكتمل البناء بنجاح (${elapsed}s)`, "success");
             break;
           } else {
-            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000 }).catch(() => ({ stdout: "" }));
+            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }).catch(() => ({ stdout: "" }));
             const errorLines = errLog.split("\n").filter((l: string) => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
             if (errorLines.length > 0) {
               await this.addLog(deploymentId, `📋 أسطر الخطأ:\n${errorLines.join("\n")}`, "error");
+            }
+            if (!errLog.trim()) {
+              const { stdout: nohupLog } = await execAsync(`${sshCmd} "tail -20 ${remoteDir}/nohup.out 2>/dev/null"`, { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }).catch(() => ({ stdout: "" }));
+              if (nohupLog.trim()) {
+                await this.addLog(deploymentId, `📋 nohup.out:\n${nohupLog.trim().split("\n").slice(-10).join("\n")}`, "error");
+              }
             }
             throw new Error(`فشل البناء على السيرفر (exit code: ${exitCode})`);
           }

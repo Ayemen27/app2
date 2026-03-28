@@ -2665,6 +2665,7 @@ export const waCanonicalTransactions = pgTable("wa_canonical_transactions", {
   mergedFromCandidates: integer("merged_from_candidates").array(),
   category: text("category"),
   excludeReason: text("exclude_reason"),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -2697,6 +2698,7 @@ export const waExtractionCandidates = pgTable("wa_extraction_candidates", {
   idxWaExtractionCandidatesBatchId: index("idx_wa_extraction_candidates_batch_id").on(table.batchId),
   idxWaExtractionCandidatesMatchStatus: index("idx_wa_extraction_candidates_match_status").on(table.matchStatus),
   idxWaExtractionCandidatesCandidateType: index("idx_wa_extraction_candidates_candidate_type").on(table.candidateType),
+  idxWaExtractionCandidatesCanonical: index("idx_wa_extraction_candidates_canonical").on(table.canonicalTransactionId),
 }));
 
 export const waTransactionEvidenceLinks = pgTable("wa_transaction_evidence_links", {
@@ -2793,6 +2795,7 @@ export const waVerificationQueue = pgTable("wa_verification_queue", {
   waVerificationReviewerFkey: foreignKey({ name: "wa_verification_queue_reviewer_fkey", columns: [table.reviewerId], foreignColumns: [users.id] }),
   idxWaVerificationQueuePriority: index("idx_wa_verification_queue_priority").on(table.priority),
   idxWaVerificationQueueDecision: index("idx_wa_verification_queue_decision").on(table.decision),
+  idxWaVerificationQueueCandidate: index("idx_wa_verification_queue_candidate").on(table.candidateId),
 }));
 
 export const waPostingResults = pgTable("wa_posting_results", {

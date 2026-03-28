@@ -107,6 +107,23 @@ export async function runAllStartupMigrations(): Promise<void> {
       `);
     }
 
+    try {
+      await client.query(`ALTER TABLE wa_canonical_transactions ADD COLUMN IF NOT EXISTS review_notes TEXT`);
+      console.log("✅ [Migration] review_notes column ensured on wa_canonical_transactions");
+    } catch (e: any) {
+      console.warn("⚠️ [Migration] review_notes column migration skipped:", e.message);
+    }
+
+    try {
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_extraction_candidates_batch_id ON wa_extraction_candidates (batch_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_extraction_candidates_canonical ON wa_extraction_candidates (canonical_transaction_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_verification_queue_candidate ON wa_verification_queue (candidate_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_raw_messages_batch ON wa_raw_messages (batch_id)`);
+      console.log("✅ [Migrations] WA import indexes created successfully");
+    } catch (err) {
+      console.error("⚠️ [Migrations] WA import indexes error (non-fatal):", err);
+    }
+
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");
   } catch (error) {
     console.error("❌ [Migrations] خطأ أثناء تنفيذ migrations:", error);

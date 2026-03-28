@@ -125,37 +125,37 @@ export default function WAImportDashboard() {
 
   const candidatesQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'],
-    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/candidates`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/candidates`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: !!selectedBatchId,
   });
 
   const verificationQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'verification-queue'],
-    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/verification-queue`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/verification-queue`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: !!selectedBatchId,
   });
 
   const custodianQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/custodian-statements'],
-    queryFn: () => fetch(`/api/wa-import/custodian-statements`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/custodian-statements`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: activeTab === 'custodians',
   });
 
   const aliasesQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/aliases'],
-    queryFn: () => fetch(`/api/wa-import/aliases`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/aliases`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: activeTab === 'aliases',
   });
 
   const loansQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/inter-contractor-loans'],
-    queryFn: () => fetch(`/api/wa-import/inter-contractor-loans`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/inter-contractor-loans`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: activeTab === 'loans',
   });
 
   const workersSearchQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/workers-search', workerSearchQuery],
-    queryFn: () => fetch(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: aliasDialog && workerSearchQuery.length > 0,
   });
 

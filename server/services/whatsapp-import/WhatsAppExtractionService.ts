@@ -1,9 +1,9 @@
 import { db } from "../../db.js";
 import {
   waRawMessages, waExtractionCandidates, waTransactionEvidenceLinks,
-  waProjectHypotheses, waMediaAssets, waImportBatches
+  waProjectHypotheses, waMediaAssets, waImportBatches, waCanonicalTransactions
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { tryParseTransferReceipt } from './TransferReceiptParsers.js';
 import { extractExpenses } from './ExpenseExtractors.js';
@@ -464,10 +464,29 @@ export class WhatsAppExtractionService {
   }
 
   async getExtractionCandidates(batchId: number) {
-    return db.select()
+    const candidates = await db.select()
       .from(waExtractionCandidates)
       .where(eq(waExtractionCandidates.batchId, batchId))
       .orderBy(waExtractionCandidates.id);
+
+    if (candidates.length === 0) return candidates;
+
+    const canonicalIds = candidates
+      .filter((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId !== null)
+      .map((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId!);
+
+    if (canonicalIds.length === 0) return candidates.map((c: typeof candidates[0]) => ({ ...c, canonicalStatus: null }));
+
+    const canonicals = await db.select({ id: waCanonicalTransactions.id, status: waCanonicalTransactions.status })
+      .from(waCanonicalTransactions)
+      .where(sql`${waCanonicalTransactions.id} = ANY(${canonicalIds})`);
+
+    const statusMap = new Map(canonicals.map((ct: { id: number; status: string | null }) => [ct.id, ct.status]));
+
+    return candidates.map((c: typeof candidates[0]) => ({
+      ...c,
+      canonicalStatus: c.canonicalTransactionId ? statusMap.get(c.canonicalTransactionId) || null : null,
+    }));
   }
 
   async getCandidateWithEvidence(candidateId: number) {

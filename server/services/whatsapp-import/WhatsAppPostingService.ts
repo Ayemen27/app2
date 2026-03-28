@@ -423,7 +423,6 @@ export async function approveCandidate(
   if (candidate.length === 0) throw new Error('Candidate not found');
 
   const c = candidate[0];
-  if (c.canonicalTransactionId) throw new Error('Candidate already reviewed (canonicalTransactionId exists)');
 
   const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
 
@@ -433,6 +432,29 @@ export async function approveCandidate(
   } catch { /* fallback below */ }
   if (!dateStr && c.createdAt) {
     dateStr = formatDateForFingerprint(new Date(c.createdAt));
+  }
+
+  if (c.canonicalTransactionId) {
+    const existing = await db.select().from(waCanonicalTransactions)
+      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
+    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+      throw new Error('Candidate already confirmed/posted');
+    }
+    await db.update(waCanonicalTransactions)
+      .set({ status: 'confirmed', projectId, transactionDate: dateStr, reviewNotes: notes || null })
+      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
+
+    await db.insert(waReviewActions).values({
+      actionType: 'approve',
+      canonicalTransactionId: c.canonicalTransactionId,
+      candidateId,
+      reviewerId,
+      beforeState,
+      afterState: { status: 'confirmed', projectId },
+      notes: notes || null,
+    });
+
+    return { canonicalId: c.canonicalTransactionId };
   }
 
   const [canonical] = await db.insert(waCanonicalTransactions).values({
@@ -478,22 +500,37 @@ export async function rejectCandidate(
   const c = candidate[0];
   const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
 
-  const [canonical] = await db.insert(waCanonicalTransactions).values({
-    status: 'excluded',
-    transactionType: c.candidateType,
-    amount: c.amount,
-    description: c.description,
-    excludeReason: reason,
-    mergedFromCandidates: [c.id],
-  }).returning();
+  let canonicalId: number;
 
-  await db.update(waExtractionCandidates)
-    .set({ canonicalTransactionId: canonical.id })
-    .where(eq(waExtractionCandidates.id, candidateId));
+  if (c.canonicalTransactionId) {
+    const existing = await db.select().from(waCanonicalTransactions)
+      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
+    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+      throw new Error('Candidate already confirmed/posted — cannot reject');
+    }
+    await db.update(waCanonicalTransactions)
+      .set({ status: 'excluded', excludeReason: reason })
+      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
+    canonicalId = c.canonicalTransactionId;
+  } else {
+    const [canonical] = await db.insert(waCanonicalTransactions).values({
+      status: 'excluded',
+      transactionType: c.candidateType,
+      amount: c.amount,
+      description: c.description,
+      excludeReason: reason,
+      mergedFromCandidates: [c.id],
+    }).returning();
+    canonicalId = canonical.id;
+
+    await db.update(waExtractionCandidates)
+      .set({ canonicalTransactionId: canonicalId })
+      .where(eq(waExtractionCandidates.id, candidateId));
+  }
 
   await db.insert(waReviewActions).values({
     actionType: 'reject',
-    canonicalTransactionId: canonical.id,
+    canonicalTransactionId: canonicalId,
     candidateId,
     reviewerId,
     beforeState,
@@ -598,7 +635,20 @@ export async function splitCandidate(
 
   if (candidate.length === 0) throw new Error('Candidate not found');
   const c = candidate[0];
-  if (c.canonicalTransactionId) throw new Error('Candidate already reviewed');
+
+  if (c.canonicalTransactionId) {
+    const existing = await db.select().from(waCanonicalTransactions)
+      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
+    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+      throw new Error('Candidate already confirmed/posted');
+    }
+  }
+
+  const originalAmount = safeParseNum(c.amount);
+  const splitTotal = splits.reduce((sum, s) => sum + safeParseNum(s.amount), 0);
+  if (Math.abs(splitTotal - originalAmount) > 0.01) {
+    throw new Error(`Split total (${splitTotal}) does not match original amount (${originalAmount})`);
+  }
 
   const canonicalIds: number[] = [];
 

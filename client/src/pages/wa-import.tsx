@@ -583,7 +583,7 @@ export default function WAImportDashboard() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1 flex-wrap">
-                                {!c.canonicalTransactionId && (
+                                {(!c.canonicalTransactionId || !['confirmed', 'posted', 'excluded'].includes(c.canonicalStatus || '')) && (
                                   <>
                                     <Button size="icon" variant="default" data-testid={`button-approve-${c.id}`}
                                       onClick={() => { setApproveDialog({ candidateId: c.id, description: c.description || '' }); setApproveProjectId(''); setApproveNotes(''); }}>

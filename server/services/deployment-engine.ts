@@ -1082,13 +1082,20 @@ export class DeploymentEngine {
               if (this.isCancelled(deploymentId)) throw new CancellationError();
             }
             const timeoutMs = getStepTimeout(stepName);
-            await Promise.race([
-              this.executeStep(deploymentId, stepName, config),
-              new Promise<never>((_, reject) => setTimeout(() => {
-                this.terminateActiveProcesses(deploymentId);
-                reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`));
-              }, timeoutMs)),
-            ]);
+            let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+            try {
+              await Promise.race([
+                this.executeStep(deploymentId, stepName, config),
+                new Promise<never>((_, reject) => {
+                  timeoutHandle = setTimeout(() => {
+                    this.terminateActiveProcesses(deploymentId);
+                    reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`));
+                  }, timeoutMs);
+                }),
+              ]);
+            } finally {
+              if (timeoutHandle) clearTimeout(timeoutHandle);
+            }
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
             if (!resumed) logger!.stepEnd(stepName, "success");
@@ -1379,8 +1386,11 @@ export class DeploymentEngine {
       case "cl-summary":
         await this.stepClSummary(deploymentId);
         break;
+      case "rollback-server":
+        await this.addLog(deploymentId, `خطوة rollback-server تُنفَّذ عبر executeRollback مباشرة`, "info");
+        break;
       default:
-        await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
+        throw new Error(`خطوة غير معروفة: ${stepName} — لا يمكن المتابعة`);
     }
   }
 

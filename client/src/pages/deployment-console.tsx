@@ -468,11 +468,19 @@ export default function DeploymentConsole() {
             setLiveDeployment(payload.data);
             setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
             handleTerminal(payload.data.status);
+            if (payload.data.serverHealthResult) {
+              const hr = payload.data.serverHealthResult;
+              setHealthData({ status: hr.status || hr.overallStatus || "unknown", checks: hr.checks || hr });
+            }
           } else if (payload.type === "log") {
             setLiveLogs(prev => [...prev, payload.data]);
           } else if (payload.type === "deployment_update") {
             setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
             handleTerminal(payload.data.status);
+            if (payload.data.serverHealthResult && payload.data.status === "success") {
+              const hr = payload.data.serverHealthResult;
+              setHealthData({ status: hr.status || hr.overallStatus || "unknown", checks: hr.checks || hr });
+            }
           } else if (payload.type === "step_update") {
             setLiveDeployment(prev => {
               if (!prev) return null;

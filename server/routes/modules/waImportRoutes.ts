@@ -857,21 +857,45 @@ waImportRouter.get("/workers-search", requireAuth, requireAdminOrEditor, async (
     if (!query.success) return res.status(400).json({ error: "Invalid search query", details: query.error.issues });
     const q = query.data.q;
     const { db: database } = await import("../../db.js");
-    const { workers } = await import("@shared/schema");
-    const { ilike } = await import("drizzle-orm");
+    const { workers, projects, accountTypes } = await import("@shared/schema");
+    const { ilike, eq, sql: sqlFn } = await import("drizzle-orm");
 
-    let results;
-    if (q) {
-      results = await database.select({ id: workers.id, name: workers.name })
-        .from(workers)
-        .where(ilike(workers.name, `%${q}%`))
-        .limit(20);
-    } else {
-      results = await database.select({ id: workers.id, name: workers.name })
-        .from(workers)
-        .limit(50);
+    const searchLimit = q ? 30 : 100;
+    const condition = q ? ilike(workers.name, `%${q}%`) : undefined;
+
+    const workerResults = await database.select({ id: workers.id, name: workers.name })
+      .from(workers)
+      .where(condition)
+      .limit(searchLimit);
+
+    const projectCondition = q ? ilike(projects.name, `%${q}%`) : eq(projects.is_active, true);
+    const projectResults = await database.select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(projectCondition)
+      .limit(30);
+
+    let accountResults: { id: string; name: string }[] = [];
+    try {
+      const accountCondition = q ? ilike(accountTypes.nameAr, `%${q}%`) : undefined;
+      const rawAccounts = await database.select({ id: accountTypes.id, name: accountTypes.nameAr })
+        .from(accountTypes)
+        .where(accountCondition)
+        .limit(30);
+      accountResults = rawAccounts.map(a => ({ id: String(a.id), name: a.name }));
+    } catch (_err) {
+      /* accountTypes table may not exist */
     }
-    res.json(results);
+
+    res.json({
+      workers: workerResults.map(w => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
+      projects: projectResults.map(p => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
+      accounts: accountResults.map(a => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
+      all: [
+        ...workerResults.map(w => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
+        ...projectResults.map(p => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
+        ...accountResults.map(a => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
+      ],
+    });
   } catch (error) {
     console.error("[WAImport] Workers search error:", error);
     res.status(500).json({ error: "Failed to search workers" });
@@ -954,6 +978,24 @@ waImportRouter.post("/names/:id/unlink", requireAuth, requireAdminOrEditor, asyn
   } catch (error: any) {
     console.error("[WAImport] Unlink name error:", error);
     res.status(500).json({ error: error.message || "Failed to unlink name" });
+  }
+});
+
+waImportRouter.post("/names/:id/dismiss", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    const aliasId = parseInt(params.data.id);
+    const { db: database } = await import("../../db.js");
+    const { waEntityAliases } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    await database.update(waEntityAliases)
+      .set({ isActive: false })
+      .where(eq(waEntityAliases.id, aliasId));
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WAImport] Dismiss name error:", error);
+    res.status(500).json({ error: error.message || "Failed to dismiss name" });
   }
 });
 

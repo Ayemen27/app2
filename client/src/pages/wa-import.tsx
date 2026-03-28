@@ -265,6 +265,18 @@ export default function WAImportDashboard() {
     onError: (err: any) => toast({ title: "خطأ في الربط", description: err.message, variant: "destructive" }),
   });
 
+  const dismissNameMutation = useMutation({
+    mutationFn: (aliasId: number) =>
+      apiRequest(`/api/wa-import/names/${aliasId}/dismiss`, 'POST', {}),
+    onSuccess: () => {
+      toast({ title: "تم تجاهل الاسم" });
+      if (nameLinkingBatchId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
+      }
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
   const runFullPipeline = useCallback(async (batchId: number) => {
     setPipelineBatchId(batchId);
     setPipelineDialog(true);
@@ -1747,9 +1759,8 @@ export default function WAImportDashboard() {
                         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
                       ) : (() => {
                         const names = (discoveredNamesQuery.data || [])
-                          .filter((n: any) => !n.canonicalEntityId)
+                          .filter((n: any) => !n.canonicalEntityId && n.isActive !== false)
                           .filter((n: any) => !nameLinkingSearch || n.aliasName?.includes(nameLinkingSearch) || n.entityType?.includes(nameLinkingSearch));
-                        const allWorkers = allWorkersQuery.data || [];
 
                         if (names.length === 0) return (
                           <div className="text-center py-4 text-sm text-muted-foreground">
@@ -1760,10 +1771,17 @@ export default function WAImportDashboard() {
 
                         return names.map((name: any) => {
                           const searchTerm = workerSearchPerAlias[name.id] || '';
-                          const filteredWorkers = searchTerm.length > 0
-                            ? allWorkers.filter((w: any) => w.name?.includes(searchTerm) || w.id?.includes(searchTerm))
-                            : allWorkers.slice(0, 10);
+                          const allEntities = (allWorkersQuery.data as any)?.all || allWorkersQuery.data || [];
+                          const filteredEntities = searchTerm.length > 0
+                            ? allEntities.filter((w: any) => w.name?.includes(searchTerm) || w.id?.toString().includes(searchTerm))
+                            : allEntities.slice(0, 15);
                           const selected = linkSelections[name.id];
+
+                          const entityLabelColors: Record<string, string> = {
+                            'عامل': 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+                            'مشروع': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+                            'حساب': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+                          };
 
                           return (
                             <div key={name.id} className="rounded-lg border bg-white dark:bg-gray-900 p-3 space-y-2" data-testid={`unlinked-name-${name.id}`}>
@@ -1773,13 +1791,21 @@ export default function WAImportDashboard() {
                                   <Badge variant="outline" className="text-[10px]">{name.entityType}</Badge>
                                   {name.occurrenceCount > 1 && <Badge variant="secondary" className="text-[10px]">{name.occurrenceCount}×</Badge>}
                                 </div>
-                                {selected && (
-                                  <Button size="sm" variant="default" className="h-7 text-xs" data-testid={`button-link-${name.id}`}
-                                    onClick={() => linkNameMutation.mutate({ aliasId: name.id, entityId: selected.entityId, entityTable: selected.entityTable })}
-                                    disabled={linkNameMutation.isPending}>
-                                    <Link2 className="w-3 h-3 ml-1" /> ربط
+                                <div className="flex items-center gap-1">
+                                  {selected && (
+                                    <Button size="sm" variant="default" className="h-7 text-xs" data-testid={`button-link-${name.id}`}
+                                      onClick={() => linkNameMutation.mutate({ aliasId: name.id, entityId: selected.entityId, entityTable: selected.entityTable })}
+                                      disabled={linkNameMutation.isPending}>
+                                      <Link2 className="w-3 h-3 ml-1" /> ربط
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-dismiss-${name.id}`}
+                                    onClick={() => dismissNameMutation.mutate(name.id)}
+                                    disabled={dismissNameMutation.isPending}
+                                    title="تجاهل — ليس اسم صحيح">
+                                    <XCircle className="w-3.5 h-3.5" />
                                   </Button>
-                                )}
+                                </div>
                               </div>
 
                               {(name.sourceMessageText || name.context) && (
@@ -1797,7 +1823,7 @@ export default function WAImportDashboard() {
                               <div className="flex gap-2 items-center">
                                 <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                 <Input
-                                  placeholder="ابحث عن العامل / الكيان..."
+                                  placeholder="ابحث عن عامل / مشروع / حساب..."
                                   value={searchTerm}
                                   onChange={e => setWorkerSearchPerAlias(prev => ({ ...prev, [name.id]: e.target.value }))}
                                   className="h-8 text-xs"
@@ -1805,17 +1831,17 @@ export default function WAImportDashboard() {
                                 />
                               </div>
 
-                              {filteredWorkers.length > 0 && (
-                                <div className="max-h-28 overflow-y-auto border rounded">
-                                  {filteredWorkers.map((w: any) => (
+                              {filteredEntities.length > 0 && (
+                                <div className="max-h-32 overflow-y-auto border rounded">
+                                  {filteredEntities.map((w: any) => (
                                     <div
-                                      key={w.id}
-                                      className={`px-2.5 py-1.5 text-xs cursor-pointer hover:bg-primary/10 flex items-center justify-between ${selected?.entityId === w.id ? 'bg-primary/15 font-medium' : ''}`}
-                                      onClick={() => setLinkSelections(prev => ({ ...prev, [name.id]: { entityId: w.id, entityTable: 'workers' } }))}
-                                      data-testid={`worker-option-${name.id}-${w.id}`}
+                                      key={`${w.entityTable}-${w.id}`}
+                                      className={`px-2.5 py-1.5 text-xs cursor-pointer hover:bg-primary/10 flex items-center justify-between ${selected?.entityId === w.id && selected?.entityTable === w.entityTable ? 'bg-primary/15 font-medium' : ''}`}
+                                      onClick={() => setLinkSelections(prev => ({ ...prev, [name.id]: { entityId: w.id, entityTable: w.entityTable } }))}
+                                      data-testid={`entity-option-${name.id}-${w.entityTable}-${w.id}`}
                                     >
                                       <span>{w.name}</span>
-                                      <span className="text-muted-foreground">{w.type || ''}</span>
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${entityLabelColors[w.entityLabel] || 'bg-gray-100 text-gray-600'}`}>{w.entityLabel}</span>
                                     </div>
                                   ))}
                                 </div>

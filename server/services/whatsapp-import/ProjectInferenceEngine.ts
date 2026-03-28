@@ -1,6 +1,8 @@
 import { normalizeArabicText } from './ArabicAmountParser.js';
 import { db } from '../../db.js';
 import { projects } from '@shared/schema';
+import { inferProjectWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
+import type { AIProjectResult } from './AIExtractionOrchestrator.js';
 
 export interface ProjectHypothesis {
   projectId: string;
@@ -108,6 +110,50 @@ export function inferProject(
       evidenceKeywords: matchedKeywords,
       inferenceMethod,
     });
+  }
+
+  return hypotheses;
+}
+
+async function inferProjectWithAIWrapper(
+  messageText: string,
+  chatSource: string,
+  projectKeywords?: ProjectKeywordMap[]
+): Promise<ProjectHypothesis | null> {
+  if (!projectKeywords || projectKeywords.length === 0) return null;
+  if (!isAIAvailable()) return null;
+
+  const availableProjects = projectKeywords.map(pk => ({
+    id: pk.projectId,
+    name: pk.projectName,
+  }));
+
+  const aiResult: AIProjectResult | null = await inferProjectWithAI(messageText, availableProjects);
+  if (!aiResult) return null;
+
+  return {
+    projectId: aiResult.projectId,
+    confidence: aiResult.confidence,
+    evidenceKeywords: [aiResult.reason],
+    inferenceMethod: `ai_project_inference+${chatSource}`,
+  };
+}
+
+export async function inferProjectAsync(
+  messageText: string,
+  chatSource: string,
+  projectKeywords?: ProjectKeywordMap[]
+): Promise<ProjectHypothesis[]> {
+  const hypotheses = inferProject(messageText, chatSource, projectKeywords);
+
+  const best = getBestProjectHypothesis(hypotheses);
+  if (best && best.confidence >= 0.7) {
+    return hypotheses;
+  }
+
+  const aiHypothesis = await inferProjectWithAIWrapper(messageText, chatSource, projectKeywords);
+  if (aiHypothesis) {
+    hypotheses.push(aiHypothesis);
   }
 
   return hypotheses;

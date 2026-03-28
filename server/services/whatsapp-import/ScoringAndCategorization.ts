@@ -1,4 +1,5 @@
 import { normalizeArabicText } from './ArabicAmountParser.js';
+import { isAIAvailable } from './AIExtractionOrchestrator.js';
 
 export interface ConfidenceBreakdown {
   baseScore: number;
@@ -6,6 +7,7 @@ export interface ConfidenceBreakdown {
   penalties: Record<string, number>;
   bonuses: Record<string, number>;
   finalScore: number;
+  aiReason?: string;
 }
 
 const BASE_SCORES: Record<string, number> = {
@@ -21,6 +23,9 @@ const BASE_SCORES: Record<string, number> = {
 };
 
 function getBaseScore(patternType: string): number {
+  if (patternType.startsWith('ai_')) {
+    return 0.90;
+  }
   if (BASE_SCORES[patternType] !== undefined) {
     return BASE_SCORES[patternType];
   }
@@ -74,6 +79,10 @@ export function computeConfidence(
 
   if (context.hasExplicitAmountWithCurrency) {
     bonuses['explicit_amount_with_currency'] = 0.03;
+  }
+
+  if (patternType.startsWith('ai_')) {
+    bonuses['ai_verified'] = 0.05;
   }
 
   const penaltySum = Object.values(penalties).reduce((s, v) => s + v, 0);
@@ -148,4 +157,45 @@ export function categorizeTransferReceipt(): CategoryResult {
     subcategory: 'transfer',
     targetTable: 'fund_transfers',
   };
+}
+
+export async function computeConfidenceWithAI(
+  originalText: string,
+  patternType: string,
+  context: ScoringContext
+): Promise<ConfidenceBreakdown> {
+  const base = computeConfidence(patternType, context);
+
+  if (!isAIAvailable()) {
+    return base;
+  }
+
+  try {
+    const { analyzeFinancialWithAI } = await import('./AIExtractionOrchestrator.js');
+    const results = await analyzeFinancialWithAI([{
+      index: 0,
+      sender: '',
+      text: originalText,
+    }]);
+
+    if (results.length > 0 && results[0].confidence > 0) {
+      const aiConfidence = results[0].confidence;
+      const aiEvidence = results[0].evidence || results[0].description || '';
+
+      if (aiConfidence >= 0.7) {
+        base.bonuses['ai_confidence_boost'] = 0.05;
+      }
+
+      base.aiReason = aiEvidence;
+
+      const penaltySum = Object.values(base.penalties).reduce((s, v) => s + v, 0);
+      const bonusSum = Object.values(base.bonuses).reduce((s, v) => s + v, 0);
+      const finalScore = Math.max(0, Math.min(1, base.baseScore + bonusSum + penaltySum));
+      base.finalScore = Math.round(finalScore * 10000) / 10000;
+    }
+  } catch (err: any) {
+    console.warn('[ScoringAndCategorization] AI confidence evaluation failed:', err.message);
+  }
+
+  return base;
 }

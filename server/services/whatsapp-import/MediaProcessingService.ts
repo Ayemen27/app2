@@ -3,6 +3,7 @@ import { waMediaAssets } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
+import { analyzeImageWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
 
 export interface MediaProcessingResult {
   processed: number;
@@ -115,14 +116,55 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
 
       const trimmedText = extractedText.trim();
       if (trimmedText) {
+        let finalText = trimmedText;
+        let finalStatus = 'ocr_completed';
+
+        const hasFinancialData = /\d{3,}/.test(trimmedText) || /ريال|حوالة|تحويل|مبلغ|فاتورة|إيصال/.test(trimmedText);
+        if (hasFinancialData && isAIAvailable()) {
+          try {
+            const aiAnalysis = await analyzeImageWithAI(trimmedText, asset.originalFilename || undefined);
+            if (aiAnalysis) {
+              const aiSummaryParts: string[] = [];
+              if (aiAnalysis.documentType && aiAnalysis.documentType !== 'غير_محدد') {
+                aiSummaryParts.push(`نوع: ${aiAnalysis.documentType}`);
+              }
+              if (aiAnalysis.companyName) {
+                aiSummaryParts.push(`شركة: ${aiAnalysis.companyName}`);
+              }
+              if (aiAnalysis.transferNumber) {
+                aiSummaryParts.push(`رقم: ${aiAnalysis.transferNumber}`);
+              }
+              if (aiAnalysis.sender) {
+                aiSummaryParts.push(`مرسل: ${aiAnalysis.sender}`);
+              }
+              if (aiAnalysis.recipient) {
+                aiSummaryParts.push(`مستلم: ${aiAnalysis.recipient}`);
+              }
+              if (aiAnalysis.extractedAmounts && aiAnalysis.extractedAmounts.length > 0) {
+                const amountStrs = aiAnalysis.extractedAmounts.map(a => `${a.amount} (${a.description})`);
+                aiSummaryParts.push(`مبالغ: ${amountStrs.join('، ')}`);
+              }
+              if (aiAnalysis.summary) {
+                aiSummaryParts.push(`ملخص: ${aiAnalysis.summary}`);
+              }
+              if (aiSummaryParts.length > 0) {
+                finalText = `${trimmedText}\n[تحليل AI: ${aiSummaryParts.join(' | ')}]`;
+                finalStatus = 'ai_analyzed';
+              }
+            }
+          } catch (aiErr: any) {
+            console.warn(`[MediaProcessing] AI analysis failed for asset ${asset.id}: ${aiErr.message}`);
+          }
+        }
+
         await db.update(waMediaAssets)
           .set({
-            ocrText: trimmedText,
-            mediaStatus: 'ocr_completed',
+            ocrText: finalText,
+            mediaStatus: finalStatus,
           })
           .where(eq(waMediaAssets.id, asset.id));
         result.processed++;
-        result.totalText += trimmedText.length;
+        result.totalText += finalText.length;
       } else {
         await db.update(waMediaAssets)
           .set({ mediaStatus: 'ocr_completed' })

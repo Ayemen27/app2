@@ -7,7 +7,8 @@ import {
 import type { WaEntityAlias } from "@shared/schema";
 import { eq, sql, and, isNull } from "drizzle-orm";
 import { normalizeArabicText } from './ArabicAmountParser.js';
-import { getModelManager } from '../ai-agent/ModelManager.js';
+import { extractNamesWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
+import type { MessageForAI } from './AIExtractionOrchestrator.js';
 
 export interface ExtractedName {
   name: string;
@@ -43,61 +44,6 @@ export function normalizeForMatching(text: string): string {
 }
 
 const ARABIC_NAME_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]{2,}/;
-
-const BLOCKED_WORDS = new Set([
-  'السبيات', 'النجاره', 'النجارة', 'النقل', 'المواصلات', 'السيارات', 'الشاحنات',
-  'البترول', 'البنزين', 'الديزل', 'السولار', 'الوقود', 'الزيت',
-  'الحديد', 'الخرسانة', 'الخرسانه', 'الاسمنت', 'الإسمنت', 'الرمل', 'البلوك', 'الطوب',
-  'الزلط', 'الحصى', 'البحص', 'الماء', 'المياه', 'الخشب', 'الالمنيوم',
-  'الشاص', 'الشاصي', 'الهيلكس', 'الدينا', 'القلاب', 'الكرين', 'الحفار',
-  'البكلين', 'البوكلين', 'اللودر', 'الخلاطة', 'الخلاطه', 'المكسر', 'الونش',
-  'التريلا', 'التريله', 'الباص', 'التاكسي', 'الموتر', 'السياره', 'السيارة',
-  'الابيار', 'الآبار', 'البئر', 'المشروع', 'الموقع', 'البيت', 'المنزل',
-  'العماره', 'العمارة', 'الفيلا', 'المسجد', 'الجامع', 'المدرسة', 'المدرسه',
-  'الشارع', 'الطريق', 'الجسر', 'السد', 'الخزان',
-  'المضخة', 'المضخه', 'الماطور', 'الكهرباء', 'الكهربا', 'المولد',
-  'الصبة', 'الصبه', 'القواعد', 'الاعمدة', 'الاعمده', 'السقف', 'الجدار',
-  'السباكة', 'السباكه', 'الدهان', 'البلاط', 'السيراميك', 'الجبس',
-  'المسامير', 'البراغي', 'الانابيب', 'المواسير', 'الاسلاك',
-  'الفطور', 'الغداء', 'العشاء', 'الاكل', 'الأكل', 'القات',
-  'التامين', 'التأمين', 'الضريبة', 'الضرائب', 'الزكاة', 'الزكاه',
-]);
-
-const BLOCKED_PHRASES_RE = /^(?:السبيات|النقل|المواصلات|البترول|الديزل|السولار|الحديد|الخرسانة|الرمل|الاسمنت|البلوك|الخشب)/;
-
-function isBlockedCandidate(name: string): boolean {
-  const normalized = normalizeForMatching(name);
-  const words = normalized.split(/\s+/);
-
-  if (words.length > 4) return true;
-
-  if (words.length >= 2 && words.filter(w => w.startsWith('وال') || w.startsWith('و')).length >= 2) return true;
-
-  for (const word of words) {
-    if (BLOCKED_WORDS.has(word)) return true;
-  }
-
-  if (BLOCKED_PHRASES_RE.test(normalized)) return true;
-
-  if (/^\d+$/.test(normalized)) return true;
-
-  return false;
-}
-
-function isLikelyPersonOrCompany(name: string, entityType: string): boolean {
-  const normalized = normalizeForMatching(name);
-  const words = normalized.split(/\s+/);
-
-  if (words.length === 1 && words[0].length < 3) return false;
-
-  if (entityType === 'شركة' || entityType === 'محل_مواد_بناء') return true;
-
-  if (/^(?:ابو|أبو|ام|أم)\s/.test(normalized)) return true;
-
-  if (words.length <= 3 && !isBlockedCandidate(name)) return true;
-
-  return false;
-}
 
 export async function runNameExtractionMigration(): Promise<{ success: boolean; details: string[] }> {
   const details: string[] = [];
@@ -256,6 +202,15 @@ export async function runNameExtractionMigration(): Promise<{ success: boolean; 
 }
 
 export class NameExtractionService {
+  private mapAIEntityType(aiType: string): string {
+    switch (aiType) {
+      case 'شخص': return 'عامل';
+      case 'شركة': return 'شركة';
+      case 'مجموعة_عمال': return 'عمال';
+      default: return 'عامل';
+    }
+  }
+
   async extractNamesFromBatch(batchId: number): Promise<ExtractionBatchResult> {
     const messages = await db.select()
       .from(waRawMessages)
@@ -277,55 +232,93 @@ export class NameExtractionService {
     let newNames = 0;
     let existingNames = 0;
 
-    for (const msg of messages) {
-      let textToExtract = msg.messageText || '';
-      const ocrText = ocrByMessageId.get(msg.id);
-      if (ocrText) {
-        textToExtract = textToExtract + ' ' + ocrText;
+    let extracted: ExtractedName[] = [];
+    const messageIdByIndex = new Map<number, number>();
+
+    if (isAIAvailable()) {
+      const aiMessages: MessageForAI[] = messages.map((msg, idx) => {
+        messageIdByIndex.set(idx, msg.id);
+        return {
+          index: idx,
+          sender: msg.sender || '',
+          text: msg.messageText || '',
+          timestamp: msg.messageTimestamp ? new Date(msg.messageTimestamp).toISOString() : undefined,
+          ocrText: ocrByMessageId.get(msg.id) || undefined,
+          hasImage: !!ocrByMessageId.get(msg.id),
+        };
+      });
+
+      try {
+        const aiResults = await extractNamesWithAI(aiMessages);
+        for (const r of aiResults) {
+          const msgId = r.messageIndex !== undefined ? messageIdByIndex.get(r.messageIndex) : undefined;
+          extracted.push({
+            name: r.name,
+            entityType: this.mapAIEntityType(r.entityType),
+            confidence: r.confidence,
+            context: r.evidence || '',
+            extractionMethod: 'ai_extraction',
+          });
+        }
+      } catch (err: any) {
+        console.warn('[NameExtraction] AI extraction failed, falling back to regex:', err.message);
+        extracted = [];
       }
-      const extracted = this.extractNamesFromText(textToExtract, msg.sender);
-      for (const name of extracted) {
-        totalNames++;
-        const normalized = normalizeForMatching(name.name);
-        if (normalized.length < 2) continue;
+    }
 
-        const existing = await db.select()
-          .from(waEntityAliases)
-          .where(
-            and(
-              eq(waEntityAliases.aliasNameNormalized, normalized),
-              eq(waEntityAliases.entityType, name.entityType)
-            )
+    if (extracted.length === 0) {
+      for (const msg of messages) {
+        let textToExtract = msg.messageText || '';
+        const ocrText = ocrByMessageId.get(msg.id);
+        if (ocrText) {
+          textToExtract = textToExtract + ' ' + ocrText;
+        }
+        const regexResults = this.extractNamesFromText(textToExtract, msg.sender);
+        extracted.push(...regexResults);
+      }
+    }
+
+    for (const name of extracted) {
+      totalNames++;
+      const normalized = normalizeForMatching(name.name);
+      if (normalized.length < 2) continue;
+
+      const existing = await db.select()
+        .from(waEntityAliases)
+        .where(
+          and(
+            eq(waEntityAliases.aliasNameNormalized, normalized),
+            eq(waEntityAliases.entityType, name.entityType)
           )
-          .limit(1);
+        )
+        .limit(1);
 
-        if (existing.length > 0) {
-          existingNames++;
-          await db.update(waEntityAliases)
-            .set({
-              occurrenceCount: sql`${waEntityAliases.occurrenceCount} + 1`,
-              lastSeenAt: sql`NOW()`,
-            })
-            .where(eq(waEntityAliases.id, existing[0].id));
-        } else {
-          newNames++;
-          try {
-            await db.insert(waEntityAliases).values({
-              aliasName: name.name,
-              aliasNameNormalized: normalized,
-              entityType: name.entityType,
-              sourceBatchId: batchId,
-              sourceMessageId: msg.id,
-              extractionMethod: name.extractionMethod,
-              confidence: name.confidence.toString(),
-              context: name.context.substring(0, 500),
-              occurrenceCount: 1,
-            });
-          } catch (err: any) {
-            if (err.code === '23505') {
-              existingNames++;
-              newNames--;
-            }
+      if (existing.length > 0) {
+        existingNames++;
+        await db.update(waEntityAliases)
+          .set({
+            occurrenceCount: sql`${waEntityAliases.occurrenceCount} + 1`,
+            lastSeenAt: sql`NOW()`,
+          })
+          .where(eq(waEntityAliases.id, existing[0].id));
+      } else {
+        newNames++;
+        try {
+          await db.insert(waEntityAliases).values({
+            aliasName: name.name,
+            aliasNameNormalized: normalized,
+            entityType: name.entityType,
+            sourceBatchId: batchId,
+            sourceMessageId: null,
+            extractionMethod: name.extractionMethod,
+            confidence: name.confidence.toString(),
+            context: name.context.substring(0, 500),
+            occurrenceCount: 1,
+          });
+        } catch (err: any) {
+          if (err.code === '23505') {
+            existingNames++;
+            newNames--;
           }
         }
       }
@@ -372,87 +365,8 @@ export class NameExtractionService {
       });
     };
 
-    const jobTitlePatterns: Array<{ patterns: RegExp[]; entityType: string }> = [
-      { patterns: [/(?:نجار|نجاره)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'نجار' },
-      { patterns: [/(?:حداد|ملحم|لحام)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'حداد' },
-      { patterns: [/(?:سواق|سائق)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'سواق' },
-      { patterns: [/مهندس\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'مهندس' },
-      { patterns: [/مشرف\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'مشرف' },
-      { patterns: [/معلم\s+(?:مخاره|مخارة)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'معلم_مخاره' },
-      { patterns: [/معلم\s+(?:حداده|حدادة)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'معلم_حدادة' },
-      { patterns: [/معلم\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'معلم' },
-      { patterns: [/مدير\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/], entityType: 'مدير' },
-    ];
-
-    for (const { patterns, entityType } of jobTitlePatterns) {
-      for (const pat of patterns) {
-        const m = cleaned.match(pat);
-        if (m && m[1]) {
-          addResult(m[1], entityType, 0.85, 'job_title_pattern');
-        }
-      }
-    }
-
-    const companyPatterns: Array<{ re: RegExp; entityType: string }> = [
-      { re: /(?:شركة|شركه|مؤسسة)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'شركة' },
-      { re: /(?:محل|معرض)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'محل_مواد_بناء' },
-      { re: /محطة\s+(?:بترول|بنزين)\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})?/, entityType: 'محطة_بترول' },
-    ];
-
-    for (const { re, entityType } of companyPatterns) {
-      const m = cleaned.match(re);
-      if (m && m[1]) {
-        addResult(m[1], entityType, 0.80, 'company_pattern');
-      } else if (m && entityType === 'محطة_بترول') {
-        addResult('محطة بترول', entityType, 0.75, 'company_pattern');
-      }
-    }
-
-    const paymentPatterns = [
-      /(?:اجرة|أجرة|حق|مال|يومية)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{3,30})/,
-      /(?:المستلم|المرسل)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{3,30})/,
-    ];
-
-    for (const pat of paymentPatterns) {
-      const m = cleaned.match(pat);
-      if (m && m[1]) {
-        const name = m[1].replace(/\d+/g, '').trim();
-        if (name.length >= 3) {
-          addResult(name, 'عامل', 0.70, 'payment_recipient_pattern');
-        }
-      }
-    }
-
-    const custodianPatterns = [
-      /حساب\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/,
-      /عند\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/,
-      /أمانة\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/,
-    ];
-
-    for (const pat of custodianPatterns) {
-      const m = cleaned.match(pat);
-      if (m && m[1]) {
-        addResult(m[1], 'أمين_عهدة', 0.75, 'custodian_pattern');
-      }
-    }
-
-    const groupPatterns: Array<{ re: RegExp; entityType: string }> = [
-      { re: /عمال\s+(?:حفر|الحفر)/, entityType: 'عمال_حفر' },
-      { re: /عمال\s+(?:صبة|الصبة|صبه)/, entityType: 'عمال_صبة' },
-      { re: /عمال\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,20})/, entityType: 'عمال' },
-    ];
-
-    for (const { re, entityType } of groupPatterns) {
-      const m = cleaned.match(re);
-      if (m) {
-        const groupName = m[0].trim();
-        addResult(groupName, entityType, 0.80, 'group_entity_pattern');
-      }
-    }
-
     const kunyaPatterns = [
       /(?:ابو|أبو)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]{2,15})/,
-      /(?:الحاج|الحج)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,20})/,
       /(?:ام|أم)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]{2,15})/,
     ];
 
@@ -460,6 +374,21 @@ export class NameExtractionService {
       const m = cleaned.match(pat);
       if (m) {
         addResult(m[0].trim(), 'عامل', 0.65, 'kunya_pattern');
+      }
+    }
+
+    const jobTitlePatterns: Array<{ pattern: RegExp; entityType: string }> = [
+      { pattern: /(?:نجار|نجاره)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'عامل' },
+      { pattern: /(?:حداد|ملحم|لحام)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'عامل' },
+      { pattern: /(?:سواق|سائق)\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'عامل' },
+      { pattern: /مهندس\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'عامل' },
+      { pattern: /مشرف\s+([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{2,30})/, entityType: 'عامل' },
+    ];
+
+    for (const { pattern, entityType } of jobTitlePatterns) {
+      const m = cleaned.match(pattern);
+      if (m && m[1]) {
+        addResult(m[1], entityType, 0.70, 'job_title_pattern');
       }
     }
 

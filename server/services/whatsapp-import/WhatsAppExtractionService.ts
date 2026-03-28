@@ -13,6 +13,16 @@ import { inferProject, getBestProjectHypothesis, loadProjectKeywords, type Proje
 import { detectSpecialTransaction, loadCustodianNames } from './SpecialTransactionDetectors.js';
 import { computeConfidence, categorizeExpense, categorizeTransferReceipt, type ScoringContext } from './ScoringAndCategorization.js';
 import { waAliasService } from './WhatsAppAliasService.js';
+import { analyzeFinancialWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
+import type { MessageForAI, AIFinancialResult } from './AIExtractionOrchestrator.js';
+
+const AI_TRANSACTION_TYPE_TO_PATTERN: Record<string, string> = {
+  'تحويل': 'structured_receipt',
+  'مصروف': 'inline_expense',
+  'قرض': 'loan',
+  'أمانة': 'custodian_receipt',
+  'تسوية': 'settlement',
+};
 
 export interface ExtractionResult {
   batchId: number;
@@ -119,9 +129,38 @@ export class WhatsAppExtractionService {
       }
     }
 
+    let aiResultsByMsgIndex = new Map<number, AIFinancialResult>();
+    if (isAIAvailable()) {
+      try {
+        const messagesForAI: MessageForAI[] = messages.map((m: typeof messages[0], idx: number) => ({
+          index: idx,
+          sender: m.sender,
+          text: m.messageText || '',
+          timestamp: new Date(m.waTimestamp).toISOString(),
+          ocrText: ocrTextByMessageId.get(m.id) || undefined,
+          hasImage: mediaByMessageId.has(m.id),
+        }));
+        const aiResults = await analyzeFinancialWithAI(messagesForAI);
+        for (const aiResult of aiResults) {
+          if (aiResult.messageIndex !== undefined) {
+            aiResultsByMsgIndex.set(aiResult.messageIndex, aiResult);
+          }
+        }
+      } catch (err: any) {
+        result.errors.push(`AI pre-pass failed: ${err.message}`);
+      }
+    }
+
+    const msgIdToIndex = new Map<number, number>();
+    messages.forEach((m: typeof messages[0], idx: number) => {
+      msgIdToIndex.set(m.id, idx);
+    });
+
     for (const cluster of clusters) {
       try {
-        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords, ocrTextByMessageId);
+        const anchorIndex = msgIdToIndex.get(cluster.anchorMessageId);
+        const clusterAIResult = anchorIndex !== undefined ? aiResultsByMsgIndex.get(anchorIndex) : undefined;
+        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords, ocrTextByMessageId, clusterAIResult);
       } catch (err: any) {
         result.errors.push(`Cluster ${cluster.anchorMessageId}: ${err.message}`);
         for (const memberId of cluster.memberMessageIds) {
@@ -134,7 +173,9 @@ export class WhatsAppExtractionService {
       if (clusteredMessageIds.has(msg.id)) continue;
 
       try {
-        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords, ocrTextByMessageId);
+        const msgIndex = msgIdToIndex.get(msg.id);
+        const msgAIResult = msgIndex !== undefined ? aiResultsByMsgIndex.get(msgIndex) : undefined;
+        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords, ocrTextByMessageId, msgAIResult);
       } catch (err: any) {
         result.errors.push(`Message ${msg.id}: ${err.message}`);
       }
@@ -154,10 +195,23 @@ export class WhatsAppExtractionService {
     allMessages: any[],
     result: ExtractionResult,
     projectKeywords: ProjectKeywordMap[],
-    ocrTextByMessageId: Map<number, string>
+    ocrTextByMessageId: Map<number, string>,
+    aiResult?: AIFinancialResult
   ) {
     const anchorMsg = allMessages.find(m => m.id === anchorId);
     if (!anchorMsg) return;
+
+    if (aiResult) {
+      if (aiResult.isTransaction && aiResult.confidence >= 0.75) {
+        const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[aiResult.transactionType] || 'inline_expense';
+        await this.createAICandidate(aiResult, patternType, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
+        return;
+      }
+      if (!aiResult.isTransaction && aiResult.confidence >= 0.8) {
+        result.excluded++;
+        return;
+      }
+    }
 
     let textToAnalyze = mergedText || anchorMsg.messageText || '';
 
@@ -202,8 +256,21 @@ export class WhatsAppExtractionService {
     mediaByMessageId: Map<number, number[]>,
     result: ExtractionResult,
     projectKeywords: ProjectKeywordMap[],
-    ocrTextByMessageId: Map<number, string>
+    ocrTextByMessageId: Map<number, string>,
+    aiResult?: AIFinancialResult
   ) {
+    if (aiResult) {
+      if (aiResult.isTransaction && aiResult.confidence >= 0.75) {
+        const patternType = AI_TRANSACTION_TYPE_TO_PATTERN[aiResult.transactionType] || 'inline_expense';
+        await this.createAICandidate(aiResult, patternType, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
+        return;
+      }
+      if (!aiResult.isTransaction && aiResult.confidence >= 0.8) {
+        result.excluded++;
+        return;
+      }
+    }
+
     if (isStickerMessage(msg.attachmentRef)) {
       result.excluded++;
       return;
@@ -282,6 +349,89 @@ export class WhatsAppExtractionService {
       }
       return;
     }
+  }
+
+  private async createAICandidate(
+    aiResult: AIFinancialResult,
+    patternType: string,
+    msg: any,
+    batchId: number,
+    chatSource: string,
+    messageIds: number[],
+    mediaIds: number[],
+    mediaByMessageId: Map<number, number[]>,
+    fromCluster: boolean,
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
+  ) {
+    const fullText = [msg.messageText, aiResult.description].filter(Boolean).join(' ');
+    const hypotheses = inferProject(fullText, chatSource, projectKeywords);
+    const bestProject = getBestProjectHypothesis(hypotheses);
+
+    const scoringCtx: ScoringContext = {
+      hasDate: !!msg.waTimestamp,
+      hasProjectMention: !!bestProject,
+      hasSupportingImage: mediaIds.length > 0 || (mediaByMessageId.get(msg.id)?.length ?? 0) > 0,
+      hasTransferNumber: !!aiResult.transferNumber,
+      hasExplicitAmountWithCurrency: !!aiResult.currency,
+      amountBelow1000: aiResult.amount < 1000,
+      ambiguousWorkerName: false,
+    };
+
+    const confidence = computeConfidence(patternType, scoringCtx);
+
+    let candidateType: string;
+    if (aiResult.transactionType === 'تحويل') {
+      candidateType = 'transfer';
+    } else if (aiResult.transactionType === 'قرض') {
+      candidateType = 'loan';
+    } else if (aiResult.transactionType === 'أمانة') {
+      candidateType = 'custodian_receipt';
+    } else if (aiResult.transactionType === 'تسوية') {
+      candidateType = 'settlement';
+    } else {
+      candidateType = 'expense';
+    }
+
+    let description = aiResult.description || '';
+    if (aiResult.companyName) {
+      description = `${aiResult.companyName} - ${description}`;
+    }
+    if (aiResult.transferNumber) {
+      description = `${description} [رقم: ${aiResult.transferNumber}]`;
+    }
+    if (aiResult.recipient) {
+      description = `${description} [مستلم: ${aiResult.recipient}]`;
+    }
+
+    const cat = candidateType === 'transfer'
+      ? categorizeTransferReceipt()
+      : categorizeExpense(description);
+
+    const dateValidation = validateInlineDate(msg.messageText || '', new Date(msg.waTimestamp), chatSource);
+
+    const [candidate] = await db.insert(waExtractionCandidates).values({
+      batchId,
+      sourceMessageId: msg.id,
+      amount: aiResult.amount.toString(),
+      currency: 'YER',
+      description,
+      patternType,
+      confidence: confidence.finalScore.toString(),
+      confidenceBreakdownJson: confidence,
+      category: cat.category,
+      candidateType,
+      matchStatus: 'new_entry',
+      reviewFlags: dateValidation.dateMismatchReason ? ['date_mismatch', 'ai_extracted'] : ['ai_extracted'],
+    }).returning();
+
+    await this.createEvidenceLinks(candidate.id, messageIds, mediaIds, mediaByMessageId);
+
+    if (hypotheses.length > 0) {
+      await this.storeProjectHypotheses(candidate.id, hypotheses);
+    }
+
+    result.candidatesCreated++;
   }
 
   private async createTransferCandidate(

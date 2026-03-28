@@ -419,7 +419,7 @@ export const getQueryFn: <T>(options: {
             throw new Error(`Authentication Error (401)`);
           }
           const errorData = await res.json().catch(() => ({ message: `Error ${res.status}` }));
-          throw new Error(errorData?.message || `Error ${res.status}`);
+          throw new Error(errorData?.message || errorData?.error || `Error ${res.status}`);
         }
 
         const data = await res.json();

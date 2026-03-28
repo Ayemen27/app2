@@ -106,14 +106,23 @@ export default function WAImportDashboard() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
+      const headers: Record<string, string> = {};
+      try {
+        const { shouldUseBearerAuth: checkBearer, getAccessToken: getToken } = await import('@/lib/auth-token-store');
+        if (checkBearer()) {
+          const token = getToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (_e) { /* cookie auth fallback */ }
       const res = await fetch('/api/wa-import/upload', {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'فشل الرفع' }));
-        throw new Error(err.error || 'فشل الرفع');
+        throw new Error(err.error || err.message || 'فشل الرفع');
       }
       return res.json();
     },
@@ -136,10 +145,20 @@ export default function WAImportDashboard() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [uploadMutation, toast]);
 
-  const projectsQuery = useQuery<{ id: string; name: string }[]>({ queryKey: ['/api/wa-import/projects'] });
+  const projectsQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['/api/wa-import/projects'],
+    queryFn: () => apiRequest('/api/wa-import/projects'),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
   const projectsList = projectsQuery.data || [];
 
-  const batchesQuery = useQuery<any[]>({ queryKey: ['/api/wa-import/batches'] });
+  const batchesQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/batches'],
+    queryFn: () => apiRequest('/api/wa-import/batches'),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
 
   const candidatesQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'],

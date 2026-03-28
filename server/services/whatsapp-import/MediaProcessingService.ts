@@ -2,6 +2,7 @@ import { db } from "../../db.js";
 import { waMediaAssets } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
+import * as path from "path";
 
 export interface MediaProcessingResult {
   processed: number;
@@ -67,7 +68,22 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       continue;
     }
 
-    const mime = asset.mimeType || '';
+    let mime = asset.mimeType || '';
+
+    if (!mime) {
+      const ext = path.extname(asset.originalFilename || asset.filePath || '').toLowerCase();
+      const mimeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+        '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+        '.pdf': 'application/pdf',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.xls': 'application/vnd.ms-excel',
+      };
+      mime = mimeMap[ext] || '';
+      if (mime) {
+        console.log(`[MediaProcessing] Detected mime by extension: ${ext} → ${mime} for asset ${asset.id}`);
+      }
+    }
 
     try {
       let extractedText = '';
@@ -82,6 +98,9 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       ) {
         extractedText = await extractExcelText(asset.filePath);
       } else {
+        await db.update(waMediaAssets)
+          .set({ mediaStatus: 'skipped_unsupported', skipReason: `نوع غير مدعوم: ${mime || 'مجهول'}` })
+          .where(eq(waMediaAssets.id, asset.id));
         result.skipped++;
         continue;
       }

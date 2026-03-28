@@ -289,10 +289,14 @@ export default function WAImportDashboard() {
       { key: 'batches', label: 'الدُفعات', value: batches.length, icon: Upload, color: 'blue' as const },
       { key: 'candidates', label: 'المرشحين', value: statsCount.total, icon: FileText, color: 'indigo' as const },
       { key: 'reviewed', label: 'تمت مراجعته', value: statsCount.reviewed, icon: CheckCircle, color: 'green' as const },
+    ],
+    columns: 3 as const,
+  }, {
+    items: [
       { key: 'conflicts', label: 'تعارضات', value: statsCount.conflict, icon: AlertTriangle, color: 'red' as const },
       { key: 'pending', label: 'بانتظار المراجعة', value: statsCount.total - statsCount.reviewed, icon: Clock, color: 'orange' as const },
     ],
-    columns: 5 as const,
+    columns: 3 as const,
   }], [batches.length, statsCount]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
@@ -338,30 +342,34 @@ export default function WAImportDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-main">
-        <TabsList className="w-full justify-start flex-wrap gap-1" data-testid="tabs-list">
-          <TabsTrigger value="batches" className="gap-1.5" data-testid="tab-batches">
-            <Upload className="w-4 h-4" /> الدُفعات
-          </TabsTrigger>
-          <TabsTrigger value="review" className="gap-1.5" data-testid="tab-review">
-            <Eye className="w-4 h-4" /> المراجعة
-            {statsCount.total - statsCount.reviewed > 0 && (
-              <Badge variant="secondary" className="mr-1 text-xs px-1.5 py-0">
-                {statsCount.total - statsCount.reviewed}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="reconciliation" className="gap-1.5" data-testid="tab-reconciliation">
-            <BarChart3 className="w-4 h-4" /> المطابقة
-          </TabsTrigger>
-          <TabsTrigger value="custodians" className="gap-1.5" data-testid="tab-custodians">
-            <Wallet className="w-4 h-4" /> أمناء العُهد
-          </TabsTrigger>
-          <TabsTrigger value="aliases" className="gap-1.5" data-testid="tab-aliases">
-            <Users className="w-4 h-4" /> الأسماء المستعارة
-          </TabsTrigger>
-          <TabsTrigger value="loans" className="gap-1.5" data-testid="tab-loans">
-            <ArrowLeftRight className="w-4 h-4" /> قروض المقاولين
-          </TabsTrigger>
+        <TabsList className="w-full justify-start gap-0.5" data-testid="tabs-list">
+          {[
+            { value: 'batches', label: 'الدُفعات', icon: Upload, badge: 0 },
+            { value: 'review', label: 'المراجعة', icon: Eye, badge: statsCount.total - statsCount.reviewed },
+            { value: 'reconciliation', label: 'المطابقة', icon: BarChart3, badge: 0 },
+            { value: 'custodians', label: 'أمناء العُهد', icon: Wallet, badge: 0 },
+            { value: 'aliases', label: 'الأسماء المستعارة', icon: Users, badge: 0 },
+            { value: 'loans', label: 'قروض المقاولين', icon: ArrowLeftRight, badge: 0 },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.value;
+            return (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="gap-1 px-2.5 py-1.5 transition-all duration-200"
+                data-testid={`tab-${tab.value}`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {isActive && <span className="text-xs whitespace-nowrap">{tab.label}</span>}
+                {tab.badge > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0 min-w-[18px] h-[18px] flex items-center justify-center">
+                    {tab.badge}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         <TabsContent value="batches" className="mt-4">

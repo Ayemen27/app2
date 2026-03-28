@@ -18,19 +18,29 @@ function cacheResponseToLocal(storeName: string, data: any) {
       records = data.data;
     }
     
+    let droppedCount = 0;
     const normalizedRecords = records.map((r: any) => {
-      if (!r) return null;
+      if (!r) { droppedCount++; return null; }
       if (r.id || r.key) return r;
       if (r.value !== undefined) {
         return { ...r, id: String(r.value) };
       }
+      droppedCount++;
       return null;
     }).filter(Boolean);
+
+    if (droppedCount > 0) {
+      console.warn(`[Cache] ${droppedCount} سجل محذوف (بدون id/key) من ${storeName}`);
+    }
     
     if (normalizedRecords.length > 0) {
-      smartSave(storeName, normalizedRecords).catch(() => {});
+      smartSave(storeName, normalizedRecords).catch((err) => {
+        console.warn(`[Cache] فشل حفظ ${storeName}:`, err?.message || err);
+      });
     }
-  } catch {}
+  } catch (err: any) {
+    console.warn(`[Cache] خطأ في تحليل بيانات ${storeName}:`, err?.message || err);
+  }
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -155,13 +165,13 @@ export async function apiRequest(
             }));
             return { ...offlineResult.data, isOffline: true, pendingSync: true };
           }
-        } catch (offErr) {
-          if (import.meta.env.DEV) console.warn('[apiRequest] Local save failed:', offErr);
-          return { success: false, data: null, message: 'لا يمكن حفظ البيانات محلياً بدون اتصال', isOffline: true };
+        } catch (offErr: any) {
+          console.warn('[apiRequest] Local save failed:', offErr);
+          throw new Error('لا يمكن حفظ البيانات محلياً بدون اتصال');
         }
       } else {
-        if (import.meta.env.DEV) console.warn(`[apiRequest] Endpoint not supported offline: ${endpoint}`);
-        return { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال بالإنترنت', isOffline: true };
+        console.warn(`[apiRequest] Endpoint not supported offline: ${endpoint}`);
+        throw new Error('هذه العملية غير متاحة بدون اتصال بالإنترنت');
       }
     }
 
@@ -284,17 +294,17 @@ export async function apiRequest(
               }));
               return { ...offlineResult.data, isOffline: true, pendingSync: true };
             }
-          } catch (offErr) {
-            if (import.meta.env.DEV) console.warn('[apiRequest] Local save failed:', offErr);
-            return { success: false, data: null, message: 'لا يمكن حفظ البيانات بدون اتصال', isOffline: true };
+          } catch (offErr: any) {
+            console.warn('[apiRequest] Network error - local save failed:', offErr);
+            throw new Error('لا يمكن حفظ البيانات بدون اتصال');
           }
         } else {
-          return { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال بالإنترنت', isOffline: true };
+          throw new Error('هذه العملية غير متاحة بدون اتصال بالإنترنت');
         }
       }
       if (method === 'GET') {
-        if (import.meta.env.DEV) console.warn(`[apiRequest] GET request failed offline: ${endpoint}`);
-        return { success: true, data: [], message: 'بدون اتصال', isOffline: true };
+        console.warn(`[apiRequest] GET request failed offline: ${endpoint}`);
+        throw new Error('لا يوجد اتصال بالإنترنت');
       }
     }
     if (import.meta.env.DEV) console.error(`API Error: ${method} ${endpoint}`, error);
@@ -339,7 +349,7 @@ export const getQueryFn: <T>(options: {
           const online = isOnline();
 
           if (!online && useLocalFallback) {
-            if (import.meta.env.DEV) console.log(`[QueryClient] Offline - fetching local data for: ${(queryKey as any[]).join("/")}`);
+            console.warn(`[QueryClient] Offline - fetching local data for: ${(queryKey as any[]).join("/")}`);
             try {
               const storeName = resolveStoreForQueryKey(queryKey);
               if (storeName) {
@@ -348,9 +358,10 @@ export const getQueryFn: <T>(options: {
                   return localData as any;
                 }
               }
+              console.warn(`[QueryClient] No local data for ${(queryKey as any[]).join("/")}`);
               return [] as any;
-            } catch (localError) {
-              if (import.meta.env.DEV) console.error('[QueryClient] Failed to fetch local data:', localError);
+            } catch (localError: any) {
+              console.warn('[QueryClient] Failed to fetch local data:', localError?.message || localError);
               return [] as any;
             }
           }
@@ -479,7 +490,7 @@ export const getQueryFn: <T>(options: {
           fetchError.name === 'AbortError' ||
           fetchError.name === 'TypeError'
         )) {
-          if (import.meta.env.DEV) console.log(`[QueryClient] Network error - fetching local data for: ${(queryKey as any[]).join("/")}`);
+          console.warn(`[QueryClient] Network error - fetching local data for: ${(queryKey as any[]).join("/")}`);
           try {
             const storeName = resolveStoreForQueryKey(queryKey);
             if (storeName) {
@@ -488,8 +499,10 @@ export const getQueryFn: <T>(options: {
                 return localData as any;
               }
             }
+            console.warn(`[QueryClient] Network error + no local fallback for ${(queryKey as any[]).join("/")}`);
             return [] as any;
-          } catch {
+          } catch (fallbackErr: any) {
+            console.warn(`[QueryClient] Local fallback also failed for ${(queryKey as any[]).join("/")}:`, fallbackErr?.message || fallbackErr);
             return [] as any;
           }
         }

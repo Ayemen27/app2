@@ -190,6 +190,7 @@ export async function runNameExtractionMigration(): Promise<{ success: boolean; 
 
     return { success: true, details };
   } catch (err: any) {
+    console.error(`[NameExtraction] Migration failed:`, err.message);
     details.push(`Migration error: ${err.message}`);
     return { success: false, details };
   } finally {

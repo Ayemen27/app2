@@ -37,7 +37,10 @@ export class WhatsAppAliasService {
   async resolveAlias(name: string): Promise<string | null> {
     const cache = await this.loadCache();
     const normalized = normalizeAliasName(name);
-    return cache.get(normalized) || null;
+    if (!cache.has(normalized)) {
+      return null;
+    }
+    return cache.get(normalized) ?? null;
   }
 
   async resolveAnyAlias(name: string): Promise<WaEntityAlias | null> {
@@ -79,7 +82,7 @@ export class WhatsAppAliasService {
     isVerified: boolean;
     isActive: boolean;
     updatedBy: string;
-  }>): Promise<WaEntityAlias | undefined> {
+  }>): Promise<WaEntityAlias> {
     const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
     if (data.aliasName) {
       updateData.aliasNameNormalized = normalizeAliasName(data.aliasName);
@@ -88,6 +91,9 @@ export class WhatsAppAliasService {
       .set(updateData)
       .where(eq(waEntityAliases.id, id))
       .returning();
+    if (!updated) {
+      throw new Error(`الاسم المستعار رقم ${id} غير موجود`);
+    }
     this.clearCache();
     return updated;
   }

@@ -64,7 +64,11 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
     }
 
     if (!fs.existsSync(asset.filePath)) {
-      result.skipped++;
+      console.warn(`[MediaProcessing] File missing for asset ${asset.id}: ${asset.filePath}`);
+      await db.update(waMediaAssets)
+        .set({ mediaStatus: 'ocr_failed', skipReason: 'الملف غير موجود على القرص' })
+        .where(eq(waMediaAssets.id, asset.id));
+      result.failed++;
       continue;
     }
 

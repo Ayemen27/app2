@@ -286,9 +286,20 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     // Phase 3: Delete candidates BEFORE canonical (candidates.canonical_transaction_id FK → canonical)
     await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
 
-    // Phase 4: Delete canonical transactions (now safe - no more FK references)
+    // Phase 4: Delete canonical transactions only if not referenced by other batches
     if (canonicalIds.length > 0) {
-      await database.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, canonicalIds));
+      const stillReferenced = (await database.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+        .from(waExtractionCandidates)
+        .where(inArray(waExtractionCandidates.canonicalTransactionId, canonicalIds))
+      ).map(r => r.canonicalTransactionId).filter(Boolean) as number[];
+
+      const safeToDelete = canonicalIds.filter(id => !stillReferenced.includes(id));
+      if (safeToDelete.length > 0) {
+        await database.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, safeToDelete));
+      }
+      if (stillReferenced.length > 0) {
+        console.log(`[WAImport] Skipped ${stillReferenced.length} shared canonical transactions (referenced by other batches)`);
+      }
     }
 
     // Phase 5: Delete custodian entries linked to batch

@@ -666,7 +666,19 @@ export class ModelManager {
 
   hasAvailableModel(): boolean {
     this.checkAndResetDailyUsage();
-    return this.models.some((m) => m.isAvailable && this.checkDailyLimit(m));
+    for (const model of this.models) {
+      if (model.isAvailable && this.checkDailyLimit(model)) return true;
+      if (!model.isAvailable) {
+        const anyKeyRecovered = model.keys.some(k =>
+          !k.isAvailable && k.lastErrorTime && Date.now() - k.lastErrorTime.getTime() > 5 * 60 * 1000
+        );
+        if (anyKeyRecovered && this.checkDailyLimit(model)) {
+          model.isAvailable = true;
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   getModelsStatus(): Array<{

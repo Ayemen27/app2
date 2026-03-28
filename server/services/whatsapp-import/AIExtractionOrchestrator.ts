@@ -614,14 +614,20 @@ export function getAIModelsStatus(): {
     model: string;
     isAvailable: boolean;
     error?: string;
+    totalKeys?: number;
+    availableKeys?: number;
   }>;
   activeModel?: string;
+  totalKeys?: number;
+  availableKeys?: number;
 } {
   try {
     const modelManager = getModelManager();
     const statuses = modelManager.getModelsStatus();
     const available = modelManager.hasAvailableModel();
     const activeModel = statuses.find(m => m.isAvailable);
+    const totalKeys = statuses.reduce((sum, m) => sum + (m.totalKeys || 0), 0);
+    const availableKeys = statuses.reduce((sum, m) => sum + (m.availableKeys || 0), 0);
     return {
       available,
       models: statuses.map(m => ({
@@ -629,8 +635,12 @@ export function getAIModelsStatus(): {
         model: m.model,
         isAvailable: m.isAvailable,
         error: m.lastError ? summarizeModelError(m.lastError) : undefined,
+        totalKeys: m.totalKeys,
+        availableKeys: m.availableKeys,
       })),
       activeModel: activeModel ? `${activeModel.provider}/${activeModel.model}` : undefined,
+      totalKeys,
+      availableKeys,
     };
   } catch {
     return { available: false, models: [] };

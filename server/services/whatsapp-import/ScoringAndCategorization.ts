@@ -20,6 +20,7 @@ const BASE_SCORES: Record<string, number> = {
   'personal_account': 0.65,
   'custodian_receipt': 0.85,
   'settlement': 0.80,
+  'generic_transfer': 0.70,
 };
 
 export interface ScoringContext {
@@ -104,6 +105,9 @@ const CATEGORY_MAP: Array<{ keywords: string[]; category: string; subcategory: s
   { keywords: ['عامل', 'عمال', 'يومية', 'يوميات'], category: 'labor', subcategory: 'labor' },
   { keywords: ['ايجار', 'إيجار', 'كراء'], category: 'rent', subcategory: 'overhead' },
   { keywords: ['صيانة', 'تصليح', 'اصلاح'], category: 'maintenance', subcategory: 'overhead' },
+  { keywords: ['عدة', 'أدوات', 'ادوات', 'مسامير', 'براغي'], category: 'tools', subcategory: 'materials' },
+  { keywords: ['خوذة', 'قفازات', 'سلامة', 'امان'], category: 'safety', subcategory: 'materials' },
+  { keywords: ['مضخة', 'بمب', 'بامب'], category: 'concrete_pump', subcategory: 'equipment' },
 ];
 
 export interface CategoryResult {

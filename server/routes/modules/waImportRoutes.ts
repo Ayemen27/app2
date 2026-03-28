@@ -20,6 +20,7 @@ import {
   splitCandidate,
 } from "../../services/whatsapp-import/WhatsAppPostingService.js";
 import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
+import { processMediaForBatch } from "../../services/whatsapp-import/MediaProcessingService.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -388,6 +389,27 @@ waImportRouter.get("/custodian/:workerId/entries", requireAuth, requireAdminOrEd
   } catch (error) {
     console.error("[WAImport] Get custodian entries error:", error);
     res.status(500).json({ error: "Failed to get custodian entries" });
+  }
+});
+
+waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
+    const batch = await waIngestionService.getBatch(batchId);
+    if (!batch) {
+      return res.status(404).json({ error: "Batch not found" });
+    }
+    if (batch.status !== 'completed') {
+      return res.status(400).json({ error: `Batch status is '${batch.status}', must be 'completed' to process media` });
+    }
+
+    const result = await processMediaForBatch(batchId);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Media processing error:", error);
+    res.status(500).json({ error: error.message || "Failed to process media" });
   }
 });
 

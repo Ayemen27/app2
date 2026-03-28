@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +77,9 @@ export default function WAImportDashboard() {
   const [splitItems, setSplitItems] = useState<{ amount: string; description: string }[]>([{ amount: '', description: '' }, { amount: '', description: '' }]);
 
   const [mediaPreviewDialog, setMediaPreviewDialog] = useState<{ candidateId: number; description: string } | null>(null);
+
+  const [selectedCandidateId, setSelectedCandidateId] = useState<number | null>(null);
+  const [confidenceFilter, setConfidenceFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
   const [aliasDialog, setAliasDialog] = useState(false);
   const [newAliasName, setNewAliasName] = useState("");
@@ -233,6 +236,19 @@ export default function WAImportDashboard() {
     onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
+  const processMediaMutation = useMutation({
+    mutationFn: (batchId: number) =>
+      apiRequest('POST', `/api/wa-import/batch/${batchId}/process-media`, {}),
+    onSuccess: (data: any) => {
+      toast({
+        title: "تمت معالجة الوسائط",
+        description: `تمت المعالجة: ${data.processed || 0} | فشل: ${data.failed || 0} | تم تخطيه: ${data.skipped || 0}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'media'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ في معالجة الوسائط", description: err.message, variant: "destructive" }),
+  });
+
   const editCandidateMutation = useMutation({
     mutationFn: (data: { candidateId: number; amount?: string; description?: string }) =>
       apiRequest('PATCH', `/api/wa-import/candidate/${data.candidateId}`, {
@@ -303,6 +319,12 @@ export default function WAImportDashboard() {
   const filteredCandidates = useMemo(() => {
     return candidates.filter((c: any) => {
       if (filterStatus !== 'all' && c.matchStatus !== filterStatus) return false;
+      if (confidenceFilter !== 'all') {
+        const conf = parseFloat(c.confidence || '0');
+        if (confidenceFilter === 'high' && conf < 0.8) return false;
+        if (confidenceFilter === 'medium' && (conf < 0.5 || conf >= 0.8)) return false;
+        if (confidenceFilter === 'low' && conf >= 0.5) return false;
+      }
       if (searchValue) {
         const s = searchValue.toLowerCase();
         return (c.description || '').toLowerCase().includes(s)
@@ -311,7 +333,7 @@ export default function WAImportDashboard() {
       }
       return true;
     });
-  }, [candidates, filterStatus, searchValue]);
+  }, [candidates, filterStatus, confidenceFilter, searchValue]);
 
   const statsCount = useMemo(() => ({
     total: candidates.length,
@@ -321,6 +343,33 @@ export default function WAImportDashboard() {
     conflict: candidates.filter((c: any) => c.matchStatus === 'conflict').length,
     reviewed: candidates.filter((c: any) => c.canonicalTransactionId).length,
   }), [candidates]);
+
+  const reviewStats = useMemo(() => {
+    const byType = { transfer: 0, expense: 0, special: 0, other: 0 };
+    const byConfidence = { high: 0, medium: 0, low: 0 };
+    const byStatus = { pending: 0, approved: 0, rejected: 0 };
+    candidates.forEach((c: any) => {
+      const t = (c.candidateType || '').toLowerCase();
+      if (t.includes('transfer')) byType.transfer++;
+      else if (t.includes('expense')) byType.expense++;
+      else if (t.includes('special')) byType.special++;
+      else byType.other++;
+
+      const conf = parseFloat(c.confidence || '0');
+      if (conf >= 0.8) byConfidence.high++;
+      else if (conf >= 0.5) byConfidence.medium++;
+      else byConfidence.low++;
+
+      if (c.canonicalTransactionId) {
+        if (['confirmed', 'posted'].includes(c.canonicalStatus || '')) byStatus.approved++;
+        else if (c.canonicalStatus === 'excluded') byStatus.rejected++;
+        else byStatus.approved++;
+      } else {
+        byStatus.pending++;
+      }
+    });
+    return { byType, byConfidence, byStatus };
+  }, [candidates]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -395,7 +444,7 @@ export default function WAImportDashboard() {
         searchPlaceholder="بحث في المرشحين..."
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        onReset={() => { setFilterStatus('all'); setSearchValue(''); }}
+        onReset={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); }}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-main">
@@ -470,6 +519,13 @@ export default function WAImportDashboard() {
                     },
                     ...(batch.status === 'completed' ? [
                       {
+                        icon: FileText,
+                        label: 'معالجة الوسائط',
+                        onClick: () => processMediaMutation.mutate(batch.id),
+                        disabled: processMediaMutation.isPending,
+                        color: 'purple' as const,
+                      },
+                      {
                         icon: Play,
                         label: 'استخراج',
                         onClick: () => extractMutation.mutate(batch.id),
@@ -494,6 +550,43 @@ export default function WAImportDashboard() {
 
         <TabsContent value="review" className="mt-4">
           <div className="space-y-4">
+            {selectedBatchId && candidates.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2" data-testid="review-stats-summary">
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">الإجمالي</p>
+                  <p className="text-lg font-bold" data-testid="stat-total">{candidates.length}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">تحويلات</p>
+                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400" data-testid="stat-transfers">{reviewStats.byType.transfer}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">مصروفات</p>
+                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400" data-testid="stat-expenses">{reviewStats.byType.expense}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">خاصة</p>
+                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400" data-testid="stat-special">{reviewStats.byType.special}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">ثقة عالية</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400" data-testid="stat-high-conf">{reviewStats.byConfidence.high}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">ثقة متوسطة</p>
+                  <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400" data-testid="stat-med-conf">{reviewStats.byConfidence.medium}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">ثقة منخفضة</p>
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400" data-testid="stat-low-conf">{reviewStats.byConfidence.low}</p>
+                </Card>
+                <Card className="p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">بانتظار</p>
+                  <p className="text-lg font-bold" data-testid="stat-pending">{reviewStats.byStatus.pending}</p>
+                </Card>
+              </div>
+            )}
+
             {selectedBatchId && (
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -503,6 +596,20 @@ export default function WAImportDashboard() {
                   <span className="text-sm text-muted-foreground">
                     {filteredCandidates.length} من {candidates.length} مرشح
                   </span>
+                  <div className="flex items-center gap-1" data-testid="confidence-filter-group">
+                    {([
+                      { key: 'all' as const, label: 'الكل' },
+                      { key: 'high' as const, label: 'عالية الثقة' },
+                      { key: 'medium' as const, label: 'متوسطة' },
+                      { key: 'low' as const, label: 'منخفضة' },
+                    ]).map(f => (
+                      <Button key={f.key} size="sm" variant={confidenceFilter === f.key ? 'default' : 'outline'}
+                        onClick={() => setConfidenceFilter(f.key)}
+                        data-testid={`button-conf-filter-${f.key}`}>
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {mergeMode ? (
@@ -576,7 +683,7 @@ export default function WAImportDashboard() {
                 <div className="flex flex-col items-center gap-4 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 opacity-20" />
                   <p className="text-lg">لا توجد نتائج مطابقة للفلاتر</p>
-                  <Button variant="outline" onClick={() => { setFilterStatus('all'); setSearchValue(''); }}>
+                  <Button variant="outline" onClick={() => { setFilterStatus('all'); setConfidenceFilter('all'); setSearchValue(''); }}>
                     مسح الفلاتر
                   </Button>
                 </div>
@@ -603,14 +710,18 @@ export default function WAImportDashboard() {
                     <TableBody>
                       {filteredCandidates.map((c: any) => {
                         const confidence = parseFloat(c.confidence || '0');
+                        const isExpanded = selectedCandidateId === c.id;
+                        const colCount = mergeMode ? 9 : 8;
                         return (
-                          <TableRow key={c.id} data-testid={`row-candidate-${c.id}`}
-                            className={mergeSelected.includes(c.id) ? 'bg-blue-50 dark:bg-blue-950/30' : ''}>
+                          <Fragment key={c.id}>
+                          <TableRow data-testid={`row-candidate-${c.id}`}
+                            className={`cursor-pointer ${mergeSelected.includes(c.id) ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${isExpanded ? 'border-b-0' : ''}`}
+                            onClick={() => setSelectedCandidateId(isExpanded ? null : c.id)}>
                             {mergeMode && (
                               <TableCell>
                                 <input type="checkbox"
                                   checked={mergeSelected.includes(c.id)}
-                                  onChange={() => toggleMergeCandidate(c.id)}
+                                  onChange={(e) => { e.stopPropagation(); toggleMergeCandidate(c.id); }}
                                   disabled={!!c.canonicalTransactionId}
                                   data-testid={`checkbox-merge-${c.id}`}
                                   className="w-4 h-4" />
@@ -639,7 +750,7 @@ export default function WAImportDashboard() {
                               <span className="text-sm text-muted-foreground">{c.category || '-'}</span>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1 flex-wrap">
+                              <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                                 {(!c.canonicalTransactionId || !['confirmed', 'posted', 'excluded'].includes(c.canonicalStatus || '')) && (
                                   <>
                                     <Button size="icon" variant="default" data-testid={`button-approve-${c.id}`}
@@ -676,6 +787,102 @@ export default function WAImportDashboard() {
                               </div>
                             </TableCell>
                           </TableRow>
+                          {isExpanded && (
+                            <TableRow data-testid={`row-detail-${c.id}`}>
+                              <TableCell colSpan={colCount} className="bg-muted/30 p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" dir="rtl">
+                                  <div className="space-y-3">
+                                    <div>
+                                      <p className="text-xs font-semibold text-muted-foreground mb-1">الرسالة الأصلية</p>
+                                      <div className="bg-background rounded-md p-3 text-sm border" data-testid={`text-source-msg-${c.id}`}>
+                                        {c.sourceMessageText || c.description || 'لا يوجد نص'}
+                                      </div>
+                                    </div>
+                                    {c.projectHypothesesJson && (() => {
+                                      try {
+                                        const hypotheses = typeof c.projectHypothesesJson === 'string' ? JSON.parse(c.projectHypothesesJson) : c.projectHypothesesJson;
+                                        if (Array.isArray(hypotheses) && hypotheses.length > 0) {
+                                          return (
+                                            <div>
+                                              <p className="text-xs font-semibold text-muted-foreground mb-1">فرضيات المشروع</p>
+                                              <div className="flex gap-1 flex-wrap">
+                                                {hypotheses.map((h: any, i: number) => (
+                                                  <Badge key={i} variant="outline" data-testid={`badge-hypothesis-${c.id}-${i}`}>
+                                                    {h.projectName || h.projectId || h} {h.confidence ? `(${(h.confidence * 100).toFixed(0)}%)` : ''}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      } catch { return null; }
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-muted-foreground mb-1">تفاصيل الثقة</p>
+                                    <div className="bg-background rounded-md p-3 border space-y-1.5" data-testid={`detail-confidence-${c.id}`}>
+                                      {(() => {
+                                        try {
+                                          const breakdown = c.confidenceBreakdownJson
+                                            ? (typeof c.confidenceBreakdownJson === 'string' ? JSON.parse(c.confidenceBreakdownJson) : c.confidenceBreakdownJson)
+                                            : null;
+                                          if (breakdown) {
+                                            return (
+                                              <>
+                                                {breakdown.baseScore != null && (
+                                                  <div className="flex items-center justify-between text-sm">
+                                                    <span>النقاط الأساسية</span>
+                                                    <span className="font-medium tabular-nums">{(breakdown.baseScore * 100).toFixed(0)}%</span>
+                                                  </div>
+                                                )}
+                                                {breakdown.bonuses && Array.isArray(breakdown.bonuses) && breakdown.bonuses.map((b: any, i: number) => (
+                                                  <div key={`b-${i}`} className="flex items-center justify-between text-sm text-green-700 dark:text-green-400">
+                                                    <span>+ {b.reason || b.label || 'مكافأة'}</span>
+                                                    <span className="font-medium tabular-nums">+{((b.value || b.amount || 0) * 100).toFixed(0)}%</span>
+                                                  </div>
+                                                ))}
+                                                {breakdown.penalties && Array.isArray(breakdown.penalties) && breakdown.penalties.map((p: any, i: number) => (
+                                                  <div key={`p-${i}`} className="flex items-center justify-between text-sm text-red-700 dark:text-red-400">
+                                                    <span>- {p.reason || p.label || 'خصم'}</span>
+                                                    <span className="font-medium tabular-nums">-{((p.value || p.amount || 0) * 100).toFixed(0)}%</span>
+                                                  </div>
+                                                ))}
+                                                <div className="border-t pt-1.5 mt-1.5 flex items-center justify-between text-sm font-bold">
+                                                  <span>النتيجة النهائية</span>
+                                                  <span className={`tabular-nums ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                                    {(confidence * 100).toFixed(0)}%
+                                                  </span>
+                                                </div>
+                                              </>
+                                            );
+                                          }
+                                          return (
+                                            <div className="flex items-center justify-between text-sm">
+                                              <span>النتيجة النهائية</span>
+                                              <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                                {(confidence * 100).toFixed(0)}%
+                                              </span>
+                                            </div>
+                                          );
+                                        } catch {
+                                          return (
+                                            <div className="flex items-center justify-between text-sm">
+                                              <span>النتيجة النهائية</span>
+                                              <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                                {(confidence * 100).toFixed(0)}%
+                                              </span>
+                                            </div>
+                                          );
+                                        }
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </TableBody>
@@ -1257,6 +1464,17 @@ export default function WAImportDashboard() {
                             <Badge variant="secondary" className="text-[10px]" data-testid={`badge-unavailable-${media.id}`}>غير متوفر</Badge>
                           )}
                         </div>
+                        {media.ocrText && (
+                          <details className="mt-1" data-testid={`details-ocr-${media.id}`}>
+                            <summary className="text-xs font-medium cursor-pointer text-muted-foreground flex items-center gap-1">
+                              <FileText className="w-3 h-3" /> النص المستخرج
+                            </summary>
+                            <p className="mt-1 text-xs whitespace-pre-wrap bg-muted/50 rounded-md p-2 max-h-40 overflow-y-auto" dir="rtl"
+                              data-testid={`text-ocr-${media.id}`}>
+                              {media.ocrText}
+                            </p>
+                          </details>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -1283,6 +1501,12 @@ export default function WAImportDashboard() {
         <div className="fixed bottom-[calc(160px+env(safe-area-inset-bottom,0px))] right-6 z-[120] bg-background border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2" data-testid="status-upload-progress">
           <RefreshCw className="h-4 w-4 animate-spin text-primary" />
           <span className="text-sm">جاري استيراد المحادثة...</span>
+        </div>
+      )}
+      {processMediaMutation.isPending && (
+        <div className="fixed bottom-[calc(200px+env(safe-area-inset-bottom,0px))] right-6 z-[120] bg-background border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2" data-testid="status-media-processing">
+          <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm">جاري معالجة الوسائط...</span>
         </div>
       )}
     </div>

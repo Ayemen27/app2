@@ -44,6 +44,7 @@ export class WhatsAppExtractionService {
 
     const projectKeywords = await loadProjectKeywords();
     await loadCustodianNames();
+    await waAliasService.loadCache();
 
     const existingCandidates = await db.select()
       .from(waExtractionCandidates)
@@ -81,11 +82,16 @@ export class WhatsAppExtractionService {
       .where(eq(waMediaAssets.batchId, batchId));
 
     const mediaByMessageId = new Map<number, number[]>();
+    const ocrTextByMessageId = new Map<number, string>();
     for (const asset of mediaAssets) {
       if (asset.messageId) {
         const existing = mediaByMessageId.get(asset.messageId) || [];
         existing.push(asset.id);
         mediaByMessageId.set(asset.messageId, existing);
+
+        if (asset.ocrText && !ocrTextByMessageId.has(asset.messageId)) {
+          ocrTextByMessageId.set(asset.messageId, asset.ocrText);
+        }
       }
     }
 
@@ -114,7 +120,7 @@ export class WhatsAppExtractionService {
 
     for (const cluster of clusters) {
       try {
-        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords);
+        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords, ocrTextByMessageId);
       } catch (err: any) {
         result.errors.push(`Cluster ${cluster.anchorMessageId}: ${err.message}`);
       }
@@ -124,7 +130,7 @@ export class WhatsAppExtractionService {
       if (clusteredMessageIds.has(msg.id)) continue;
 
       try {
-        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords);
+        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords, ocrTextByMessageId);
       } catch (err: any) {
         result.errors.push(`Message ${msg.id}: ${err.message}`);
       }
@@ -143,12 +149,25 @@ export class WhatsAppExtractionService {
     mediaByMessageId: Map<number, number[]>,
     allMessages: any[],
     result: ExtractionResult,
-    projectKeywords: ProjectKeywordMap[]
+    projectKeywords: ProjectKeywordMap[],
+    ocrTextByMessageId: Map<number, string>
   ) {
     const anchorMsg = allMessages.find(m => m.id === anchorId);
     if (!anchorMsg) return;
 
-    const textToAnalyze = mergedText || anchorMsg.messageText || '';
+    let textToAnalyze = mergedText || anchorMsg.messageText || '';
+
+    const ocrTextsAdded = new Set<string>();
+    for (const memberId of memberIds) {
+      const ocrText = getOcrTextForMessage(memberId, ocrTextByMessageId);
+      if (ocrText && !ocrTextsAdded.has(ocrText)) {
+        const hasFinancialData = /\d{3,}/.test(ocrText) || /ريال|حوالة|تحويل|مبلغ/.test(ocrText);
+        if (hasFinancialData && !textToAnalyze.includes(ocrText.slice(0, 50))) {
+          textToAnalyze = textToAnalyze + ' ' + ocrText;
+          ocrTextsAdded.add(ocrText);
+        }
+      }
+    }
 
     const transferResult = tryParseTransferReceipt(textToAnalyze);
     if (transferResult) {
@@ -178,14 +197,29 @@ export class WhatsAppExtractionService {
     duplicates: Map<number, number>,
     mediaByMessageId: Map<number, number[]>,
     result: ExtractionResult,
-    projectKeywords: ProjectKeywordMap[]
+    projectKeywords: ProjectKeywordMap[],
+    ocrTextByMessageId: Map<number, string>
   ) {
     if (isStickerMessage(msg.attachmentRef)) {
       result.excluded++;
       return;
     }
 
-    const filterResult = isNonTransaction(msg.messageText);
+    const rawText = (msg.messageText || '').trim();
+    const isAttachmentOnly = /^\(الملف مرفق\)$|^<الوسائط غير مدرجة>$|^\(file attached\)$/i.test(rawText);
+
+    let text = rawText;
+    if (isAttachmentOnly && msg.attachmentRef) {
+      const ocrText = getOcrTextForMessage(msg.id, ocrTextByMessageId);
+      if (ocrText) {
+        text = ocrText;
+      } else {
+        result.excluded++;
+        return;
+      }
+    }
+
+    const filterResult = isNonTransaction(text);
     if (filterResult.excluded) {
       result.excluded++;
       return;
@@ -195,8 +229,6 @@ export class WhatsAppExtractionService {
       result.excluded++;
       return;
     }
-
-    const text = msg.messageText || '';
 
     if (isRunningTotal(text)) {
       result.excluded++;
@@ -208,14 +240,27 @@ export class WhatsAppExtractionService {
       return;
     }
 
+    const ocrText = isAttachmentOnly ? null : getOcrTextForMessage(msg.id, ocrTextByMessageId);
+
     const transferResult = tryParseTransferReceipt(text);
     if (transferResult) {
+      if (ocrText && !transferResult.transferNumber) {
+        const ocrTransferNum = ocrText.match(/(\d{6,})/);
+        if (ocrTransferNum) transferResult.transferNumber = ocrTransferNum[1];
+      }
+      if (ocrText && !transferResult.recipient) {
+        const ocrRecipient = ocrText.match(/(?:المستلم|إلى|الى)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]{3,30})/);
+        if (ocrRecipient) transferResult.recipient = ocrRecipient[1].trim();
+      }
       await this.createTransferCandidate(transferResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
       return;
     }
 
     const specialResult = detectSpecialTransaction(text);
     if (specialResult) {
+      if (ocrText) {
+        specialResult.description = `${specialResult.description} [OCR: ${ocrText.substring(0, 100)}]`;
+      }
       await this.createSpecialCandidate(specialResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
       return;
     }
@@ -223,6 +268,12 @@ export class WhatsAppExtractionService {
     const expenses = extractExpenses(text);
     if (expenses.length > 0) {
       for (const expense of expenses) {
+        if (ocrText && expenses.length === 1) {
+          const ocrAmounts = ocrText.match(/\d[\d,.]+/g);
+          if (ocrAmounts) {
+            expense.description = `${expense.description} [OCR: ${ocrText.substring(0, 100)}]`;
+          }
+        }
         await this.createExpenseCandidate(expense, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, expenses.length > 1, false, result, projectKeywords);
       }
       return;
@@ -530,6 +581,10 @@ export class WhatsAppExtractionService {
 
     return { candidate, evidence, hypotheses };
   }
+}
+
+function getOcrTextForMessage(msgId: number, ocrTextByMessageId: Map<number, string>): string | null {
+  return ocrTextByMessageId.get(msgId) || null;
 }
 
 export const waExtractionService = new WhatsAppExtractionService();

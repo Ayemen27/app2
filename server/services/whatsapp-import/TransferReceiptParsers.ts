@@ -9,7 +9,7 @@ export interface TransferReceiptResult {
   recipient: string;
   companyName: string;
   date: string | null;
-  patternType: 'rashad_bahir' | 'houshabi' | 'najm';
+  patternType: 'rashad_bahir' | 'houshabi' | 'najm' | 'generic_transfer';
   raw: string;
 }
 
@@ -156,8 +156,63 @@ export function parseNajm(messageText: string): TransferReceiptResult | null {
   };
 }
 
+export function parseGenericTransfer(messageText: string): TransferReceiptResult | null {
+  const text = normalizeArabicText(easternToWestern(messageText));
+
+  const transferKeywords = ['حوالة', 'تحويل', 'ارسال', 'استلام'];
+  if (!transferKeywords.some(k => text.includes(k))) {
+    return null;
+  }
+
+  let amount = 0;
+  const amountMatch = text.match(/(?:مبلغ|المبلغ|حوالة|بمبلغ)\s*:?\s*(\d[\d,.]*)/);
+  if (amountMatch) {
+    amount = safeParseNum(amountMatch[1].replace(/,/g, ''));
+  }
+
+  if (!amount) {
+    const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
+    if (numMatch) {
+      amount = safeParseNum(numMatch[1]);
+    }
+  }
+
+  if (!amount || amount <= 0) return null;
+
+  let transferNumber = '';
+  const transferNumMatch = text.match(/(\d{6,})/);
+  if (transferNumMatch) {
+    transferNumber = transferNumMatch[1];
+  }
+
+  let recipient = '';
+  const recipientMatch = text.match(/(?:المستلم|إلى|الى|لـ)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
+  if (recipientMatch) {
+    recipient = recipientMatch[1].trim();
+  }
+
+  let sender = '';
+  const senderMatch = text.match(/(?:المرسل|من)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
+  if (senderMatch) {
+    sender = senderMatch[1].trim();
+  }
+
+  return {
+    transferNumber,
+    amount,
+    fee: 0,
+    sender,
+    recipient,
+    companyName: '',
+    date: null,
+    patternType: 'generic_transfer',
+    raw: text,
+  };
+}
+
 export function tryParseTransferReceipt(messageText: string): TransferReceiptResult | null {
   return parseRashadBahir(messageText)
     || parseHoushabi(messageText)
-    || parseNajm(messageText);
+    || parseNajm(messageText)
+    || parseGenericTransfer(messageText);
 }

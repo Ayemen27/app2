@@ -1,7 +1,7 @@
 import { db } from "../../db.js";
 import { waWorkerAliases, workers } from "@shared/schema";
 import type { WaWorkerAlias, InsertWaWorkerAlias } from "@shared/schema";
-import { eq, ilike } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 const KNOWN_ALIASES: Array<{ alias: string; workerId: string }> = [
   { alias: 'النخرة', workerId: '6066edb5' },
@@ -24,6 +24,27 @@ const KNOWN_ALIASES: Array<{ alias: string; workerId: string }> = [
 ];
 
 export class WhatsAppAliasService {
+  private aliasCache: Map<string, string | null> | null = null;
+  private cacheExpiry: number = 0;
+
+  async loadCache(): Promise<Map<string, string | null>> {
+    if (this.aliasCache && Date.now() < this.cacheExpiry) {
+      return this.aliasCache;
+    }
+    const allAliases = await db.select().from(waWorkerAliases);
+    this.aliasCache = new Map<string, string | null>();
+    for (const alias of allAliases) {
+      this.aliasCache.set(alias.aliasName, alias.canonicalWorkerId);
+    }
+    this.cacheExpiry = Date.now() + 5 * 60 * 1000;
+    return this.aliasCache;
+  }
+
+  clearCache(): void {
+    this.aliasCache = null;
+    this.cacheExpiry = 0;
+  }
+
   async seedAliases(createdBy?: string): Promise<{ seeded: number; skipped: number }> {
     let seeded = 0;
     let skipped = 0;
@@ -107,12 +128,8 @@ export class WhatsAppAliasService {
   }
 
   async resolveAlias(name: string): Promise<string | null> {
-    const [alias] = await db.select()
-      .from(waWorkerAliases)
-      .where(eq(waWorkerAliases.aliasName, name))
-      .limit(1);
-
-    return alias?.canonicalWorkerId || null;
+    const cache = await this.loadCache();
+    return cache.get(name) || null;
   }
 
   async getAliases(): Promise<WaWorkerAlias[]> {
@@ -121,6 +138,7 @@ export class WhatsAppAliasService {
 
   async createAlias(data: InsertWaWorkerAlias): Promise<WaWorkerAlias> {
     const [created] = await db.insert(waWorkerAliases).values(data).returning();
+    this.clearCache();
     return created;
   }
 
@@ -129,11 +147,13 @@ export class WhatsAppAliasService {
       .set(data)
       .where(eq(waWorkerAliases.id, id))
       .returning();
+    this.clearCache();
     return updated;
   }
 
   async deleteAlias(id: number): Promise<void> {
     await db.delete(waWorkerAliases).where(eq(waWorkerAliases.id, id));
+    this.clearCache();
   }
 }
 

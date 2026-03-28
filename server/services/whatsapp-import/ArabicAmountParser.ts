@@ -29,22 +29,56 @@ export interface ParsedAmount {
   currency: string;
 }
 
+const MILLIONS_PATTERNS = [
+  /(\d+)\s*مليون/,
+];
+
 const THOUSANDS_PATTERNS = [
   /(\d+)\s*الف/,
   /(\d+)\s*آلاف/,
   /(\d+)\s*ألف/,
 ];
 
+const HALF_SUFFIX_RE = /\s*و\s*(?:نص|نصف)/;
+
+function applyHalfSuffix(normalized: string, matchEnd: number, baseValue: number): number {
+  const rest = normalized.slice(matchEnd);
+  if (HALF_SUFFIX_RE.test(rest.slice(0, 10))) {
+    return baseValue + baseValue / 2;
+  }
+  return baseValue;
+}
+
 export function parseArabicAmount(text: string): ParsedAmount | null {
   const normalized = easternToWestern(normalizeArabicText(text));
+
+  for (const pat of MILLIONS_PATTERNS) {
+    const m = normalized.match(pat);
+    if (m) {
+      let val = safeParseNum(m[1]) * 1_000_000;
+      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val);
+      if (val > 0) {
+        return { value: val, raw: m[0], currency: 'YER' };
+      }
+    }
+  }
 
   for (const pat of THOUSANDS_PATTERNS) {
     const m = normalized.match(pat);
     if (m) {
-      const val = safeParseNum(m[1]) * 1000;
+      let val = safeParseNum(m[1]) * 1000;
+      val = applyHalfSuffix(normalized, (m.index ?? 0) + m[0].length, val);
       if (val > 0) {
         return { value: val, raw: m[0], currency: 'YER' };
       }
+    }
+  }
+
+  const halfStandalone = normalized.match(/(?:^|\s)(\d+)\s*و\s*(?:نص|نصف)(?:\s|$)/);
+  if (halfStandalone) {
+    const val = safeParseNum(halfStandalone[1]) + 0.5;
+    if (val > 0) {
+      return { value: val, raw: halfStandalone[0].trim(), currency: 'YER' };
     }
   }
 
@@ -71,11 +105,21 @@ export function extractAllAmounts(text: string): ParsedAmount[] {
   const results: ParsedAmount[] = [];
   const normalized = easternToWestern(normalizeArabicText(text));
 
-  const thousandsRe = /(\d+)\s*(?:الف|آلاف|ألف)/g;
+  const millionsRe = /(\d+)\s*مليون/g;
   let m;
-  while ((m = thousandsRe.exec(normalized)) !== null) {
-    const val = safeParseNum(m[1]) * 1000;
+  while ((m = millionsRe.exec(normalized)) !== null) {
+    let val = safeParseNum(m[1]) * 1_000_000;
+    val = applyHalfSuffix(normalized, m.index + m[0].length, val);
     if (val > 0) {
+      results.push({ value: val, raw: m[0], currency: 'YER' });
+    }
+  }
+
+  const thousandsRe = /(\d+)\s*(?:الف|آلاف|ألف)/g;
+  while ((m = thousandsRe.exec(normalized)) !== null) {
+    let val = safeParseNum(m[1]) * 1000;
+    val = applyHalfSuffix(normalized, m.index + m[0].length, val);
+    if (val > 0 && !results.some(r => r.value === val)) {
       results.push({ value: val, raw: m[0], currency: 'YER' });
     }
   }

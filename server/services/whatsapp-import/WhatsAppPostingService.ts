@@ -86,11 +86,13 @@ export async function generatePostingPlan(batchId: number): Promise<PostingPlanI
 
   if (approvedCandidateIds.length === 0) return [];
 
+  const candidateIds = candidates.map((c: { id: number }) => c.id);
+
   const canonicals = await db.select()
     .from(waCanonicalTransactions)
     .where(
       and(
-        sql`${waCanonicalTransactions.id} = ANY(${approvedCandidateIds})`,
+        sql`(${waCanonicalTransactions.id} = ANY(${approvedCandidateIds}) OR ${waCanonicalTransactions.mergedFromCandidates} && ${candidateIds})`,
         eq(waCanonicalTransactions.status, 'confirmed')
       )
     );
@@ -107,7 +109,7 @@ export async function generatePostingPlan(batchId: number): Promise<PostingPlanI
     const amount = safeParseNum(txn.amount);
     if (amount <= 0) continue;
 
-    const targetTable = resolveTargetTable(txn.transactionType, null);
+    const targetTable = resolveTargetTable(txn.transactionType, txn.category);
     const dateStr = txn.transactionDate || new Date().toISOString().split('T')[0];
     const journalPreview = getJournalPreview(targetTable, amount);
 
@@ -391,11 +393,13 @@ export async function postBatchApproved(
 
   if (canonicalIds.length === 0) return [];
 
+  const batchCandidateIds = batchCandidates.map((c: { id: number }) => c.id);
+
   const canonicals = await db.select()
     .from(waCanonicalTransactions)
     .where(
       and(
-        sql`${waCanonicalTransactions.id} = ANY(${canonicalIds})`,
+        sql`(${waCanonicalTransactions.id} = ANY(${canonicalIds}) OR ${waCanonicalTransactions.mergedFromCandidates} && ${batchCandidateIds})`,
         eq(waCanonicalTransactions.status, 'confirmed')
       )
     );

@@ -9,8 +9,8 @@ import { tryParseTransferReceipt } from './TransferReceiptParsers.js';
 import { extractExpenses } from './ExpenseExtractors.js';
 import { isNonTransaction, isRunningTotal, isStickerMessage, findDuplicateTextBlocks, validateInlineDate, isWorkConversation } from './MessageFilters.js';
 import { clusterMessages, type RawMessageForClustering } from './ContextClusteringEngine.js';
-import { inferProject, getBestProjectHypothesis } from './ProjectInferenceEngine.js';
-import { detectSpecialTransaction } from './SpecialTransactionDetectors.js';
+import { inferProject, getBestProjectHypothesis, loadProjectKeywords, type ProjectKeywordMap } from './ProjectInferenceEngine.js';
+import { detectSpecialTransaction, loadCustodianNames } from './SpecialTransactionDetectors.js';
 import { computeConfidence, categorizeExpense, categorizeTransferReceipt, type ScoringContext } from './ScoringAndCategorization.js';
 import { waAliasService } from './WhatsAppAliasService.js';
 
@@ -41,6 +41,9 @@ export class WhatsAppExtractionService {
       throw new Error(`Batch ${batchId} not found`);
     }
     const chatSource = batch[0].chatSource || 'other';
+
+    const projectKeywords = await loadProjectKeywords();
+    await loadCustodianNames();
 
     const existingCandidates = await db.select()
       .from(waExtractionCandidates)
@@ -111,7 +114,7 @@ export class WhatsAppExtractionService {
 
     for (const cluster of clusters) {
       try {
-        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result);
+        await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords);
       } catch (err: any) {
         result.errors.push(`Cluster ${cluster.anchorMessageId}: ${err.message}`);
       }
@@ -121,7 +124,7 @@ export class WhatsAppExtractionService {
       if (clusteredMessageIds.has(msg.id)) continue;
 
       try {
-        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result);
+        await this.processMessage(msg, batchId, chatSource, duplicates, mediaByMessageId, result, projectKeywords);
       } catch (err: any) {
         result.errors.push(`Message ${msg.id}: ${err.message}`);
       }
@@ -139,7 +142,8 @@ export class WhatsAppExtractionService {
     chatSource: string,
     mediaByMessageId: Map<number, number[]>,
     allMessages: any[],
-    result: ExtractionResult
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
   ) {
     const anchorMsg = allMessages.find(m => m.id === anchorId);
     if (!anchorMsg) return;
@@ -148,20 +152,20 @@ export class WhatsAppExtractionService {
 
     const transferResult = tryParseTransferReceipt(textToAnalyze);
     if (transferResult) {
-      await this.createTransferCandidate(transferResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result);
+      await this.createTransferCandidate(transferResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
       return;
     }
 
     const specialResult = detectSpecialTransaction(textToAnalyze);
     if (specialResult) {
-      await this.createSpecialCandidate(specialResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result);
+      await this.createSpecialCandidate(specialResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
       return;
     }
 
     const expenses = extractExpenses(textToAnalyze);
     if (expenses.length > 0) {
       for (const expense of expenses) {
-        await this.createExpenseCandidate(expense, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, expenses.length > 1, true, result);
+        await this.createExpenseCandidate(expense, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, expenses.length > 1, true, result, projectKeywords);
       }
       return;
     }
@@ -173,7 +177,8 @@ export class WhatsAppExtractionService {
     chatSource: string,
     duplicates: Map<number, number>,
     mediaByMessageId: Map<number, number[]>,
-    result: ExtractionResult
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
   ) {
     if (isStickerMessage(msg.attachmentRef)) {
       result.excluded++;
@@ -205,20 +210,20 @@ export class WhatsAppExtractionService {
 
     const transferResult = tryParseTransferReceipt(text);
     if (transferResult) {
-      await this.createTransferCandidate(transferResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result);
+      await this.createTransferCandidate(transferResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
       return;
     }
 
     const specialResult = detectSpecialTransaction(text);
     if (specialResult) {
-      await this.createSpecialCandidate(specialResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result);
+      await this.createSpecialCandidate(specialResult, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, false, result, projectKeywords);
       return;
     }
 
     const expenses = extractExpenses(text);
     if (expenses.length > 0) {
       for (const expense of expenses) {
-        await this.createExpenseCandidate(expense, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, expenses.length > 1, false, result);
+        await this.createExpenseCandidate(expense, msg, batchId, chatSource, [msg.id], [], mediaByMessageId, expenses.length > 1, false, result, projectKeywords);
       }
       return;
     }
@@ -233,9 +238,10 @@ export class WhatsAppExtractionService {
     mediaIds: number[],
     mediaByMessageId: Map<number, number[]>,
     fromCluster: boolean,
-    result: ExtractionResult
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
   ) {
-    const hypotheses = inferProject(transfer.raw || msg.messageText || '', chatSource);
+    const hypotheses = inferProject(transfer.raw || msg.messageText || '', chatSource, projectKeywords);
     const bestProject = getBestProjectHypothesis(hypotheses);
 
     const scoringCtx: ScoringContext = {
@@ -286,9 +292,10 @@ export class WhatsAppExtractionService {
     mediaIds: number[],
     mediaByMessageId: Map<number, number[]>,
     fromCluster: boolean,
-    result: ExtractionResult
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
   ) {
-    const hypotheses = inferProject(msg.messageText || '', chatSource);
+    const hypotheses = inferProject(msg.messageText || '', chatSource, projectKeywords);
     const bestProject = getBestProjectHypothesis(hypotheses);
 
     const scoringCtx: ScoringContext = {
@@ -344,10 +351,11 @@ export class WhatsAppExtractionService {
     mediaByMessageId: Map<number, number[]>,
     isMultiline: boolean,
     fromCluster: boolean,
-    result: ExtractionResult
+    result: ExtractionResult,
+    projectKeywords: ProjectKeywordMap[]
   ) {
     const fullText = [msg.messageText, expense.description].filter(Boolean).join(' ');
-    const hypotheses = inferProject(fullText || '', chatSource);
+    const hypotheses = inferProject(fullText || '', chatSource, projectKeywords);
     const bestProject = getBestProjectHypothesis(hypotheses);
     const cat = categorizeExpense(expense.description);
 
@@ -426,13 +434,27 @@ export class WhatsAppExtractionService {
       }
     }
 
-    for (const mediaId of mediaIds) {
+    const resolvedMediaAssetIds = this.resolveMediaAssetIds(mediaIds, mediaByMessageId);
+    for (const assetId of resolvedMediaAssetIds) {
       await db.insert(waTransactionEvidenceLinks).values({
         candidateId,
-        mediaAssetId: mediaId,
+        mediaAssetId: assetId,
         linkType: 'cluster_media',
       });
     }
+  }
+
+  private resolveMediaAssetIds(mediaMessageIds: number[], mediaByMessageId: Map<number, number[]>): number[] {
+    const assetIds: number[] = [];
+    for (const msgId of mediaMessageIds) {
+      const assets = mediaByMessageId.get(msgId);
+      if (assets) {
+        for (const assetId of assets) {
+          assetIds.push(assetId);
+        }
+      }
+    }
+    return assetIds;
   }
 
   private async storeProjectHypotheses(

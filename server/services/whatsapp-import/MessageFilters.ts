@@ -132,11 +132,6 @@ export interface DateValidationResult {
   correctedDate: Date;
 }
 
-const ARABIC_MONTHS: Record<string, number> = {
-  'يناير': 1, 'فبراير': 2, 'مارس': 3, 'ابريل': 4, 'أبريل': 4,
-  'مايو': 5, 'يونيو': 6, 'يوليو': 7, 'اغسطس': 8, 'أغسطس': 8,
-  'سبتمبر': 9, 'اكتوبر': 10, 'أكتوبر': 10, 'نوفمبر': 11, 'ديسمبر': 12,
-};
 
 const DAY_NAME_TO_INDEX: Record<string, number> = {
   'الاحد': 0, 'الأحد': 0,

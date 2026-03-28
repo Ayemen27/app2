@@ -1,6 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
+import * as path from "path";
+import { existsSync } from "fs";
 import { requireAuth, requireAdminOrEditor, requireRole, type AuthenticatedRequest } from "../../middleware/auth.js";
 import { waIngestionService } from "../../services/whatsapp-import/WhatsAppIngestionService.js";
 import { waAliasService } from "../../services/whatsapp-import/WhatsAppAliasService.js";
@@ -233,10 +235,51 @@ waImportRouter.get("/batch/:id/media", requireAuth, requireAdminOrEditor, async 
       return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
     }
     const media = await waIngestionService.getBatchMedia(parseInt(params.data.id));
-    res.json(media);
+    const enhanced = media.map((m: any) => ({
+      ...m,
+      fileAvailable: m.filePath ? existsSync(m.filePath) : false,
+    }));
+    res.json(enhanced);
   } catch (error) {
     console.error("[WAImport] Get media error:", error);
     res.status(500).json({ error: "Failed to get media" });
+  }
+});
+
+const mediaIdParamSchema = z.object({ mediaId: z.string().regex(/^\d+$/) });
+
+waImportRouter.get("/media/:mediaId/file", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = mediaIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: "Invalid media ID", details: params.error.issues });
+    }
+    const mediaId = parseInt(params.data.mediaId);
+    const { db: database } = await import("../../db.js");
+    const { waMediaAssets } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const [asset] = await database.select()
+      .from(waMediaAssets)
+      .where(eq(waMediaAssets.id, mediaId))
+      .limit(1);
+
+    if (!asset) {
+      return res.status(404).json({ error: "Media asset not found" });
+    }
+
+    const absolutePath = path.isAbsolute(asset.filePath) ? asset.filePath : path.resolve(asset.filePath);
+
+    if (!existsSync(absolutePath)) {
+      return res.status(404).json({ error: "File not found on disk" });
+    }
+
+    res.setHeader("Content-Type", asset.mimeType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(asset.originalFilename)}"`);
+    res.sendFile(absolutePath);
+  } catch (error) {
+    console.error("[WAImport] Serve media file error:", error);
+    res.status(500).json({ error: "Failed to serve media file" });
   }
 });
 

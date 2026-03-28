@@ -1,4 +1,7 @@
 import { normalizeArabicText, normalizeArabicTextPreserveLines, easternToWestern, extractAllAmounts, type ParsedAmount } from './ArabicAmountParser.js';
+import { db } from '../../db.js';
+import { workers } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 export type SpecialType = 'loan' | 'personal_account' | 'custodian_receipt' | 'settlement';
 
@@ -22,7 +25,11 @@ export interface SettlementItem {
 const LOAN_KEYWORDS = ['استلاف', 'سلف', 'سلفة', 'قرض', 'استدان', 'يستلف', 'سلفه', 'اقرضه', 'مديون'];
 const PERSONAL_ACCOUNT_KEYWORDS = ['حساب عمار', 'حسابي', 'على حسابي', 'حسابه الشخصي'];
 
-const CUSTODIAN_NAMES: Record<string, string> = {
+let _cachedCustodianNames: Record<string, string> | null = null;
+let _custodianCacheTime = 0;
+const CUSTODIAN_CACHE_TTL = 5 * 60 * 1000;
+
+const FALLBACK_CUSTODIAN_NAMES: Record<string, string> = {
   'عمار الشيعي': 'عمار الشيعي',
   'عمار': 'عمار الشيعي',
   'الشيعي': 'عمار الشيعي',
@@ -32,6 +39,51 @@ const CUSTODIAN_NAMES: Record<string, string> = {
   'العباسي': 'العباسي',
   'عباسي': 'العباسي',
 };
+
+export async function loadCustodianNames(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (_cachedCustodianNames && (now - _custodianCacheTime) < CUSTODIAN_CACHE_TTL) {
+    return _cachedCustodianNames;
+  }
+
+  try {
+    const allWorkers = await db.select({
+      name: workers.name,
+    }).from(workers).where(eq(workers.is_active, true));
+
+    const custodianMap: Record<string, string> = {};
+
+    for (const worker of allWorkers) {
+      const normalized = normalizeArabicText(worker.name);
+      custodianMap[normalized] = worker.name;
+
+      const nameWords = normalized.split(/\s+/).filter(w => w.length > 1);
+      for (const word of nameWords) {
+        if (!custodianMap[word]) {
+          custodianMap[word] = worker.name;
+        }
+      }
+
+      const withoutAl = normalized.replace(/^ال/, '');
+      if (withoutAl !== normalized && !custodianMap[withoutAl]) {
+        custodianMap[withoutAl] = worker.name;
+      }
+    }
+
+    if (Object.keys(custodianMap).length > 0) {
+      _cachedCustodianNames = custodianMap;
+      _custodianCacheTime = now;
+      return custodianMap;
+    }
+  } catch {
+  }
+
+  return FALLBACK_CUSTODIAN_NAMES;
+}
+
+function getCustodianNamesSync(): Record<string, string> {
+  return _cachedCustodianNames || FALLBACK_CUSTODIAN_NAMES;
+}
 
 const SETTLEMENT_KEYWORDS = ['تصفية', 'تصفيه', 'كشف حساب', 'المصاريف', 'مصروفات'];
 
@@ -74,8 +126,9 @@ export function detectPersonalAccount(messageText: string): SpecialTransactionRe
 export function detectCustodianReceipt(messageText: string): SpecialTransactionResult | null {
   const text = normalizeArabicText(messageText);
 
+  const custodianNames = getCustodianNamesSync();
   let custodianName: string | null = null;
-  for (const [key, canonical] of Object.entries(CUSTODIAN_NAMES)) {
+  for (const [key, canonical] of Object.entries(custodianNames)) {
     if (text.includes(key)) {
       custodianName = canonical;
       break;
@@ -151,7 +204,8 @@ function extractDateFromLine(line: string): string | null {
 function extractRecipientFromLine(line: string): string | null {
   const normalized = normalizeArabicText(line);
 
-  for (const [key, canonical] of Object.entries(CUSTODIAN_NAMES)) {
+  const custodianNames = getCustodianNamesSync();
+  for (const [key, canonical] of Object.entries(custodianNames)) {
     if (normalized.includes(key)) {
       return canonical;
     }
@@ -210,8 +264,9 @@ export function detectSettlement(messageText: string): SpecialTransactionResult 
 
   if (items.length < 2) return null;
 
+  const custodianNamesMap = getCustodianNamesSync();
   let custodianName: string | null = null;
-  for (const [key, canonical] of Object.entries(CUSTODIAN_NAMES)) {
+  for (const [key, canonical] of Object.entries(custodianNamesMap)) {
     if (text.includes(key)) {
       custodianName = canonical;
       break;

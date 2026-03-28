@@ -20,7 +20,7 @@ import {
   Upload, CheckCircle, XCircle, AlertTriangle, Eye, ThumbsUp, ThumbsDown,
   Play, BarChart3, Users, Wallet, FileText, Package, TrendingUp, Clock,
   RefreshCw, Shield, Hash, Pencil, Merge, Split, Search, Plus, Trash2,
-  Link2, ArrowLeftRight,
+  Link2, ArrowLeftRight, Paperclip, Image, Download, File,
 } from "lucide-react";
 
 function confidenceColor(c: number): string {
@@ -75,6 +75,8 @@ export default function WAImportDashboard() {
   const [splitDialog, setSplitDialog] = useState<{ candidateId: number; amount: string; description: string } | null>(null);
   const [splitProjectId, setSplitProjectId] = useState("");
   const [splitItems, setSplitItems] = useState<{ amount: string; description: string }[]>([{ amount: '', description: '' }, { amount: '', description: '' }]);
+
+  const [mediaPreviewDialog, setMediaPreviewDialog] = useState<{ candidateId: number; description: string } | null>(null);
 
   const [aliasDialog, setAliasDialog] = useState(false);
   const [newAliasName, setNewAliasName] = useState("");
@@ -145,6 +147,18 @@ export default function WAImportDashboard() {
     queryKey: ['/api/wa-import/aliases'],
     queryFn: () => fetch(`/api/wa-import/aliases`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
     enabled: activeTab === 'aliases',
+  });
+
+  const batchMediaQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/batch', selectedBatchId, 'media'],
+    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/media`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    enabled: !!selectedBatchId,
+  });
+
+  const candidateEvidenceQuery = useQuery<any>({
+    queryKey: ['/api/wa-import/candidate', mediaPreviewDialog?.candidateId],
+    queryFn: () => fetch(`/api/wa-import/candidate/${mediaPreviewDialog!.candidateId}`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    enabled: !!mediaPreviewDialog?.candidateId,
   });
 
   const loansQuery = useQuery<any[]>({
@@ -647,6 +661,10 @@ export default function WAImportDashboard() {
                                         setSplitItems([{ amount: '', description: '' }, { amount: '', description: '' }]);
                                       }}>
                                       <Split className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="outline" data-testid={`button-media-${c.id}`}
+                                      onClick={() => setMediaPreviewDialog({ candidateId: c.id, description: c.description || '' })}>
+                                      <Paperclip className="w-3.5 h-3.5" />
                                     </Button>
                                   </>
                                 )}
@@ -1168,6 +1186,86 @@ export default function WAImportDashboard() {
             }} disabled={createAliasMutation.isPending} data-testid="button-confirm-alias">
               <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!mediaPreviewDialog} onOpenChange={() => setMediaPreviewDialog(null)}>
+        <DialogContent data-testid="dialog-media-preview" className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="w-4 h-4" /> المرفقات
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground" dir="rtl">{mediaPreviewDialog?.description}</p>
+            {candidateEvidenceQuery.isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (() => {
+              const evidence = candidateEvidenceQuery.data?.evidence || [];
+              const mediaAssetIds = evidence
+                .filter((e: any) => e.mediaAssetId)
+                .map((e: any) => e.mediaAssetId);
+              const batchMedia = batchMediaQuery.data || [];
+              const linkedMedia = batchMedia.filter((m: any) => mediaAssetIds.includes(m.id));
+
+              if (linkedMedia.length === 0) {
+                return (
+                  <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
+                    <Paperclip className="h-10 w-10 opacity-20" />
+                    <p className="text-sm">لا توجد مرفقات مرتبطة بهذا المرشح</p>
+                  </div>
+                );
+              }
+
+              const isImage = (mime: string) => mime?.startsWith('image/');
+
+              return (
+                <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                  {linkedMedia.map((media: any) => (
+                    <Card key={media.id} className="overflow-visible" data-testid={`card-media-${media.id}`}>
+                      <CardContent className="p-3 space-y-2">
+                        {isImage(media.mimeType) && media.fileAvailable ? (
+                          <a href={`/api/wa-import/media/${media.id}/file`} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={`/api/wa-import/media/${media.id}/file`}
+                              alt={media.originalFilename}
+                              className="w-full h-40 object-cover rounded-md cursor-pointer"
+                              data-testid={`img-media-${media.id}`}
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-full h-40 flex items-center justify-center rounded-md bg-muted">
+                            <File className="h-10 w-10 text-muted-foreground opacity-40" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground truncate flex-1" dir="ltr" data-testid={`text-filename-${media.id}`}>
+                            {media.originalFilename}
+                          </span>
+                          {media.fileAvailable ? (
+                            <a href={`/api/wa-import/media/${media.id}/file`} target="_blank" rel="noopener noreferrer" data-testid={`link-download-${media.id}`}>
+                              <Button size="icon" variant="outline">
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]" data-testid={`badge-unavailable-${media.id}`}>غير متوفر</Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMediaPreviewDialog(null)} data-testid="button-close-media">إغلاق</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

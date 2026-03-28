@@ -37,7 +37,8 @@ function parseTimestamp(dateStr: string, timeStr: string, period: string): Date 
   return new Date(year, month - 1, day, hours, minutes);
 }
 
-const ATTACHMENT_RE = /(.+?)\s*\(الملف مرفق\)$/;
+const ATTACHMENT_RE = /(.+?)\s*(?:\(الملف مرفق\)|\(file attached\))$/;
+const MEDIA_OMITTED_RE = /^(?:<الوسائط غير مدرجة>|<Media omitted>)$/;
 const SYSTEM_MESSAGES = [
   'تم تغيير',
   'الرسائل والمكالمات مشفرة',
@@ -91,6 +92,8 @@ export function parseWhatsAppChat(
       const attachMatch = text.match(ATTACHMENT_RE);
       if (attachMatch) {
         attachmentRef = attachMatch[1].trim();
+        messageText = text;
+      } else if (MEDIA_OMITTED_RE.test(text.trim())) {
         messageText = text;
       }
 

@@ -1,4 +1,6 @@
 import { normalizeArabicText } from './ArabicAmountParser.js';
+import { db } from '../../db.js';
+import { projects } from '@shared/schema';
 
 export interface ProjectHypothesis {
   projectId: string;
@@ -7,123 +9,105 @@ export interface ProjectHypothesis {
   inferenceMethod: string;
 }
 
-const PROJECT_IDS = {
-  ZAIN_JARAHI: '6c9d8a97',
-  ZAIN_TAHITA: '7212655c',
-  MOHAMAD_JARAHI: '00735182',
-  MOHAMAD_TAHITA: 'b23ad9a5',
-} as const;
+export interface ProjectKeywordMap {
+  projectId: string;
+  projectName: string;
+  keywords: string[];
+}
 
-const JARAHI_KEYWORDS = ['الجراحي', 'جراحي'];
-const TAHITA_KEYWORDS = ['التحيتا', 'التحيتاء', 'الحوش', 'تحيتا'];
-const SITALBIAR_KEYWORDS = ['الست الابيار', 'ست الابيار', 'ستة ابيار', 'ست ابيار'];
+export async function loadProjectKeywords(): Promise<ProjectKeywordMap[]> {
+  const allProjects = await db.select({
+    id: projects.id,
+    name: projects.name,
+  }).from(projects);
 
-const ZAIN_WORK_KEYWORDS = ['حفر', 'تصليح'];
-const MOHAMAD_WORK_KEYWORDS = ['صب', 'صبه', 'صبة', 'قواعد', 'خرسان', 'منصة', 'ألواح', 'الواح', 'تركيب', 'تركيب المنصة', 'تركيب الألواح'];
-const MOHAMAD_IDENTITY_KEYWORDS = ['المهندس محمد', 'مهندس محمد', 'محمد المهندس'];
+  const projectKeywords: ProjectKeywordMap[] = [];
+
+  for (const project of allProjects) {
+    const normalized = normalizeArabicText(project.name);
+    const keywords: string[] = [normalized];
+
+    const words = normalized.split(/\s+/).filter(w => w.length > 1);
+    for (const word of words) {
+      if (!keywords.includes(word)) {
+        keywords.push(word);
+      }
+    }
+
+    const withoutAl = normalized.replace(/^ال/, '');
+    if (withoutAl !== normalized && !keywords.includes(withoutAl)) {
+      keywords.push(withoutAl);
+    }
+
+    for (const word of words) {
+      const wordWithoutAl = word.replace(/^ال/, '');
+      if (wordWithoutAl !== word && wordWithoutAl.length > 1 && !keywords.includes(wordWithoutAl)) {
+        keywords.push(wordWithoutAl);
+      }
+    }
+
+    projectKeywords.push({
+      projectId: project.id,
+      projectName: project.name,
+      keywords,
+    });
+  }
+
+  return projectKeywords;
+}
 
 export function inferProject(
   messageText: string,
   chatSource: string,
-  senderName?: string
+  projectKeywords?: ProjectKeywordMap[]
 ): ProjectHypothesis[] {
   const text = normalizeArabicText(messageText);
   const hypotheses: ProjectHypothesis[] = [];
 
+  if (!projectKeywords || projectKeywords.length === 0) {
+    return hypotheses;
+  }
+
   const isZainChat = chatSource === 'zain';
   const isAbbasiChat = chatSource === 'abbasi';
 
-  const hasJarahi = JARAHI_KEYWORDS.some(k => text.includes(k));
-  const hasTahita = TAHITA_KEYWORDS.some(k => text.includes(k));
-  const hasSitAlbiar = SITALBIAR_KEYWORDS.some(k => text.includes(k));
-  const hasZainWork = ZAIN_WORK_KEYWORDS.some(k => text.includes(k));
-  const hasMohamadWork = MOHAMAD_WORK_KEYWORDS.some(k => text.includes(k));
-  const hasMohamadIdentity = MOHAMAD_IDENTITY_KEYWORDS.some(k => text.includes(k));
-  const hasMohamadSignal = hasMohamadWork || hasMohamadIdentity;
+  for (const project of projectKeywords) {
+    const matchedKeywords: string[] = [];
+    for (const keyword of project.keywords) {
+      if (text.includes(keyword)) {
+        matchedKeywords.push(keyword);
+      }
+    }
 
-  const foundKeywords: string[] = [];
-  for (const k of [...JARAHI_KEYWORDS, ...TAHITA_KEYWORDS, ...SITALBIAR_KEYWORDS, ...ZAIN_WORK_KEYWORDS, ...MOHAMAD_WORK_KEYWORDS, ...MOHAMAD_IDENTITY_KEYWORDS]) {
-    if (text.includes(k)) foundKeywords.push(k);
-  }
+    if (matchedKeywords.length === 0) continue;
 
-  if (hasJarahi) {
-    if (hasMohamadSignal) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.MOHAMAD_JARAHI,
-        confidence: hasMohamadIdentity ? 0.92 : 0.90,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: hasMohamadIdentity ? 'keyword_jarahi+mohamad_identity' : 'keyword_jarahi+mohamad_work',
-      });
-    } else if (isZainChat || hasZainWork) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.ZAIN_JARAHI,
-        confidence: isZainChat ? 0.85 : 0.75,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: isZainChat ? 'keyword_jarahi+zain_chat_default' : 'keyword_jarahi+zain_work',
-      });
+    const fullNameMatch = text.includes(normalizeArabicText(project.projectName));
+
+    let confidence: number;
+    let inferenceMethod: string;
+
+    if (fullNameMatch) {
+      confidence = 0.90;
+      inferenceMethod = 'db_full_name_match';
+    } else if (matchedKeywords.length >= 2) {
+      confidence = 0.80;
+      inferenceMethod = 'db_multi_keyword_match';
     } else {
-      hypotheses.push({
-        projectId: PROJECT_IDS.ZAIN_JARAHI,
-        confidence: 0.60,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_jarahi_ambiguous',
-      });
-      hypotheses.push({
-        projectId: PROJECT_IDS.MOHAMAD_JARAHI,
-        confidence: 0.30,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_jarahi_secondary',
-      });
+      confidence = 0.60;
+      inferenceMethod = 'db_single_keyword_match';
     }
-  }
 
-  if (hasTahita || hasSitAlbiar) {
-    if (hasMohamadSignal) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.MOHAMAD_TAHITA,
-        confidence: hasMohamadIdentity ? 0.92 : 0.90,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: hasMohamadIdentity ? 'keyword_tahita+mohamad_identity' : 'keyword_tahita+mohamad_work',
-      });
-    } else if (isZainChat || hasZainWork) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.ZAIN_TAHITA,
-        confidence: isZainChat ? 0.85 : 0.75,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: isZainChat ? 'keyword_tahita+zain_chat_default' : 'keyword_tahita+zain_work',
-      });
-    } else {
-      hypotheses.push({
-        projectId: PROJECT_IDS.ZAIN_TAHITA,
-        confidence: 0.60,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_tahita_ambiguous',
-      });
-      hypotheses.push({
-        projectId: PROJECT_IDS.MOHAMAD_TAHITA,
-        confidence: 0.30,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: 'keyword_tahita_secondary',
-      });
+    if (isZainChat || isAbbasiChat) {
+      confidence = Math.min(confidence + 0.05, 0.95);
+      inferenceMethod += `+${chatSource}_chat_boost`;
     }
-  }
 
-  if (hypotheses.length === 0 && (isZainChat || isAbbasiChat)) {
-    if (hasZainWork) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.ZAIN_JARAHI,
-        confidence: 0.50,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: 'zain_work_keywords_no_location',
-      });
-    } else if (hasMohamadSignal) {
-      hypotheses.push({
-        projectId: PROJECT_IDS.MOHAMAD_JARAHI,
-        confidence: hasMohamadIdentity ? 0.55 : 0.50,
-        evidenceKeywords: foundKeywords,
-        inferenceMethod: hasMohamadIdentity ? 'mohamad_identity_no_location' : 'mohamad_work_keywords_no_location',
-      });
-    }
+    hypotheses.push({
+      projectId: project.projectId,
+      confidence,
+      evidenceKeywords: matchedKeywords,
+      inferenceMethod,
+    });
   }
 
   return hypotheses;

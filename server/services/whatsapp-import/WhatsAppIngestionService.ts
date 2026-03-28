@@ -5,7 +5,6 @@ import { eq } from "drizzle-orm";
 import { parseWhatsAppChat, detectChatSource } from "./WhatsAppParserService.js";
 import * as fs from "fs";
 import * as path from "path";
-import * as crypto from "crypto";
 import { createHash } from "crypto";
 
 const MAX_ZIP_SIZE = 500 * 1024 * 1024;
@@ -21,11 +20,6 @@ const ALLOWED_MEDIA_MIMES: Record<string, string> = {
   '.xls': 'application/vnd.ms-excel', '.doc': 'application/msword',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
-
-function computeSha256(filePath: string): string {
-  const data = fs.readFileSync(filePath);
-  return createHash('sha256').update(data).digest('hex');
-}
 
 function computeSha256FromBuffer(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
@@ -178,7 +172,7 @@ export class WhatsAppIngestionService {
       const messagesByAttachment = new Map<string, number>();
       for (const msg of insertedMessages) {
         if (msg.attachmentRef) {
-          const basename = msg.attachmentRef.split(' ')[0].trim();
+          const basename = msg.attachmentRef.trim();
           messagesByAttachment.set(basename, msg.id);
         }
       }

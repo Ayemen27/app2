@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,7 @@ export default function WAImportDashboard() {
   const [workerSearchQuery, setWorkerSearchQuery] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setFloatingAction, setRefreshAction } = useFloatingButton();
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -315,6 +317,15 @@ export default function WAImportDashboard() {
     }
     setIsRefreshing(false);
   }, [selectedBatchId]);
+
+  useEffect(() => {
+    const triggerUpload = () => fileInputRef.current?.click();
+    setFloatingAction(triggerUpload, 'استيراد محادثة', 'cyan');
+    return () => {
+      setFloatingAction(null);
+      setRefreshAction(null);
+    };
+  }, [setFloatingAction, setRefreshAction]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [{
     items: [
@@ -1170,22 +1181,8 @@ export default function WAImportDashboard() {
         data-testid="input-file-upload"
       />
 
-      <Button
-        size="lg"
-        className="fixed bottom-6 left-6 z-50 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all p-0"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploadMutation.isPending}
-        data-testid="button-upload-zip"
-      >
-        {uploadMutation.isPending ? (
-          <RefreshCw className="h-6 w-6 animate-spin" />
-        ) : (
-          <Upload className="h-6 w-6" />
-        )}
-      </Button>
-
       {uploadMutation.isPending && (
-        <div className="fixed bottom-6 left-24 z-50 bg-background border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2" data-testid="status-upload-progress">
+        <div className="fixed bottom-[calc(160px+env(safe-area-inset-bottom,0px))] right-6 z-[120] bg-background border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2" data-testid="status-upload-progress">
           <RefreshCw className="h-4 w-4 animate-spin text-primary" />
           <span className="text-sm">جاري استيراد المحادثة...</span>
         </div>

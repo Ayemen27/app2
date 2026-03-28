@@ -2,7 +2,7 @@ import { db } from "../../db.js";
 import { pool } from "../../db.js";
 import {
   waEntityAliases, waEntityLinkAudit, waTransferCompanies,
-  waRawMessages, waWorkerAliases, workers,
+  waRawMessages, waWorkerAliases, workers, waMediaAssets,
 } from "@shared/schema";
 import type { WaEntityAlias } from "@shared/schema";
 import { eq, sql, and, isNull } from "drizzle-orm";
@@ -31,7 +31,7 @@ export interface LinkingReadiness {
   isReady: boolean;
 }
 
-function normalizeForMatching(text: string): string {
+export function normalizeForMatching(text: string): string {
   return text
     .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g, '')
     .replace(/ى/g, 'ي')
@@ -39,10 +39,6 @@ function normalizeForMatching(text: string): string {
     .replace(/[\u200F\u200E\u202A\u202B\u202C\u200B\uFEFF]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function normalizeAndClean(text: string): string {
-  return normalizeArabicText(text.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, ''));
 }
 
 const ARABIC_NAME_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]{2,}/;
@@ -208,12 +204,28 @@ export class NameExtractionService {
       .where(eq(waRawMessages.batchId, batchId))
       .orderBy(waRawMessages.messageOrder);
 
+    const ocrAssets = await db.select()
+      .from(waMediaAssets)
+      .where(and(eq(waMediaAssets.batchId, batchId), sql`${waMediaAssets.ocrText} IS NOT NULL AND ${waMediaAssets.ocrText} != ''`));
+    const ocrByMessageId = new Map<number, string>();
+    for (const asset of ocrAssets) {
+      if (asset.messageId && asset.ocrText) {
+        const existing = ocrByMessageId.get(asset.messageId) || '';
+        ocrByMessageId.set(asset.messageId, existing ? existing + ' ' + asset.ocrText : asset.ocrText);
+      }
+    }
+
     let totalNames = 0;
     let newNames = 0;
     let existingNames = 0;
 
     for (const msg of messages) {
-      const extracted = this.extractNamesFromText(msg.messageText || '', msg.sender);
+      let textToExtract = msg.messageText || '';
+      const ocrText = ocrByMessageId.get(msg.id);
+      if (ocrText) {
+        textToExtract = textToExtract + ' ' + ocrText;
+      }
+      const extracted = this.extractNamesFromText(textToExtract, msg.sender);
       for (const name of extracted) {
         totalNames++;
         const normalized = normalizeForMatching(name.name);
@@ -522,20 +534,22 @@ export class NameExtractionService {
     return { linked, errors };
   }
 
-  async autoLinkByExactMatch(): Promise<{ linked: number; partialMatches: number }> {
+  async autoLinkByExactMatch(batchId?: number): Promise<{ linked: number; partialMatches: number }> {
     const allWorkers = await db.select({
       id: workers.id,
       name: workers.name,
     }).from(workers).where(eq(workers.is_active, true));
 
+    const conditions = [
+      isNull(waEntityAliases.canonicalEntityId),
+      eq(waEntityAliases.isActive, true),
+    ];
+    if (batchId) {
+      conditions.push(eq(waEntityAliases.sourceBatchId, batchId));
+    }
     const unlinked = await db.select()
       .from(waEntityAliases)
-      .where(
-        and(
-          isNull(waEntityAliases.canonicalEntityId),
-          eq(waEntityAliases.isActive, true)
-        )
-      );
+      .where(and(...conditions));
 
     let linked = 0;
     let partialMatches = 0;

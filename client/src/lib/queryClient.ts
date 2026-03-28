@@ -229,12 +229,8 @@ export async function apiRequest(
       }
 
       // إذا وصلنا هنا، يعني فشل التجديد أو لا يوجد توكن
-      if (!window.location.pathname.includes('/login')) {
-        if (import.meta.env.DEV) console.warn('[apiRequest] Session expired, but staying in-place for offline support.');
-        // ✅ منع التوجيه القسري لضمان استمرارية العمل أوفلاين
-        return null; 
-      }
-      throw new Error('انتهت الجلسة');
+      if (import.meta.env.DEV) console.warn('[apiRequest] Session expired - throwing auth error');
+      throw new Error('انتهت الجلسة - يرجى تسجيل الدخول مجدداً');
     }
 
     if (!response.ok) {
@@ -244,7 +240,7 @@ export async function apiRequest(
         if (contentType && contentType.includes("application/json")) {
           const errorData = await response.json();
           fullErrorData = errorData;
-          errorMessage = errorData.message || errorMessage;
+          errorMessage = errorData.message || errorData.error || errorMessage;
         } else {
           const errorText = await response.text();
           if (import.meta.env.DEV) console.error('[apiRequest] Server sent non-JSON response:', {

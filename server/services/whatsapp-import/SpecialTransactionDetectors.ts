@@ -23,7 +23,7 @@ export interface SettlementItem {
 }
 
 const LOAN_KEYWORDS = ['استلاف', 'سلف', 'سلفة', 'قرض', 'استدان', 'يستلف', 'سلفه', 'اقرضه', 'مديون'];
-const PERSONAL_ACCOUNT_KEYWORDS = ['حساب عمار', 'حسابي', 'على حسابي', 'حسابه الشخصي'];
+const PERSONAL_ACCOUNT_KEYWORDS = ['حسابي', 'على حسابي', 'حسابه الشخصي', 'حساب شخصي'];
 
 let _cachedCustodianNames: Record<string, string> | null = null;
 let _custodianCacheTime = 0;

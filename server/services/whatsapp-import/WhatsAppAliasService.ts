@@ -2,10 +2,10 @@ import { db } from "../../db.js";
 import { waEntityAliases, workers } from "@shared/schema";
 import type { WaEntityAlias } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { normalizeArabicText } from './ArabicAmountParser.js';
+import { normalizeForMatching } from './NameExtractionService.js';
 
 function normalizeAliasName(name: string): string {
-  return normalizeArabicText(name.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, ''));
+  return normalizeForMatching(name);
 }
 
 export class WhatsAppAliasService {

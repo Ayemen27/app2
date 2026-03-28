@@ -86,6 +86,19 @@ export default function WAImportDashboard() {
   const [newAliasWorkerId, setNewAliasWorkerId] = useState("");
   const [workerSearchQuery, setWorkerSearchQuery] = useState("");
 
+  const [nameLinkingDialog, setNameLinkingDialog] = useState(false);
+  const [nameLinkingBatchId, setNameLinkingBatchId] = useState<number | null>(null);
+  const [nameLinkingSearch, setNameLinkingSearch] = useState("");
+  const [linkSelections, setLinkSelections] = useState<Record<number, { entityId: string; entityTable: string }>>({});
+  const [workerSearchPerAlias, setWorkerSearchPerAlias] = useState<Record<number, string>>({});
+
+  type PipelineStage = 'idle' | 'media' | 'names' | 'autolink' | 'linking' | 'extract' | 'done' | 'error';
+  const [pipelineDialog, setPipelineDialog] = useState(false);
+  const [pipelineStage, setPipelineStage] = useState<PipelineStage>('idle');
+  const [pipelineResults, setPipelineResults] = useState<Record<string, any>>({});
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [pipelineBatchId, setPipelineBatchId] = useState<number | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction, setRefreshAction } = useFloatingButton();
 
@@ -130,55 +143,187 @@ export default function WAImportDashboard() {
 
   const candidatesQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'],
-    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/candidates`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/candidates`),
     enabled: !!selectedBatchId,
   });
 
   const verificationQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'verification-queue'],
-    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/verification-queue`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/verification-queue`),
     enabled: !!selectedBatchId,
   });
 
   const custodianQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/custodian-statements'],
-    queryFn: () => fetch(`/api/wa-import/custodian-statements`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/custodian-statements`),
     enabled: activeTab === 'custodians',
   });
 
   const aliasesQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/aliases'],
-    queryFn: () => fetch(`/api/wa-import/aliases`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/aliases`),
     enabled: activeTab === 'aliases',
   });
 
   const batchMediaQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'media'],
-    queryFn: () => fetch(`/api/wa-import/batch/${selectedBatchId}/media`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/media`),
     enabled: !!selectedBatchId,
   });
 
   const candidateEvidenceQuery = useQuery<any>({
     queryKey: ['/api/wa-import/candidate', mediaPreviewDialog?.candidateId],
-    queryFn: () => fetch(`/api/wa-import/candidate/${mediaPreviewDialog!.candidateId}`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/candidate/${mediaPreviewDialog!.candidateId}`),
     enabled: !!mediaPreviewDialog?.candidateId,
   });
 
   const loansQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/inter-contractor-loans'],
-    queryFn: () => fetch(`/api/wa-import/inter-contractor-loans`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/inter-contractor-loans`),
     enabled: activeTab === 'loans',
   });
 
   const workersSearchQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/workers-search', workerSearchQuery],
-    queryFn: () => fetch(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`).then(r => { if (!r.ok) throw new Error('Failed to fetch'); return r.json(); }),
+    queryFn: () => apiRequest(`/api/wa-import/workers-search?q=${encodeURIComponent(workerSearchQuery)}`),
     enabled: aliasDialog && workerSearchQuery.length > 0,
+  });
+
+  const nameLinkingActive = (nameLinkingDialog || pipelineStage === 'linking') && !!nameLinkingBatchId;
+
+  const discoveredNamesQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'],
+    queryFn: () => apiRequest(`/api/wa-import/batches/${nameLinkingBatchId}/discovered-names`),
+    enabled: nameLinkingActive,
+  });
+
+  const allWorkersQuery = useQuery<any[]>({
+    queryKey: ['/api/wa-import/workers-search', '_all_'],
+    queryFn: () => apiRequest(`/api/wa-import/workers-search?q=`),
+    enabled: nameLinkingActive,
+  });
+
+  const extractNamesMutation = useMutation({
+    mutationFn: (batchId: number) =>
+      apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {}),
+    onSuccess: (data: any, batchId: number) => {
+      const msg = `تم استخراج ${data.totalNames || 0} اسم (${data.newNames || 0} جديد، ${data.unlinkedNames || 0} غير مربوط)`;
+      toast({ title: "تم استخراج الأسماء", description: msg });
+      if ((data.unlinkedNames || 0) > 0) {
+        setNameLinkingBatchId(batchId);
+        setNameLinkingDialog(true);
+        setLinkSelections({});
+        setWorkerSearchPerAlias({});
+        setNameLinkingSearch("");
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', batchId, 'discovered-names'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ في استخراج الأسماء", description: err.message, variant: "destructive" }),
+  });
+
+  const autoLinkMutation = useMutation({
+    mutationFn: () => apiRequest(`/api/wa-import/names/auto-link`, 'POST', {}),
+    onSuccess: (data: any) => {
+      toast({ title: "تم الربط التلقائي", description: `تم ربط ${data.linked || 0} اسم` });
+      if (nameLinkingBatchId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
+      }
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const linkNameMutation = useMutation({
+    mutationFn: (data: { aliasId: number; entityId: string; entityTable: string }) =>
+      apiRequest(`/api/wa-import/names/${data.aliasId}/link`, 'POST', { entityId: data.entityId, entityTable: data.entityTable }),
+    onSuccess: (_data: any, variables: { aliasId: number }) => {
+      toast({ title: "تم الربط بنجاح" });
+      if (nameLinkingBatchId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
+      setLinkSelections(prev => { const next = { ...prev }; delete next[variables.aliasId]; return next; });
+    },
+    onError: (err: any) => toast({ title: "خطأ في الربط", description: err.message, variant: "destructive" }),
+  });
+
+  const runFullPipeline = useCallback(async (batchId: number) => {
+    setPipelineBatchId(batchId);
+    setPipelineDialog(true);
+    setPipelineStage('media');
+    setPipelineResults({});
+    setPipelineError(null);
+
+    try {
+      let mediaResult: any = { skipped: 0, processed: 0, failed: 0 };
+      try {
+        mediaResult = await apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {});
+      } catch (_e) { /* non-blocking */ }
+      setPipelineResults(prev => ({ ...prev, media: mediaResult }));
+
+      setPipelineStage('names');
+      const namesResult = await apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {});
+      setPipelineResults(prev => ({ ...prev, names: namesResult }));
+
+      setPipelineStage('autolink');
+      let autoLinkResult: any = { linked: 0 };
+      try {
+        autoLinkResult = await apiRequest(`/api/wa-import/names/auto-link`, 'POST', { batchId });
+      } catch (_e) { /* non-blocking */ }
+      setPipelineResults(prev => ({ ...prev, autoLink: autoLinkResult }));
+
+      if ((namesResult.unlinkedNames || 0) - (autoLinkResult.linked || 0) > 0) {
+        setNameLinkingBatchId(batchId);
+        setPipelineStage('linking');
+        setLinkSelections({});
+        setWorkerSearchPerAlias({});
+        setNameLinkingSearch("");
+      } else {
+        setPipelineStage('extract');
+        const extResult = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
+        setPipelineResults(prev => ({ ...prev, extract: extResult }));
+        setPipelineStage('done');
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+      }
+    } catch (err: any) {
+      setPipelineError(err.message || 'حدث خطأ');
+      setPipelineStage('error');
+    }
+  }, [queryClient]);
+
+  const continuePipelineAfterLinking = useCallback(async () => {
+    if (!pipelineBatchId) return;
+    setPipelineStage('extract');
+    setPipelineError(null);
+    try {
+      const extResult = await apiRequest(`/api/wa-import/batch/${pipelineBatchId}/extract`, 'POST', {});
+      setPipelineResults(prev => ({ ...prev, extract: extResult }));
+      setPipelineStage('done');
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', pipelineBatchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+    } catch (err: any) {
+      setPipelineError(err.message || 'حدث خطأ');
+      setPipelineStage('error');
+    }
+  }, [pipelineBatchId, queryClient]);
+
+  const bulkLinkMutation = useMutation({
+    mutationFn: (data: { links: Array<{ aliasId: number; entityId: string; entityTable: string }> }) =>
+      apiRequest(`/api/wa-import/names/bulk-link`, 'POST', data),
+    onSuccess: () => {
+      toast({ title: "تم الربط الجماعي بنجاح" });
+      if (nameLinkingBatchId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
+      setLinkSelections({});
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
   const approveMutation = useMutation({
     mutationFn: (data: { candidateId: number; projectId: string; notes: string }) =>
-      apiRequest('POST', `/api/wa-import/candidate/${data.candidateId}/approve`, {
+      apiRequest(`/api/wa-import/candidate/${data.candidateId}/approve`, 'POST', {
         projectId: data.projectId,
         notes: data.notes,
       }),
@@ -193,7 +338,7 @@ export default function WAImportDashboard() {
 
   const rejectMutation = useMutation({
     mutationFn: (data: { candidateId: number; reason: string }) =>
-      apiRequest('POST', `/api/wa-import/candidate/${data.candidateId}/reject`, { reason: data.reason }),
+      apiRequest(`/api/wa-import/candidate/${data.candidateId}/reject`, 'POST', { reason: data.reason }),
     onSuccess: () => {
       toast({ title: "تم الرفض" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -204,7 +349,7 @@ export default function WAImportDashboard() {
 
   const bulkApproveMutation = useMutation({
     mutationFn: (data: { batchId: number; projectId: string; minConfidence: number }) =>
-      apiRequest('POST', `/api/wa-import/batch/${data.batchId}/bulk-approve`, {
+      apiRequest(`/api/wa-import/batch/${data.batchId}/bulk-approve`, 'POST', {
         projectId: data.projectId,
         minConfidence: data.minConfidence,
       }),
@@ -217,7 +362,7 @@ export default function WAImportDashboard() {
 
   const reconcileMutation = useMutation({
     mutationFn: (batchId: number) =>
-      apiRequest('POST', `/api/wa-import/batch/${batchId}/reconcile`, {}),
+      apiRequest(`/api/wa-import/batch/${batchId}/reconcile`, 'POST', {}),
     onSuccess: (data: any) => {
       toast({ title: "تمت المطابقة", description: `${data.totalCandidates} مرشح, ${data.newEntries} جديد` });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -228,7 +373,7 @@ export default function WAImportDashboard() {
 
   const extractMutation = useMutation({
     mutationFn: (batchId: number) =>
-      apiRequest('POST', `/api/wa-import/batch/${batchId}/extract`, {}),
+      apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {}),
     onSuccess: () => {
       toast({ title: "تم الاستخراج بنجاح" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -238,7 +383,7 @@ export default function WAImportDashboard() {
 
   const processMediaMutation = useMutation({
     mutationFn: (batchId: number) =>
-      apiRequest('POST', `/api/wa-import/batch/${batchId}/process-media`, {}),
+      apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {}),
     onSuccess: (data: any, batchId: number) => {
       toast({
         title: "تمت معالجة الوسائط",
@@ -250,9 +395,20 @@ export default function WAImportDashboard() {
     onError: (err: any) => toast({ title: "خطأ في معالجة الوسائط", description: err.message, variant: "destructive" }),
   });
 
+  const deleteBatchMutation = useMutation({
+    mutationFn: (batchId: number) =>
+      apiRequest(`/api/wa-import/batches/${batchId}`, 'DELETE'),
+    onSuccess: (_data: any, batchId: number) => {
+      toast({ title: "تم حذف الدُفعة بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+      if (selectedBatchId === batchId) setSelectedBatchId(null);
+    },
+    onError: (err: any) => toast({ title: "خطأ في حذف الدُفعة", description: err.message, variant: "destructive" }),
+  });
+
   const editCandidateMutation = useMutation({
     mutationFn: (data: { candidateId: number; amount?: string; description?: string }) =>
-      apiRequest('PATCH', `/api/wa-import/candidate/${data.candidateId}`, {
+      apiRequest(`/api/wa-import/candidate/${data.candidateId}`, 'PATCH', {
         amount: data.amount,
         description: data.description,
       }),
@@ -266,7 +422,7 @@ export default function WAImportDashboard() {
 
   const mergeMutation = useMutation({
     mutationFn: (data: { candidateIds: number[]; projectId: string }) =>
-      apiRequest('POST', `/api/wa-import/candidates/merge`, data),
+      apiRequest(`/api/wa-import/candidates/merge`, 'POST', data),
     onSuccess: () => {
       toast({ title: "تم الدمج بنجاح" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -278,7 +434,7 @@ export default function WAImportDashboard() {
 
   const splitMutation = useMutation({
     mutationFn: (data: { candidateId: number; projectId: string; splits: { amount: string; description: string }[] }) =>
-      apiRequest('POST', `/api/wa-import/candidate/${data.candidateId}/split`, {
+      apiRequest(`/api/wa-import/candidate/${data.candidateId}/split`, 'POST', {
         projectId: data.projectId,
         splits: data.splits,
       }),
@@ -292,7 +448,7 @@ export default function WAImportDashboard() {
 
   const createAliasMutation = useMutation({
     mutationFn: (data: { aliasName: string; canonicalWorkerId: string }) =>
-      apiRequest('POST', `/api/wa-import/aliases`, data),
+      apiRequest(`/api/wa-import/aliases`, 'POST', data),
     onSuccess: () => {
       toast({ title: "تمت إضافة الاسم المستعار" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
@@ -306,7 +462,7 @@ export default function WAImportDashboard() {
 
   const deleteAliasMutation = useMutation({
     mutationFn: (id: number) =>
-      apiRequest('DELETE', `/api/wa-import/aliases/${id}`),
+      apiRequest(`/api/wa-import/aliases/${id}`, 'DELETE'),
     onSuccess: () => {
       toast({ title: "تم الحذف" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/aliases'] });
@@ -383,13 +539,17 @@ export default function WAImportDashboard() {
   }, [selectedBatchId]);
 
   useEffect(() => {
-    const triggerUpload = () => fileInputRef.current?.click();
-    setFloatingAction(triggerUpload, 'استيراد محادثة', 'cyan');
+    if (activeTab === 'aliases') {
+      setFloatingAction(() => { setAliasDialog(true); setNewAliasName(""); setNewAliasWorkerId(""); setWorkerSearchQuery(""); }, 'إضافة اسم مستعار', 'cyan');
+    } else {
+      const triggerUpload = () => fileInputRef.current?.click();
+      setFloatingAction(triggerUpload, 'استيراد محادثة', 'cyan');
+    }
     return () => {
       setFloatingAction(null);
       setRefreshAction(null);
     };
-  }, [setFloatingAction, setRefreshAction]);
+  }, [activeTab, setFloatingAction, setRefreshAction]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [{
     items: [
@@ -480,7 +640,18 @@ export default function WAImportDashboard() {
         </TabsList>
 
         <TabsContent value="batches" className="mt-4">
-          {batchesQuery.isLoading ? (
+          {batchesQuery.isError ? (
+            <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+              <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-batches">
+                <AlertTriangle className="h-10 w-10" />
+                <p className="text-lg font-medium">فشل تحميل الدُفعات</p>
+                <p className="text-sm text-red-500 dark:text-red-400/80">{(batchesQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                <Button variant="outline" size="sm" onClick={() => batchesQuery.refetch()} data-testid="btn-retry-batches">
+                  <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                </Button>
+              </div>
+            </Card>
+          ) : batchesQuery.isLoading ? (
             <UnifiedCardGrid columns={3}>
               {Array.from({ length: 3 }).map((_, i) => (
                 <UnifiedCard key={i} title="" fields={[]} isLoading={true} compact />
@@ -528,10 +699,17 @@ export default function WAImportDashboard() {
                       },
                       {
                         icon: Play,
-                        label: 'استخراج',
-                        onClick: () => extractMutation.mutate(batch.id),
-                        disabled: extractMutation.isPending,
+                        label: 'تحليل كامل',
+                        onClick: () => runFullPipeline(batch.id),
+                        disabled: pipelineDialog,
                         color: 'blue' as const,
+                      },
+                      {
+                        icon: Users,
+                        label: 'استخراج أسماء فقط',
+                        onClick: () => extractNamesMutation.mutate(batch.id),
+                        disabled: extractNamesMutation.isPending,
+                        color: 'orange' as const,
                       },
                       {
                         icon: BarChart3,
@@ -541,6 +719,13 @@ export default function WAImportDashboard() {
                         color: 'green' as const,
                       },
                     ] : []),
+                    {
+                      icon: Trash2,
+                      label: 'حذف الدُفعة',
+                      onClick: () => { if (confirm(`هل تريد حذف الدُفعة #${batch.id}؟ سيتم حذف جميع البيانات المرتبطة.`)) deleteBatchMutation.mutate(batch.id); },
+                      disabled: deleteBatchMutation.isPending,
+                      color: 'red' as const,
+                    },
                   ]}
                   compact
                 />
@@ -667,6 +852,19 @@ export default function WAImportDashboard() {
                 <div className="flex flex-col items-center gap-4 text-muted-foreground">
                   <Eye className="h-12 w-12 opacity-20" />
                   <p className="text-lg" data-testid="text-no-batch">اختر دُفعة من تبويب الدُفعات للبدء بالمراجعة</p>
+                </div>
+              </Card>
+            )}
+
+            {candidatesQuery.isError && (
+              <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-candidates">
+                  <AlertTriangle className="h-10 w-10" />
+                  <p className="text-lg font-medium">فشل تحميل المرشحين</p>
+                  <p className="text-sm text-red-500 dark:text-red-400/80">{(candidatesQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                  <Button variant="outline" size="sm" onClick={() => candidatesQuery.refetch()} data-testid="btn-retry-candidates">
+                    <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                  </Button>
                 </div>
               </Card>
             )}
@@ -942,7 +1140,16 @@ export default function WAImportDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {verificationQuery.isLoading ? (
+                  {verificationQuery.isError ? (
+                    <div className="p-4 text-center text-red-600 dark:text-red-400" data-testid="error-verification">
+                      <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-sm font-medium">فشل تحميل طابور التحقق</p>
+                      <p className="text-xs text-red-500 mt-1">{(verificationQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => verificationQuery.refetch()} data-testid="btn-retry-verification">
+                        <RefreshCw className="w-3.5 h-3.5 ml-1" /> إعادة المحاولة
+                      </Button>
+                    </div>
+                  ) : verificationQuery.isLoading ? (
                     <div className="p-4 space-y-2">
                       {Array.from({ length: 3 }).map((_, i) => (
                         <Skeleton key={i} className="h-10 w-full rounded-lg" />
@@ -992,7 +1199,18 @@ export default function WAImportDashboard() {
         </TabsContent>
 
         <TabsContent value="custodians" className="mt-4">
-          {custodianQuery.isLoading ? (
+          {custodianQuery.isError ? (
+            <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+              <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-custodians">
+                <AlertTriangle className="h-10 w-10" />
+                <p className="text-lg font-medium">فشل تحميل بيانات أمناء العُهد</p>
+                <p className="text-sm text-red-500">{(custodianQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                <Button variant="outline" size="sm" onClick={() => custodianQuery.refetch()} data-testid="btn-retry-custodians">
+                  <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                </Button>
+              </div>
+            </Card>
+          ) : custodianQuery.isLoading ? (
             <UnifiedCardGrid columns={1}>
               {Array.from({ length: 2 }).map((_, i) => (
                 <UnifiedCard key={i} title="" fields={[]} isLoading={true} />
@@ -1057,14 +1275,18 @@ export default function WAImportDashboard() {
 
         <TabsContent value="aliases" className="mt-4">
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold" data-testid="text-aliases-title">إدارة الأسماء المستعارة</h3>
-              <Button size="sm" data-testid="button-add-alias" onClick={() => { setAliasDialog(true); setNewAliasName(""); setNewAliasWorkerId(""); setWorkerSearchQuery(""); }}>
-                <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة اسم مستعار
-              </Button>
-            </div>
-
-            {aliasesQuery.isLoading ? (
+            {aliasesQuery.isError ? (
+              <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-aliases">
+                  <AlertTriangle className="h-10 w-10" />
+                  <p className="text-lg font-medium">فشل تحميل الأسماء المستعارة</p>
+                  <p className="text-sm text-red-500">{(aliasesQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                  <Button variant="outline" size="sm" onClick={() => aliasesQuery.refetch()} data-testid="btn-retry-aliases">
+                    <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                  </Button>
+                </div>
+              </Card>
+            ) : aliasesQuery.isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full rounded-lg" />
@@ -1126,9 +1348,18 @@ export default function WAImportDashboard() {
 
         <TabsContent value="loans" className="mt-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold" data-testid="text-loans-title">قروض بين المقاولين</h3>
-
-            {loansQuery.isLoading ? (
+            {loansQuery.isError ? (
+              <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <div className="flex flex-col items-center gap-3 text-red-600 dark:text-red-400" data-testid="error-loans">
+                  <AlertTriangle className="h-10 w-10" />
+                  <p className="text-lg font-medium">فشل تحميل القروض</p>
+                  <p className="text-sm text-red-500">{(loansQuery.error as any)?.message || 'خطأ غير معروف'}</p>
+                  <Button variant="outline" size="sm" onClick={() => loansQuery.refetch()} data-testid="btn-retry-loans">
+                    <RefreshCw className="w-4 h-4 ml-1.5" /> إعادة المحاولة
+                  </Button>
+                </div>
+              </Card>
+            ) : loansQuery.isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full rounded-lg" />
@@ -1395,6 +1626,223 @@ export default function WAImportDashboard() {
               <Plus className="w-3.5 h-3.5 ml-1.5" /> إضافة
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pipelineDialog} onOpenChange={(open) => { if (!open && (pipelineStage === 'done' || pipelineStage === 'error' || pipelineStage === 'linking')) setPipelineDialog(false); }}>
+        <DialogContent data-testid="dialog-pipeline" className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Play className="w-5 h-5" />
+              تحليل الدُفعة #{pipelineBatchId}
+            </DialogTitle>
+          </DialogHeader>
+
+          {(() => {
+            const stages = [
+              { key: 'media', label: 'معالجة الوسائط والصور', icon: Image },
+              { key: 'names', label: 'استخراج الأسماء', icon: Users },
+              { key: 'autolink', label: 'ربط تلقائي', icon: Link2 },
+              { key: 'linking', label: 'ربط يدوي', icon: Pencil },
+              { key: 'extract', label: 'استخراج مالي', icon: Wallet },
+            ];
+            const stageOrder = ['media', 'names', 'autolink', 'linking', 'extract', 'done', 'error'];
+            const currentIndex = stageOrder.indexOf(pipelineStage);
+            const overallProgress = pipelineStage === 'done' ? 100 : pipelineStage === 'error' ? currentIndex * 20 : Math.min(currentIndex * 20, 95);
+
+            return (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>التقدم الإجمالي</span>
+                    <span>{overallProgress}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all duration-700 ease-out" style={{ width: `${overallProgress}%` }} data-testid="progress-overall" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {stages.map((stage, idx) => {
+                    const StageIcon = stage.icon;
+                    const stageIndex = stageOrder.indexOf(stage.key);
+                    const isDone = currentIndex > stageIndex || pipelineStage === 'done';
+                    const isActive = pipelineStage === stage.key;
+                    const isPending = currentIndex < stageIndex && pipelineStage !== 'done';
+
+                    return (
+                      <div key={stage.key} className={`rounded-lg border p-3 transition-all duration-300 ${isActive ? 'border-primary bg-primary/5 shadow-sm' : isDone ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30' : 'border-muted opacity-50'}`} data-testid={`pipeline-stage-${stage.key}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`rounded-full p-1.5 ${isDone ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                            {isDone ? <CheckCircle className="w-4 h-4" /> : isActive ? <RefreshCw className="w-4 h-4 animate-spin" /> : <StageIcon className="w-4 h-4" />}
+                          </div>
+                          <span className={`text-sm font-medium flex-1 ${isDone ? 'text-green-700 dark:text-green-300' : isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                            {stage.label}
+                          </span>
+
+                          {isDone && stage.key === 'media' && pipelineResults.media && (
+                            <span className="text-xs text-muted-foreground">تمت معالجة {pipelineResults.media.processed || 0} ملف</span>
+                          )}
+                          {isDone && stage.key === 'names' && pipelineResults.names && (
+                            <span className="text-xs text-muted-foreground">{pipelineResults.names.totalNames || 0} اسم ({pipelineResults.names.newNames || 0} جديد)</span>
+                          )}
+                          {isDone && stage.key === 'autolink' && pipelineResults.autoLink && (
+                            <span className="text-xs text-muted-foreground">تم ربط {pipelineResults.autoLink.linked || 0} تلقائياً</span>
+                          )}
+                          {isDone && stage.key === 'extract' && pipelineResults.extract && (
+                            <span className="text-xs text-muted-foreground">{pipelineResults.extract.totalCandidates || pipelineResults.extract.total || 0} مرشح</span>
+                          )}
+                        </div>
+
+                        {isActive && stage.key !== 'linking' && (
+                          <div className="mt-2">
+                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {pipelineStage === 'linking' && (
+                  <div className="border rounded-lg p-4 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm font-medium">توجد أسماء غير مربوطة تحتاج ربط يدوي</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="بحث في الأسماء..."
+                        value={nameLinkingSearch}
+                        onChange={e => setNameLinkingSearch(e.target.value)}
+                        className="text-sm"
+                        data-testid="input-name-linking-search"
+                      />
+                    </div>
+
+                    <div className="max-h-[40vh] overflow-y-auto space-y-2">
+                      {discoveredNamesQuery.isLoading ? (
+                        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+                      ) : (() => {
+                        const names = (discoveredNamesQuery.data || [])
+                          .filter((n: any) => !n.canonicalEntityId)
+                          .filter((n: any) => !nameLinkingSearch || n.aliasName?.includes(nameLinkingSearch) || n.entityType?.includes(nameLinkingSearch));
+                        const allWorkers = allWorkersQuery.data || [];
+
+                        if (names.length === 0) return (
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-60" />
+                            جميع الأسماء مربوطة
+                          </div>
+                        );
+
+                        return names.map((name: any) => {
+                          const searchTerm = workerSearchPerAlias[name.id] || '';
+                          const filteredWorkers = searchTerm.length > 0
+                            ? allWorkers.filter((w: any) => w.name?.includes(searchTerm) || w.id?.includes(searchTerm))
+                            : allWorkers.slice(0, 10);
+                          const selected = linkSelections[name.id];
+
+                          return (
+                            <div key={name.id} className="rounded-lg border bg-white dark:bg-gray-900 p-3 space-y-2" data-testid={`unlinked-name-${name.id}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm">{name.aliasName}</span>
+                                  <Badge variant="outline" className="text-[10px]">{name.entityType}</Badge>
+                                  {name.occurrenceCount > 1 && <Badge variant="secondary" className="text-[10px]">{name.occurrenceCount}×</Badge>}
+                                </div>
+                                {selected && (
+                                  <Button size="sm" variant="default" className="h-7 text-xs" data-testid={`button-link-${name.id}`}
+                                    onClick={() => linkNameMutation.mutate({ aliasId: name.id, entityId: selected.entityId, entityTable: selected.entityTable })}
+                                    disabled={linkNameMutation.isPending}>
+                                    <Link2 className="w-3 h-3 ml-1" /> ربط
+                                  </Button>
+                                )}
+                              </div>
+
+                              {name.context && <p className="text-[11px] text-muted-foreground line-clamp-1 bg-muted/50 rounded px-2 py-0.5">"{name.context}"</p>}
+
+                              <div className="flex gap-2 items-center">
+                                <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <Input
+                                  placeholder="ابحث عن العامل / الكيان..."
+                                  value={searchTerm}
+                                  onChange={e => setWorkerSearchPerAlias(prev => ({ ...prev, [name.id]: e.target.value }))}
+                                  className="h-8 text-xs"
+                                  data-testid={`input-search-worker-${name.id}`}
+                                />
+                              </div>
+
+                              {filteredWorkers.length > 0 && (
+                                <div className="max-h-28 overflow-y-auto border rounded">
+                                  {filteredWorkers.map((w: any) => (
+                                    <div
+                                      key={w.id}
+                                      className={`px-2.5 py-1.5 text-xs cursor-pointer hover:bg-primary/10 flex items-center justify-between ${selected?.entityId === w.id ? 'bg-primary/15 font-medium' : ''}`}
+                                      onClick={() => setLinkSelections(prev => ({ ...prev, [name.id]: { entityId: w.id, entityTable: 'workers' } }))}
+                                      data-testid={`worker-option-${name.id}-${w.id}`}
+                                    >
+                                      <span>{w.name}</span>
+                                      <span className="text-muted-foreground">{w.type || ''}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    <DialogFooter className="flex gap-2 pt-2">
+                      {Object.keys(linkSelections).length > 0 && (
+                        <Button variant="default" size="sm" data-testid="button-bulk-link"
+                          onClick={() => {
+                            const links = Object.entries(linkSelections).map(([aliasId, sel]) => ({
+                              aliasId: parseInt(aliasId), entityId: sel.entityId, entityTable: sel.entityTable,
+                            }));
+                            bulkLinkMutation.mutate({ links });
+                          }}
+                          disabled={bulkLinkMutation.isPending}>
+                          <Link2 className="w-3.5 h-3.5 ml-1" /> ربط {Object.keys(linkSelections).length} أسماء دفعة واحدة
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" data-testid="button-skip-linking"
+                        onClick={continuePipelineAfterLinking}>
+                        تخطي ومتابعة الاستخراج المالي
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                )}
+
+                {pipelineStage === 'error' && pipelineError && (
+                  <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 p-3 flex items-center gap-2 text-red-700 dark:text-red-300">
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    <span className="text-sm">{pipelineError}</span>
+                  </div>
+                )}
+
+                {pipelineStage === 'done' && (
+                  <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/20 p-4 text-center space-y-2">
+                    <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400 mx-auto" />
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">تم التحليل الكامل بنجاح</p>
+                    <Button size="sm" onClick={() => { setPipelineDialog(false); if (pipelineBatchId) { setSelectedBatchId(pipelineBatchId); setActiveTab('review'); } }} data-testid="button-go-review">
+                      <Eye className="w-3.5 h-3.5 ml-1" /> عرض النتائج
+                    </Button>
+                  </div>
+                )}
+
+                {(pipelineStage === 'done' || pipelineStage === 'error') && (
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setPipelineDialog(false)} data-testid="button-close-pipeline">إغلاق</Button>
+                  </DialogFooter>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -22,7 +22,7 @@ import {
 } from "../../services/whatsapp-import/WhatsAppPostingService.js";
 import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
 import { processMediaForBatch } from "../../services/whatsapp-import/MediaProcessingService.js";
-import { nameExtractionService, runNameExtractionMigration } from "../../services/whatsapp-import/NameExtractionService.js";
+import { nameExtractionService, runNameExtractionMigration, normalizeForMatching } from "../../services/whatsapp-import/NameExtractionService.js";
 
 const ALLOWED_MEDIA_ROOT = path.resolve("uploads/wa-import");
 
@@ -229,6 +229,29 @@ waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, uploadRateLimi
     }
     console.error("[WAImport] Upload error:", error);
     res.status(500).json({ error: "Failed to process upload" });
+  }
+});
+
+waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const batchId = parseInt(req.params.batchId);
+    if (isNaN(batchId)) return res.status(400).json({ error: "Invalid batch ID" });
+
+    const { db: database } = await import("../../db.js");
+    const { waImportBatches, waEntityAliases } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const batch = await database.select().from(waImportBatches).where(eq(waImportBatches.id, batchId)).limit(1);
+    if (batch.length === 0) return res.status(404).json({ error: "Batch not found" });
+
+    await database.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
+    await database.delete(waImportBatches).where(eq(waImportBatches.id, batchId));
+
+    console.log(`[WAImport] Batch #${batchId} deleted by ${req.user?.email}`);
+    res.json({ success: true, message: `تم حذف الدُفعة #${batchId}` });
+  } catch (error: any) {
+    console.error("[WAImport] Delete batch error:", error);
+    res.status(500).json({ error: error.message || "Failed to delete batch" });
   }
 });
 
@@ -948,9 +971,10 @@ waImportRouter.post("/names/bulk-link", requireAuth, requireAdminOrEditor, async
   }
 });
 
-waImportRouter.post("/names/auto-link", requireAuth, requireAdminOrEditor, async (_req, res) => {
+waImportRouter.post("/names/auto-link", requireAuth, requireAdminOrEditor, async (req, res) => {
   try {
-    const result = await nameExtractionService.autoLinkByExactMatch();
+    const batchId = req.body?.batchId ? parseInt(req.body.batchId) : undefined;
+    const result = await nameExtractionService.autoLinkByExactMatch(batchId && !isNaN(batchId) ? batchId : undefined);
     res.json(result);
   } catch (error: any) {
     console.error("[WAImport] Auto-link error:", error);
@@ -1012,7 +1036,7 @@ waImportRouter.post("/entity-aliases", requireAuth, requireAdminOrEditor, async 
     const { db: database } = await import("../../db.js");
     const { waEntityAliases } = await import("@shared/schema");
 
-    const normalizedName = body.data.aliasName.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, '').replace(/\s+/g, ' ');
+    const normalizedName = normalizeForMatching(body.data.aliasName);
 
     const [created] = await database.insert(waEntityAliases).values({
       aliasName: body.data.aliasName,
@@ -1048,17 +1072,37 @@ waImportRouter.put("/entity-aliases/:id", requireAuth, requireAdminOrEditor, asy
     const { waEntityAliases } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
 
+    const aliasId = parseInt(params.data.id);
     const updateData: Record<string, any> = { ...body.data, updatedBy: req.user!.user_id };
     if (body.data.aliasName) {
-      updateData.aliasNameNormalized = body.data.aliasName.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, '').replace(/\s+/g, ' ');
+      updateData.aliasNameNormalized = normalizeForMatching(body.data.aliasName);
     }
+
+    const oldRecord = await database.select().from(waEntityAliases).where(eq(waEntityAliases.id, aliasId)).limit(1);
 
     const [updated] = await database.update(waEntityAliases)
       .set(updateData)
-      .where(eq(waEntityAliases.id, parseInt(params.data.id)))
+      .where(eq(waEntityAliases.id, aliasId))
       .returning();
 
     if (!updated) return res.status(404).json({ error: "Entity alias not found" });
+
+    if (oldRecord[0] && body.data.canonicalEntityId !== undefined &&
+        oldRecord[0].canonicalEntityId !== body.data.canonicalEntityId) {
+      const { waEntityLinkAudit } = await import("@shared/schema");
+      const action = body.data.canonicalEntityId ? 'link' : 'unlink';
+      await database.insert(waEntityLinkAudit).values({
+        entityAliasId: aliasId,
+        action,
+        newEntityId: body.data.canonicalEntityId || null,
+        newEntityTable: body.data.entityTable || updated.entityTable,
+        oldEntityId: oldRecord[0].canonicalEntityId || null,
+        oldEntityTable: oldRecord[0].entityTable || null,
+        performedBy: req.user!.user_id,
+        reason: 'updated_via_entity_alias_endpoint',
+      });
+    }
+
     res.json(updated);
   } catch (error) {
     console.error("[WAImport] Update entity alias error:", error);

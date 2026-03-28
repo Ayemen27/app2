@@ -21,6 +21,8 @@ export type Priority = 'P1_critical' | 'P2_high' | 'P3_medium' | 'P4_low';
 export interface ReconciliationReport {
   batchId: number;
   totalCandidates: number;
+  alreadyProcessed: number;
+  alreadyProcessedAmount: number;
   totalAmount: number;
   matchedToExisting: number;
   matchedAmount: number;
@@ -205,10 +207,6 @@ export async function runReconciliation(
       projHyp?.projectId || null
     );
 
-    await db.update(waExtractionCandidates)
-      .set({ matchStatus: matchResult.matchStatus })
-      .where(eq(waExtractionCandidates.id, candidate.id));
-
     byMatchStatus[matchResult.matchStatus] = (byMatchStatus[matchResult.matchStatus] || 0) + 1;
 
     canonicalCreations.push({
@@ -382,7 +380,7 @@ export async function runReconciliation(
       idMap.set(entry.candidateId, canonical.id);
 
       await tx.update(waExtractionCandidates)
-        .set({ canonicalTransactionId: canonical.id })
+        .set({ canonicalTransactionId: canonical.id, matchStatus: entry.matchResult.matchStatus })
         .where(eq(waExtractionCandidates.id, entry.candidateId));
     }
 

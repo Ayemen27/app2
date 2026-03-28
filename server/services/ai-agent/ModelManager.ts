@@ -220,7 +220,7 @@ export class ModelManager {
             console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error, falling back:`, error.message);
             hfModel.lastError = error.message;
             hfModel.lastErrorTime = new Date();
-            if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
+            if (error.status === 429 || error.status === 402 || error.message?.includes("rate limit") || error.message?.includes("quota") || error.message?.includes("depleted") || error.message?.includes("credits")) {
               hfModel.isAvailable = false;
             }
           }
@@ -236,7 +236,7 @@ export class ModelManager {
             console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error, falling back:`, error.message);
             selectedModel.lastError = error.message;
             selectedModel.lastErrorTime = new Date();
-            if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
+            if (error.status === 429 || error.status === 402 || error.message?.includes("rate limit") || error.message?.includes("quota") || error.message?.includes("depleted") || error.message?.includes("credits")) {
               selectedModel.isAvailable = false;
             }
           }
@@ -274,9 +274,9 @@ export class ModelManager {
         model.lastError = error.message;
         model.lastErrorTime = new Date();
 
-        if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
+        if (error.status === 429 || error.status === 402 || error.message?.includes("rate limit") || error.message?.includes("quota") || error.message?.includes("depleted") || error.message?.includes("credits")) {
           model.isAvailable = false;
-          console.log(`🔄 [ModelManager] Switching from ${model.provider} due to rate limit/quota`);
+          console.log(`🔄 [ModelManager] Switching from ${model.provider} due to rate limit/quota/credits`);
         }
 
         lastError = error;
@@ -473,6 +473,24 @@ export class ModelManager {
   hasAvailableModel(): boolean {
     this.checkAndResetDailyUsage();
     return this.models.some((m) => m.isAvailable && this.checkDailyLimit(m));
+  }
+
+  getModelsStatus(): Array<{
+    provider: string;
+    model: string;
+    isAvailable: boolean;
+    lastError?: string;
+    dailyUsage: number;
+    dailyLimit: number;
+  }> {
+    return this.models.map(m => ({
+      provider: m.provider,
+      model: m.model,
+      isAvailable: m.isAvailable,
+      lastError: m.lastError,
+      dailyUsage: m.dailyUsage,
+      dailyLimit: m.dailyLimit,
+    }));
   }
 }
 

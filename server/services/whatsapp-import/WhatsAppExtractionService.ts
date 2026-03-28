@@ -13,7 +13,7 @@ import { inferProject, getBestProjectHypothesis, loadProjectKeywords, type Proje
 import { detectSpecialTransaction, loadCustodianNames } from './SpecialTransactionDetectors.js';
 import { computeConfidence, categorizeExpense, categorizeTransferReceipt, type ScoringContext } from './ScoringAndCategorization.js';
 import { waAliasService } from './WhatsAppAliasService.js';
-import { analyzeFinancialWithAI, isAIAvailable } from './AIExtractionOrchestrator.js';
+import { analyzeFinancialWithAI, isAIAvailable, getAIModelsStatus } from './AIExtractionOrchestrator.js';
 import type { MessageForAI, AIFinancialResult } from './AIExtractionOrchestrator.js';
 import { createMetricsCollector, storeMetrics } from './AIMetricsService.js';
 
@@ -33,6 +33,18 @@ export interface ExtractionResult {
   duplicateTextBlocks: number;
   clustersFormed: number;
   errors: string[];
+  resumed?: boolean;
+  previousCandidates?: number;
+  aiStatus?: {
+    available: boolean;
+    activeModel?: string;
+    models: Array<{
+      provider: string;
+      model: string;
+      isAvailable: boolean;
+      error?: string;
+    }>;
+  };
 }
 
 export class WhatsAppExtractionService {
@@ -62,13 +74,16 @@ export class WhatsAppExtractionService {
     await waAliasService.loadCache();
     await transferCompanyRegistry.loadCompanies();
 
-    const existingCandidates = await db.select()
+    const existingCandidates = await db.select({ messageId: waExtractionCandidates.messageId })
       .from(waExtractionCandidates)
-      .where(eq(waExtractionCandidates.batchId, batchId))
-      .limit(1);
+      .where(eq(waExtractionCandidates.batchId, batchId));
 
-    if (existingCandidates.length > 0) {
-      throw new Error(`Batch ${batchId} already has extraction candidates. Delete existing candidates before re-extracting.`);
+    const processedMessageIds = new Set(existingCandidates.map(c => c.messageId));
+    const isResuming = processedMessageIds.size > 0;
+    if (isResuming) {
+      console.log(`[WAExtraction] استئناف: تم تخطي ${processedMessageIds.size} رسالة معالجة سابقاً`);
+      (result as any).resumed = true;
+      (result as any).previousCandidates = processedMessageIds.size;
     }
 
     const messages = await db.select()
@@ -167,6 +182,12 @@ export class WhatsAppExtractionService {
     });
 
     for (const cluster of clusters) {
+      if (isResuming && processedMessageIds.has(cluster.anchorMessageId)) {
+        for (const memberId of cluster.memberMessageIds) {
+          clusteredMessageIds.add(memberId);
+        }
+        continue;
+      }
       try {
         const anchorIndex = msgIdToIndex.get(cluster.anchorMessageId);
         const clusterAIResults = anchorIndex !== undefined ? aiResultsByMsgIndex.get(anchorIndex) : undefined;
@@ -195,6 +216,7 @@ export class WhatsAppExtractionService {
 
     for (const msg of messages) {
       if (clusteredMessageIds.has(msg.id)) continue;
+      if (isResuming && processedMessageIds.has(msg.id)) continue;
 
       try {
         const msgIndex = msgIdToIndex.get(msg.id);
@@ -219,6 +241,7 @@ export class WhatsAppExtractionService {
     const metrics = this.metricsCollector.buildMetrics(batchId, result.totalMessages, result.candidatesCreated, result.excluded);
     storeMetrics(batchId, metrics);
 
+    result.aiStatus = getAIModelsStatus();
     return result;
   }
 

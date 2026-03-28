@@ -559,11 +559,17 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
     const result = await waExtractionService.extractFromBatch(batchId);
     res.json({ ...result, linkingWarning });
   } catch (error: any) {
-    if (error.message?.includes('already has extraction candidates')) {
-      return res.status(409).json({ error: error.message });
-    }
     console.error("[WAImport] Extraction error:", error);
     res.status(500).json({ error: "Failed to extract from batch" });
+  }
+});
+
+waImportRouter.get("/ai-status", requireAuth, async (_req, res) => {
+  try {
+    const { getAIModelsStatus } = await import("../../services/whatsapp-import/AIExtractionOrchestrator.js");
+    res.json(getAIModelsStatus());
+  } catch (error) {
+    res.status(500).json({ available: false, models: [] });
   }
 });
 

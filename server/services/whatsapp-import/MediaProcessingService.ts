@@ -173,12 +173,20 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       }
     } catch (err: any) {
       console.error(`[MediaProcessing] Failed to process asset ${asset.id} (${asset.originalFilename}): ${err.message}`);
-      await db.update(waMediaAssets)
-        .set({
-          mediaStatus: 'ocr_failed',
-          skipReason: err.message || 'OCR/extraction failed',
-        })
-        .where(eq(waMediaAssets.id, asset.id));
+      const truncatedReason = (err.message || 'OCR/extraction failed').substring(0, 500);
+      try {
+        await db.update(waMediaAssets)
+          .set({
+            mediaStatus: 'ocr_failed',
+            skipReason: truncatedReason,
+          })
+          .where(eq(waMediaAssets.id, asset.id));
+      } catch (updateErr: any) {
+        console.error(`[MediaProcessing] Failed to update error status for asset ${asset.id}`);
+        await db.update(waMediaAssets)
+          .set({ mediaStatus: 'error' })
+          .where(eq(waMediaAssets.id, asset.id));
+      }
       result.failed++;
     }
   }

@@ -94,12 +94,13 @@ export default function WAImportDashboard() {
   const [linkSelections, setLinkSelections] = useState<Record<number, { entityId: string; entityTable: string }>>({});
   const [workerSearchPerAlias, setWorkerSearchPerAlias] = useState<Record<number, string>>({});
 
-  type PipelineStage = 'idle' | 'media' | 'names' | 'autolink' | 'linking' | 'extract' | 'done' | 'error';
+  type PipelineStage = 'idle' | 'media' | 'names' | 'autolink' | 'linking' | 'ai_check' | 'extract' | 'done' | 'error';
   const [pipelineDialog, setPipelineDialog] = useState(false);
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>('idle');
   const [pipelineResults, setPipelineResults] = useState<Record<string, any>>({});
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [pipelineBatchId, setPipelineBatchId] = useState<number | null>(null);
+  const [aiStatusData, setAiStatusData] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction, setRefreshAction } = useFloatingButton();
@@ -359,12 +360,7 @@ export default function WAImportDashboard() {
         setWorkerSearchPerAlias({});
         setNameLinkingSearch("");
       } else {
-        setPipelineStage('extract');
-        const extResult = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
-        setPipelineResults(prev => ({ ...prev, extract: extResult }));
-        setPipelineStage('done');
-        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+        await checkAIAndExtract(batchId);
       }
     } catch (err: any) {
       setPipelineError(err.message || 'حدث خطأ');
@@ -372,7 +368,29 @@ export default function WAImportDashboard() {
     }
   }, [queryClient]);
 
-  const continuePipelineAfterLinking = useCallback(async () => {
+  const checkAIAndExtract = useCallback(async (batchId: number) => {
+    try {
+      const aiStatus = await apiRequest(`/api/wa-import/ai-status`, 'GET');
+      setAiStatusData(aiStatus);
+      if (!aiStatus.available) {
+        setPipelineStage('ai_check');
+        return;
+      }
+    } catch (_e) {}
+    setPipelineStage('extract');
+    try {
+      const extResult = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
+      setPipelineResults(prev => ({ ...prev, extract: extResult }));
+      setPipelineStage('done');
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches'] });
+    } catch (err: any) {
+      setPipelineError(err.message || 'حدث خطأ');
+      setPipelineStage('error');
+    }
+  }, [queryClient]);
+
+  const proceedWithoutAI = useCallback(async () => {
     if (!pipelineBatchId) return;
     setPipelineStage('extract');
     setPipelineError(null);
@@ -387,6 +405,12 @@ export default function WAImportDashboard() {
       setPipelineStage('error');
     }
   }, [pipelineBatchId, queryClient]);
+
+  const continuePipelineAfterLinking = useCallback(async () => {
+    if (!pipelineBatchId) return;
+    setPipelineError(null);
+    await checkAIAndExtract(pipelineBatchId);
+  }, [pipelineBatchId, checkAIAndExtract]);
 
   const bulkLinkMutation = useMutation({
     mutationFn: (data: { links: Array<{ aliasId: number; entityId: string; entityTable: string }> }) =>
@@ -1874,7 +1898,7 @@ export default function WAImportDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={pipelineDialog} onOpenChange={(open) => { if (!open && (pipelineStage === 'done' || pipelineStage === 'error' || pipelineStage === 'linking')) setPipelineDialog(false); }}>
+      <Dialog open={pipelineDialog} onOpenChange={(open) => { if (!open && (pipelineStage === 'done' || pipelineStage === 'error' || pipelineStage === 'linking' || pipelineStage === 'ai_check')) setPipelineDialog(false); }}>
         <DialogContent data-testid="dialog-pipeline" className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
@@ -1891,7 +1915,7 @@ export default function WAImportDashboard() {
               { key: 'linking', label: 'ربط يدوي', icon: Pencil },
               { key: 'extract', label: 'استخراج مالي', icon: Wallet },
             ];
-            const stageOrder = ['media', 'names', 'autolink', 'linking', 'extract', 'done', 'error'];
+            const stageOrder = ['media', 'names', 'autolink', 'linking', 'ai_check', 'extract', 'done', 'error'];
             const currentIndex = stageOrder.indexOf(pipelineStage);
             const overallProgress = pipelineStage === 'done' ? 100 : pipelineStage === 'error' ? currentIndex * 20 : Math.min(currentIndex * 20, 95);
 
@@ -1935,7 +1959,10 @@ export default function WAImportDashboard() {
                             <span className="text-xs text-muted-foreground">تم ربط {pipelineResults.autoLink.linked || 0} تلقائياً</span>
                           )}
                           {isDone && stage.key === 'extract' && pipelineResults.extract && (
-                            <span className="text-xs text-muted-foreground">{pipelineResults.extract.totalCandidates || pipelineResults.extract.total || 0} مرشح</span>
+                            <span className="text-xs text-muted-foreground">
+                              {pipelineResults.extract.candidatesCreated || 0} مرشح
+                              {pipelineResults.extract.resumed && ` (استئناف، ${pipelineResults.extract.previousCandidates || 0} سابق)`}
+                            </span>
                           )}
                         </div>
 
@@ -1944,6 +1971,19 @@ export default function WAImportDashboard() {
                             <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                               <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
                             </div>
+                          </div>
+                        )}
+
+                        {(isDone || isActive) && stage.key === 'extract' && pipelineResults.extract?.aiStatus && (
+                          <div className="mt-2 space-y-1">
+                            {pipelineResults.extract.aiStatus.models.map((m: any) => (
+                              <div key={m.provider} className={`flex items-center gap-2 text-xs rounded px-2 py-1 ${m.isAvailable ? 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'}`}>
+                                <span className={`w-2 h-2 rounded-full ${m.isAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <span className="font-medium">{m.provider}/{m.model}</span>
+                                {m.error && <span className="mr-auto">({m.error})</span>}
+                                {m.isAvailable && pipelineResults.extract.aiStatus.activeModel === `${m.provider}/${m.model}` && <span className="mr-auto text-green-600">(نشط)</span>}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -2187,6 +2227,35 @@ export default function WAImportDashboard() {
                         تخطي ومتابعة الاستخراج المالي
                       </Button>
                     </DialogFooter>
+                  </div>
+                )}
+
+                {pipelineStage === 'ai_check' && aiStatusData && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3" data-testid="ai-check-panel">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="w-5 h-5 shrink-0" />
+                      <span className="text-sm font-semibold">نماذج الذكاء الاصطناعي غير متاحة حالياً</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {aiStatusData.models?.map((m: any) => (
+                        <div key={m.provider} className="flex items-center gap-2 text-xs rounded px-2 py-1.5 bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border border-red-200 dark:border-red-800">
+                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                          <span className="font-medium">{m.provider}/{m.model}</span>
+                          {m.error && <span className="mr-auto">- {m.error}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                      يمكنك المتابعة بالاستخراج العادي (Regex) بدون ذكاء اصطناعي. النتائج ستكون أقل دقة لكن تبقى مفيدة.
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" onClick={proceedWithoutAI} data-testid="btn-proceed-without-ai">
+                        <Play className="w-3.5 h-3.5 ml-1" /> متابعة بدون AI
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setPipelineStage('error'); setPipelineError('تم الإلغاء: نماذج AI غير متاحة'); }} data-testid="btn-cancel-ai">
+                        إلغاء
+                      </Button>
+                    </div>
                   </div>
                 )}
 

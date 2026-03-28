@@ -606,3 +606,49 @@ export function isAIAvailable(): boolean {
     return false;
   }
 }
+
+export function getAIModelsStatus(): {
+  available: boolean;
+  models: Array<{
+    provider: string;
+    model: string;
+    isAvailable: boolean;
+    error?: string;
+  }>;
+  activeModel?: string;
+} {
+  try {
+    const modelManager = getModelManager();
+    const statuses = modelManager.getModelsStatus();
+    const available = modelManager.hasAvailableModel();
+    const activeModel = statuses.find(m => m.isAvailable);
+    return {
+      available,
+      models: statuses.map(m => ({
+        provider: m.provider,
+        model: m.model,
+        isAvailable: m.isAvailable,
+        error: m.lastError ? summarizeModelError(m.lastError) : undefined,
+      })),
+      activeModel: activeModel ? `${activeModel.provider}/${activeModel.model}` : undefined,
+    };
+  } catch {
+    return { available: false, models: [] };
+  }
+}
+
+function summarizeModelError(error: string): string {
+  if (error.includes('402') || error.includes('depleted') || error.includes('credits')) {
+    return 'نفاد الرصيد';
+  }
+  if (error.includes('429') || error.includes('rate limit') || error.includes('quota')) {
+    return 'تجاوز حد الاستخدام';
+  }
+  if (error.includes('401') || error.includes('unauthorized') || error.includes('invalid')) {
+    return 'مفتاح غير صالح';
+  }
+  if (error.includes('timeout') || error.includes('ECONNREFUSED')) {
+    return 'انتهاء مهلة الاتصال';
+  }
+  return 'خطأ غير محدد';
+}

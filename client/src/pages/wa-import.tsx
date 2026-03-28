@@ -1782,7 +1782,17 @@ export default function WAImportDashboard() {
                                 )}
                               </div>
 
-                              {name.context && <p className="text-[11px] text-muted-foreground line-clamp-1 bg-muted/50 rounded px-2 py-0.5">"{name.context}"</p>}
+                              {(name.sourceMessageText || name.context) && (
+                                <div className="text-[11px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
+                                  {name.sourceSender && <span className="font-medium text-primary/70">{name.sourceSender}: </span>}
+                                  <p className="line-clamp-3 whitespace-pre-wrap" dangerouslySetInnerHTML={{
+                                    __html: (name.sourceMessageText || name.context || '').replace(
+                                      /(\d[\d,،.]+)/g,
+                                      '<mark class="bg-yellow-200 dark:bg-yellow-800 font-bold px-0.5 rounded text-foreground">$1</mark>'
+                                    )
+                                  }} />
+                                </div>
+                              )}
 
                               <div className="flex gap-2 items-center">
                                 <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />

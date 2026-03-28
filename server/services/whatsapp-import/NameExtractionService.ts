@@ -435,11 +435,33 @@ export class NameExtractionService {
       .orderBy(waEntityAliases.aliasName);
   }
 
-  async getDiscoveredNames(batchId: number): Promise<WaEntityAlias[]> {
-    return db.select()
+  async getDiscoveredNames(batchId: number) {
+    const results = await db.select({
+      id: waEntityAliases.id,
+      aliasName: waEntityAliases.aliasName,
+      aliasNameNormalized: waEntityAliases.aliasNameNormalized,
+      entityType: waEntityAliases.entityType,
+      canonicalEntityId: waEntityAliases.canonicalEntityId,
+      entityTable: waEntityAliases.entityTable,
+      sourceBatchId: waEntityAliases.sourceBatchId,
+      sourceMessageId: waEntityAliases.sourceMessageId,
+      extractionMethod: waEntityAliases.extractionMethod,
+      isVerified: waEntityAliases.isVerified,
+      isActive: waEntityAliases.isActive,
+      confidence: waEntityAliases.confidence,
+      occurrenceCount: waEntityAliases.occurrenceCount,
+      context: waEntityAliases.context,
+      firstSeenAt: waEntityAliases.firstSeenAt,
+      lastSeenAt: waEntityAliases.lastSeenAt,
+      createdAt: waEntityAliases.createdAt,
+      sourceMessageText: waRawMessages.messageText,
+      sourceSender: waRawMessages.sender,
+    })
       .from(waEntityAliases)
+      .leftJoin(waRawMessages, eq(waEntityAliases.sourceMessageId, waRawMessages.id))
       .where(eq(waEntityAliases.sourceBatchId, batchId))
       .orderBy(waEntityAliases.aliasName);
+    return results;
   }
 
   async linkNameToEntity(

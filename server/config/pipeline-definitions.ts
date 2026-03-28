@@ -171,6 +171,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "generate-icons": {
     name: "generate-icons",
     timeoutMs: 60000,
+    retryPolicy: { maxRetries: 2, delayMs: 5000 },
     condition: { type: "appType", appTypes: ["android"] },
   },
   "gradle-build": {
@@ -182,11 +183,13 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "sign-apk": {
     name: "sign-apk",
     timeoutMs: 60000,
+    retryPolicy: { maxRetries: 2, delayMs: 5000 },
     condition: { type: "appType", appTypes: ["android"] },
   },
   "apk-integrity": {
     name: "apk-integrity",
     timeoutMs: 60000,
+    retryPolicy: { maxRetries: 2, delayMs: 5000 },
     condition: { type: "appType", appTypes: ["android"] },
   },
   "retrieve-artifact": {

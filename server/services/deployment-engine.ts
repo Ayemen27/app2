@@ -2178,6 +2178,9 @@ export class DeploymentEngine {
       "android/build", "android/app/build", "android/.gradle", ".gradle",
       "www", "*.log", ".npm", ".config", "libs/AgentForge_archived",
       "signoz", "tools", "system_core_docs", "governance",
+      ".env", ".env.*", "local.db", "google-services.json",
+      "SERVICE_ACCOUNT_KEY.json", "wa-import-data", "auth_info_baileys",
+      "*.pem", "*.key",
       distExclude ? "dist" : "",
     ].filter(Boolean).map(e => `--exclude='${e}'`).join(" ");
 
@@ -3754,9 +3757,15 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     const branch = this.sanitizeShellArg(config.branch || "main");
 
+    const sensitiveResets = [
+      "local.db", ".env.production", ".env.local", ".env.staging",
+      "google-services.json", "SERVICE_ACCOUNT_KEY.json",
+      "wa-import-data"
+    ].map(f => `git reset HEAD -- '${f}' 2>/dev/null || true`).join(" && ");
+
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && ${sensitiveResets} && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );

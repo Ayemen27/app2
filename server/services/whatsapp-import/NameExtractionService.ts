@@ -185,6 +185,7 @@ export async function runNameExtractionMigration(): Promise<{ success: boolean; 
       }
       details.push(`Migrated ${migrated} aliases from wa_worker_aliases`);
     } catch (err: any) {
+      console.warn(`[NameExtraction] wa_worker_aliases migration skipped:`, err.message);
       details.push(`wa_worker_aliases migration skipped: ${err.message}`);
     }
 

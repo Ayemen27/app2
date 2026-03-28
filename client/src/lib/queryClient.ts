@@ -123,8 +123,12 @@ export async function apiRequest(
   const token = shouldUseBearerAuth() ? (typeof window !== 'undefined' ? getValidToken('accessToken') : null) : null;
   
   if (shouldUseBearerAuth() && !token) {
-    if (import.meta.env.DEV) console.warn(`[apiRequest] No token for request: ${method} ${endpoint}`);
-    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !endpoint.includes('/auth/login')) {
+    console.warn(`[apiRequest] No token for request: ${method} ${endpoint}`);
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
+      const authError: any = new Error('انتهت الجلسة - يرجى تسجيل الدخول مجدداً');
+      authError.code = 'AUTH_TOKEN_MISSING';
+      authError.status = 401;
+      throw authError;
     }
   }
 
@@ -167,7 +171,7 @@ export async function apiRequest(
           }
         } catch (offErr: any) {
           console.warn('[apiRequest] Local save failed:', offErr);
-          throw new Error('لا يمكن حفظ البيانات محلياً بدون اتصال');
+          throw new Error('لا يمكن حفظ البيانات محلياً بدون اتصال', { cause: offErr });
         }
       } else {
         console.warn(`[apiRequest] Endpoint not supported offline: ${endpoint}`);
@@ -175,7 +179,7 @@ export async function apiRequest(
       }
     }
 
-    if (import.meta.env.DEV) console.log(`API Request: ${method} ${endpoint}`);
+    console.log(`[apiRequest] ${method} ${endpoint}`);
 
     const response = await fetch(url, config);
 
@@ -231,15 +235,14 @@ export async function apiRequest(
               return await retryResponse.json();
             }
           } else {
-            if (import.meta.env.DEV) console.error('[apiRequest] Refresh response not OK:', refreshResponse.status);
+            console.error('[apiRequest] Refresh response not OK:', refreshResponse.status);
           }
         } catch (e) {
-          if (import.meta.env.DEV) console.error('[apiRequest] Refresh failed:', e);
+          console.error('[apiRequest] Refresh failed:', e);
         }
       }
 
-      // إذا وصلنا هنا، يعني فشل التجديد أو لا يوجد توكن
-      if (import.meta.env.DEV) console.warn('[apiRequest] Session expired - throwing auth error');
+      console.warn('[apiRequest] Session expired - throwing auth error');
       throw new Error('انتهت الجلسة - يرجى تسجيل الدخول مجدداً');
     }
 
@@ -253,13 +256,10 @@ export async function apiRequest(
           errorMessage = errorData.message || errorData.error || errorMessage;
         } else {
           const errorText = await response.text();
-          if (import.meta.env.DEV) console.error('[apiRequest] Server sent non-JSON response:', {
-            url: endpoint,
-            status: response.status,
-            contentType
-          });
+          console.error(`[apiRequest] Non-JSON error response: ${method} ${endpoint} [${response.status}]`, errorText?.substring(0, 200));
         }
-      } catch (e) {
+      } catch (parseErr: any) {
+        console.warn(`[apiRequest] Failed to parse error body: ${method} ${endpoint}`, parseErr?.message);
       }
       const error: any = new Error(errorMessage);
       error.status = response.status;
@@ -296,7 +296,7 @@ export async function apiRequest(
             }
           } catch (offErr: any) {
             console.warn('[apiRequest] Network error - local save failed:', offErr);
-            throw new Error('لا يمكن حفظ البيانات بدون اتصال');
+            throw new Error('لا يمكن حفظ البيانات بدون اتصال', { cause: offErr });
           }
         } else {
           throw new Error('هذه العملية غير متاحة بدون اتصال بالإنترنت');
@@ -307,7 +307,7 @@ export async function apiRequest(
         throw new Error('لا يوجد اتصال بالإنترنت');
       }
     }
-    if (import.meta.env.DEV) console.error(`API Error: ${method} ${endpoint}`, error);
+    console.error(`[apiRequest] Error: ${method} ${endpoint}`, error);
     throw error;
   }
 }
@@ -420,10 +420,10 @@ export const getQueryFn: <T>(options: {
                   }
                 }
               } catch (refreshErr) {
-                if (import.meta.env.DEV) console.error('[QueryClient] Token refresh failed:', refreshErr);
+                console.error('[QueryClient] Token refresh failed:', refreshErr);
               }
             }
-            if (import.meta.env.DEV) console.error('[QueryClient] Unauthorized (401) - refresh failed');
+            console.error('[QueryClient] Unauthorized (401) - refresh failed');
             throw new Error(`Authentication Error (401)`);
           }
           if (res.status === 401) {

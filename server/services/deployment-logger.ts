@@ -289,7 +289,7 @@ export class DeploymentLogger {
       await db.insert(deploymentEvents).values({
         deploymentId: summary.deploymentId,
         eventType: "deployment_summary",
-        message: `Deployment ${summary.status} in ${(summary.totalDurationMs / 1000).toFixed(1)}s`,
+        message: `النشر ${summary.status === "success" ? "ناجح" : summary.status === "failed" ? "فشل" : summary.status} في ${(summary.totalDurationMs / 1000).toFixed(1)}ث`,
         metadata: {
           summary: {
             status: summary.status,

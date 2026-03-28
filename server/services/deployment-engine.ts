@@ -881,7 +881,7 @@ export class DeploymentEngine {
           try {
             const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
             commitHash = stdout.trim();
-          } catch {}
+          } catch (err) { console.warn("[DeploymentEngine] git rev-parse HEAD failed:", (err as Error).message); }
 
           return tx.insert(buildDeployments).values({
             buildNumber,
@@ -948,7 +948,7 @@ export class DeploymentEngine {
           try {
             const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
             commitHash = stdout.trim();
-          } catch {}
+          } catch (err) { console.warn("[DeploymentEngine] git rev-parse HEAD failed:", (err as Error).message); }
           payload = await DeploymentPayloadBuilder.buildStartedPayload(
             deploymentId, config, pipelineSteps, commitHash, config.branch
           );
@@ -1191,7 +1191,7 @@ export class DeploymentEngine {
           });
           await db.update(buildDeployments).set({ steps: fixedSteps }).where(eq(buildDeployments.id, deploymentId));
         }
-      } catch {}
+      } catch (err) { console.warn("[DeploymentEngine] Failed to fix step statuses on error:", (err as Error).message); }
 
       const failStatus = isCancelled ? "cancelled" : "failed";
       const failMsg = isCancelled ? "تم الإلغاء بواسطة المستخدم" : error.message;
@@ -1838,7 +1838,7 @@ export class DeploymentEngine {
         criticalFailures.push(`${conflictFiles} ملفات بها تعارضات Git غير محلولة`);
         await this.addLog(deploymentId, `🚫 تعارضات Git: ${conflictFiles} ملفات`, "error");
       }
-    } catch {}
+    } catch (err) { console.warn("[DeploymentEngine] Git conflict check failed:", (err as Error).message); }
 
     this.updateStepProgress(deploymentId, "preflight-check", 30, "فحص TypeScript...");
     try {
@@ -2156,7 +2156,7 @@ export class DeploymentEngine {
 
     try {
       const { stdout } = await execAsync("ls -la dist/public/ | head -5", { cwd: "/home/runner/workspace" });
-      await this.addLog(deploymentId, `Build output: ${stdout.trim()}`, "info");
+      await this.addLog(deploymentId, `مخرجات البناء: ${stdout.trim()}`, "info");
     } catch {
       throw new Error("Build failed - dist/public not found");
     }
@@ -2445,7 +2445,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ cap sync تجاوز المهلة (90 ثانية) — مزامنة يدوية للأصول", "warn");
       await this.execWithLog(
         deploymentId,
-        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && npx ts-node --skip-project -e 'const c=require(\\\"./capacitor.config.ts\\\").default;require(\\\"fs\\\").writeFileSync(\\\"android/app/src/main/assets/capacitor.config.json\\\",JSON.stringify(c,null,2))' 2>/dev/null || cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
         "Manual Asset Sync (timeout fallback)",
         60000
       );
@@ -2454,7 +2454,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, `⚠️ cap sync فشل (exit code: ${codeMatch?.[1] || '?'}) — مزامنة يدوية للأصول`, "warn");
       await this.execWithLog(
         deploymentId,
-        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && npx ts-node --skip-project -e 'const c=require(\\\"./capacitor.config.ts\\\").default;require(\\\"fs\\\").writeFileSync(\\\"android/app/src/main/assets/capacitor.config.json\\\",JSON.stringify(c,null,2))' 2>/dev/null || cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
         "Manual Asset Sync (error fallback)",
         60000
       );
@@ -2462,7 +2462,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ npx غير متاح — مزامنة يدوية للأصول", "warn");
       await this.execWithLog(
         deploymentId,
-        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && npx ts-node --skip-project -e 'const c=require(\\\"./capacitor.config.ts\\\").default;require(\\\"fs\\\").writeFileSync(\\\"android/app/src/main/assets/capacitor.config.json\\\",JSON.stringify(c,null,2))' 2>/dev/null || cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
         "Manual Asset Sync",
         60000
       );
@@ -3365,7 +3365,7 @@ export class DeploymentEngine {
             );
             autoFixes.push("disk-cleanup");
             await this.addLog(deploymentId, "✅ تم تنظيف ملفات البناء المؤقتة", "success");
-          } catch {}
+          } catch (err) { console.warn("[DeploymentEngine] Disk cleanup failed:", (err as Error).message); }
         } else {
           await this.addLog(deploymentId, `✅ مساحة القرص: ${diskMatch[1]} متاح (${diskMatch[2]} مستخدم)`, "success");
         }
@@ -3763,19 +3763,19 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     try {
       await execAsync(`git fetch origin ${branch}`, { cwd: "/home/runner/workspace", timeout: 15000 });
-    } catch {}
+    } catch (err) { console.warn("[DeploymentEngine] git fetch failed:", (err as Error).message); }
 
     try {
       const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
       const commitHash = stdout.trim();
       await this.updateDeployment(deploymentId, { commitHash });
-      await this.addLog(deploymentId, `Commit: ${commitHash.substring(0, 8)}`, "info");
-    } catch {}
+      await this.addLog(deploymentId, `الإيداع: ${commitHash.substring(0, 8)}`, "info");
+    } catch (err) { console.warn("[DeploymentEngine] git rev-parse HEAD failed:", (err as Error).message); }
   }
 
   private async stepPullServer(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
     const branch = this.sanitizeShellArg(config?.branch || "main");
-    await this.addLog(deploymentId, `Pulling latest from GitHub on server (branch: ${branch})...`, "info");
+    await this.addLog(deploymentId, `جاري سحب آخر التحديثات من GitHub على السيرفر (الفرع: ${branch})...`, "info");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
@@ -4024,7 +4024,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     try {
       const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
       await this.updateDeployment(deploymentId, { commitHash: stdout.trim() });
-    } catch {}
+    } catch (err) { console.warn("[DeploymentEngine] git rev-parse HEAD failed:", (err as Error).message); }
   }
 
   private async getCurrentVersion(): Promise<string> {
@@ -4037,7 +4037,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       if (lastSuccess?.version) {
         return this.incrementPatchVersion(lastSuccess.version);
       }
-    } catch {}
+    } catch (err) { console.warn("[DeploymentEngine] Failed to get current version from DB:", (err as Error).message); }
 
     try {
       const { stdout } = await execAsync("grep '\"version\"' package.json | head -1 | sed 's/.*\"version\": \"\\([^\"]*\\)\".*/\\1/'", { cwd: "/home/runner/workspace" });
@@ -4948,7 +4948,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     try {
       await this.updateStepStatus(rollbackId, "validate", "running");
-      await this.addLog(rollbackId, `Rolling back to build #${targetDeployment.buildNumber} (v${targetDeployment.version})${targetCommit ? ` [${targetCommit.substring(0, 8)}]` : ""}`, "step");
+      await this.addLog(rollbackId, `استرجاع إلى البناء #${targetDeployment.buildNumber} (v${targetDeployment.version})${targetCommit ? ` [${targetCommit.substring(0, 8)}]` : ""}`, "step");
       await this.updateStepStatus(rollbackId, "validate", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "rollback-server", "running");
@@ -5002,7 +5002,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       await new Promise(r => setTimeout(r, 5000));
       const health = await this.checkServerHealth();
       await this.updateDeployment(rollbackId, { serverHealthResult: health, commitHash: targetCommit });
-      await this.addLog(rollbackId, `Health check: ${health.status}`, health.status === "healthy" ? "success" : "warn");
+      await this.addLog(rollbackId, `فحص الصحة: ${health.status === "healthy" ? "سليم" : health.status}`, health.status === "healthy" ? "success" : "warn");
 
       if (health.status === "down" || health.status === "error") {
         await this.updateStepStatus(rollbackId, "verify", "failed", Date.now() - startTime);
@@ -5018,7 +5018,7 @@ echo 'MAINACTIVITY_FIXED'"`,
         duration: Date.now() - startTime,
         endTime: new Date(),
       });
-      await this.addLog(rollbackId, "Rollback completed successfully", "success");
+      await this.addLog(rollbackId, "✅ اكتمل الاسترجاع بنجاح", "success");
     } catch (error: any) {
       await this.updateDeployment(rollbackId, {
         status: "failed",

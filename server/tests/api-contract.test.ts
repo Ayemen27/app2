@@ -107,22 +107,22 @@ describe('Query Keys Centralization Tests', () => {
 });
 
 describe('Capacitor Config Validation Tests', () => {
-  const capConfigPath = resolve(__dirname, '../../capacitor.config.json');
+  const capConfigPath = resolve(__dirname, '../../capacitor.config.ts');
 
-  it('يجب أن يكون ملف capacitor.config.json موجوداً', () => {
+  it('يجب أن يكون ملف capacitor.config.ts موجوداً', () => {
     expect(existsSync(capConfigPath)).toBe(true);
   });
 
   it('يجب أن يحتوي على إعدادات صحيحة', () => {
-    const config = JSON.parse(readFileSync(capConfigPath, 'utf-8'));
-    expect(config.appId).toBe('com.axion.app');
-    expect(config.appName).toBe('AXION');
-    expect(config.webDir).toBe('www');
+    const content = readFileSync(capConfigPath, 'utf-8');
+    expect(content).toContain("appId: 'com.axion.app'");
+    expect(content).toContain("appName: 'AXION'");
+    expect(content).toContain("webDir: 'www'");
   });
 
   it('يجب أن يسمح بالمحتوى المختلط للأندرويد', () => {
-    const config = JSON.parse(readFileSync(capConfigPath, 'utf-8'));
-    expect(config.android?.allowMixedContent).toBe(true);
+    const content = readFileSync(capConfigPath, 'utf-8');
+    expect(content).toContain('allowMixedContent: true');
   });
 });
 

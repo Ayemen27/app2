@@ -45,7 +45,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
       const result = await TelegramService.sendMessage({ text, parseMode: "HTML" });
       return { ok: result };
     } catch (error: any) {
-      return { ok: false, error: error?.message || "Unknown Telegram error" };
+      return { ok: false, error: error?.message || "خطأ غير معروف في التلجرام" };
     }
   }
 
@@ -77,8 +77,8 @@ export class TelegramDeploymentProvider implements NotificationProvider {
       `🆔 معرف: <code>${shortId}</code>`,
       ``,
       `🔍 معلومات أولية:`,
-      `├ 🔗 Commit: <code>${commitHash}</code>`,
-      `├ 🌿 Branch: ${branch}`,
+      `├ 🔗 الإيداع: <code>${commitHash}</code>`,
+      `├ 🌿 الفرع: ${branch}`,
       `├ 📋 الخطوات: ${total} خطوة`,
       `└ ⚡ حرجة: ${criticalSteps || "—"}`,
       ``,
@@ -137,7 +137,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     if (payload.artifact) {
       const a = payload.artifact;
       lines.push(``);
-      lines.push(`📦 <b>Artifact:</b>`);
+      lines.push(`📦 <b>الملف الناتج:</b>`);
       lines.push(`├ 📁 ${escapeHtml(a.fileName || "—")} (${escapeHtml(a.size || "—")})`);
       const sha = a.sha256 ? escapeHtml(a.sha256.substring(0, 16)) : "—";
       lines.push(`├ 🔑 SHA-256: <code>${sha}</code>`);
@@ -221,7 +221,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     const commitHash = s?.commitHash ? escapeHtml(s.commitHash.substring(0, 7)) : "—";
     const branch = s?.branch ? escapeHtml(s.branch) : "—";
     lines.push(``);
-    lines.push(`🔗 Commit: <code>${commitHash}</code> | Branch: ${branch}`);
+    lines.push(`🔗 الإيداع: <code>${commitHash}</code> | الفرع: ${branch}`);
     lines.push(`🌐 ${escapeHtml(d.consoleUrl)}`);
 
     return lines.join("\n");
@@ -264,7 +264,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
 
     const commitHash = s?.commitHash ? escapeHtml(s.commitHash.substring(0, 7)) : "—";
     lines.push(``);
-    lines.push(`🔗 Commit: <code>${commitHash}</code>`);
+    lines.push(`🔗 الإيداع: <code>${commitHash}</code>`);
     lines.push(`🌐 ${escapeHtml(d.consoleUrl)}`);
 
     return lines.join("\n");
@@ -324,7 +324,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     lines.push(`1. أصلح مسارات API الحرجة`);
     lines.push(`2. تحقق من إعدادات CORS`);
     lines.push(`3. تأكد من صلاحية SSL`);
-    lines.push(`4. راجع CSP headers`);
+    lines.push(`4. راجع ترويسات CSP`);
     lines.push(`5. أعد النشر بعد التصحيح`);
 
     return lines.join("\n");

@@ -3658,7 +3658,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🚀 بدء البناء في الخلفية على السيرفر (SSH-resilient)...", "info");
 
     await execAsync(
-      `${sshCmd} "cd ${remoteDir} && nohup bash -lc 'export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build; echo \\$? > ${exitFile}' > ${logFile} 2>&1 & echo \\$! > ${pidFile} && cat ${pidFile}"`,
+      `${sshCmd} "setsid bash -c 'cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
       { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
     );
 

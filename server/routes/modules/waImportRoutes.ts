@@ -267,7 +267,6 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     if (canonicalIds.length > 0) {
       await database.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
       await database.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
-      await database.delete(waDedupKeys).where(inArray(waDedupKeys.canonicalTransactionId, canonicalIds));
       await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
       await database.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
     }
@@ -275,6 +274,8 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     if (candidateIds.length > 0) {
       await database.delete(waTransactionEvidenceLinks).where(inArray(waTransactionEvidenceLinks.candidateId, candidateIds));
       await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.candidateId, candidateIds));
+      await database.delete(waProjectHypotheses).where(inArray(waProjectHypotheses.candidateId, candidateIds));
+      await database.delete(waDedupKeys).where(inArray(waDedupKeys.candidateId, candidateIds));
     }
 
     if (canonicalIds.length > 0) {
@@ -282,7 +283,7 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     }
 
     await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
-    await database.delete(waProjectHypotheses).where(eq(waProjectHypotheses.batchId, batchId));
+    await database.delete(waCustodianEntries).where(eq(waCustodianEntries.linkedBatchId, batchId));
 
     await database.delete(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
     await database.delete(waRawMessages).where(eq(waRawMessages.batchId, batchId));

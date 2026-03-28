@@ -137,13 +137,13 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
 
   if (!isPipelineSupported(pipeline)) {
     const available = listAvailablePipelines().map(p => p.name);
-    res.status(400).json({ error: `Invalid pipeline. Valid: ${available.join(", ")}` });
+    res.status(400).json({ error: `مسار نشر غير صالح. المتاح: ${available.join(", ")}` });
     return;
   }
 
   const validEnvs = ["production", "staging"];
   if (!validEnvs.includes(environment)) {
-    res.status(400).json({ error: "Invalid environment" });
+    res.status(400).json({ error: "بيئة غير صالحة" });
     return;
   }
 
@@ -175,7 +175,7 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
       releaseNotes: safeReleaseNotes,
     });
 
-    res.json({ id: deploymentId, message: "Deployment started" });
+    res.json({ id: deploymentId, message: "تم بدء النشر" });
   } catch (err: any) {
     if (err.message?.includes("قيد التنفيذ")) {
       res.status(409).json({ error: err.message });
@@ -313,16 +313,16 @@ router.get("/:id/stream", requireAdmin, async (req: Request, res: Response) => {
 router.post("/:id/cancel", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const deployment = await deploymentEngine.getDeployment(req.params.id);
   if (!deployment) {
-    res.status(404).json({ error: "Deployment not found" });
+    res.status(404).json({ error: "عملية النشر غير موجودة" });
     return;
   }
   if (deployment.status !== "running") {
-    res.status(400).json({ error: "Can only cancel running deployments" });
+    res.status(400).json({ error: "يمكن إلغاء عمليات النشر قيد التشغيل فقط" });
     return;
   }
 
   await deploymentEngine.cancelDeployment(req.params.id);
-  res.json({ message: "Deployment cancelled" });
+  res.json({ message: "تم إلغاء النشر" });
 }));
 
 router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
@@ -334,13 +334,13 @@ router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res
   const { getUserDisplayName: getDisplayName } = await import('../../internal/auth-user');
   const triggeredBy = getDisplayName(authUser);
   const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash, triggeredBy);
-  res.json({ id: rollbackId, message: "Rollback started" });
+  res.json({ id: rollbackId, message: "تم بدء الاسترجاع" });
 }));
 
 router.post("/:id/resume", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const deployment = await deploymentEngine.getDeployment(req.params.id);
   if (!deployment) {
-    res.status(404).json({ error: "Deployment not found" });
+    res.status(404).json({ error: "عملية النشر غير موجودة" });
     return;
   }
   if (deployment.status !== "failed" && deployment.status !== "running") {
@@ -348,17 +348,17 @@ router.post("/:id/resume", requireAdmin, asyncHandler(async (req: Request, res: 
     return;
   }
   const resumedId = await deploymentEngine.resumeDeployment(req.params.id);
-  res.json({ id: resumedId, message: "Deployment resumed" });
+  res.json({ id: resumedId, message: "تم استئناف النشر" });
 }));
 
 router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const deployment = await deploymentEngine.getDeployment(req.params.id);
   if (!deployment) {
-    res.status(404).json({ error: "Deployment not found" });
+    res.status(404).json({ error: "عملية النشر غير موجودة" });
     return;
   }
   if (!deployment.artifactUrl) {
-    res.status(404).json({ error: "No artifact available for this deployment" });
+    res.status(404).json({ error: "لا يوجد ملف متاح لهذه العملية" });
     return;
   }
 
@@ -388,13 +388,13 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
   await new Promise<void>((resolve) => sizeChild.on("close", resolve));
 
   if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
-    res.status(404).json({ error: "APK file not found on remote server" });
+    res.status(404).json({ error: "ملف APK غير موجود على السيرفر" });
     return;
   }
 
   const fileSize = parseInt(sizeOutput.trim(), 10);
   if (isNaN(fileSize) || fileSize < 1000) {
-    res.status(404).json({ error: "APK file invalid or too small" });
+    res.status(404).json({ error: "ملف APK غير صالح أو صغير جداً" });
     return;
   }
 
@@ -418,13 +418,13 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
   child.on("error", (err: Error) => {
     console.error("[APK Download] Error:", err.message);
     if (!res.headersSent) {
-      res.status(500).json({ error: "Failed to stream APK" });
+      res.status(500).json({ error: "فشل في بث ملف APK" });
     }
   });
   child.on("close", (code: number | null) => {
     req.removeListener("close", killChild);
     if (code !== 0 && !res.headersSent) {
-      res.status(500).json({ error: "APK transfer failed" });
+      res.status(500).json({ error: "فشل نقل ملف APK" });
     }
   });
 }));
@@ -432,7 +432,7 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
 router.get("/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const deployment = await deploymentEngine.getDeployment(req.params.id);
   if (!deployment) {
-    res.status(404).json({ error: "Deployment not found" });
+    res.status(404).json({ error: "عملية النشر غير موجودة" });
     return;
   }
   res.json(deployment);
@@ -456,14 +456,14 @@ router.post("/prebuild-check", requireAdmin, asyncHandler(async (req: Request, r
     try {
       const parsed = new URL(req.body.baseUrl);
       if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        return res.status(400).json({ error: "Only http/https URLs allowed" });
+        return res.status(400).json({ error: "يُسمح فقط بروابط http/https" });
       }
       if (!ALLOWED_PREBUILD_HOSTS.includes(parsed.hostname)) {
-        return res.status(400).json({ error: `Host not in allowlist: ${parsed.hostname}` });
+        return res.status(400).json({ error: `المضيف غير مسموح: ${parsed.hostname}` });
       }
       baseUrl = req.body.baseUrl;
     } catch {
-      return res.status(400).json({ error: "Invalid URL" });
+      return res.status(400).json({ error: "رابط غير صالح" });
     }
   }
 

@@ -316,7 +316,7 @@ export class DeploymentLogger {
       await db.insert(deploymentEvents).values({
         deploymentId: this.traceId,
         eventType: "structured_logs",
-        message: `${this.logs.length} structured log entries`,
+        message: `${this.logs.length} سجل منظم`,
         metadata: { entries: this.logs },
       });
     } catch (err) {

@@ -17,7 +17,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
 
   async send(payload: DeploymentNotificationPayload): Promise<{ ok: boolean; messageId?: string; error?: string }> {
     if (!this.isEnabled()) {
-      return { ok: false, error: "Telegram service is not enabled" };
+      return { ok: false, error: "خدمة التلجرام غير مفعّلة" };
     }
 
     let text: string;
@@ -38,7 +38,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
         text = this.formatPrebuildGateFailed(payload);
         break;
       default:
-        return { ok: false, error: `Unknown event type: ${payload.eventType}` };
+        return { ok: false, error: `نوع حدث غير معروف: ${payload.eventType}` };
     }
 
     try {

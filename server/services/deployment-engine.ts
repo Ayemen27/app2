@@ -24,7 +24,7 @@ type LogEntry = { timestamp: string; message: string; type: "info" | "error" | "
 type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed" | "cancelled"; duration?: number; startedAt?: string; subProgress?: number; subMessage?: string };
 
 class CancellationError extends Error {
-  constructor(message = "Deployment cancelled by user") {
+  constructor(message = "تم إلغاء النشر بواسطة المستخدم") {
     super(message);
     this.name = "CancellationError";
   }
@@ -1067,9 +1067,9 @@ export class DeploymentEngine {
         });
 
         await this.updateStepStatus(deploymentId, stepName, "running");
-        await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
+        await this.addLog(deploymentId, `بدء الخطوة: ${stepName}`, "step");
         if (!resumed) {
-          await this.addEvent(deploymentId, "step_start", `Step ${stepName} started`);
+          await this.addEvent(deploymentId, "step_start", `بدء الخطوة ${stepName}`);
           logger!.stepStart(stepName);
         }
 
@@ -1104,8 +1104,8 @@ export class DeploymentEngine {
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
             if (!resumed) logger!.stepEnd(stepName, "success");
-            await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)${attempt > 1 ? ` [retry ${attempt}/${maxAttempts}]` : ""}`, "success");
-            if (!resumed) await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration, attempt });
+            await this.addLog(deploymentId, `✅ اكتملت الخطوة ${stepName} (${(stepDuration / 1000).toFixed(1)}ث)${attempt > 1 ? ` [محاولة ${attempt}/${maxAttempts}]` : ""}`, "success");
+            if (!resumed) await this.addEvent(deploymentId, "step_complete", `اكتملت الخطوة ${stepName}`, { duration: stepDuration, attempt });
             lastError = null;
             break;
           } catch (stepError: any) {
@@ -1127,8 +1127,8 @@ export class DeploymentEngine {
           await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
           if (!resumed) logger!.stepEnd(stepName, "failed");
           await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
-          await this.addLog(deploymentId, `Step ${stepName} failed after ${maxAttempts} attempt(s): ${lastError.message}`, "error");
-          if (!resumed) await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${lastError.message}`);
+          await this.addLog(deploymentId, `❌ فشلت الخطوة ${stepName} بعد ${maxAttempts} محاولة: ${lastError.message}`, "error");
+          if (!resumed) await this.addEvent(deploymentId, "step_failed", `فشلت الخطوة ${stepName}: ${lastError.message}`);
           throw lastError;
         }
       }
@@ -1170,10 +1170,10 @@ export class DeploymentEngine {
       }
 
       const successMsg = resumed
-        ? `Deployment resumed and completed successfully in ${(totalDuration / 1000).toFixed(1)}s`
-        : `Deployment completed successfully in ${(totalDuration / 1000).toFixed(1)}s`;
+        ? `✅ تم استئناف وإكمال النشر بنجاح في ${(totalDuration / 1000).toFixed(1)}ث`
+        : `✅ اكتمل النشر بنجاح في ${(totalDuration / 1000).toFixed(1)}ث`;
       await this.addLog(deploymentId, successMsg, "success");
-      if (!resumed) await this.addEvent(deploymentId, "deployment_success", "Deployment completed successfully", { duration: totalDuration });
+      if (!resumed) await this.addEvent(deploymentId, "deployment_success", "اكتمل النشر بنجاح", { duration: totalDuration });
       await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
 
     } catch (error: any) {
@@ -1194,7 +1194,7 @@ export class DeploymentEngine {
       } catch {}
 
       const failStatus = isCancelled ? "cancelled" : "failed";
-      const failMsg = isCancelled ? "Cancelled by user" : error.message;
+      const failMsg = isCancelled ? "تم الإلغاء بواسطة المستخدم" : error.message;
       const [casResult] = await db.update(buildDeployments).set({
         status: failStatus,
         duration: totalDuration,
@@ -2049,7 +2049,7 @@ export class DeploymentEngine {
           const reasons: string[] = [];
           if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
           if (!report.summary.sslValid) reasons.push("SSL غير صالح");
-          await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
+          await this.addEvent(deploymentId, "smoke_test_failed", "فشل اختبار ما بعد النشر — اكتشاف أعطال حرجة", {
             failedRoutes: criticalFailed.map(r => r.path),
           });
           await this.addLog(deploymentId, `🚫 فشل اختبار الدخان: ${reasons.join(" | ")} — النشر مرفوض لحماية الإنتاج`, "error");
@@ -2142,16 +2142,16 @@ export class DeploymentEngine {
       const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
       const commitHash = stdout.trim();
       await this.updateDeployment(deploymentId, { commitHash });
-      await this.addLog(deploymentId, `Commit: ${commitHash.substring(0, 8)}`, "info");
+      await this.addLog(deploymentId, `الإيداع: ${commitHash.substring(0, 8)}`, "info");
     } catch {
-      await this.addLog(deploymentId, "Could not resolve git commit hash", "warn");
+      await this.addLog(deploymentId, "تعذر تحديد معرف الإيداع", "warn");
     }
 
-    await this.addLog(deploymentId, "All validations passed", "success");
+    await this.addLog(deploymentId, "✅ جميع عمليات التحقق نجحت", "success");
   }
 
   private async stepBuildWeb(deploymentId: string) {
-    await this.addLog(deploymentId, "Building web application...", "info");
+    await this.addLog(deploymentId, "جاري بناء تطبيق الويب...", "info");
     await this.execWithLog(deploymentId, "npm run build", "Vite Build", 120000);
 
     try {
@@ -2204,7 +2204,7 @@ export class DeploymentEngine {
   }
 
   private async stepDeployServer(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Deploying to server...", "info");
+    await this.addLog(deploymentId, "جاري النشر على السيرفر...", "info");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
@@ -3485,7 +3485,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       errors.push(`فشل فحص السيرفر: ${err.message}`);
     }
 
-    await this.addEvent(deploymentId, "android_readiness", "Android readiness check", {
+    await this.addEvent(deploymentId, "android_readiness", "فحص جاهزية أندرويد", {
       errorsCount: errors.length,
       errors,
       autoFixes,
@@ -3587,7 +3587,7 @@ echo 'MAINACTIVITY_FIXED'"`,
         report.summary.overallPass ? "success" : "warn"
       );
 
-      await this.addEvent(deploymentId, "prebuild_gate", "Pre-build gate completed", {
+      await this.addEvent(deploymentId, "prebuild_gate", "اكتملت بوابة ما قبل البناء", {
         overallPass: report.summary.overallPass,
         routesPassed: report.summary.passedRoutes,
         routesFailed: report.summary.failedRoutes,
@@ -3787,7 +3787,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   }
 
   private async stepInstallDeps(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Installing dependencies on server...", "info");
+    await this.addLog(deploymentId, "جاري تثبيت المكتبات على السيرفر...", "info");
     this.updateStepProgress(deploymentId, "install-deps", 10, "تثبيت الحزم على السيرفر...");
     const remoteDir = "/home/administrator/app2";
 
@@ -4008,7 +4008,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   }
 
   private async stepHotfixSync(deploymentId: string) {
-    await this.addLog(deploymentId, "Hotfix: syncing built files to server...", "info");
+    await this.addLog(deploymentId, "إصلاح سريع: مزامنة الملفات المبنية إلى السيرفر...", "info");
 
     const scpCmd = this.buildSCPCommand(
       "/home/runner/workspace/dist/",
@@ -5106,7 +5106,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       }).where(eq(buildDeployments.id, deploymentId));
 
       await this.addLog(deploymentId, `🔄 استئناف النشر من الخطوة: ${steps[firstFailedIdx].name}`, "info");
-      await this.addEvent(deploymentId, "deployment_resumed", `Resumed from step: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
+      await this.addEvent(deploymentId, "deployment_resumed", `تم الاستئناف من الخطوة: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
 
       broadcastToClients(deploymentId, { type: "deployment_update", data: { status: "running", currentStep: steps[firstFailedIdx].name, steps: updatedSteps } });
       broadcastGlobalEvent({ type: "deployment_resumed", deploymentId, data: { id: deploymentId, status: "running" } });
@@ -5258,7 +5258,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     this.stopHeartbeat(deploymentId);
 
     await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
-    await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
+    await this.addEvent(deploymentId, "deployment_cancelled", "تم إلغاء النشر بواسطة المستخدم");
     await this.flushLogs(deploymentId);
 
     broadcastToClients(deploymentId, { type: "deployment_update", data: { status: "cancelled", steps: updatedSteps, errorMessage: "تم الإلغاء بواسطة المستخدم" } });

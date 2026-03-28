@@ -207,9 +207,6 @@ function DailyExpensesContent() {
   const [workerAmount, setWorkerAmount] = useState<string>("");
   const [workerNotes, setWorkerNotes] = useState<string>("");
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
-  const [editWorkerDays, setEditWorkerDays] = useState<string>("");
-  const [editWorkerAmount, setEditWorkerAmount] = useState<string>("");
-  const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
   const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
   const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
   const [showGuardTransferDialog, setShowGuardTransferDialog] = useState(false);
@@ -323,10 +320,11 @@ function DailyExpensesContent() {
 
   // العمال المتاحين للإضافة (الذين ليس لديهم سجل حضور في هذا اليوم)
   const availableWorkers = useMemo(() => {
-    return workers.filter(worker => 
-      !attendanceData.some(attendance => attendance.worker_id === worker.id)
-    );
-  }, [workers, attendanceData]);
+    return workers.filter(worker => {
+      if (editingAttendanceId && worker.id === selectedWorkerId) return true;
+      return !attendanceData.some(attendance => attendance.worker_id === worker.id);
+    });
+  }, [workers, attendanceData, editingAttendanceId, selectedWorkerId]);
 
   const { data: projects = [], error: projectsError } = useQuery<Project[]>({
     queryKey: QUERY_KEYS.projects,
@@ -416,27 +414,29 @@ function DailyExpensesContent() {
     onSuccess: () => {
       refreshAllData();
       setEditingAttendanceId(null);
-      setEditWorkerDays("");
-      setEditWorkerAmount("");
-      setEditWorkerNotes("");
+      setSelectedWorkerId("");
+      setWorkerDays("");
+      setWorkerAmount("");
+      setWorkerNotes("");
+      setSelectedWellIds([]);
+      setSelectedCrewTypes([]);
       toast({ title: "تم التحديث", description: "تم تحديث بيانات الحضور بنجاح" });
     },
     onError: (error: any) => {
       if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
         const suggestedAction = error.responseData.suggestedAction;
-        const attendance = safeAttendance.find((a: any) => a.id === editingAttendanceId);
-        const worker = workers.find((w: any) => w.id === attendance?.worker_id);
-        const dailyWage = parseFloat(worker?.dailyWage?.toString() || attendance?.daily_wage?.toString() || '0');
-        const workDaysVal = parseFloat(editWorkerDays || '0');
+        const worker = workers.find((w: any) => w.id === selectedWorkerId);
+        const dailyWage = parseFloat(worker?.dailyWage?.toString() || '0');
+        const workDaysVal = parseFloat(workerDays || '0');
         setOverpaymentData({
           workerName: worker?.name || 'عامل',
-          workerId: attendance?.worker_id || '',
-          projectId: attendance?.project_id || selectedProjectId,
-          date: attendance?.date || selectedDate || getCurrentDate(),
-          totalAmount: parseFloat(editWorkerAmount || '0'),
+          workerId: selectedWorkerId,
+          projectId: selectedProjectId,
+          date: selectedDate || getCurrentDate(),
+          totalAmount: parseFloat(workerAmount || '0'),
           actualWage: suggestedAction?.attendancePaidAmount ?? parseFloat((dailyWage * workDaysVal).toFixed(2)),
           workDays: workDaysVal,
-          originalRecord: { id: editingAttendanceId, workDays: editWorkerDays, paidAmount: editWorkerAmount, notes: editWorkerNotes },
+          originalRecord: { id: editingAttendanceId, workDays: workerDays, paidAmount: workerAmount, notes: workerNotes },
           recordId: editingAttendanceId || undefined,
         });
         setShowOverpaymentDialog(true);
@@ -3210,7 +3210,7 @@ function DailyExpensesContent() {
             <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
               <h4 className="font-medium text-foreground flex items-center">
                 <Users className="text-primary ml-2 h-5 w-5" />
-                إضافة أجور عامل جديد
+                {editingAttendanceId ? "تعديل أجور العامل" : "إضافة أجور عامل جديد"}
               </h4>
               <div className="flex items-center gap-1">
                 {safeAttendance.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeAttendance.length}</Badge>}
@@ -3219,14 +3219,21 @@ function DailyExpensesContent() {
             </div>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
+            {editingAttendanceId && (
+              <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg flex items-center gap-2">
+                <Edit2 className="h-4 w-4 text-blue-600" />
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-300">وضع التعديل — قم بتعديل البيانات ثم اضغط "حفظ التعديلات"</span>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-2 mb-3 items-end">
               <div className="col-span-6">
                 <Label className="text-[10px] font-bold text-foreground mb-1 block">العامل *</Label>
                 <Select 
                   value={selectedWorkerId || "none"} 
                   onValueChange={(val: string) => setSelectedWorkerId(val === "none" ? "" : val)}
+                  disabled={!!editingAttendanceId}
                 >
-                  <SelectTrigger className="h-9 text-xs" data-testid="select-worker">
+                  <SelectTrigger className={`h-9 text-xs ${editingAttendanceId ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="select-worker">
                     <SelectValue placeholder="اختر العامل" />
                   </SelectTrigger>
                   <SelectContent className="p-0 overflow-hidden">
@@ -3329,72 +3336,27 @@ function DailyExpensesContent() {
             )}
 
             <div className="flex gap-2">
-              <Button 
-                onClick={handleQuickAddAttendance}
-                className="bg-primary h-9 flex-1"
-                disabled={addWorkerAttendanceMutation.isPending}
-                data-testid="button-add-worker-attendance"
-              >
-                {addWorkerAttendanceMutation.isPending ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 ml-1" />
-                    إضافة الحضور السريع
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* نموذج تعديل أجور العمال */}
-            {editingAttendanceId && (
-              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg">
-                <h5 className="font-medium text-foreground mb-3">تعديل بيانات الحضور</h5>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <Label className="text-xs font-bold text-foreground mb-1">الأيام</Label>
-                    <Input
-                      type="number"
-                      value={editWorkerDays}
-                      onChange={(e) => setEditWorkerDays(e.target.value)}
-                      className="text-center h-9"
-                      min="0"
-                      step="0.5"
-                      data-testid="input-edit-worker-days"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-bold text-foreground mb-1">المبلغ</Label>
-                    <Input
-                      type="number"
-                      value={editWorkerAmount}
-                      onChange={(e) => setEditWorkerAmount(e.target.value)}
-                      className="text-center h-9"
-                      min="0"
-                      step="1"
-                      data-testid="input-edit-worker-amount"
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
-                  <Input
-                    type="text"
-                    value={editWorkerNotes}
-                    onChange={(e) => setEditWorkerNotes(e.target.value)}
-                    placeholder="ملاحظات إضافية"
-                    className="h-9"
-                    data-testid="input-edit-worker-notes"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
+              {editingAttendanceId ? (
+                <>
+                  <Button 
                     onClick={() => {
+                      const worker = workers.find(w => w.id === selectedWorkerId);
+                      if (!worker) return;
+                      const dailyWageNum = parseFloat(String(worker.dailyWage || "0"));
+                      const workDaysNum = parseFloat(workerDays || "0");
+                      const actualWage = dailyWageNum * workDaysNum;
                       updateWorkerAttendanceMutation.mutate({
                         id: editingAttendanceId,
-                        workDays: editWorkerDays,
-                        paidAmount: editWorkerAmount,
-                        notes: editWorkerNotes
+                        workDays: workerDays,
+                        paidAmount: workerAmount,
+                        notes: workerNotes,
+                        dailyWage: dailyWageNum.toString(),
+                        actualWage: actualWage.toString(),
+                        totalPay: actualWage.toString(),
+                        remainingAmount: (actualWage - parseFloat(workerAmount || "0")).toString(),
+                        well_id: selectedWellIds[0] || null,
+                        well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+                        crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
                       });
                     }}
                     className="bg-primary h-9 flex-1"
@@ -3413,18 +3375,39 @@ function DailyExpensesContent() {
                   <Button
                     onClick={() => {
                       setEditingAttendanceId(null);
-                      setEditWorkerDays("");
-                      setEditWorkerAmount("");
-                      setEditWorkerNotes("");
+                      setSelectedWorkerId("");
+                      setWorkerDays("");
+                      setWorkerAmount("");
+                      setWorkerNotes("");
+                      setSelectedWellIds([]);
+                      setSelectedCrewTypes([]);
                     }}
                     variant="outline"
                     className="h-9"
+                    data-testid="button-cancel-edit-worker-attendance"
                   >
                     إلغاء
                   </Button>
-                </div>
-              </div>
-            )}
+                </>
+              ) : (
+                <Button 
+                  onClick={handleQuickAddAttendance}
+                  className="bg-primary h-9 flex-1"
+                  disabled={addWorkerAttendanceMutation.isPending}
+                  data-testid="button-add-worker-attendance"
+                >
+                  {addWorkerAttendanceMutation.isPending ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 ml-1" />
+                      إضافة الحضور السريع
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
 
             {/* أجور العمال - عرض البطاقات */}
             {safeAttendance.length > 0 && (
@@ -3504,9 +3487,20 @@ function DailyExpensesContent() {
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                               onClick={() => {
                                 setEditingAttendanceId(attendance.id);
-                                setEditWorkerDays(cleanNumber(attendance.workDays).toString());
-                                setEditWorkerAmount(cleanNumber(attendance.paidAmount).toString());
-                                setEditWorkerNotes(attendance.notes || "");
+                                setSelectedWorkerId(attendance.worker_id || "");
+                                setWorkerDays(cleanNumber(attendance.workDays).toString());
+                                setWorkerAmount(cleanNumber(attendance.paidAmount).toString());
+                                setWorkerNotes(attendance.notes || "");
+                                try {
+                                  const wellIds = attendance.well_ids ? JSON.parse(attendance.well_ids) : (attendance.well_id ? [attendance.well_id] : []);
+                                  setSelectedWellIds(wellIds);
+                                } catch { setSelectedWellIds([]); }
+                                try {
+                                  const crewTypes = attendance.crew_type ? JSON.parse(attendance.crew_type) : [];
+                                  setSelectedCrewTypes(crewTypes);
+                                } catch { setSelectedCrewTypes([]); }
+                                setIsAttendanceExpanded(true);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
                             >
                               <Edit2 className="h-4 w-4" />

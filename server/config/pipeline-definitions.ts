@@ -159,11 +159,13 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "android-readiness": {
     name: "android-readiness",
     timeoutMs: 60000,
+    maxRetries: 2,
     condition: { type: "appType", appTypes: ["android"] },
   },
   "sync-capacitor": {
     name: "sync-capacitor",
     timeoutMs: 120000,
+    maxRetries: 3,
     condition: { type: "appType", appTypes: ["android"] },
   },
   "generate-icons": {
@@ -174,6 +176,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "gradle-build": {
     name: "gradle-build",
     timeoutMs: 1200000,
+    maxRetries: 2,
     condition: { type: "appType", appTypes: ["android"] },
   },
   "sign-apk": {

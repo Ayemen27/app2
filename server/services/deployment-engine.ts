@@ -2786,47 +2786,71 @@ export class DeploymentEngine {
 
     this.updateStepProgress(deploymentId, "gradle-build", 25, "بناء Gradle (قد يستغرق 2-3 دقائق)...");
 
-    const gradleCmd = `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 && echo 'GRADLE_OK'"`;
+    const buildId = deploymentId.substring(0, 8);
+    const gradlePidFile = `/tmp/axion_gradle_${buildId}.pid`;
+    const gradleExitFile = `/tmp/axion_gradle_${buildId}.exit`;
+    const gradleLogFile = `/tmp/axion_gradle_${buildId}.log`;
 
-    try {
-      await this.execWithLog(deploymentId, gradleCmd, "Gradle Build", 1200000);
-    } catch (gradleErr: any) {
-      const errMsg = gradleErr.message || "";
+    const gradleScript = `${trapCleanup}cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`;
 
-      if (errMsg.includes("minSdkVersion") && errMsg.includes("cannot be smaller")) {
-        await this.addLog(deploymentId, "🔧 خطأ minSdk — جاري الإصلاح التلقائي وإعادة المحاولة...", "warn");
-        const minSdkMatch = errMsg.match(/version (\d+) declared in library/);
-        const requiredMin = minSdkMatch ? parseInt(minSdkMatch[1]) : 26;
-        await this.execWithLog(
-          deploymentId,
-          `${sshCmd} "cd ${remoteDir}/android && sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = ${requiredMin}/' variables.gradle 2>/dev/null; sed -i 's/minSdk [0-9]*/minSdk ${requiredMin}/' app/build.gradle 2>/dev/null; echo 'MINSDK_FIXED_TO_${requiredMin}'"`,
-          "Auto-fix minSdk retry",
-          10000
+    await execAsync(
+      `${sshCmd} "rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${gradleScript} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo \\$PID"`,
+      { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+    );
+
+    await this.addLog(deploymentId, "⏳ بناء Gradle جارٍ في الخلفية... مراقبة دورية كل 20 ثانية", "info");
+
+    const maxWaitMs = 900000;
+    const pollInterval = 20000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      if (this.isCancelled(deploymentId)) throw new CancellationError();
+      await new Promise(r => setTimeout(r, pollInterval));
+
+      try {
+        const { stdout } = await execAsync(
+          `${sshCmd} "` +
+          `if [ -f ${gradleExitFile} ]; then EC=\\$(cat ${gradleExitFile}); echo \\"EXIT:\\$EC\\"; tail -5 ${gradleLogFile} 2>/dev/null; ` +
+          `elif [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo 'RUNNING'; tail -1 ${gradleLogFile} 2>/dev/null; ` +
+          `else echo 'LOST'; tail -5 ${gradleLogFile} 2>/dev/null; fi"`,
+          { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
         );
-        await this.addLog(deploymentId, `✅ تم رفع minSdk إلى ${requiredMin} — إعادة المحاولة...`, "success");
-        this.updateStepProgress(deploymentId, "gradle-build", 30, "إعادة بناء Gradle بعد الإصلاح...");
-        await this.execWithLog(deploymentId, gradleCmd, "Gradle Build Retry", 1200000);
-      } else if (errMsg.includes("invalid source release") || errMsg.includes("invalid target release")) {
-        await this.addLog(deploymentId, "🔧 خطأ إصدار Java — جاري تبديل JAVA_HOME وإعادة المحاولة...", "warn");
-        const retryCmd = gradleCmd.replace(
-          "export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)",
-          "export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
-        );
-        await this.execWithLog(deploymentId, retryCmd, "Gradle Build Retry (Java 21)", 1200000);
-      } else if (errMsg.includes("No such file or directory") && errMsg.includes("android")) {
-        await this.addLog(deploymentId, "🔧 مجلد Android مفقود — جاري إعادة إنشائه...", "warn");
-        await this.execWithLog(
-          deploymentId,
-          `${sshCmd} "cd ${remoteDir} && timeout 60 npx cap add android 2>&1 | tail -5 && timeout 90 npx cap sync android 2>&1 | tail -5 && echo 'ANDROID_RECREATED'"`,
-          "Auto-fix Android Dir",
-          120000
-        );
-        await this.execWithLog(deploymentId, gradleCmd, "Gradle Build Retry (recreated)", 1200000);
-      } else {
-        throw gradleErr;
+
+        const raw = stdout.trim();
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+
+        if (raw.startsWith("EXIT:")) {
+          const exitCode = parseInt(raw.split("\n")[0].replace("EXIT:", ""));
+          const lastLines = raw.split("\n").slice(1).join("\n");
+          if (exitCode === 0) {
+            await this.addLog(deploymentId, `✅ اكتمل بناء Gradle بنجاح (${elapsed}s)`, "success");
+            if (lastLines) await this.addLog(deploymentId, `📄 ${lastLines.slice(-200)}`, "info");
+            this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
+            return;
+          } else {
+            const logTail = lastLines || "";
+            throw new Error(`Gradle build failed (exit ${exitCode}): ${logTail.slice(-500)}`);
+          }
+        } else if (raw.startsWith("RUNNING")) {
+          const lastLine = raw.split("\n").slice(1).join("").trim();
+          if (lastLine) {
+            await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.slice(-200)}`, "info");
+          }
+          this.updateStepProgress(deploymentId, "gradle-build", Math.min(90, 25 + Math.round(elapsed / 12)), `بناء Gradle... (${elapsed}s)`);
+        } else if (raw.startsWith("LOST")) {
+          const logTail = raw.split("\n").slice(1).join("\n");
+          throw new Error(`Gradle process lost. Last output: ${logTail.slice(-500)}`);
+        }
+      } catch (pollErr: any) {
+        if (pollErr instanceof CancellationError) throw pollErr;
+        if (pollErr.message?.includes("exit") && !pollErr.message?.includes("255")) throw pollErr;
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        await this.addLog(deploymentId, `⚠️ [${elapsed}s] خطأ مراقبة مؤقت، سيتم إعادة المحاولة...`, "warn");
       }
     }
-    this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
+
+    throw new Error("⏱️ بناء Gradle تجاوز الحد الزمني (15 دقيقة)");
   }
 
   // NOTE: هذه الخطوة تنسخ APK من مخرجات Gradle إلى مجلد releases — التوقيع الفعلي يتم عبر Gradle signing config

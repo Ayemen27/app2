@@ -264,30 +264,44 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
         ).map(c => c.canonicalTransactionId).filter(Boolean) as number[]
       : [];
 
+    // Phase 1: Delete leaf tables referencing canonical transactions
     if (canonicalIds.length > 0) {
       await database.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
-      await database.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
       await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
       await database.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
     }
 
+    // Phase 2: Delete leaf tables referencing candidates (includes reviewActions which has BOTH candidate + canonical FK)
     if (candidateIds.length > 0) {
+      await database.delete(waReviewActions).where(inArray(waReviewActions.candidateId, candidateIds));
       await database.delete(waTransactionEvidenceLinks).where(inArray(waTransactionEvidenceLinks.candidateId, candidateIds));
       await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.candidateId, candidateIds));
       await database.delete(waProjectHypotheses).where(inArray(waProjectHypotheses.candidateId, candidateIds));
       await database.delete(waDedupKeys).where(inArray(waDedupKeys.candidateId, candidateIds));
     }
+    if (canonicalIds.length > 0) {
+      await database.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
+    }
 
+    // Phase 3: Delete candidates BEFORE canonical (candidates.canonical_transaction_id FK → canonical)
+    await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
+
+    // Phase 4: Delete canonical transactions (now safe - no more FK references)
     if (canonicalIds.length > 0) {
       await database.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, canonicalIds));
     }
 
-    await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
+    // Phase 5: Delete custodian entries linked to batch
     await database.delete(waCustodianEntries).where(eq(waCustodianEntries.linkedBatchId, batchId));
 
+    // Phase 6: Delete entity aliases BEFORE raw messages (aliases.sourceMessageId FK → rawMessages)
+    await database.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
+
+    // Phase 7: Delete raw messages and media
     await database.delete(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
     await database.delete(waRawMessages).where(eq(waRawMessages.batchId, batchId));
-    await database.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
+
+    // Phase 8: Delete the batch itself
     await database.delete(waImportBatches).where(eq(waImportBatches.id, batchId));
 
     console.log(`[WAImport] Batch #${batchId} fully deleted (${candidateIds.length} candidates, ${canonicalIds.length} canonical) by ${req.user?.email}`);

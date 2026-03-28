@@ -277,6 +277,20 @@ export default function WAImportDashboard() {
     onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
+  const unlinkNameMutation = useMutation({
+    mutationFn: (aliasId: number) =>
+      apiRequest(`/api/wa-import/names/${aliasId}/unlink`, 'POST', { reason: 'مراجعة يدوية - ربط تلقائي خاطئ' }),
+    onSuccess: () => {
+      toast({ title: "تم فك الربط — الاسم انتقل للربط اليدوي" });
+      if (nameLinkingBatchId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
+      }
+    },
+    onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const [showAutoLinked, setShowAutoLinked] = useState(true);
+
   const runFullPipeline = useCallback(async (batchId: number) => {
     setPipelineBatchId(batchId);
     setPipelineDialog(true);
@@ -921,204 +935,185 @@ export default function WAImportDashboard() {
             )}
 
             {selectedBatchId && filteredCandidates.length > 0 && (
-              <Card>
-                <CardContent className="p-0">
-                  <Table data-testid="table-candidates">
-                    <TableHeader>
-                      <TableRow>
-                        {mergeMode && <TableHead className="w-10"></TableHead>}
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>النوع</TableHead>
-                        <TableHead>المبلغ</TableHead>
-                        <TableHead>الوصف</TableHead>
-                        <TableHead>الثقة</TableHead>
-                        <TableHead>المطابقة</TableHead>
-                        <TableHead>الفئة</TableHead>
-                        <TableHead className="w-36">إجراءات</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCandidates.map((c: any) => {
-                        const confidence = parseFloat(c.confidence || '0');
-                        const isExpanded = selectedCandidateId === c.id;
-                        const colCount = mergeMode ? 9 : 8;
-                        return (
-                          <Fragment key={c.id}>
-                          <TableRow data-testid={`row-candidate-${c.id}`}
-                            className={`cursor-pointer ${mergeSelected.includes(c.id) ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${isExpanded ? 'border-b-0' : ''}`}
-                            onClick={() => setSelectedCandidateId(isExpanded ? null : c.id)}>
-                            {mergeMode && (
-                              <TableCell>
-                                <input type="checkbox"
-                                  checked={mergeSelected.includes(c.id)}
-                                  onChange={(e) => { e.stopPropagation(); toggleMergeCandidate(c.id); }}
-                                  disabled={!!c.canonicalTransactionId}
-                                  data-testid={`checkbox-merge-${c.id}`}
-                                  className="w-4 h-4" />
-                              </TableCell>
-                            )}
-                            <TableCell className="font-medium text-muted-foreground">{c.id}</TableCell>
-                            <TableCell data-testid={`text-type-${c.id}`}>
-                              <Badge variant="outline">{c.candidateType}</Badge>
-                            </TableCell>
-                            <TableCell data-testid={`text-amount-${c.id}`} className="font-semibold tabular-nums">
-                              {parseFloat(c.amount || '0').toLocaleString('ar')} ر.ي
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate" dir="rtl" data-testid={`text-desc-${c.id}`}>
-                              {c.description || '-'}
-                            </TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${confidenceColor(confidence)}`}
-                                data-testid={`text-confidence-${c.id}`}>
-                                {(confidence * 100).toFixed(0)}%
-                              </span>
-                            </TableCell>
-                            <TableCell data-testid={`text-match-${c.id}`}>
-                              {matchStatusBadge(c.matchStatus)}
-                            </TableCell>
-                            <TableCell data-testid={`text-category-${c.id}`}>
-                              <span className="text-sm text-muted-foreground">{c.category || '-'}</span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                                {(!c.canonicalTransactionId || !['confirmed', 'posted', 'excluded'].includes(c.canonicalStatus || '')) && (
-                                  <>
-                                    <Button size="icon" variant="default" data-testid={`button-approve-${c.id}`}
-                                      onClick={() => { setApproveDialog({ candidateId: c.id, description: c.description || '' }); setApproveProjectId(''); setApproveNotes(''); }}>
-                                      <ThumbsUp className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="destructive" data-testid={`button-reject-${c.id}`}
-                                      onClick={() => { setRejectDialog({ candidateId: c.id, description: c.description || '' }); setRejectReason(''); }}>
-                                      <ThumbsDown className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="outline" data-testid={`button-edit-${c.id}`}
-                                      onClick={() => { setEditDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' }); setEditAmount(c.amount || '0'); setEditDescription(c.description || ''); }}>
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="outline" data-testid={`button-split-${c.id}`}
-                                      onClick={() => {
-                                        setSplitDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' });
-                                        setSplitProjectId('');
-                                        setSplitItems([{ amount: '', description: '' }, { amount: '', description: '' }]);
-                                      }}>
-                                      <Split className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="outline" data-testid={`button-media-${c.id}`}
-                                      onClick={() => setMediaPreviewDialog({ candidateId: c.id, description: c.description || '' })}>
-                                      <Paperclip className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </>
-                                )}
-                                {c.canonicalTransactionId && (
-                                  <Badge variant="secondary" className="gap-1" data-testid={`badge-reviewed-${c.id}`}>
-                                    <CheckCircle className="w-3 h-3" /> تمت المراجعة
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          {isExpanded && (
-                            <TableRow data-testid={`row-detail-${c.id}`}>
-                              <TableCell colSpan={colCount} className="bg-muted/30 p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" dir="rtl">
-                                  <div className="space-y-3">
-                                    <div>
-                                      <p className="text-xs font-semibold text-muted-foreground mb-1">الرسالة الأصلية</p>
-                                      <div className="bg-background rounded-md p-3 text-sm border" data-testid={`text-source-msg-${c.id}`}>
-                                        {c.sourceMessageText || c.description || 'لا يوجد نص'}
-                                      </div>
-                                    </div>
-                                    {c.projectHypothesesJson && (() => {
-                                      try {
-                                        const hypotheses = typeof c.projectHypothesesJson === 'string' ? JSON.parse(c.projectHypothesesJson) : c.projectHypothesesJson;
-                                        if (Array.isArray(hypotheses) && hypotheses.length > 0) {
-                                          return (
-                                            <div>
-                                              <p className="text-xs font-semibold text-muted-foreground mb-1">فرضيات المشروع</p>
-                                              <div className="flex gap-1 flex-wrap">
-                                                {hypotheses.map((h: any, i: number) => (
-                                                  <Badge key={i} variant="outline" data-testid={`badge-hypothesis-${c.id}-${i}`}>
-                                                    {h.projectName || h.projectId || h} {h.confidence ? `(${(h.confidence * 100).toFixed(0)}%)` : ''}
-                                                  </Badge>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                        return null;
-                                      } catch { return null; }
-                                    })()}
-                                  </div>
+              <UnifiedCardGrid columns={1} data-testid="table-candidates">
+                {filteredCandidates.map((c: any) => {
+                  const confidence = parseFloat(c.confidence || '0');
+                  const isExpanded = selectedCandidateId === c.id;
+                  const hasActions = !c.canonicalTransactionId || !['confirmed', 'posted', 'excluded'].includes(c.canonicalStatus || '');
+
+                  const candidateBadges: { label: string; variant?: "default" | "secondary" | "destructive" | "outline" | "success" | "warning"; className?: string }[] = [
+                    { label: c.candidateType, variant: 'outline' as const },
+                    { label: `${(confidence * 100).toFixed(0)}%`, variant: 'outline' as const, className: confidenceColor(confidence) },
+                    ...(c.matchStatus ? [(() => {
+                      const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+                        exact_match: { label: "مطابق", variant: "secondary" },
+                        near_match: { label: "قريب", variant: "outline" },
+                        conflict: { label: "تعارض", variant: "destructive" },
+                        new_entry: { label: "جديد", variant: "default" },
+                      };
+                      const info = map[c.matchStatus] || { label: c.matchStatus, variant: "outline" as const };
+                      return { label: info.label, variant: info.variant };
+                    })()] : []),
+                    ...(c.category ? [{ label: c.category, variant: 'secondary' as const }] : []),
+                    ...(c.canonicalTransactionId ? [{ label: 'تمت المراجعة', variant: 'success' as const }] : []),
+                  ];
+
+                  const candidateActions: { icon: any; label: string; onClick: () => void; variant?: "default" | "destructive" | "outline" | "secondary" | "ghost"; disabled?: boolean; hidden?: boolean; color?: "default" | "blue" | "green" | "yellow" | "red" | "orange" }[] = hasActions ? [
+                    {
+                      icon: ThumbsUp, label: 'موافقة', color: 'green' as const,
+                      onClick: () => { setApproveDialog({ candidateId: c.id, description: c.description || '' }); setApproveProjectId(''); setApproveNotes(''); },
+                    },
+                    {
+                      icon: ThumbsDown, label: 'رفض', color: 'red' as const,
+                      onClick: () => { setRejectDialog({ candidateId: c.id, description: c.description || '' }); setRejectReason(''); },
+                    },
+                    {
+                      icon: Pencil, label: 'تعديل', color: 'default' as const,
+                      onClick: () => { setEditDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' }); setEditAmount(c.amount || '0'); setEditDescription(c.description || ''); },
+                    },
+                    {
+                      icon: Split, label: 'تقسيم', color: 'orange' as const,
+                      onClick: () => {
+                        setSplitDialog({ candidateId: c.id, amount: c.amount || '0', description: c.description || '' });
+                        setSplitProjectId('');
+                        setSplitItems([{ amount: '', description: '' }, { amount: '', description: '' }]);
+                      },
+                    },
+                    {
+                      icon: Paperclip, label: 'وسائط', color: 'blue' as const,
+                      onClick: () => setMediaPreviewDialog({ candidateId: c.id, description: c.description || '' }),
+                    },
+                  ] : [];
+
+                  const expandedSection = isExpanded ? (
+                    <div className="mt-3 pt-3 border-t" data-testid={`row-detail-${c.id}`}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" dir="rtl">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-1">الرسالة الأصلية</p>
+                            <div className="bg-background rounded-md p-3 text-sm border" data-testid={`text-source-msg-${c.id}`}>
+                              {c.sourceMessageText || c.description || 'لا يوجد نص'}
+                            </div>
+                          </div>
+                          {c.projectHypothesesJson && (() => {
+                            try {
+                              const hypotheses = typeof c.projectHypothesesJson === 'string' ? JSON.parse(c.projectHypothesesJson) : c.projectHypothesesJson;
+                              if (Array.isArray(hypotheses) && hypotheses.length > 0) {
+                                return (
                                   <div>
-                                    <p className="text-xs font-semibold text-muted-foreground mb-1">تفاصيل الثقة</p>
-                                    <div className="bg-background rounded-md p-3 border space-y-1.5" data-testid={`detail-confidence-${c.id}`}>
-                                      {(() => {
-                                        try {
-                                          const breakdown = c.confidenceBreakdownJson
-                                            ? (typeof c.confidenceBreakdownJson === 'string' ? JSON.parse(c.confidenceBreakdownJson) : c.confidenceBreakdownJson)
-                                            : null;
-                                          if (breakdown) {
-                                            return (
-                                              <>
-                                                {breakdown.baseScore != null && (
-                                                  <div className="flex items-center justify-between text-sm">
-                                                    <span>النقاط الأساسية</span>
-                                                    <span className="font-medium tabular-nums">{(breakdown.baseScore * 100).toFixed(0)}%</span>
-                                                  </div>
-                                                )}
-                                                {breakdown.bonuses && Array.isArray(breakdown.bonuses) && breakdown.bonuses.map((b: any, i: number) => (
-                                                  <div key={`b-${i}`} className="flex items-center justify-between text-sm text-green-700 dark:text-green-400">
-                                                    <span>+ {b.reason || b.label || 'مكافأة'}</span>
-                                                    <span className="font-medium tabular-nums">+{((b.value || b.amount || 0) * 100).toFixed(0)}%</span>
-                                                  </div>
-                                                ))}
-                                                {breakdown.penalties && Array.isArray(breakdown.penalties) && breakdown.penalties.map((p: any, i: number) => (
-                                                  <div key={`p-${i}`} className="flex items-center justify-between text-sm text-red-700 dark:text-red-400">
-                                                    <span>- {p.reason || p.label || 'خصم'}</span>
-                                                    <span className="font-medium tabular-nums">-{((p.value || p.amount || 0) * 100).toFixed(0)}%</span>
-                                                  </div>
-                                                ))}
-                                                <div className="border-t pt-1.5 mt-1.5 flex items-center justify-between text-sm font-bold">
-                                                  <span>النتيجة النهائية</span>
-                                                  <span className={`tabular-nums ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
-                                                    {(confidence * 100).toFixed(0)}%
-                                                  </span>
-                                                </div>
-                                              </>
-                                            );
-                                          }
-                                          return (
-                                            <div className="flex items-center justify-between text-sm">
-                                              <span>النتيجة النهائية</span>
-                                              <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
-                                                {(confidence * 100).toFixed(0)}%
-                                              </span>
-                                            </div>
-                                          );
-                                        } catch {
-                                          return (
-                                            <div className="flex items-center justify-between text-sm">
-                                              <span>النتيجة النهائية</span>
-                                              <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
-                                                {(confidence * 100).toFixed(0)}%
-                                              </span>
-                                            </div>
-                                          );
-                                        }
-                                      })()}
+                                    <p className="text-xs font-semibold text-muted-foreground mb-1">فرضيات المشروع</p>
+                                    <div className="flex gap-1 flex-wrap">
+                                      {hypotheses.map((h: any, i: number) => (
+                                        <Badge key={i} variant="outline" data-testid={`badge-hypothesis-${c.id}-${i}`}>
+                                          {h.projectName || h.projectId || h} {h.confidence ? `(${(h.confidence * 100).toFixed(0)}%)` : ''}
+                                        </Badge>
+                                      ))}
                                     </div>
                                   </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          </Fragment>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                                );
+                              }
+                              return null;
+                            } catch { return null; }
+                          })()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">تفاصيل الثقة</p>
+                          <div className="bg-background rounded-md p-3 border space-y-1.5" data-testid={`detail-confidence-${c.id}`}>
+                            {(() => {
+                              try {
+                                const breakdown = c.confidenceBreakdownJson
+                                  ? (typeof c.confidenceBreakdownJson === 'string' ? JSON.parse(c.confidenceBreakdownJson) : c.confidenceBreakdownJson)
+                                  : null;
+                                if (breakdown) {
+                                  return (
+                                    <>
+                                      {breakdown.baseScore != null && (
+                                        <div className="flex items-center justify-between text-sm">
+                                          <span>النقاط الأساسية</span>
+                                          <span className="font-medium tabular-nums">{(breakdown.baseScore * 100).toFixed(0)}%</span>
+                                        </div>
+                                      )}
+                                      {breakdown.bonuses && Array.isArray(breakdown.bonuses) && breakdown.bonuses.map((b: any, i: number) => (
+                                        <div key={`b-${i}`} className="flex items-center justify-between text-sm text-green-700 dark:text-green-400">
+                                          <span>+ {b.reason || b.label || 'مكافأة'}</span>
+                                          <span className="font-medium tabular-nums">+{((b.value || b.amount || 0) * 100).toFixed(0)}%</span>
+                                        </div>
+                                      ))}
+                                      {breakdown.penalties && Array.isArray(breakdown.penalties) && breakdown.penalties.map((p: any, i: number) => (
+                                        <div key={`p-${i}`} className="flex items-center justify-between text-sm text-red-700 dark:text-red-400">
+                                          <span>- {p.reason || p.label || 'خصم'}</span>
+                                          <span className="font-medium tabular-nums">-{((p.value || p.amount || 0) * 100).toFixed(0)}%</span>
+                                        </div>
+                                      ))}
+                                      <div className="border-t pt-1.5 mt-1.5 flex items-center justify-between text-sm font-bold">
+                                        <span>النتيجة النهائية</span>
+                                        <span className={`tabular-nums ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                          {(confidence * 100).toFixed(0)}%
+                                        </span>
+                                      </div>
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>النتيجة النهائية</span>
+                                    <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                      {(confidence * 100).toFixed(0)}%
+                                    </span>
+                                  </div>
+                                );
+                              } catch {
+                                return (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>النتيجة النهائية</span>
+                                    <span className={`tabular-nums font-bold ${confidenceColor(confidence)} px-2 py-0.5 rounded-full`}>
+                                      {(confidence * 100).toFixed(0)}%
+                                    </span>
+                                  </div>
+                                );
+                              }
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+
+                  const mergeCheckbox = mergeMode ? (
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox"
+                        checked={mergeSelected.includes(c.id)}
+                        onChange={() => toggleMergeCandidate(c.id)}
+                        disabled={!!c.canonicalTransactionId}
+                        data-testid={`checkbox-merge-${c.id}`}
+                        className="w-4 h-4" />
+                      <span className="text-xs text-muted-foreground">تحديد للدمج</span>
+                    </div>
+                  ) : null;
+
+                  return (
+                    <UnifiedCard
+                      key={c.id}
+                      title={c.description || `مرشح #${c.id}`}
+                      subtitle={`${parseFloat(c.amount || '0').toLocaleString('ar')} ر.ي`}
+                      compact
+                      badges={candidateBadges}
+                      fields={[
+                        { label: 'المبلغ', value: `${parseFloat(c.amount || '0').toLocaleString('ar')} ر.ي`, emphasis: true, icon: Wallet },
+                        { label: 'النوع', value: c.candidateType || '-', icon: FileText },
+                        { label: 'الثقة', value: `${(confidence * 100).toFixed(0)}%`, color: confidence >= 0.9 ? 'success' : confidence >= 0.7 ? 'warning' : 'danger', icon: TrendingUp },
+                        { label: 'المطابقة', value: (() => { const map: Record<string, string> = { exact_match: 'مطابق', near_match: 'قريب', conflict: 'تعارض', new_entry: 'جديد' }; return map[c.matchStatus] || c.matchStatus || '-'; })(), icon: Search },
+                        { label: 'الفئة', value: c.category || '-', icon: Package },
+                      ]}
+                      actions={candidateActions}
+                      onClick={() => setSelectedCandidateId(isExpanded ? null : c.id)}
+                      className={mergeSelected.includes(c.id) ? 'ring-2 ring-blue-400 dark:ring-blue-600' : ''}
+                      customSection={<>{expandedSection}{mergeCheckbox}</>}
+                      data-testid={`row-candidate-${c.id}`}
+                    />
+                  );
+                })}
+              </UnifiedCardGrid>
             )}
           </div>
         </TabsContent>
@@ -1187,41 +1182,37 @@ export default function WAImportDashboard() {
                       ))}
                     </div>
                   ) : (
-                    <Table data-testid="table-verification">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>المرشح</TableHead>
-                          <TableHead>الأولوية</TableHead>
-                          <TableHead>السبب</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(verificationQuery.data || []).length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                              لا توجد عناصر في طابور التحقق
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          (verificationQuery.data || []).map((item: any, i: number) => (
-                            <TableRow key={i} data-testid={`row-verification-${i}`}>
-                              <TableCell className="font-medium">{item.wa_verification_queue?.candidateId || '-'}</TableCell>
-                              <TableCell>
-                                <Badge variant={
-                                  item.wa_verification_queue?.priority === 'P1_critical' ? 'destructive' :
-                                  item.wa_verification_queue?.priority === 'P2_high' ? 'default' : 'secondary'
-                                } data-testid={`badge-priority-${i}`}>
-                                  {item.wa_verification_queue?.priority}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="max-w-sm truncate" data-testid={`text-reason-${i}`}>
-                                {item.wa_verification_queue?.reason}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                    <div data-testid="table-verification" className="p-3">
+                      {(verificationQuery.data || []).length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                          لا توجد عناصر في طابور التحقق
+                        </div>
+                      ) : (
+                        <UnifiedCardGrid columns={1}>
+                          {(verificationQuery.data || []).map((item: any, i: number) => (
+                            <UnifiedCard
+                              key={i}
+                              compact
+                              title={`مرشح #${item.wa_verification_queue?.candidateId || '-'}`}
+                              badges={[
+                                {
+                                  label: item.wa_verification_queue?.priority || '-',
+                                  variant: item.wa_verification_queue?.priority === 'P1_critical' ? 'destructive' as const :
+                                    item.wa_verification_queue?.priority === 'P2_high' ? 'default' as const : 'secondary' as const,
+                                },
+                              ]}
+                              fields={[
+                                {
+                                  label: 'السبب',
+                                  value: item.wa_verification_queue?.reason || '-',
+                                },
+                              ]}
+                              data-testid={`row-verification-${i}`}
+                            />
+                          ))}
+                        </UnifiedCardGrid>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -1331,48 +1322,35 @@ export default function WAImportDashboard() {
                 </div>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <Table data-testid="table-aliases">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>الاسم المستعار</TableHead>
-                        <TableHead>معرف العامل</TableHead>
-                        <TableHead>تاريخ الإنشاء</TableHead>
-                        <TableHead className="w-20">إجراءات</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(aliasesQuery.data || []).map((alias: any) => (
-                        <TableRow key={alias.id} data-testid={`row-alias-${alias.id}`}>
-                          <TableCell className="text-muted-foreground">{alias.id}</TableCell>
-                          <TableCell className="font-medium" data-testid={`text-alias-name-${alias.id}`}>
-                            {alias.aliasName}
-                          </TableCell>
-                          <TableCell data-testid={`text-alias-worker-${alias.id}`}>
-                            <Badge variant="outline">{alias.canonicalWorkerId}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {alias.createdAt ? new Date(alias.createdAt).toLocaleDateString('ar') : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Button size="icon" variant="destructive" data-testid={`button-delete-alias-${alias.id}`}
-                              onClick={() => {
-                                if (confirm('هل أنت متأكد من حذف هذا الاسم المستعار؟')) {
-                                  deleteAliasMutation.mutate(alias.id);
-                                }
-                              }}
-                              disabled={deleteAliasMutation.isPending}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <UnifiedCardGrid columns={1}>
+                {(aliasesQuery.data || []).map((alias: any) => (
+                  <UnifiedCard
+                    key={alias.id}
+                    compact
+                    title={alias.aliasName}
+                    titleIcon={Users}
+                    data-testid={`row-alias-${alias.id}`}
+                    fields={[
+                      { label: "معرف العامل", value: alias.canonicalWorkerId, icon: Hash },
+                      { label: "تاريخ الإنشاء", value: alias.createdAt ? new Date(alias.createdAt).toLocaleDateString('ar') : '-', icon: Clock },
+                    ]}
+                    actions={[
+                      {
+                        icon: Trash2,
+                        label: "حذف",
+                        variant: "destructive" as const,
+                        color: "red" as const,
+                        disabled: deleteAliasMutation.isPending,
+                        onClick: () => {
+                          if (confirm('هل أنت متأكد من حذف هذا الاسم المستعار؟')) {
+                            deleteAliasMutation.mutate(alias.id);
+                          }
+                        },
+                      },
+                    ]}
+                  />
+                ))}
+              </UnifiedCardGrid>
             )}
           </div>
         </TabsContent>
@@ -1404,47 +1382,38 @@ export default function WAImportDashboard() {
                 </div>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <Table data-testid="table-loans">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>المبلغ</TableHead>
-                        <TableHead>الوصف</TableHead>
-                        <TableHead>الحالة</TableHead>
-                        <TableHead>الثقة</TableHead>
-                        <TableHead>الفئة</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(loansQuery.data || []).map((loan: any) => (
-                        <TableRow key={loan.id} data-testid={`row-loan-${loan.id}`}>
-                          <TableCell className="text-muted-foreground">{loan.id}</TableCell>
-                          <TableCell className="font-semibold tabular-nums" data-testid={`text-loan-amount-${loan.id}`}>
-                            {parseFloat(loan.amount || '0').toLocaleString('ar')} ر.ي
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate" dir="rtl" data-testid={`text-loan-desc-${loan.id}`}>
-                            {loan.description || '-'}
-                          </TableCell>
-                          <TableCell data-testid={`text-loan-status-${loan.id}`}>
-                            {matchStatusBadge(loan.matchStatus || 'new_entry')}
-                          </TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${confidenceColor(parseFloat(loan.confidence || '0'))}`}
-                              data-testid={`text-loan-confidence-${loan.id}`}>
-                              {(parseFloat(loan.confidence || '0') * 100).toFixed(0)}%
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground" data-testid={`text-loan-category-${loan.id}`}>
-                            {loan.category || '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <UnifiedCardGrid columns={1}>
+                {(loansQuery.data || []).map((loan: any) => {
+                  const conf = parseFloat(loan.confidence || '0');
+                  const matchInfo: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+                    exact_match: { label: "مطابق", variant: "secondary" },
+                    near_match: { label: "قريب", variant: "outline" },
+                    conflict: { label: "تعارض", variant: "destructive" },
+                    new_entry: { label: "جديد", variant: "default" },
+                  };
+                  const mInfo = matchInfo[loan.matchStatus || 'new_entry'] || { label: loan.matchStatus || 'جديد', variant: "outline" as const };
+                  const confVariant = conf >= 0.9 ? "success" : conf >= 0.7 ? "warning" : "destructive";
+                  return (
+                    <UnifiedCard
+                      key={loan.id}
+                      compact
+                      title={`${parseFloat(loan.amount || '0').toLocaleString('ar')} ر.ي`}
+                      subtitle={loan.description || '-'}
+                      titleIcon={Wallet}
+                      data-testid={`row-loan-${loan.id}`}
+                      badges={[
+                        { label: mInfo.label, variant: mInfo.variant as any },
+                        { label: `${(conf * 100).toFixed(0)}%`, variant: confVariant as any },
+                      ]}
+                      fields={[
+                        { label: "الحالة", value: mInfo.label, icon: Shield },
+                        { label: "الثقة", value: `${(conf * 100).toFixed(0)}%`, color: conf >= 0.9 ? "success" : conf >= 0.7 ? "warning" : "danger" },
+                        { label: "الفئة", value: loan.category || '-', icon: FileText, color: "muted" as const },
+                      ]}
+                    />
+                  );
+                })}
+              </UnifiedCardGrid>
             )}
           </div>
         </TabsContent>
@@ -1737,6 +1706,69 @@ export default function WAImportDashboard() {
                   })}
                 </div>
 
+                {pipelineStage === 'linking' && (() => {
+                  const allNames = discoveredNamesQuery.data || [];
+                  const autoLinkedNames = allNames.filter((n: any) => n.canonicalEntityId && n.isActive !== false);
+                  return autoLinkedNames.length > 0 ? (
+                    <div className="border rounded-lg p-4 space-y-3 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" data-testid="auto-linked-review">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-green-800 dark:text-green-300">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-sm font-medium">مراجعة الربط التلقائي ({autoLinkedNames.length} اسم)</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAutoLinked(!showAutoLinked)}
+                          className="text-sm"
+                          data-testid="btn-toggle-auto-linked"
+                        >
+                          {showAutoLinked ? 'إخفاء' : 'عرض'}
+                        </Button>
+                      </div>
+                      {showAutoLinked && (
+                        <div className="max-h-[35vh] overflow-y-auto space-y-1.5">
+                          {autoLinkedNames.map((name: any) => {
+                            const entityLabel = name.entityTable === 'projects' ? 'مشروع' : name.entityTable === 'account_types' ? 'حساب' : 'عامل';
+                            const badgeColor = name.entityTable === 'projects' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : name.entityTable === 'account_types' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+                            return (
+                              <div key={name.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-white dark:bg-gray-900 border flex-wrap" data-testid={`auto-linked-row-${name.id}`}>
+                                <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                                  <span className="font-medium text-sm truncate">{name.aliasName}</span>
+                                  <ArrowLeftRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${badgeColor} shrink-0`}>{entityLabel}</span>
+                                  <span className="text-sm text-green-700 dark:text-green-400 truncate">{name.linkedEntityName || name.canonicalEntityId}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="الربط صحيح"
+                                    data-testid={`btn-confirm-link-${name.id}`}
+                                    disabled
+                                  >
+                                    <ThumbsUp className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="فك الربط — نقل للربط اليدوي"
+                                    onClick={() => unlinkNameMutation.mutate(name.id)}
+                                    disabled={unlinkNameMutation.isPending}
+                                    data-testid={`btn-unlink-${name.id}`}
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+
                 {pipelineStage === 'linking' && (
                   <div className="border rounded-lg p-4 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
@@ -1753,7 +1785,7 @@ export default function WAImportDashboard() {
                       const linkedPercent = totalCount > 0 ? Math.round((linkedCount / totalCount) * 100) : 0;
 
                       return (
-                        <div className="grid grid-cols-4 gap-2 text-center" data-testid="linking-stats">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center" data-testid="linking-stats">
                           <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-2">
                             <div className="text-lg font-bold text-blue-700 dark:text-blue-300" data-testid="stat-total">{totalCount}</div>
                             <div className="text-[10px] text-blue-600 dark:text-blue-400">إجمالي مكتشف</div>
@@ -1770,7 +1802,7 @@ export default function WAImportDashboard() {
                             <div className="text-lg font-bold text-gray-700 dark:text-gray-300" data-testid="stat-dismissed">{dismissedCount}</div>
                             <div className="text-[10px] text-gray-600 dark:text-gray-400">تم تجاهله</div>
                           </div>
-                          <div className="col-span-4">
+                          <div className="col-span-2 sm:col-span-4">
                             <div className="w-full h-2 bg-muted rounded-full overflow-hidden flex">
                               {linkedPercent > 0 && <div className="h-full bg-green-500 transition-all" style={{ width: `${linkedPercent}%` }} />}
                               {dismissedCount > 0 && <div className="h-full bg-gray-400 transition-all" style={{ width: `${Math.round((dismissedCount / totalCount) * 100)}%` }} />}
@@ -1848,12 +1880,15 @@ export default function WAImportDashboard() {
                               {(name.sourceMessageText || name.context) && (
                                 <div className="text-[11px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
                                   {name.sourceSender && <span className="font-medium text-primary/70">{name.sourceSender}: </span>}
-                                  <p className="line-clamp-3 whitespace-pre-wrap" dangerouslySetInnerHTML={{
-                                    __html: (name.sourceMessageText || name.context || '').replace(
-                                      /(\d[\d,،.]+)/g,
-                                      '<mark class="bg-yellow-200 dark:bg-yellow-800 font-bold px-0.5 rounded text-foreground">$1</mark>'
-                                    )
-                                  }} />
+                                  <p className="line-clamp-3 whitespace-pre-wrap">
+                                    {(name.sourceMessageText || name.context || '').split(/(\d[\d,،.]+)/g).map((part: string, pi: number) =>
+                                      /^\d[\d,،.]+$/.test(part) ? (
+                                        <mark key={pi} className="bg-yellow-200 dark:bg-yellow-800 font-bold px-0.5 rounded text-foreground">{part}</mark>
+                                      ) : (
+                                        <Fragment key={pi}>{part}</Fragment>
+                                      )
+                                    )}
+                                  </p>
                                 </div>
                               )}
 

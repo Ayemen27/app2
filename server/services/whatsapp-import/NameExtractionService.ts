@@ -461,7 +461,50 @@ export class NameExtractionService {
       .leftJoin(waRawMessages, eq(waEntityAliases.sourceMessageId, waRawMessages.id))
       .where(eq(waEntityAliases.sourceBatchId, batchId))
       .orderBy(waEntityAliases.aliasName);
-    return results;
+
+    const linkedIds = results
+      .filter(r => r.canonicalEntityId && r.entityTable)
+      .map(r => ({ id: r.canonicalEntityId!, table: r.entityTable! }));
+
+    const entityNameMap: Record<string, string> = {};
+    if (linkedIds.length > 0) {
+      try {
+        const workerIds = linkedIds.filter(l => l.table === 'workers').map(l => l.id);
+        const projectIds = linkedIds.filter(l => l.table === 'projects').map(l => l.id);
+        const accountIds = linkedIds.filter(l => l.table === 'account_types').map(l => l.id);
+
+        if (workerIds.length > 0) {
+          const { rows } = await pool.query(
+            `SELECT id::text, name FROM workers WHERE id::text = ANY($1)`,
+            [workerIds]
+          );
+          for (const r of rows) entityNameMap[`workers:${r.id}`] = r.name;
+        }
+        if (projectIds.length > 0) {
+          const { rows } = await pool.query(
+            `SELECT id::text, name FROM projects WHERE id::text = ANY($1)`,
+            [projectIds]
+          );
+          for (const r of rows) entityNameMap[`projects:${r.id}`] = r.name;
+        }
+        if (accountIds.length > 0) {
+          const { rows } = await pool.query(
+            `SELECT id::text, name FROM account_types WHERE id::text = ANY($1)`,
+            [accountIds]
+          );
+          for (const r of rows) entityNameMap[`account_types:${r.id}`] = r.name;
+        }
+      } catch (err) {
+        console.warn("[getDiscoveredNames] Failed to resolve entity names:", err);
+      }
+    }
+
+    return results.map(r => ({
+      ...r,
+      linkedEntityName: r.canonicalEntityId && r.entityTable
+        ? entityNameMap[`${r.entityTable}:${r.canonicalEntityId}`] || null
+        : null,
+    }));
   }
 
   async linkNameToEntity(

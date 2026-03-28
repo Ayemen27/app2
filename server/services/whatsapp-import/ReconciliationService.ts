@@ -146,8 +146,19 @@ export async function runReconciliation(
     description: string | null;
   }> = [];
 
+  let alreadyProcessed = 0;
+  let alreadyProcessedAmount = 0;
+
   for (const candidate of candidates) {
     const amount = safeParseNum(candidate.amount);
+
+    if (candidate.canonicalTransactionId) {
+      alreadyProcessed++;
+      alreadyProcessedAmount += amount;
+      byMatchStatus[candidate.matchStatus || 'existing'] = (byMatchStatus[candidate.matchStatus || 'existing'] || 0) + 1;
+      continue;
+    }
+
     totalAmount += amount;
 
     const cat = candidate.category || 'uncategorized';
@@ -275,8 +286,10 @@ export async function runReconciliation(
     }
   }
 
+  const activeCandidates = candidates.filter((c: typeof candidates[0]) => !c.canonicalTransactionId);
+
   const carpenterFlags: CarpenterAggregationFlag[] = [];
-  for (const candidate of candidates) {
+  for (const candidate of activeCandidates) {
     const projHyp = projectMap.get(candidate.id);
     const flag = detectCarpenterAggregation(
       candidate.id,
@@ -295,7 +308,7 @@ export async function runReconciliation(
   }
 
   const loanResults = reconcileLoans(
-    candidates.map((c: typeof candidates[0]) => ({
+    activeCandidates.map((c: typeof candidates[0]) => ({
       id: c.id,
       candidateType: c.candidateType,
       amount: c.amount,
@@ -420,6 +433,8 @@ export async function runReconciliation(
   return {
     batchId,
     totalCandidates: candidates.length,
+    alreadyProcessed,
+    alreadyProcessedAmount,
     totalAmount,
     matchedToExisting,
     matchedAmount,

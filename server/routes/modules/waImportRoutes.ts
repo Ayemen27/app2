@@ -28,6 +28,22 @@ const idParamSchema = z.object({ id: z.string().regex(/^\d+$/) });
 const candidateIdParamSchema = z.object({ candidateId: z.string().regex(/^\d+$/) });
 const workerIdParamSchema = z.object({ workerId: z.string().min(1) });
 
+async function verifyProjectAccess(userId: string, role: string, projectId: string): Promise<boolean> {
+  if (role === 'admin') return true;
+  const { db: database } = await import("../../db.js");
+  const { userProjectPermissions } = await import("@shared/schema");
+  const { eq, and } = await import("drizzle-orm");
+  const perms = await database.select({ id: userProjectPermissions.id })
+    .from(userProjectPermissions)
+    .where(and(
+      eq(userProjectPermissions.user_id, userId),
+      eq(userProjectPermissions.project_id, projectId),
+      eq(userProjectPermissions.canEdit, true)
+    ))
+    .limit(1);
+  return perms.length > 0;
+}
+
 const paginationQuerySchema = z.object({
   limit: z.string().regex(/^\d+$/).optional(),
   offset: z.string().regex(/^\d+$/).optional(),
@@ -438,7 +454,13 @@ waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor,
       return res.status(400).json({ error: "Invalid approval data", details: body.error.issues });
     }
     const reviewerId = (req as any).user?.user_id;
+    const reviewerRole = (req as any).user?.role || '';
     if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
+
+    if (body.data.projectId) {
+      const hasAccess = await verifyProjectAccess(reviewerId, reviewerRole, body.data.projectId);
+      if (!hasAccess) return res.status(403).json({ error: "ليس لديك صلاحية على هذا المشروع" });
+    }
 
     const result = await approveCandidate(parseInt(params.data.id), reviewerId, body.data.projectId, body.data.notes);
     res.json(result);
@@ -480,7 +502,13 @@ waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor
       return res.status(400).json({ error: "Invalid bulk approve data", details: body.error.issues });
     }
     const reviewerId = (req as any).user?.user_id;
+    const reviewerRole = (req as any).user?.role || '';
     if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
+
+    if (body.data.projectId) {
+      const hasAccess = await verifyProjectAccess(reviewerId, reviewerRole, body.data.projectId);
+      if (!hasAccess) return res.status(403).json({ error: "ليس لديك صلاحية على هذا المشروع" });
+    }
 
     const result = await bulkApprove(parseInt(params.data.id), reviewerId, body.data.minConfidence, body.data.projectId);
     res.json(result);
@@ -572,7 +600,13 @@ waImportRouter.post("/candidates/merge", requireAuth, requireAdminOrEditor, asyn
     const body = mergeBodySchema.safeParse(req.body);
     if (!body.success) return res.status(400).json({ error: "Invalid merge data", details: body.error.issues });
     const reviewerId = (req as any).user?.user_id;
+    const reviewerRole = (req as any).user?.role || '';
     if (!reviewerId) return res.status(401).json({ error: "User not identified" });
+
+    if (body.data.projectId) {
+      const hasAccess = await verifyProjectAccess(reviewerId, reviewerRole, body.data.projectId);
+      if (!hasAccess) return res.status(403).json({ error: "ليس لديك صلاحية على هذا المشروع" });
+    }
 
     const result = await mergeCandidates(body.data.candidateIds, reviewerId, body.data.projectId);
     res.json(result);
@@ -590,7 +624,13 @@ waImportRouter.post("/candidate/:id/split", requireAuth, requireAdminOrEditor, a
     if (!body.success) return res.status(400).json({ error: "Invalid split data", details: body.error.issues });
     const candidateId = parseInt(params.data.id);
     const reviewerId = (req as any).user?.user_id;
+    const reviewerRole = (req as any).user?.role || '';
     if (!reviewerId) return res.status(401).json({ error: "User not identified" });
+
+    if (body.data.projectId) {
+      const hasAccess = await verifyProjectAccess(reviewerId, reviewerRole, body.data.projectId);
+      if (!hasAccess) return res.status(403).json({ error: "ليس لديك صلاحية على هذا المشروع" });
+    }
 
     const result = await splitCandidate(candidateId, reviewerId, body.data.projectId, body.data.splits as { amount: string; description: string }[]);
     res.json(result);

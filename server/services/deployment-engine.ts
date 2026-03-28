@@ -424,7 +424,7 @@ export class DeploymentEngine {
         deployerToken: (d as any).deployerToken || undefined,
       };
 
-      this.runPipelineFromStep(d.id, config, currentStepIdx + 1).catch(err => {
+      this.runPipeline(d.id, config, currentStepIdx + 1, true).catch(err => {
         console.error(`[DeploymentEngine] Recovery resume error for ${d.id}:`, err);
       });
     } else {
@@ -1006,39 +1006,48 @@ export class DeploymentEngine {
     }
   }
 
-  private async runPipeline(deploymentId: string, config: DeploymentConfig) {
+  private async runPipeline(deploymentId: string, config: DeploymentConfig, startFromIdx: number = 0, resumed: boolean = false) {
     const bt = config.buildTarget || "server";
     const pipelineSteps = getPipelineSteps(config.pipeline, bt);
     const startTime = Date.now();
-    const logger = this.getLogger(deploymentId);
+    const logger = resumed ? null : this.getLogger(deploymentId);
 
     this.startHeartbeat(deploymentId);
     try {
-      logger.info("pipeline", `Pipeline started: ${config.pipeline}`, {
-        pipeline: config.pipeline,
-        buildTarget: bt,
-        environment: config.environment,
-        triggeredBy: config.triggeredBy,
-        steps: pipelineSteps,
-      });
+      if (!resumed) {
+        logger!.info("pipeline", `Pipeline started: ${config.pipeline}`, {
+          pipeline: config.pipeline,
+          buildTarget: bt,
+          environment: config.environment,
+          triggeredBy: config.triggeredBy,
+          steps: pipelineSteps,
+        });
 
-      const validation = validatePipeline(config.pipeline, bt as BuildTarget);
-      if (!validation.valid) {
-        const errMsg = `Pipeline validation failed: ${validation.errors.join(", ")}`;
-        logger.error("pipeline", errMsg);
-        await this.addLog(deploymentId, `❌ ${errMsg}`, "error");
-        throw new Error(errMsg);
-      }
-      if (validation.warnings.length > 0) {
-        for (const warn of validation.warnings) {
-          logger.warn("pipeline", `Pipeline warning: ${warn}`);
+        const validation = validatePipeline(config.pipeline, bt as BuildTarget);
+        if (!validation.valid) {
+          const errMsg = `Pipeline validation failed: ${validation.errors.join(", ")}`;
+          logger!.error("pipeline", errMsg);
+          await this.addLog(deploymentId, `❌ ${errMsg}`, "error");
+          throw new Error(errMsg);
+        }
+        if (validation.warnings.length > 0) {
+          for (const warn of validation.warnings) {
+            logger!.warn("pipeline", `Pipeline warning: ${warn}`);
+          }
         }
       }
 
-      await this.sendDeploymentNotification("started", config, deploymentId);
-      const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
-      await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
-      for (let i = 0; i < pipelineSteps.length; i++) {
+      if (!resumed) {
+        await this.sendDeploymentNotification("started", config, deploymentId);
+      }
+      if (resumed) {
+        await this.addLog(deploymentId, `استئناف من الخطوة ${startFromIdx + 1}/${pipelineSteps.length}: ${pipelineSteps[startFromIdx]}`, "info");
+      } else {
+        const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
+        await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
+      }
+
+      for (let i = startFromIdx; i < pipelineSteps.length; i++) {
         if (this.isCancelled(deploymentId)) {
           await this.markRemainingStepsCancelled(deploymentId, i - 1, pipelineSteps);
           throw new CancellationError();
@@ -1054,8 +1063,10 @@ export class DeploymentEngine {
 
         await this.updateStepStatus(deploymentId, stepName, "running");
         await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
-        await this.addEvent(deploymentId, "step_start", `Step ${stepName} started`);
-        logger.stepStart(stepName);
+        if (!resumed) {
+          await this.addEvent(deploymentId, "step_start", `Step ${stepName} started`);
+          logger!.stepStart(stepName);
+        }
 
         const stepStart = Date.now();
 
@@ -1080,9 +1091,9 @@ export class DeploymentEngine {
             ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
-            logger.stepEnd(stepName, "success");
+            if (!resumed) logger!.stepEnd(stepName, "success");
             await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)${attempt > 1 ? ` [retry ${attempt}/${maxAttempts}]` : ""}`, "success");
-            await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration, attempt });
+            if (!resumed) await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration, attempt });
             lastError = null;
             break;
           } catch (stepError: any) {
@@ -1102,10 +1113,10 @@ export class DeploymentEngine {
         if (lastError) {
           const stepDuration = Date.now() - stepStart;
           await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
-          logger.stepEnd(stepName, "failed");
+          if (!resumed) logger!.stepEnd(stepName, "failed");
           await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
           await this.addLog(deploymentId, `Step ${stepName} failed after ${maxAttempts} attempt(s): ${lastError.message}`, "error");
-          await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${lastError.message}`);
+          if (!resumed) await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${lastError.message}`);
           throw lastError;
         }
       }
@@ -1129,23 +1140,28 @@ export class DeploymentEngine {
         return;
       }
 
-      const summary = logger.generateSummaryWithContext("success", {
-        pipeline: config.pipeline,
-        environment: config.environment,
-        triggeredBy: config.triggeredBy || "unknown",
-        version: config.version,
-      });
-      logger.info("pipeline", `Pipeline completed: ${config.pipeline}`, {
-        totalDuration,
-        stepTimings: summary.stepTimings,
-        logCounts: summary.logCounts,
-      });
-      await logger.persistSummary(summary).catch(() => {});
-      await logger.persistStructuredLogs().catch(() => {});
-      this.cleanupLogger(deploymentId);
+      if (!resumed && logger) {
+        const summary = logger.generateSummaryWithContext("success", {
+          pipeline: config.pipeline,
+          environment: config.environment,
+          triggeredBy: config.triggeredBy || "unknown",
+          version: config.version,
+        });
+        logger.info("pipeline", `Pipeline completed: ${config.pipeline}`, {
+          totalDuration,
+          stepTimings: summary.stepTimings,
+          logCounts: summary.logCounts,
+        });
+        await logger.persistSummary(summary).catch(() => {});
+        await logger.persistStructuredLogs().catch(() => {});
+        this.cleanupLogger(deploymentId);
+      }
 
-      await this.addLog(deploymentId, `Deployment completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
-      await this.addEvent(deploymentId, "deployment_success", "Deployment completed successfully", { duration: totalDuration });
+      const successMsg = resumed
+        ? `Deployment resumed and completed successfully in ${(totalDuration / 1000).toFixed(1)}s`
+        : `Deployment completed successfully in ${(totalDuration / 1000).toFixed(1)}s`;
+      await this.addLog(deploymentId, successMsg, "success");
+      if (!resumed) await this.addEvent(deploymentId, "deployment_success", "Deployment completed successfully", { duration: totalDuration });
       await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
 
     } catch (error: any) {
@@ -1175,9 +1191,9 @@ export class DeploymentEngine {
       }).where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, "running"))).returning({ id: buildDeployments.id });
 
       if (!casResult) {
-        logger.warn("pipeline", `CAS fail: deployment ${deploymentId} already transitioned — skipping fail update & notification`);
+        if (!resumed && logger) logger.warn("pipeline", `CAS fail: deployment ${deploymentId} already transitioned — skipping fail update & notification`);
       } else {
-        await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", failMsg);
+        if (!resumed) await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", failMsg);
         await this.sendDeploymentNotification(
           failStatus,
           config,
@@ -1186,15 +1202,17 @@ export class DeploymentEngine {
           isCancelled ? undefined : error.message
         );
       }
-      logger.error("pipeline", isCancelled ? "Pipeline cancelled" : `Pipeline failed: ${error.message}`);
-      const failSummary = logger.generateSummaryWithContext(
-        isCancelled ? "cancelled" : "failed",
-        { pipeline: config.pipeline, environment: config.environment, triggeredBy: config.triggeredBy || "unknown", version: config.version },
-        isCancelled ? "Cancelled by user" : error.message
-      );
-      await logger.persistSummary(failSummary).catch(() => {});
-      await logger.persistStructuredLogs().catch(() => {});
-      this.cleanupLogger(deploymentId);
+      if (!resumed && logger) {
+        logger.error("pipeline", isCancelled ? "Pipeline cancelled" : `Pipeline failed: ${error.message}`);
+        const failSummary = logger.generateSummaryWithContext(
+          isCancelled ? "cancelled" : "failed",
+          { pipeline: config.pipeline, environment: config.environment, triggeredBy: config.triggeredBy || "unknown", version: config.version },
+          isCancelled ? "Cancelled by user" : error.message
+        );
+        await logger.persistSummary(failSummary).catch(() => {});
+        await logger.persistStructuredLogs().catch(() => {});
+        this.cleanupLogger(deploymentId);
+      }
     } finally {
       this.stopHeartbeat(deploymentId);
       this.cleanupDeploymentState(deploymentId);
@@ -1452,18 +1470,24 @@ export class DeploymentEngine {
         console.warn("[DeploymentEngine] SSH_KNOWN_HOSTS_B64 does not contain entry for target host — falling back to accept-new");
       }
     } else {
-      try {
-        const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
-        if (stdout.trim()) {
-          writeFileSync(khPath, stdout, { mode: 0o600 });
-          this.knownHostsReady = true;
-        } else {
-          console.warn("[DeploymentEngine] ssh-keyscan returned empty output — falling back to StrictHostKeyChecking=accept-new");
+      const isProduction = process.env.NODE_ENV === "production";
+      if (isProduction) {
+        console.error("[DeploymentEngine] 🔒 بيئة الإنتاج تتطلب SSH_KNOWN_HOSTS_B64 — لن يتم استخدام ssh-keyscan");
+        this.knownHostsReady = false;
+      } else {
+        try {
+          const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
+          if (stdout.trim()) {
+            writeFileSync(khPath, stdout, { mode: 0o600 });
+            this.knownHostsReady = true;
+          } else {
+            console.warn("[DeploymentEngine] ssh-keyscan returned empty output — falling back to StrictHostKeyChecking=accept-new");
+            this.knownHostsReady = false;
+          }
+        } catch (_e) {
+          console.warn("[DeploymentEngine] ssh-keyscan failed — falling back to StrictHostKeyChecking=accept-new");
           this.knownHostsReady = false;
         }
-      } catch (_e) {
-        console.warn("[DeploymentEngine] ssh-keyscan failed — falling back to StrictHostKeyChecking=accept-new");
-        this.knownHostsReady = false;
       }
     }
   }
@@ -1598,6 +1622,16 @@ export class DeploymentEngine {
     if (this.knownHostsReady) {
       return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
     }
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction) {
+      throw new Error(
+        `🔒 [أمان] بيئة الإنتاج تتطلب known_hosts موثوق للاتصال SSH.\n` +
+        `الحلول:\n` +
+        `  1. اضبط SSH_KNOWN_HOSTS_B64 في Secrets (base64 لملف known_hosts)\n` +
+        `  2. أو تأكد من وجود ملف known_hosts صالح في المسار المحدد`
+      );
+    }
+    console.warn("[DeploymentEngine] ⚠️ استخدام accept-new في بيئة التطوير فقط — ممنوع في الإنتاج");
     return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
   }
 
@@ -1622,6 +1656,16 @@ export class DeploymentEngine {
     if (this.knownHostsReady) {
       return `sshpass -e scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
     }
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction) {
+      throw new Error(
+        `🔒 [أمان] بيئة الإنتاج تتطلب known_hosts موثوق لنقل الملفات عبر SCP.\n` +
+        `الحلول:\n` +
+        `  1. اضبط SSH_KNOWN_HOSTS_B64 في Secrets\n` +
+        `  2. أو تأكد من وجود ملف known_hosts صالح`
+      );
+    }
+    console.warn("[DeploymentEngine] ⚠️ SCP: استخدام accept-new في بيئة التطوير فقط");
     return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
@@ -4859,8 +4903,8 @@ echo 'MAINACTIVITY_FIXED'"`,
       await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git log --oneline -3 2>/dev/null || echo 'git-log-unavailable'"`, "Git Log (before)", 15000);
 
       const rollbackCmd = targetCommit
-        ? `git stash 2>/dev/null; git checkout ${targetCommit} -- . 2>/dev/null && echo 'CHECKOUT_OK' || (git fetch origin && git checkout ${targetCommit} -- . && echo 'CHECKOUT_OK')`
-        : `git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && echo 'CHECKOUT_OK'`;
+        ? `git fetch --all --prune 2>/dev/null; git reset --hard ${targetCommit} && git clean -fd && echo 'CHECKOUT_OK' || (git fetch origin && git reset --hard ${targetCommit} && git clean -fd && echo 'CHECKOUT_OK')`
+        : `git fetch --all --prune 2>/dev/null; git reset --hard HEAD~1 && git clean -fd && echo 'CHECKOUT_OK'`;
 
       await this.execWithLog(rollbackId, `${sshCmd} "set -o pipefail && cd ${remoteDir} && ${rollbackCmd} && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
       await this.updateStepStatus(rollbackId, "rollback-server", "success", Date.now() - startTime);
@@ -5025,7 +5069,7 @@ echo 'MAINACTIVITY_FIXED'"`,
         deployerToken: (deployment as any).deployerToken || undefined,
       };
 
-      this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {
+      this.runPipeline(deploymentId, config, firstFailedIdx, true).catch(err => {
         console.error(`[DeploymentEngine] Resume error for ${deploymentId}:`, err);
       });
 
@@ -5033,116 +5077,6 @@ echo 'MAINACTIVITY_FIXED'"`,
     });
   }
 
-  private async runPipelineFromStep(deploymentId: string, config: DeploymentConfig, startFromIdx: number) {
-    const bt = config.buildTarget || "server";
-    const pipelineSteps = getPipelineSteps(config.pipeline, bt);
-    const startTime = Date.now();
-
-    this.startHeartbeat(deploymentId);
-    await this.sendDeploymentNotification("started", config, deploymentId);
-    await this.addLog(deploymentId, `استئناف من الخطوة ${startFromIdx + 1}/${pipelineSteps.length}: ${pipelineSteps[startFromIdx]}`, "info");
-
-    try {
-      for (let i = startFromIdx; i < pipelineSteps.length; i++) {
-        if (this.isCancelled(deploymentId)) {
-          await this.markRemainingStepsCancelled(deploymentId, i - 1, pipelineSteps);
-          throw new CancellationError();
-        }
-
-        const stepName = pipelineSteps[i];
-        const progress = Math.round(((i) / pipelineSteps.length) * 100);
-
-        await this.updateDeployment(deploymentId, { currentStep: stepName, progress });
-        await this.updateStepStatus(deploymentId, stepName, "running");
-        await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
-
-        const stepStart = Date.now();
-        const retryPolicy = getStepRetryPolicy(stepName);
-        const maxAttempts = (retryPolicy?.maxRetries || 0) + 1;
-        let lastError: any = null;
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            if (attempt > 1) {
-              await this.addLog(deploymentId, `🔄 إعادة محاولة ${stepName} (${attempt}/${maxAttempts})...`, "warn");
-              await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
-              if (this.isCancelled(deploymentId)) throw new CancellationError();
-            }
-            const timeoutMs = getStepTimeout(stepName);
-            await Promise.race([
-              this.executeStep(deploymentId, stepName, config),
-              new Promise<never>((_, reject) => setTimeout(() => {
-                this.terminateActiveProcesses(deploymentId);
-                reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`));
-              }, timeoutMs)),
-            ]);
-            const stepDuration = Date.now() - stepStart;
-            await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
-            await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)`, "success");
-            lastError = null;
-            break;
-          } catch (stepError: any) {
-            if (stepError instanceof CancellationError || this.isCancelled(deploymentId)) {
-              await this.updateStepStatus(deploymentId, stepName, "cancelled", Date.now() - stepStart);
-              await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
-              throw new CancellationError();
-            }
-            lastError = stepError;
-            if (attempt < maxAttempts) {
-              await this.addLog(deploymentId, `⚠️ ${stepName} فشل (محاولة ${attempt}/${maxAttempts}): ${stepError.message}`, "warn");
-            }
-          }
-        }
-
-        if (lastError) {
-          const stepDuration = Date.now() - stepStart;
-          await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
-          await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
-          await this.addLog(deploymentId, `Step ${stepName} failed: ${lastError.message}`, "error");
-          throw lastError;
-        }
-      }
-
-      const totalDuration = Date.now() - startTime;
-
-      if (this.isCancelled(deploymentId)) {
-        throw new CancellationError();
-      }
-
-      const [resumeSuccess] = await db.update(buildDeployments).set({
-        status: "success",
-        progress: 100,
-        currentStep: "complete",
-        duration: totalDuration,
-        endTime: new Date(),
-      }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`).returning({ id: buildDeployments.id });
-
-      if (!resumeSuccess) {
-        await this.addLog(deploymentId, "⚠️ تم إلغاء العملية أثناء الاكتمال — لن يتم تسجيل النجاح", "warn");
-        return;
-      }
-
-      await this.addLog(deploymentId, `Deployment resumed and completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
-      await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
-    } catch (error: any) {
-      const totalDuration = Date.now() - startTime;
-      const isCancelled = error instanceof CancellationError;
-      const failStatus = isCancelled ? "cancelled" : "failed";
-      const [casResult] = await db.update(buildDeployments).set({
-        status: failStatus,
-        duration: totalDuration,
-        endTime: new Date(),
-        errorMessage: isCancelled ? "Cancelled by user" : error.message,
-      }).where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, "running"))).returning({ id: buildDeployments.id });
-
-      if (casResult) {
-        await this.sendDeploymentNotification(failStatus, config, deploymentId, totalDuration, error.message);
-      }
-    } finally {
-      this.stopHeartbeat(deploymentId);
-      this.cleanupDeploymentState(deploymentId);
-    }
-  }
 
   async runCleanup(): Promise<{ cleaned: string[]; errors: string[] }> {
     const sshCmd = this.buildSSHCommand();

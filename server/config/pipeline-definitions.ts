@@ -374,7 +374,7 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     supportedTargets: ["server", "local"],
     steps: {
       server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
     },
   },
   "android-build": {
@@ -383,7 +383,7 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     supportedTargets: ["server", "local"],
     steps: {
       server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
     },
   },
   "full-deploy": {
@@ -401,7 +401,7 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     supportedTargets: ["server", "local"],
     steps: {
       server: ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
-      local: ["validate", "hotfix-guard", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "post-deploy-smoke", "verify"],
+      local: ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
     },
   },
   "android-build-test": {

@@ -35,7 +35,7 @@ function resolvePort(nodeEnv: AppEnv, runtime: ServerRuntime): number {
 }
 
 function resolveDomain(nodeEnv: AppEnv, runtime: ServerRuntime): string {
-  const prod = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
+  const prod = process.env.PRODUCTION_DOMAIN || '';
   if (nodeEnv === 'production') return prod;
   if (runtime === 'replit' && process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   if (process.env.DOMAIN) return process.env.DOMAIN;
@@ -47,7 +47,7 @@ const runtime = resolveRuntime();
 const db = resolveDatabase();
 const PORT = resolvePort(NODE_ENV, runtime);
 const isProduction = NODE_ENV === 'production';
-const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || '';
 
 if (isProduction && db.source === 'NONE') {
   console.error('🚨 [ENV FATAL] DATABASE_URL مفقود في بيئة الإنتاج');

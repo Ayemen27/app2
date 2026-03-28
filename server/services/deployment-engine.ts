@@ -168,9 +168,13 @@ export class DeploymentEngine {
 
   private resolveBaseUrl(config?: DeploymentConfig): string {
     if (config?.environment === "staging") {
-      return process.env.STAGING_URL || process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+      const stagingUrl = process.env.STAGING_URL || process.env.PRODUCTION_URL;
+      if (!stagingUrl) throw new Error("STAGING_URL أو PRODUCTION_URL غير مُعيّن في متغيرات البيئة");
+      return stagingUrl;
     }
-    return process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    const prodUrl = process.env.PRODUCTION_URL;
+    if (!prodUrl) throw new Error("PRODUCTION_URL غير مُعيّن في متغيرات البيئة");
+    return prodUrl;
   }
 
   private async waitForServerReady(deploymentId: string, baseUrl: string, maxWaitMs = 90000, intervalMs = 5000): Promise<boolean> {
@@ -634,7 +638,8 @@ export class DeploymentEngine {
       }
 
       return parts2.join("\n");
-    } catch {
+    } catch (err) {
+      console.warn("[DeploymentEngine] فشل getRemoteBuildProgress:", err);
       return null;
     }
   }
@@ -1442,8 +1447,12 @@ export class DeploymentEngine {
 
   private async ensureKnownHosts(knownHostsPath?: string): Promise<void> {
     const khPath = knownHostsPath || process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
-    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
+    const host = this.sanitizeShellArg(process.env.SSH_HOST || "");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+    if (!host) {
+      console.warn("[DeploymentEngine] SSH_HOST غير مُعيّن — تخطي ensureKnownHosts");
+      return;
+    }
     if (existsSync(khPath)) {
       try {
         const content = readFileSync(khPath, "utf-8").trim();
@@ -1612,8 +1621,10 @@ export class DeploymentEngine {
   }
 
   private buildSSHCommand(): string {
-    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
-    const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
+    if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
+    if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
+    const host = this.sanitizeShellArg(process.env.SSH_HOST);
+    const user = this.sanitizeShellArg(process.env.SSH_USER);
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
 
     this.validateSSHParam(host, 'host');
@@ -1646,8 +1657,10 @@ export class DeploymentEngine {
   }
 
   private buildSCPCommand(src: string, dest: string): string {
-    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
-    const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
+    if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
+    if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
+    const host = this.sanitizeShellArg(process.env.SSH_HOST);
+    const user = this.sanitizeShellArg(process.env.SSH_USER);
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
 
     this.validateSSHParam(host, 'host');
@@ -2061,8 +2074,11 @@ export class DeploymentEngine {
 
     await this.ensureKnownHosts();
 
-    const host = process.env.SSH_HOST || "93.127.142.144";
-    const user = process.env.SSH_USER || "administrator";
+    const host = process.env.SSH_HOST;
+    const user = process.env.SSH_USER;
+    if (!host || !user) {
+      throw new Error("SSH_HOST و SSH_USER يجب تعيينهما في متغيرات البيئة");
+    }
     const authMethod = this.getSSHAuthMethod();
 
     await this.addLog(deploymentId, `الخادم: ${user}@${host} (${authMethod === "key" ? "مفتاح SSH 🔑" : "كلمة مرور 🔒"})`, "info");
@@ -2207,7 +2223,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=${this.resolveBaseUrl()} && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
       "Server Build",
       120000
     );
@@ -3812,7 +3828,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🚀 بدء البناء في الخلفية على السيرفر (SSH-resilient)...", "info");
 
     await execAsync(
-      `${sshCmd} "setsid bash -c 'cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
+      `${sshCmd} "setsid bash -c 'cd ${remoteDir} && export VITE_API_BASE_URL=${this.resolveBaseUrl()} && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
       { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
     );
 
@@ -4053,10 +4069,9 @@ echo 'MAINACTIVITY_FIXED'"`,
       if (!latest) return null;
 
       let downloadUrl: string | null = null;
-      if (latest.id) {
-        const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+      if (latest.id && process.env.PRODUCTION_URL) {
         const token = this.generateDownloadToken(latest.id);
-        downloadUrl = `${baseUrl}/api/deployment/app/download/${latest.id}?token=${token}`;
+        downloadUrl = `${process.env.PRODUCTION_URL}/api/deployment/app/download/${latest.id}?token=${token}`;
       }
 
       return {
@@ -4335,13 +4350,33 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🗄️ فحص قاعدة البيانات...", "info");
     try {
       const start = Date.now();
-      const { stdout } = await execAsync(`${sshCmd} "pg_isready -h localhost -p 5432 2>&1 && psql \\$DATABASE_URL -c 'SELECT 1' -t 2>&1 | head -5"`, { timeout: 15000 });
+      const dbPort = this.sanitizeShellArg(process.env.DB_PORT || "5432");
+      const dbName = this.sanitizeShellArg(process.env.DB_NAME || "");
+      const dbUser = this.sanitizeShellArg(process.env.DB_USER || "");
+
+      let dbPassword = "";
+      const centralUrl = process.env.DATABASE_URL_CENTRAL || process.env.DATABASE_URL || "";
+      const urlMatch = centralUrl.match(/postgresql:\/\/[^:]+:([^@]+)@/);
+      if (urlMatch) {
+        dbPassword = urlMatch[1];
+      }
+
+      const pgReadyCmd = `pg_isready -h localhost -p ${dbPort} 2>&1`;
+      const pgQueryCmd = dbPassword
+        ? `PGPASSWORD='${dbPassword.replace(/'/g, "'\\''")}' psql -h localhost -p ${dbPort} -U ${dbUser} -d ${dbName} -c 'SELECT 1' -t -A 2>&1 | head -5`
+        : `psql -h localhost -p ${dbPort} -U ${dbUser} -d ${dbName} -c 'SELECT 1' -t -A 2>&1 | head -5`;
+      const fullCmd = `${sshCmd} "${pgReadyCmd} && ${pgQueryCmd}"`;
+
+      const { stdout } = await execAsync(fullCmd, { timeout: 15000 });
       const latencyMs = Date.now() - start;
       const isReady = stdout.includes("accepting connections");
       const queryOk = stdout.includes("1");
       this.healthCheckResults.get(deploymentId)!.database = { isReady, queryOk, latencyMs, level: isReady && queryOk ? "ok" : "critical" };
       const icon = isReady && queryOk ? "✅" : "❌";
       await this.addLog(deploymentId, `${icon} DB: ${isReady ? "متصل" : "غير متصل"} | استعلام: ${queryOk ? "نجح" : "فشل"} | زمن: ${latencyMs}ms`, isReady && queryOk ? "success" : "error");
+      if (isReady && !queryOk) {
+        await this.addLog(deploymentId, `⚠️ PostgreSQL يقبل الاتصال لكن الاستعلام فشل. تحقق من صلاحيات المستخدم ${dbUser} على قاعدة ${dbName}`, "warn");
+      }
     } catch (err: any) {
       this.healthCheckResults.get(deploymentId)!.database = { isReady: false, queryOk: false, latencyMs: 0, level: "critical" };
       await this.addLog(deploymentId, `❌ DB: تعذر الاتصال — ${err.message}`, "error");
@@ -4350,25 +4385,33 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   private async stepHcSsl(deploymentId: string) {
     await this.addLog(deploymentId, "🔒 فحص شهادة SSL...", "info");
-    const host = process.env.PRODUCTION_DOMAIN || "app2.binarjoinanelytic.info";
+    const host = this.sanitizeShellArg((process.env.PRODUCTION_DOMAIN || "").replace(/^https?:\/\//, ""));
     try {
-      const { stdout } = await execAsync(`echo | openssl s_client -servername ${host} -connect ${host}:443 2>/dev/null | openssl x509 -noout -dates -subject 2>/dev/null`, { timeout: 15000 });
-      const afterMatch = stdout.match(/notAfter=(.+)/);
-      const beforeMatch = stdout.match(/notBefore=(.+)/);
+      const { stdout, stderr } = await execAsync(
+        `echo | openssl s_client -servername ${host} -connect ${host}:443 2>&1 | openssl x509 -noout -dates -subject 2>/dev/null`,
+        { timeout: 15000 }
+      );
+      const combined = stdout + "\n" + (stderr || "");
+      const afterMatch = combined.match(/notAfter=(.+)/);
+      const beforeMatch = combined.match(/notBefore=(.+)/);
       let daysRemaining = 0;
       let expiryDate = "";
       if (afterMatch) {
         const expiry = new Date(afterMatch[1].trim());
         expiryDate = expiry.toISOString().split("T")[0];
         daysRemaining = Math.round((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      } else {
+        await this.addLog(deploymentId, `⚠️ SSL: لم يتم العثور على معلومات الشهادة. تحقق من أن ${host}:443 متاح`, "warn");
+        this.healthCheckResults.get(deploymentId)!.ssl = { daysRemaining: 0, expiryDate: "", valid: false, level: "warning" };
+        return;
       }
       const level = daysRemaining <= 7 ? "critical" : daysRemaining <= 30 ? "warning" : "ok";
       this.healthCheckResults.get(deploymentId)!.ssl = { daysRemaining, expiryDate, valid: daysRemaining > 0, level, issuedAt: beforeMatch?.[1]?.trim() || "" };
       const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
-      await this.addLog(deploymentId, `${icon} SSL: ${daysRemaining} يوم متبقي | انتهاء: ${expiryDate}`, level === "ok" ? "success" : "warn");
+      await this.addLog(deploymentId, `${icon} SSL: ${daysRemaining} يوم متبقي | انتهاء: ${expiryDate} | النطاق: ${host}`, level === "ok" ? "success" : "warn");
     } catch (err: any) {
       this.healthCheckResults.get(deploymentId)!.ssl = { daysRemaining: 0, expiryDate: "", valid: false, level: "unknown" };
-      await this.addLog(deploymentId, `⚠️ SSL: تعذر الفحص — ${err.message}`, "warn");
+      await this.addLog(deploymentId, `⚠️ SSL: تعذر الفحص — تحقق من اتصال الشبكة بـ ${host}:443 — ${err.message}`, "warn");
     }
   }
 

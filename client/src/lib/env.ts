@@ -1,8 +1,8 @@
 import type { ClientPlatform, AppEnv, AuthStrategy } from '@shared/env-types';
 import { trackLog } from './debug-tracker';
 
-const PRODUCTION_DOMAIN = 'https://app2.binarjoinanelytic.info';
-const PRODUCTION_HOSTS = ['app2.binarjoinanelytic.info', 'binarjoinanelytic.info', 'www.binarjoinanelytic.info'];
+const PRODUCTION_DOMAIN = import.meta.env.VITE_PRODUCTION_DOMAIN || '';
+const PRODUCTION_HOSTS = (import.meta.env.VITE_PRODUCTION_HOSTS || '').split(',').map((h: string) => h.trim()).filter(Boolean);
 
 let _cachedPlatform: ClientPlatform | null = null;
 

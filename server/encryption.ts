@@ -1,7 +1,11 @@
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-cbc";
-const KEY = crypto.scryptSync(process.env.SESSION_SECRET || "default_secret", "salt", 32);
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET غير مُعيّن — مطلوب للتشفير");
+}
+const KEY = crypto.scryptSync(sessionSecret, "salt", 32);
 const IV_LENGTH = 16;
 
 export function encrypt(text: string) {

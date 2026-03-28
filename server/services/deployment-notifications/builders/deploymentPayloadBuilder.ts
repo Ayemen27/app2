@@ -32,7 +32,7 @@ export class DeploymentPayloadBuilder {
     const baseUrl =
       process.env.APP_BASE_URL ||
       process.env.PRODUCTION_URL ||
-      "https://app2.binarjoinanelytic.info";
+      "";
     return `${baseUrl}/deployment-console?id=${deploymentId}`;
   }
 
@@ -50,7 +50,9 @@ export class DeploymentPayloadBuilder {
     try {
       const [dep] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
       if (dep) buildNumber = dep.buildNumber;
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب buildNumber:", err);
+    }
 
     const items: StepItem[] = pipelineSteps.map((name) => ({
       name,
@@ -134,7 +136,9 @@ export class DeploymentPayloadBuilder {
           durationMs: s.duration,
         }));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب خطوات النشر:", err);
+    }
 
     let timeline: TimelineEntry[] = [];
     let allEvents: any[] = [];
@@ -148,7 +152,9 @@ export class DeploymentPayloadBuilder {
         title: e.message,
         details: e.metadata ? JSON.stringify(e.metadata) : undefined,
       }));
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب أحداث النشر:", err);
+    }
 
     let checks: DeploymentNotificationPayload["checks"] = undefined;
     try {
@@ -169,7 +175,9 @@ export class DeploymentPayloadBuilder {
           },
         };
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب checks:", err);
+    }
 
     let artifact: DeploymentNotificationPayload["artifact"] = undefined;
     if (envSnapshot || artifactUrl || artifactSize) {
@@ -259,7 +267,9 @@ export class DeploymentPayloadBuilder {
           durationMs: s.duration,
         }));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب خطوات النشر (failed):", err);
+    }
 
     const failedStepItem = items.find((s) => s.status === "failed");
     const failedStep = failedStepItem?.name;
@@ -283,7 +293,9 @@ export class DeploymentPayloadBuilder {
         title: e.message,
         details: e.metadata ? JSON.stringify(e.metadata) : undefined,
       }));
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب timeline:", err);
+    }
 
     const completed = items.filter((s) => s.status === "success").length;
     const failed = items.filter((s) => s.status === "failed").length;
@@ -363,7 +375,9 @@ export class DeploymentPayloadBuilder {
           durationMs: s.duration,
         }));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب خطوات النشر (cancelled):", err);
+    }
 
     const completedSteps = items.filter((s) => s.status === "success").map((s) => s.name);
     const pendingSteps = items.filter((s) => s.status === "pending" || s.status === "cancelled").map((s) => s.name);
@@ -430,7 +444,9 @@ export class DeploymentPayloadBuilder {
         depBranch = dep.branch || undefined;
         depVersion = dep.version;
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[DeploymentPayload] فشل جلب بيانات النشر (prebuild):", err);
+    }
 
     const failedRoutes = report?.routeChecks?.filter((r: any) => !r.passed)?.map((r: any) => ({
       method: r.method || "GET",

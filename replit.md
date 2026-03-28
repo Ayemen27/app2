@@ -48,3 +48,32 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Deployment:** SSH, `sshpass`, Git.
 - **QR Code Generation:** `qrcode` package.
 - **XSS Protection:** DOMPurify.
+
+## Security Hardening (Latest)
+
+### Environment Variables — No Hardcoded Secrets
+All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced exclusively from environment variables. **No hardcoded fallbacks** for critical config:
+- `SSH_HOST`, `SSH_USER` → throw if missing
+- `PRODUCTION_URL`, `PRODUCTION_DOMAIN` → empty string fallback (non-critical) or throw (SSH/deploy)
+- `SESSION_SECRET` → throw if missing (encryption.ts)
+- `ALLOWED_DOMAIN_SUFFIXES` → env var, no hardcoded domain list
+
+### Required Environment Variables
+| Variable | Where | Purpose |
+|---|---|---|
+| `SSH_HOST` | Server | SSH deployment target IP |
+| `SSH_USER` | Server | SSH username |
+| `SSH_PASSWORD` / `SSHPASS` | Server | SSH authentication |
+| `PRODUCTION_URL` | Server | Full production URL with protocol |
+| `PRODUCTION_DOMAIN` | Server | Production domain with protocol |
+| `VITE_PRODUCTION_DOMAIN` | Client | Client-side production domain |
+| `VITE_PRODUCTION_HOSTS` | Client | Comma-separated production hostnames |
+| `ALLOWED_DOMAIN_SUFFIXES` | Server | CORS allowed domain suffixes |
+| `SESSION_SECRET` | Server | Encryption key — required, no fallback |
+| `DB_NAME`, `DB_USER` | Server | Database health check params |
+| `DATABASE_URL_CENTRAL` | Server | Primary database connection |
+
+### Error Handling Policy
+- All `catch {}` blocks in critical paths log errors via `console.warn/error`
+- Silent `catch {}` is only acceptable for cleanup operations (process.kill, child.kill, unlinkSync, URL parsing in CORS)
+- Functions must not return `null/[]` silently — either throw or log warnings

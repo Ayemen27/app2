@@ -194,7 +194,7 @@ export default function LoginPage() {
     try {
       const { Capacitor } = await import('@capacitor/core');
       const isNative = Capacitor.isNativePlatform();
-      const baseUrl = isNative ? 'https://app2.binarjoinanelytic.info' : '';
+      const baseUrl = isNative ? (import.meta.env.VITE_PRODUCTION_DOMAIN || '') : '';
 
       let checkVersion = appVersion && appVersion !== '...' ? appVersion : (__APP_VERSION__ || '0.0.0');
       let checkCode = 0;
@@ -877,11 +877,13 @@ export default function LoginPage() {
           }}
           onCopyLink={async (url) => {
             try {
-              const fullUrl = url.startsWith('http') ? url : `https://app2.binarjoinanelytic.info${url.startsWith('/') ? '' : '/'}${url}`;
+              const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_PRODUCTION_DOMAIN || ''}${url.startsWith('/') ? '' : '/'}${url}`;
               if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(fullUrl);
               }
-            } catch {}
+            } catch (err) {
+              console.warn("[LoginPage] فشل نسخ الرابط:", err);
+            }
           }}
         />,
         document.body

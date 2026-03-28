@@ -147,7 +147,7 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     }
 
     const baseUrl = Capacitor.isNativePlatform()
-      ? 'https://app2.binarjoinanelytic.info'
+      ? (import.meta.env.VITE_PRODUCTION_DOMAIN || '')
       : '';
 
     const controller = new AbortController();
@@ -203,7 +203,7 @@ function sanitizeUrlForLog(url: string): string {
 function buildFullUrl(url: string): string {
   if (url && url.startsWith('http')) return url;
   const base = Capacitor.isNativePlatform()
-    ? 'https://app2.binarjoinanelytic.info'
+    ? (import.meta.env.VITE_PRODUCTION_DOMAIN || '')
     : window.location.origin;
   return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
 }

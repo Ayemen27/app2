@@ -376,7 +376,7 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
     execEnv.SSHPASS = process.env.SSH_PASSWORD;
   }
 
-  const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
+  const host = (process.env.SSH_HOST || "").replace(/[^a-zA-Z0-9.\-]/g, "");
   const { spawn } = await import("child_process");
 
   const sizeChild = spawn("bash", ["-c",
@@ -443,14 +443,14 @@ router.delete("/:id", requireAdmin, asyncHandler(async (req: Request, res: Respo
   res.json({ success: true, message: "تم حذف العملية" });
 }));
 
-const ALLOWED_PREBUILD_HOSTS = (process.env.PREBUILD_ALLOWED_HOSTS || "app2.binarjoinanelytic.info,localhost")
+const ALLOWED_PREBUILD_HOSTS = (process.env.PREBUILD_ALLOWED_HOSTS || "localhost")
   .split(",")
   .map(h => h.trim())
   .filter(Boolean);
 
 router.post("/prebuild-check", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const { runPrebuildChecks } = await import("../../services/prebuild-route-checker.js");
-  let baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+  let baseUrl = process.env.PRODUCTION_URL || "";
 
   if (req.body.baseUrl && typeof req.body.baseUrl === "string") {
     try {

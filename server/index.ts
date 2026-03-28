@@ -118,11 +118,11 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
 
   const cspConfig = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com",
+    `script-src 'self' 'unsafe-inline' https://*.googleapis.com https://*.gstatic.com ${process.env.PRODUCTION_DOMAIN || ''} https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
     "img-src 'self' data: https: https://*.google-analytics.com https://*.googletagmanager.com",
-    "connect-src 'self' capacitor://localhost https://localhost wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://app2.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com https://*.firebaseio.com wss://*.firebaseio.com",
+    `connect-src 'self' capacitor://localhost https://localhost wss://*.replit.dev https://*.googleapis.com ${process.env.PRODUCTION_DOMAIN || ''} https://*.cloudflareinsights.com https://*.cloudflare.com https://*.firebaseio.com wss://*.firebaseio.com`,
     "worker-src 'self' blob:"
   ];
 
@@ -151,8 +151,6 @@ const STATIC_ALLOWED_ORIGINS = new Set(
   [
     PRODUCTION_DOMAIN,
     REPLIT_DOMAIN,
-    'https://app2.binarjoinanelytic.info',
-    'https://binarjoinanelytic.info',
     process.env.DOMAIN?.replace(/\/$/, ''),
     `http://localhost:${PORT}`,
     'http://localhost:3000',
@@ -162,7 +160,7 @@ const STATIC_ALLOWED_ORIGINS = new Set(
   ].filter(Boolean) as string[]
 );
 
-const ALLOWED_DOMAIN_SUFFIXES = ['binarjoinanelytic.info'];
+const ALLOWED_DOMAIN_SUFFIXES = (process.env.ALLOWED_DOMAIN_SUFFIXES || '').split(',').map(s => s.trim()).filter(Boolean);
 
 function isOriginAllowed(origin: string, isDev: boolean, req?: Request): boolean {
   if (!origin || origin === 'null') return true;
@@ -820,7 +818,9 @@ const activeIntervals: NodeJS.Timeout[] = [];
           let dbConnections = 0;
           try {
             dbConnections = (pool as any).totalCount || (pool as any)._clients?.length || 0;
-          } catch {}
+          } catch (err) {
+            console.warn("[Monitoring] فشل جلب عدد اتصالات DB:", err);
+          }
 
           const monitoringPayload = {
             heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
@@ -838,7 +838,9 @@ const activeIntervals: NodeJS.Timeout[] = [];
               `INSERT INTO monitoring_data (type, value) VALUES ($1, $2)`,
               ['health_check', JSON.stringify(monitoringPayload)]
             );
-          } catch {}
+          } catch (err) {
+            console.warn("[Monitoring] فشل حفظ بيانات المراقبة:", err);
+          }
 
           centralLog.logDomain({
             source: 'system',
@@ -900,7 +902,9 @@ const activeIntervals: NodeJS.Timeout[] = [];
             }
           });
         });
-      } catch {}
+      } catch (err) {
+        console.warn("[Shutdown] فشل إغلاق HTTP server:", err);
+      }
 
       try {
         io.close();
@@ -925,7 +929,9 @@ const activeIntervals: NodeJS.Timeout[] = [];
 
       try {
         CentralLogService.getInstance().destroy();
-      } catch {}
+      } catch (err) {
+        console.warn("[Shutdown] فشل إغلاق CentralLogService:", err);
+      }
 
       try {
         await closePdfBrowser();

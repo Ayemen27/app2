@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import React, { Suspense, lazy, useEffect, useState } from "react";
+import { ENV } from "./lib/env";
 
 // Add ResizeObserver polyfill/fix to prevent loop errors
 if (typeof window !== 'undefined') {
@@ -274,11 +275,13 @@ function Router() {
           }}
           onCopyLink={async (url) => {
             try {
-              const fullUrl = url.startsWith('http') ? url : `https://app2.binarjoinanelytic.info${url.startsWith('/') ? '' : '/'}${url}`;
+              const fullUrl = url.startsWith('http') ? url : `${ENV.productionDomain}${url.startsWith('/') ? '' : '/'}${url}`;
               if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(fullUrl);
               }
-            } catch {}
+            } catch (err) {
+              console.warn("[App] فشل نسخ الرابط:", err);
+            }
           }}
         />
       )}

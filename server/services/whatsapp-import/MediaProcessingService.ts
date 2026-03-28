@@ -63,8 +63,12 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       continue;
     }
 
-    if (!fs.existsSync(asset.filePath)) {
-      console.warn(`[MediaProcessing] File missing for asset ${asset.id}: ${asset.filePath}`);
+    const resolvedPath = path.isAbsolute(asset.filePath)
+      ? asset.filePath
+      : path.resolve(asset.filePath);
+
+    if (!fs.existsSync(resolvedPath)) {
+      console.warn(`[MediaProcessing] File missing for asset ${asset.id}: ${resolvedPath} (stored: ${asset.filePath})`);
       await db.update(waMediaAssets)
         .set({ mediaStatus: 'ocr_failed', skipReason: 'الملف غير موجود على القرص' })
         .where(eq(waMediaAssets.id, asset.id));
@@ -93,14 +97,14 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       let extractedText = '';
 
       if (mime.startsWith('image/')) {
-        extractedText = await ocrImage(asset.filePath);
+        extractedText = await ocrImage(resolvedPath);
       } else if (mime === 'application/pdf') {
-        extractedText = await extractPdfText(asset.filePath);
+        extractedText = await extractPdfText(resolvedPath);
       } else if (
         mime.startsWith('application/vnd.openxmlformats') ||
         mime === 'application/vnd.ms-excel'
       ) {
-        extractedText = await extractExcelText(asset.filePath);
+        extractedText = await extractExcelText(resolvedPath);
       } else {
         await db.update(waMediaAssets)
           .set({ mediaStatus: 'skipped_unsupported', skipReason: `نوع غير مدعوم: ${mime || 'مجهول'}` })

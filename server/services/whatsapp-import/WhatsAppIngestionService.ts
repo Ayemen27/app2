@@ -72,7 +72,10 @@ export class WhatsAppIngestionService {
     }
 
     const uploadDir = this.ensureUploadDir();
-    const batchDir = path.join(uploadDir, `batch-${Date.now()}`);
+    const batchTimestamp = Date.now();
+    const batchDirName = `batch-${batchTimestamp}`;
+    const batchDir = path.join(uploadDir, batchDirName);
+    const batchRelativeDir = path.join(UPLOAD_DIR, batchDirName);
     fs.mkdirSync(batchDir, { recursive: true });
 
     let chatContent = '';
@@ -105,7 +108,8 @@ export class WhatsAppIngestionService {
         }
 
         const safeFilename = generateSafeFilename(path.basename(entryName));
-        const targetPath = path.join(batchDir, safeFilename);
+        const targetPathAbsolute = path.join(batchDir, safeFilename);
+        const targetPathRelative = path.join(batchRelativeDir, safeFilename);
 
         if (entryName.endsWith('.txt') && !chatContent) {
           if (entry.header.size > MAX_CHAT_TXT_SIZE) {
@@ -118,7 +122,7 @@ export class WhatsAppIngestionService {
           if (!mimeType) {
             console.log(`[WAImport] Skipped unsupported media file: ${path.basename(entryName)}`);
             mediaFiles.push({
-              filePath: targetPath,
+              filePath: targetPathRelative,
               originalFilename: path.basename(entryName),
               sha256: computeSha256FromBuffer(entry.getData()),
               mimeType: 'application/octet-stream',
@@ -130,20 +134,25 @@ export class WhatsAppIngestionService {
           }
 
           const entryData = entry.getData();
+
           if (entryData.length > MAX_MEDIA_SIZE) {
+            console.warn(`[WAImport] Large media file (${(entryData.length / 1024 / 1024).toFixed(1)}MB): ${path.basename(entryName)} — saving with status skipped_too_large`);
+            fs.writeFileSync(targetPathAbsolute, entryData);
             mediaFiles.push({
-              filePath: targetPath,
+              filePath: targetPathRelative,
               originalFilename: path.basename(entryName),
               sha256: computeSha256FromBuffer(entryData),
               mimeType,
               fileSize: entryData.length,
+              mediaStatus: 'skipped_too_large' as const,
+              skipReason: `File size ${(entryData.length / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_MEDIA_SIZE / 1024 / 1024}MB processing limit`,
             });
             continue;
           }
 
-          fs.writeFileSync(targetPath, entryData);
+          fs.writeFileSync(targetPathAbsolute, entryData);
           mediaFiles.push({
-            filePath: targetPath,
+            filePath: targetPathRelative,
             originalFilename: path.basename(entryName),
             sha256: computeSha256FromBuffer(entryData),
             mimeType,

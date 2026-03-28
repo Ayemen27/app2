@@ -352,7 +352,7 @@ waImportRouter.get("/batch/:id/media", requireAuth, requireAdminOrEditor, async 
     const media = await waIngestionService.getBatchMedia(parseInt(params.data.id));
     const enhanced = media.map((m: any) => ({
       ...m,
-      fileAvailable: m.filePath ? existsSync(m.filePath) : false,
+      fileAvailable: m.filePath ? existsSync(path.isAbsolute(m.filePath) ? m.filePath : path.resolve(m.filePath)) : false,
     }));
     res.json(enhanced);
   } catch (error) {

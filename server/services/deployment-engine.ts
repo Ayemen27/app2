@@ -2747,24 +2747,14 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
 
     if (canSignRelease) {
-      const localPassFile = `/tmp/.ks_pass_${deploymentId}`;
-      const localKeyPassFile = `/tmp/.ks_key_pass_${deploymentId}`;
-      try {
-        writeFileSync(localPassFile, keystorePassword, { mode: 0o600 });
-        writeFileSync(localKeyPassFile, keystoreKeyPassword, { mode: 0o600 });
-
-        const scpPassCmd = this.buildSCPCommand(localPassFile, "/tmp/.ks_pass");
-        const scpKeyCmd = this.buildSCPCommand(localKeyPassFile, "/tmp/.ks_key_pass");
-        await this.execWithLog(
-          deploymentId,
-          `${scpPassCmd} && ${scpKeyCmd} && ${sshCmd} "chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
-          "Write Signing Secrets",
-          30000
-        );
-      } finally {
-        try { unlinkSync(localPassFile); } catch {}
-        try { unlinkSync(localKeyPassFile); } catch {}
-      }
+      const safePass = keystorePassword.replace(/'/g, "'\\''");
+      const safeKeyPass = keystoreKeyPassword.replace(/'/g, "'\\''");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "printf '%s' '${safePass}' > /tmp/.ks_pass && printf '%s' '${safeKeyPass}' > /tmp/.ks_key_pass && chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
+        "Write Signing Secrets",
+        30000
+      );
     }
 
     const envExports = canSignRelease

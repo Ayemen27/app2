@@ -10,9 +10,6 @@ export interface ConfidenceBreakdown {
 
 const BASE_SCORES: Record<string, number> = {
   'structured_receipt': 0.95,
-  'rashad_bahir': 0.95,
-  'houshabi': 0.95,
-  'najm': 0.95,
   'inline_expense': 0.80,
   'multiline_list': 0.75,
   'image_context': 0.85,
@@ -22,6 +19,16 @@ const BASE_SCORES: Record<string, number> = {
   'settlement': 0.80,
   'generic_transfer': 0.70,
 };
+
+function getBaseScore(patternType: string): number {
+  if (BASE_SCORES[patternType] !== undefined) {
+    return BASE_SCORES[patternType];
+  }
+  if (patternType.length > 0) {
+    return 0.95;
+  }
+  return 0.50;
+}
 
 export interface ScoringContext {
   hasDate: boolean;
@@ -37,7 +44,7 @@ export function computeConfidence(
   patternType: string,
   context: ScoringContext
 ): ConfidenceBreakdown {
-  const baseScore = BASE_SCORES[patternType] ?? 0.50;
+  const baseScore = getBaseScore(patternType);
   const penalties: Record<string, number> = {};
   const bonuses: Record<string, number> = {};
 
@@ -63,14 +70,6 @@ export function computeConfidence(
 
   if (context.hasTransferNumber) {
     bonuses['has_transfer_number'] = 0.05;
-  }
-
-  if (context.hasSupportingImage) {
-    bonuses['has_supporting_image'] = 0.05;
-  }
-
-  if (context.hasProjectMention) {
-    bonuses['explicit_project_mention'] = 0.05;
   }
 
   if (context.hasExplicitAmountWithCurrency) {

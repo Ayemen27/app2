@@ -8,6 +8,7 @@ export interface FingerprintComponents {
   description?: string;
   counterparty?: string;
   candidateType: string;
+  projectId?: string;
 }
 
 export function computeFingerprint(components: FingerprintComponents): string {
@@ -17,7 +18,7 @@ export function computeFingerprint(components: FingerprintComponents): string {
 
   const normalizedDesc = normalizeArabicText(
     easternToWestern(components.description || '')
-  ).slice(0, 20);
+  ).slice(0, 50);
 
   const parts = [
     `amount:${components.amount}`,
@@ -25,6 +26,10 @@ export function computeFingerprint(components: FingerprintComponents): string {
     `type:${components.candidateType}`,
     `desc:${normalizedDesc}`,
   ];
+
+  if (components.projectId) {
+    parts.push(`project:${components.projectId}`);
+  }
 
   if (components.counterparty) {
     parts.push(`counterparty:${normalizeArabicText(components.counterparty)}`);
@@ -53,7 +58,8 @@ function hashString(input: string): string {
 }
 
 export function formatDateForFingerprint(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const d = date;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function getDateWindow(dateStr: string, daysRange: number): { start: string; end: string } {
@@ -63,7 +69,7 @@ export function getDateWindow(dateStr: string, daysRange: number): { start: stri
   const end = new Date(date);
   end.setDate(end.getDate() + daysRange);
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    start: formatDateForFingerprint(start),
+    end: formatDateForFingerprint(end),
   };
 }

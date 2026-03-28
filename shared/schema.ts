@@ -2728,6 +2728,74 @@ export const waWorkerAliases = pgTable("wa_worker_aliases", {
   idxWaWorkerAliasesAliasName: index("idx_wa_worker_aliases_alias_name").on(table.aliasName),
 }));
 
+export const waEntityAliases = pgTable("wa_entity_aliases", {
+  id: serial("id").primaryKey(),
+  aliasName: text("alias_name").notNull(),
+  aliasNameNormalized: text("alias_name_normalized").notNull(),
+  entityType: text("entity_type").notNull().default("عامل"),
+  canonicalEntityId: varchar("canonical_entity_id"),
+  entityTable: text("entity_table").default("workers"),
+  sourceBatchId: integer("source_batch_id"),
+  sourceMessageId: integer("source_message_id"),
+  extractionMethod: text("extraction_method").default("auto"),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }).default("0"),
+  occurrenceCount: integer("occurrence_count").default(1).notNull(),
+  context: text("context"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+  verifiedBy: varchar("verified_by"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waEntityAliasesBatchFkey: foreignKey({ name: "wa_entity_aliases_batch_fkey", columns: [table.sourceBatchId], foreignColumns: [waImportBatches.id] }),
+  waEntityAliasesMsgFkey: foreignKey({ name: "wa_entity_aliases_msg_fkey", columns: [table.sourceMessageId], foreignColumns: [waRawMessages.id] }),
+  waEntityAliasesCreatedByFkey: foreignKey({ name: "wa_entity_aliases_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+  waEntityAliasesVerifiedByFkey: foreignKey({ name: "wa_entity_aliases_verified_by_fkey", columns: [table.verifiedBy], foreignColumns: [users.id] }),
+  uniqueAliasPerType: uniqueIndex("wa_entity_aliases_name_type_unique").on(table.aliasNameNormalized, table.entityType),
+  idxWaEntityAliasesNormalized: index("idx_wa_entity_aliases_normalized").on(table.aliasNameNormalized),
+  idxWaEntityAliasesType: index("idx_wa_entity_aliases_type").on(table.entityType),
+  idxWaEntityAliasesEntityId: index("idx_wa_entity_aliases_entity_id").on(table.canonicalEntityId),
+  idxWaEntityAliasesVerified: index("idx_wa_entity_aliases_verified").on(table.isVerified),
+  idxWaEntityAliasesBatch: index("idx_wa_entity_aliases_batch").on(table.sourceBatchId),
+}));
+
+export const waEntityLinkAudit = pgTable("wa_entity_link_audit", {
+  id: serial("id").primaryKey(),
+  entityAliasId: integer("entity_alias_id").notNull(),
+  action: text("action").notNull(),
+  previousEntityId: varchar("previous_entity_id"),
+  newEntityId: varchar("new_entity_id"),
+  previousEntityType: text("previous_entity_type"),
+  newEntityType: text("new_entity_type"),
+  reason: text("reason"),
+  performedBy: varchar("performed_by"),
+  performedAt: timestamp("performed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waEntityLinkAuditAliasFkey: foreignKey({ name: "wa_entity_link_audit_alias_fkey", columns: [table.entityAliasId], foreignColumns: [waEntityAliases.id] }).onDelete("cascade"),
+  waEntityLinkAuditUserFkey: foreignKey({ name: "wa_entity_link_audit_user_fkey", columns: [table.performedBy], foreignColumns: [users.id] }),
+  idxWaEntityLinkAuditAlias: index("idx_wa_entity_link_audit_alias").on(table.entityAliasId),
+  idxWaEntityLinkAuditDate: index("idx_wa_entity_link_audit_date").on(table.performedAt),
+}));
+
+export const waTransferCompanies = pgTable("wa_transfer_companies", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  keywords: text("keywords").array().notNull(),
+  keywordsNormalized: text("keywords_normalized").array().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdBy: varchar("created_by"),
+}, (table) => ({
+  waTransferCompaniesCreatedByFkey: foreignKey({ name: "wa_transfer_companies_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+}));
+
 export const waCustodianEntries = pgTable("wa_custodian_entries", {
   id: serial("id").primaryKey(),
   custodianWorkerId: varchar("custodian_worker_id").notNull(),
@@ -2843,6 +2911,9 @@ export const insertWaCanonicalTransactionSchema = createInsertSchema(waCanonical
 export const insertWaExtractionCandidateSchema = createInsertSchema(waExtractionCandidates).omit({ id: true, createdAt: true });
 export const insertWaTransactionEvidenceLinkSchema = createInsertSchema(waTransactionEvidenceLinks).omit({ id: true, createdAt: true });
 export const insertWaWorkerAliasSchema = createInsertSchema(waWorkerAliases).omit({ id: true, createdAt: true });
+export const insertWaEntityAliasSchema = createInsertSchema(waEntityAliases).omit({ id: true, createdAt: true, firstSeenAt: true, lastSeenAt: true, updatedAt: true, verifiedAt: true });
+export const insertWaEntityLinkAuditSchema = createInsertSchema(waEntityLinkAudit).omit({ id: true, performedAt: true });
+export const insertWaTransferCompanySchema = createInsertSchema(waTransferCompanies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWaCustodianEntrySchema = createInsertSchema(waCustodianEntries).omit({ id: true, createdAt: true });
 export const insertWaProjectHypothesisSchema = createInsertSchema(waProjectHypotheses).omit({ id: true, createdAt: true });
 export const insertWaDedupKeySchema = createInsertSchema(waDedupKeys).omit({ id: true, createdAt: true });
@@ -2866,6 +2937,12 @@ export type WaTransactionEvidenceLink = typeof waTransactionEvidenceLinks.$infer
 export type InsertWaTransactionEvidenceLink = z.infer<typeof insertWaTransactionEvidenceLinkSchema>;
 export type WaWorkerAlias = typeof waWorkerAliases.$inferSelect;
 export type InsertWaWorkerAlias = z.infer<typeof insertWaWorkerAliasSchema>;
+export type WaEntityAlias = typeof waEntityAliases.$inferSelect;
+export type InsertWaEntityAlias = z.infer<typeof insertWaEntityAliasSchema>;
+export type WaEntityLinkAuditEntry = typeof waEntityLinkAudit.$inferSelect;
+export type InsertWaEntityLinkAudit = z.infer<typeof insertWaEntityLinkAuditSchema>;
+export type WaTransferCompany = typeof waTransferCompanies.$inferSelect;
+export type InsertWaTransferCompany = z.infer<typeof insertWaTransferCompanySchema>;
 export type WaCustodianEntry = typeof waCustodianEntries.$inferSelect;
 export type InsertWaCustodianEntry = z.infer<typeof insertWaCustodianEntrySchema>;
 export type WaProjectHypothesis = typeof waProjectHypotheses.$inferSelect;

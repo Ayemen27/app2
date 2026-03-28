@@ -5,10 +5,11 @@ import { eq } from "drizzle-orm";
 import { parseWhatsAppChat, detectChatSource } from "./WhatsAppParserService.js";
 import * as fs from "fs";
 import * as path from "path";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 
 const MAX_ZIP_SIZE = 500 * 1024 * 1024;
 const MAX_MEDIA_SIZE = 50 * 1024 * 1024;
+const MAX_CHAT_TXT_SIZE = 50 * 1024 * 1024;
 const MAX_ZIP_ENTRIES = 2000;
 const MAX_TOTAL_UNCOMPRESSED = 2 * 1024 * 1024 * 1024;
 const UPLOAD_DIR = "uploads/wa-import";
@@ -26,13 +27,19 @@ function computeSha256FromBuffer(buffer: Buffer): string {
 }
 
 function isPathTraversal(entryPath: string, destDir: string): boolean {
+  const base = path.resolve(destDir);
   const resolved = path.resolve(destDir, entryPath);
-  return !resolved.startsWith(path.resolve(destDir));
+  return !(resolved === base || resolved.startsWith(base + path.sep));
 }
 
 function getMimeType(filename: string): string | null {
   const ext = path.extname(filename).toLowerCase();
   return ALLOWED_MEDIA_MIMES[ext] || null;
+}
+
+function generateSafeFilename(originalFilename: string): string {
+  const ext = path.extname(originalFilename).toLowerCase();
+  return `${randomUUID()}${ext}`;
 }
 
 export class WhatsAppIngestionService {
@@ -97,9 +104,13 @@ export class WhatsAppIngestionService {
           continue;
         }
 
-        const targetPath = path.join(batchDir, path.basename(entryName));
+        const safeFilename = generateSafeFilename(path.basename(entryName));
+        const targetPath = path.join(batchDir, safeFilename);
 
         if (entryName.endsWith('.txt') && !chatContent) {
+          if (entry.header.size > MAX_CHAT_TXT_SIZE) {
+            throw new Error(`Chat TXT file exceeds maximum size of ${MAX_CHAT_TXT_SIZE / 1024 / 1024}MB`);
+          }
           chatContent = entry.getData().toString('utf-8');
           chatSource = detectChatSource(chatContent);
         } else {
@@ -107,7 +118,7 @@ export class WhatsAppIngestionService {
           if (!mimeType) {
             console.log(`[WAImport] Skipped unsupported media file: ${path.basename(entryName)}`);
             mediaFiles.push({
-              filePath: path.join(batchDir, path.basename(entryName)),
+              filePath: targetPath,
               originalFilename: path.basename(entryName),
               sha256: computeSha256FromBuffer(entry.getData()),
               mimeType: 'application/octet-stream',
@@ -145,70 +156,74 @@ export class WhatsAppIngestionService {
         throw new Error('No chat TXT file found in the ZIP archive');
       }
 
-      const [batch] = await db.insert(waImportBatches).values({
-        filename,
-        zipSha256,
-        chatSource,
-        status: 'processing',
-        uploadedBy,
-        totalMessages: 0,
-        totalMedia: 0,
-      }).returning();
+      const updatedBatch = await db.transaction(async (tx: any) => {
+        const [batch] = await tx.insert(waImportBatches).values({
+          filename,
+          zipSha256,
+          chatSource,
+          status: 'processing',
+          uploadedBy,
+          totalMessages: 0,
+          totalMedia: 0,
+        }).returning();
 
-      const parsedMessages = parseWhatsAppChat(chatContent, batch.id, chatSource);
+        const parsedMessages = parseWhatsAppChat(chatContent, batch.id, chatSource);
 
-      if (parsedMessages.length > 0) {
-        const CHUNK_SIZE = 500;
-        for (let i = 0; i < parsedMessages.length; i += CHUNK_SIZE) {
-          const chunk = parsedMessages.slice(i, i + CHUNK_SIZE);
-          await db.insert(waRawMessages).values(chunk);
+        if (parsedMessages.length > 0) {
+          const CHUNK_SIZE = 500;
+          for (let i = 0; i < parsedMessages.length; i += CHUNK_SIZE) {
+            const chunk = parsedMessages.slice(i, i + CHUNK_SIZE);
+            await tx.insert(waRawMessages).values(chunk);
+          }
         }
-      }
 
-      const insertedMessages = await db.select()
-        .from(waRawMessages)
-        .where(eq(waRawMessages.batchId, batch.id));
+        const insertedMessages = await tx.select()
+          .from(waRawMessages)
+          .where(eq(waRawMessages.batchId, batch.id));
 
-      const messagesByAttachment = new Map<string, number>();
-      for (const msg of insertedMessages) {
-        if (msg.attachmentRef) {
-          const basename = msg.attachmentRef.trim();
-          messagesByAttachment.set(basename, msg.id);
+        const messagesByAttachment = new Map<string, number>();
+        for (const msg of insertedMessages) {
+          if (msg.attachmentRef) {
+            const basename = msg.attachmentRef.trim();
+            messagesByAttachment.set(basename, msg.id);
+          }
         }
-      }
 
-      for (const media of mediaFiles) {
-        const linkedMessageId = messagesByAttachment.get(media.originalFilename) || null;
-        const mediaStatus = media.mediaStatus || (media.fileSize > MAX_MEDIA_SIZE ? 'skipped_too_large' : 'processed');
-        const skipReason = media.skipReason || (media.fileSize > MAX_MEDIA_SIZE ? `File size ${(media.fileSize / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_MEDIA_SIZE / 1024 / 1024}MB limit` : null);
+        for (const media of mediaFiles) {
+          const linkedMessageId = messagesByAttachment.get(media.originalFilename) || null;
+          const mediaStatus = media.mediaStatus || (media.fileSize > MAX_MEDIA_SIZE ? 'skipped_too_large' : 'processed');
+          const skipReason = media.skipReason || (media.fileSize > MAX_MEDIA_SIZE ? `File size ${(media.fileSize / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_MEDIA_SIZE / 1024 / 1024}MB limit` : null);
 
-        await db.insert(waMediaAssets).values({
-          batchId: batch.id,
-          messageId: linkedMessageId,
-          filePath: media.filePath,
-          originalFilename: media.originalFilename,
-          sha256: media.sha256,
-          mimeType: media.mimeType,
-          fileSize: media.fileSize,
-          mediaStatus,
-          skipReason,
-        });
-      }
+          await tx.insert(waMediaAssets).values({
+            batchId: batch.id,
+            messageId: linkedMessageId,
+            filePath: media.filePath,
+            originalFilename: media.originalFilename,
+            sha256: media.sha256,
+            mimeType: media.mimeType,
+            fileSize: media.fileSize,
+            mediaStatus,
+            skipReason,
+          });
+        }
 
-      const [updatedBatch] = await db.update(waImportBatches)
-        .set({
-          status: 'completed',
-          totalMessages: parsedMessages.length,
-          totalMedia: mediaFiles.length,
-          completedAt: new Date(),
-        })
-        .where(eq(waImportBatches.id, batch.id))
-        .returning();
+        const [result] = await tx.update(waImportBatches)
+          .set({
+            status: 'completed',
+            totalMessages: parsedMessages.length,
+            totalMedia: mediaFiles.length,
+            completedAt: new Date(),
+          })
+          .where(eq(waImportBatches.id, batch.id))
+          .returning();
+
+        return result;
+      });
 
       return updatedBatch;
 
     } catch (error: any) {
-      if (error.message?.includes('Duplicate ZIP') || error.message?.includes('No chat TXT')) {
+      if (error.message?.includes('Duplicate ZIP') || error.message?.includes('No chat TXT') || error.message?.includes('Chat TXT file exceeds')) {
         throw error;
       }
 

@@ -3,6 +3,7 @@ import multer from "multer";
 import { z } from "zod";
 import * as path from "path";
 import { existsSync } from "fs";
+import rateLimit from "express-rate-limit";
 import { requireAuth, requireAdminOrEditor, requireRole, type AuthenticatedRequest } from "../../middleware/auth.js";
 import { waIngestionService } from "../../services/whatsapp-import/WhatsAppIngestionService.js";
 import { waAliasService } from "../../services/whatsapp-import/WhatsAppAliasService.js";
@@ -21,10 +22,40 @@ import {
 } from "../../services/whatsapp-import/WhatsAppPostingService.js";
 import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
 import { processMediaForBatch } from "../../services/whatsapp-import/MediaProcessingService.js";
+import { nameExtractionService, runNameExtractionMigration } from "../../services/whatsapp-import/NameExtractionService.js";
+
+const ALLOWED_MEDIA_ROOT = path.resolve("uploads/wa-import");
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 },
+});
+
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req: any) => req.user?.user_id || req.ip,
+  message: { error: "Too many upload requests. Please wait before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const extractReconcileRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req: any) => req.user?.user_id || req.ip,
+  message: { error: "Too many requests. Please wait before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const approveRejectRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req: any) => req.user?.user_id || req.ip,
+  message: { error: "Too many review requests. Please wait before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const idParamSchema = z.object({ id: z.string().regex(/^\d+$/) });
@@ -105,9 +136,69 @@ const bulkApproveBodySchema = z.object({
   projectId: z.string().min(1),
 });
 
+const batchIdParamSchema = z.object({ batchId: z.string().regex(/^\d+$/) });
+
+const linkNameBodySchema = z.object({
+  entityId: z.string().min(1),
+  entityTable: z.string().min(1).optional(),
+  reason: z.string().optional(),
+});
+
+const unlinkNameBodySchema = z.object({
+  reason: z.string().optional(),
+});
+
+const bulkLinkBodySchema = z.object({
+  links: z.array(z.object({
+    aliasId: z.number().int().positive(),
+    entityId: z.string().min(1),
+    entityTable: z.string().min(1).optional(),
+  })).min(1),
+});
+
+const entityAliasQuerySchema = z.object({
+  entityType: z.string().optional(),
+  isVerified: z.enum(['true', 'false']).optional(),
+  batchId: z.string().regex(/^\d+$/).optional(),
+});
+
+const createEntityAliasSchema = z.object({
+  aliasName: z.string().min(1).max(200),
+  entityType: z.string().min(1).max(100).optional(),
+  canonicalEntityId: z.string().optional(),
+  entityTable: z.string().optional(),
+  extractionMethod: z.string().optional(),
+  confidence: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+  context: z.string().max(1000).optional(),
+});
+
+const updateEntityAliasSchema = z.object({
+  aliasName: z.string().min(1).max(200).optional(),
+  entityType: z.string().min(1).max(100).optional(),
+  canonicalEntityId: z.string().nullable().optional(),
+  entityTable: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+  isVerified: z.boolean().optional(),
+  confidence: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+});
+
+const createTransferCompanySchema = z.object({
+  code: z.string().min(1).max(100),
+  displayName: z.string().min(1).max(200),
+  keywords: z.array(z.string().min(1)).min(1),
+  keywordsNormalized: z.array(z.string().min(1)).min(1),
+});
+
+const updateTransferCompanySchema = z.object({
+  displayName: z.string().min(1).max(200).optional(),
+  keywords: z.array(z.string().min(1)).min(1).optional(),
+  keywordsNormalized: z.array(z.string().min(1)).min(1).optional(),
+  isActive: z.boolean().optional(),
+});
+
 const waImportRouter = Router();
 
-waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, upload.single("file"), async (req: AuthenticatedRequest, res) => {
+waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, uploadRateLimit, upload.single("file"), async (req: AuthenticatedRequest, res) => {
   try {
     if (!(req as any).file) {
       return res.status(400).json({ error: "No file uploaded" });
@@ -270,6 +361,12 @@ waImportRouter.get("/media/:mediaId/file", requireAuth, requireAdminOrEditor, as
     }
 
     const absolutePath = path.isAbsolute(asset.filePath) ? asset.filePath : path.resolve(asset.filePath);
+    const resolvedRoot = path.resolve(ALLOWED_MEDIA_ROOT);
+
+    if (!(absolutePath === resolvedRoot || absolutePath.startsWith(resolvedRoot + path.sep))) {
+      console.warn(`[WAImport] LFI attempt blocked: ${asset.filePath} resolved to ${absolutePath}`);
+      return res.status(403).json({ error: "Access denied: file path outside allowed directory" });
+    }
 
     if (!existsSync(absolutePath)) {
       return res.status(404).json({ error: "File not found on disk" });
@@ -302,7 +399,8 @@ waImportRouter.post("/aliases", requireAuth, requireAdminOrEditor, async (req: A
     }
     const alias = await waAliasService.createAlias({
       aliasName: body.data.aliasName,
-      canonicalWorkerId: body.data.canonicalWorkerId,
+      canonicalEntityId: body.data.canonicalWorkerId,
+      entityTable: 'workers',
       createdBy: req.user!.user_id,
     });
     res.json(alias);
@@ -325,7 +423,10 @@ waImportRouter.put("/aliases/:id", requireAuth, requireAdminOrEditor, async (req
     if (!body.success) {
       return res.status(400).json({ error: "Invalid alias data", details: body.error.issues });
     }
-    const alias = await waAliasService.updateAlias(parseInt(params.data.id), body.data);
+    const updateData: Record<string, any> = {};
+    if (body.data.aliasName) updateData.aliasName = body.data.aliasName;
+    if (body.data.canonicalWorkerId) updateData.canonicalEntityId = body.data.canonicalWorkerId;
+    const alias = await waAliasService.updateAlias(parseInt(params.data.id), updateData);
     if (!alias) {
       return res.status(404).json({ error: "Alias not found" });
     }
@@ -350,24 +451,12 @@ waImportRouter.delete("/aliases/:id", requireAuth, requireAdminOrEditor, async (
   }
 });
 
-waImportRouter.post("/seed-aliases", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
-  try {
-    const result = await waAliasService.seedAliases(req.user!.user_id);
-    res.json(result);
-  } catch (error) {
-    console.error("[WAImport] Seed aliases error:", error);
-    res.status(500).json({ error: "Failed to seed aliases" });
-  }
+waImportRouter.post("/seed-aliases", requireAuth, requireAdminOrEditor, async (_req: AuthenticatedRequest, res) => {
+  res.status(410).json({ error: "Deprecated. Use POST /api/wa-import/run-migration instead." });
 });
 
-waImportRouter.post("/create-workers", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
-  try {
-    const ids = await waAliasService.createMissingWorkers(req.user!.user_id);
-    res.json({ createdWorkerIds: ids });
-  } catch (error) {
-    console.error("[WAImport] Create workers error:", error);
-    res.status(500).json({ error: "Failed to create workers" });
-  }
+waImportRouter.post("/create-workers", requireAuth, requireAdminOrEditor, async (_req: AuthenticatedRequest, res) => {
+  res.status(410).json({ error: "Deprecated. Workers are now managed through entity-aliases system." });
 });
 
 waImportRouter.get("/custodian-summaries", requireAuth, requireAdminOrEditor, async (_req, res) => {
@@ -392,7 +481,7 @@ waImportRouter.get("/custodian/:workerId/entries", requireAuth, requireAdminOrEd
   }
 });
 
-waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
@@ -413,7 +502,7 @@ waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEdito
   }
 });
 
-waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
@@ -432,8 +521,19 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, asy
       console.warn("[WAImport] OCR pre-processing failed (non-blocking):", ocrErr);
     }
 
+    let linkingWarning: string | undefined;
+    try {
+      const linkingStatus = await nameExtractionService.checkLinkingReadiness(batchId);
+      console.log(`[WAImport] Linking status for batch ${batchId}: ${linkingStatus.linked}/${linkingStatus.total} (${linkingStatus.linkedPercent}%)`);
+      if (linkingStatus.linkedPercent < 50 && linkingStatus.total > 0) {
+        linkingWarning = `Only ${linkingStatus.linkedPercent}% of discovered names are linked. Consider linking more names before extraction.`;
+      }
+    } catch (linkErr) {
+      console.warn("[WAImport] Linking readiness check failed (non-blocking):", linkErr);
+    }
+
     const result = await waExtractionService.extractFromBatch(batchId);
-    res.json(result);
+    res.json({ ...result, linkingWarning });
   } catch (error: any) {
     if (error.message?.includes('already has extraction candidates')) {
       return res.status(409).json({ error: error.message });
@@ -470,7 +570,7 @@ waImportRouter.get("/candidate/:id", requireAuth, requireAdminOrEditor, async (r
   }
 });
 
-waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -514,7 +614,7 @@ waImportRouter.get("/batch/:id/verification-queue", requireAuth, requireAdminOrE
   }
 });
 
-waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -541,7 +641,7 @@ waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor,
   }
 });
 
-waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -562,7 +662,7 @@ waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, 
   }
 });
 
-waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -618,7 +718,7 @@ waImportRouter.post("/canonical/:id/post", requireAuth, requireRole('admin'), as
   }
 });
 
-waImportRouter.get("/custodian-statements", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.get("/custodian-statements", requireAuth, requireAdminOrEditor, async (_req, res) => {
   try {
     const statements = await reconcileAllCustodians();
     res.json(statements);
@@ -648,7 +748,7 @@ waImportRouter.get("/review-actions/:candidateId", requireAuth, requireAdminOrEd
   }
 });
 
-waImportRouter.patch("/candidate/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.patch("/candidate/:id", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
@@ -666,7 +766,7 @@ waImportRouter.patch("/candidate/:id", requireAuth, requireAdminOrEditor, async 
   }
 });
 
-waImportRouter.post("/candidates/merge", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/candidates/merge", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const body = mergeBodySchema.safeParse(req.body);
     if (!body.success) return res.status(400).json({ error: "Invalid merge data", details: body.error.issues });
@@ -687,7 +787,7 @@ waImportRouter.post("/candidates/merge", requireAuth, requireAdminOrEditor, asyn
   }
 });
 
-waImportRouter.post("/candidate/:id/split", requireAuth, requireAdminOrEditor, async (req, res) => {
+waImportRouter.post("/candidate/:id/split", requireAuth, requireAdminOrEditor, approveRejectRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) return res.status(400).json({ error: "Invalid candidate ID", details: params.error.issues });
@@ -752,6 +852,345 @@ waImportRouter.get("/workers-search", requireAuth, requireAdminOrEditor, async (
   } catch (error) {
     console.error("[WAImport] Workers search error:", error);
     res.status(500).json({ error: "Failed to search workers" });
+  }
+});
+
+waImportRouter.post("/batches/:batchId/extract-names", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = batchIdParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.batchId);
+    const batch = await waIngestionService.getBatch(batchId);
+    if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+    const result = await nameExtractionService.extractNamesFromBatch(batchId);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Name extraction error:", error);
+    res.status(500).json({ error: error.message || "Failed to extract names" });
+  }
+});
+
+waImportRouter.get("/batches/:batchId/discovered-names", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = batchIdParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.batchId);
+    const names = await nameExtractionService.getDiscoveredNames(batchId);
+    res.json(names);
+  } catch (error) {
+    console.error("[WAImport] Get discovered names error:", error);
+    res.status(500).json({ error: "Failed to get discovered names" });
+  }
+});
+
+waImportRouter.get("/unlinked-names", requireAuth, requireAdminOrEditor, async (_req, res) => {
+  try {
+    const names = await nameExtractionService.getUnlinkedNames();
+    res.json(names);
+  } catch (error) {
+    console.error("[WAImport] Get unlinked names error:", error);
+    res.status(500).json({ error: "Failed to get unlinked names" });
+  }
+});
+
+waImportRouter.post("/names/:id/link", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    const body = linkNameBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid link data", details: body.error.issues });
+    const aliasId = parseInt(params.data.id);
+    const userId = req.user!.user_id;
+
+    await nameExtractionService.linkNameToEntity(
+      aliasId,
+      body.data.entityId,
+      body.data.entityTable || 'workers',
+      userId,
+      body.data.reason
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WAImport] Link name error:", error);
+    res.status(500).json({ error: error.message || "Failed to link name" });
+  }
+});
+
+waImportRouter.post("/names/:id/unlink", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    const body = unlinkNameBodySchema.safeParse(req.body || {});
+    if (!body.success) return res.status(400).json({ error: "Invalid unlink data", details: body.error.issues });
+    const aliasId = parseInt(params.data.id);
+    const userId = req.user!.user_id;
+
+    await nameExtractionService.unlinkName(aliasId, userId, body.data.reason);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WAImport] Unlink name error:", error);
+    res.status(500).json({ error: error.message || "Failed to unlink name" });
+  }
+});
+
+waImportRouter.post("/names/bulk-link", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const body = bulkLinkBodySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid bulk link data", details: body.error.issues });
+    const userId = req.user!.user_id;
+
+    await nameExtractionService.bulkLinkNames(body.data.links, userId);
+    res.json({ success: true, linked: body.data.links.length });
+  } catch (error: any) {
+    console.error("[WAImport] Bulk link error:", error);
+    res.status(500).json({ error: error.message || "Failed to bulk link names" });
+  }
+});
+
+waImportRouter.post("/names/auto-link", requireAuth, requireAdminOrEditor, async (_req, res) => {
+  try {
+    const result = await nameExtractionService.autoLinkByExactMatch();
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Auto-link error:", error);
+    res.status(500).json({ error: error.message || "Failed to auto-link names" });
+  }
+});
+
+waImportRouter.get("/batches/:batchId/linking-status", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = batchIdParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.batchId);
+    const status = await nameExtractionService.checkLinkingReadiness(batchId);
+    res.json(status);
+  } catch (error) {
+    console.error("[WAImport] Linking status error:", error);
+    res.status(500).json({ error: "Failed to get linking status" });
+  }
+});
+
+waImportRouter.get("/entity-aliases", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const query = entityAliasQuerySchema.safeParse(req.query);
+    if (!query.success) return res.status(400).json({ error: "Invalid query params", details: query.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waEntityAliases } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    const conditions: any[] = [];
+    if (query.data.entityType) {
+      conditions.push(eq(waEntityAliases.entityType, query.data.entityType));
+    }
+    if (query.data.isVerified !== undefined) {
+      conditions.push(eq(waEntityAliases.isVerified, query.data.isVerified === 'true'));
+    }
+    if (query.data.batchId) {
+      conditions.push(eq(waEntityAliases.sourceBatchId, parseInt(query.data.batchId)));
+    }
+
+    let results;
+    if (conditions.length > 0) {
+      results = await database.select().from(waEntityAliases).where(and(...conditions)).orderBy(waEntityAliases.aliasName);
+    } else {
+      results = await database.select().from(waEntityAliases).orderBy(waEntityAliases.aliasName);
+    }
+    res.json(results);
+  } catch (error) {
+    console.error("[WAImport] Get entity aliases error:", error);
+    res.status(500).json({ error: "Failed to get entity aliases" });
+  }
+});
+
+waImportRouter.post("/entity-aliases", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const body = createEntityAliasSchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid entity alias data", details: body.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waEntityAliases } = await import("@shared/schema");
+
+    const normalizedName = body.data.aliasName.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, '').replace(/\s+/g, ' ');
+
+    const [created] = await database.insert(waEntityAliases).values({
+      aliasName: body.data.aliasName,
+      aliasNameNormalized: normalizedName,
+      entityType: body.data.entityType || 'عامل',
+      canonicalEntityId: body.data.canonicalEntityId || null,
+      entityTable: body.data.entityTable || 'workers',
+      extractionMethod: body.data.extractionMethod || 'manual',
+      confidence: body.data.confidence || '0',
+      context: body.data.context || null,
+      createdBy: req.user!.user_id,
+      isVerified: !!body.data.canonicalEntityId,
+    }).returning();
+
+    res.json(created);
+  } catch (error: any) {
+    if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+      return res.status(409).json({ error: "This entity alias already exists" });
+    }
+    console.error("[WAImport] Create entity alias error:", error);
+    res.status(500).json({ error: "Failed to create entity alias" });
+  }
+});
+
+waImportRouter.put("/entity-aliases/:id", requireAuth, requireAdminOrEditor, async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+    const body = updateEntityAliasSchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid update data", details: body.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waEntityAliases } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const updateData: Record<string, any> = { ...body.data, updatedBy: req.user!.user_id };
+    if (body.data.aliasName) {
+      updateData.aliasNameNormalized = body.data.aliasName.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, '').replace(/\s+/g, ' ');
+    }
+
+    const [updated] = await database.update(waEntityAliases)
+      .set(updateData)
+      .where(eq(waEntityAliases.id, parseInt(params.data.id)))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Entity alias not found" });
+    res.json(updated);
+  } catch (error) {
+    console.error("[WAImport] Update entity alias error:", error);
+    res.status(500).json({ error: "Failed to update entity alias" });
+  }
+});
+
+waImportRouter.delete("/entity-aliases/:id", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waEntityAliases } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await database.delete(waEntityAliases).where(eq(waEntityAliases.id, parseInt(params.data.id)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[WAImport] Delete entity alias error:", error);
+    res.status(500).json({ error: "Failed to delete entity alias" });
+  }
+});
+
+waImportRouter.get("/entity-aliases/:id/audit", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid alias ID", details: params.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waEntityLinkAudit } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const auditEntries = await database.select()
+      .from(waEntityLinkAudit)
+      .where(eq(waEntityLinkAudit.entityAliasId, parseInt(params.data.id)))
+      .orderBy(waEntityLinkAudit.performedAt);
+
+    res.json(auditEntries);
+  } catch (error) {
+    console.error("[WAImport] Get alias audit error:", error);
+    res.status(500).json({ error: "Failed to get alias audit trail" });
+  }
+});
+
+waImportRouter.get("/transfer-companies", requireAuth, requireAdminOrEditor, async (_req, res) => {
+  try {
+    const { db: database } = await import("../../db.js");
+    const { waTransferCompanies } = await import("@shared/schema");
+
+    const companies = await database.select().from(waTransferCompanies).orderBy(waTransferCompanies.displayName);
+    res.json(companies);
+  } catch (error) {
+    console.error("[WAImport] Get transfer companies error:", error);
+    res.status(500).json({ error: "Failed to get transfer companies" });
+  }
+});
+
+waImportRouter.post("/transfer-companies", requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const body = createTransferCompanySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid transfer company data", details: body.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waTransferCompanies } = await import("@shared/schema");
+
+    const [created] = await database.insert(waTransferCompanies).values({
+      code: body.data.code,
+      displayName: body.data.displayName,
+      keywords: body.data.keywords,
+      keywordsNormalized: body.data.keywordsNormalized,
+      createdBy: req.user!.user_id,
+    }).returning();
+
+    res.json(created);
+  } catch (error: any) {
+    if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+      return res.status(409).json({ error: "A transfer company with this code already exists" });
+    }
+    console.error("[WAImport] Create transfer company error:", error);
+    res.status(500).json({ error: "Failed to create transfer company" });
+  }
+});
+
+waImportRouter.put("/transfer-companies/:id", requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid company ID", details: params.error.issues });
+    const body = updateTransferCompanySchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Invalid update data", details: body.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waTransferCompanies } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const [updated] = await database.update(waTransferCompanies)
+      .set(body.data)
+      .where(eq(waTransferCompanies.id, parseInt(params.data.id)))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Transfer company not found" });
+    res.json(updated);
+  } catch (error) {
+    console.error("[WAImport] Update transfer company error:", error);
+    res.status(500).json({ error: "Failed to update transfer company" });
+  }
+});
+
+waImportRouter.delete("/transfer-companies/:id", requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid company ID", details: params.error.issues });
+
+    const { db: database } = await import("../../db.js");
+    const { waTransferCompanies } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await database.delete(waTransferCompanies).where(eq(waTransferCompanies.id, parseInt(params.data.id)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[WAImport] Delete transfer company error:", error);
+    res.status(500).json({ error: "Failed to delete transfer company" });
+  }
+});
+
+waImportRouter.post("/run-migration", requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const result = await runNameExtractionMigration();
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    console.error("[WAImport] Migration error:", error);
+    res.status(500).json({ error: error.message || "Failed to run migration" });
   }
 });
 

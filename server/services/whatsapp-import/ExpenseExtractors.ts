@@ -44,12 +44,14 @@ export function splitMultiLineExpenses(messageText: string): ExtractedExpense[] 
       if (amounts.length > 0) {
         financialLineCount++;
         const arabicText = line.replace(/\d[\d,.]*\s*/g, '').trim();
-        expenses.push({
-          amount: amounts[0].value,
-          description: arabicText || line,
-          raw: line,
-          lineIndex: i,
-        });
+        for (const amt of amounts) {
+          expenses.push({
+            amount: amt.value,
+            description: arabicText || line,
+            raw: line,
+            lineIndex: i,
+          });
+        }
       }
     }
   }

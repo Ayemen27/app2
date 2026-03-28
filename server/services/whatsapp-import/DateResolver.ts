@@ -66,5 +66,5 @@ export async function getTransactionDate(
     return formatDateForFingerprint(fallbackCreatedAt);
   }
 
-  return new Date().toISOString().split('T')[0];
+  return formatDateForFingerprint(new Date());
 }

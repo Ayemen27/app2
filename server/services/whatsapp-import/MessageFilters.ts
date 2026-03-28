@@ -68,6 +68,10 @@ export function isNonTransaction(messageText: string | null | undefined): Filter
     }
   }
 
+  if (isSystemMessage(text)) {
+    return { excluded: true, reason: 'system_message' };
+  }
+
   for (const pat of GREETING_PATTERNS) {
     if (pat.test(text.trim())) {
       return { excluded: true, reason: 'greeting' };
@@ -79,6 +83,32 @@ export function isNonTransaction(messageText: string | null | undefined): Filter
   }
 
   return { excluded: false };
+}
+
+const SYSTEM_MESSAGE_KEYWORDS = [
+  'تم تغيير',
+  'الرسائل والمكالمات مشفرة',
+  'أضاف',
+  'أزال',
+  'غادر',
+  'انضم',
+  'تم إنشاء',
+  'أنشأ',
+  'غيّر',
+  'تم حذف هذه الرسالة',
+  'رسالة محذوفة',
+];
+
+function isSystemMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length > 200) return false;
+
+  for (const keyword of SYSTEM_MESSAGE_KEYWORDS) {
+    if (trimmed.startsWith(keyword) || (trimmed.length < 80 && trimmed.includes(keyword))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function isRunningTotal(messageText: string): boolean {

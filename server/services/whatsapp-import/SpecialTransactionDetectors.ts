@@ -29,17 +29,6 @@ let _cachedCustodianNames: Record<string, string> | null = null;
 let _custodianCacheTime = 0;
 const CUSTODIAN_CACHE_TTL = 5 * 60 * 1000;
 
-const FALLBACK_CUSTODIAN_NAMES: Record<string, string> = {
-  'عمار الشيعي': 'عمار الشيعي',
-  'عمار': 'عمار الشيعي',
-  'الشيعي': 'عمار الشيعي',
-  'عدنان': 'عدنان/ابو فارس',
-  'ابو فارس': 'عدنان/ابو فارس',
-  'أبو فارس': 'عدنان/ابو فارس',
-  'العباسي': 'العباسي',
-  'عباسي': 'العباسي',
-};
-
 export async function loadCustodianNames(): Promise<Record<string, string>> {
   const now = Date.now();
   if (_cachedCustodianNames && (now - _custodianCacheTime) < CUSTODIAN_CACHE_TTL) {
@@ -70,19 +59,17 @@ export async function loadCustodianNames(): Promise<Record<string, string>> {
       }
     }
 
-    if (Object.keys(custodianMap).length > 0) {
-      _cachedCustodianNames = custodianMap;
-      _custodianCacheTime = now;
-      return custodianMap;
-    }
+    _cachedCustodianNames = custodianMap;
+    _custodianCacheTime = now;
+    return custodianMap;
   } catch {
   }
 
-  return FALLBACK_CUSTODIAN_NAMES;
+  return {};
 }
 
 function getCustodianNamesSync(): Record<string, string> {
-  return _cachedCustodianNames || FALLBACK_CUSTODIAN_NAMES;
+  return _cachedCustodianNames || {};
 }
 
 const SETTLEMENT_KEYWORDS = ['تصفية', 'تصفيه', 'كشف حساب', 'المصاريف', 'مصروفات'];

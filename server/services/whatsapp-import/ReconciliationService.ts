@@ -179,9 +179,25 @@ export async function runReconciliation(
       duplicateAmount += amount;
       byMatchStatus['duplicate'] = (byMatchStatus['duplicate'] || 0) + 1;
 
-      await db.update(waExtractionCandidates)
-        .set({ matchStatus: 'exact_match' })
-        .where(eq(waExtractionCandidates.id, candidate.id));
+      const dateStr = transactionDateMap.get(candidate.id)
+        || (candidate.createdAt ? formatDateForFingerprint(new Date(candidate.createdAt)) : new Date().toISOString().split('T')[0]);
+
+      canonicalCreations.push({
+        candidateId: candidate.id,
+        matchResult: {
+          matchStatus: 'exact_match',
+          matchReason: 'Duplicate detected by deduplication engine',
+          matchedTable: null,
+          matchedRecordId: null,
+          matchConfidence: 1.0,
+        } as MatchResult,
+        amount,
+        dateStr,
+        projId: projectMap.get(candidate.id)?.projectId || null,
+        category: candidate.category,
+        candidateType: candidate.candidateType,
+        description: candidate.description,
+      });
       continue;
     }
 
@@ -327,15 +343,19 @@ export async function runReconciliation(
   const uniqueVerifications = new Map<number, { reason: string; priority: Priority }>();
   for (const item of verificationItems) {
     const existing = uniqueVerifications.get(item.candidateId);
-    if (!existing || priorityRank(item.priority) < priorityRank(existing.priority)) {
-      const combinedReason = existing
-        ? `${existing.reason}; ${item.reason}`
-        : item.reason;
+    if (existing) {
+      const combinedReason = `${existing.reason}; ${item.reason}`;
+      const bestPriority = priorityRank(item.priority) < priorityRank(existing.priority)
+        ? item.priority
+        : existing.priority;
       uniqueVerifications.set(item.candidateId, {
         reason: combinedReason,
-        priority: priorityRank(item.priority) < priorityRank(existing?.priority || 'P4_low')
-          ? item.priority
-          : (existing?.priority || 'P4_low'),
+        priority: bestPriority,
+      });
+    } else {
+      uniqueVerifications.set(item.candidateId, {
+        reason: item.reason,
+        priority: item.priority,
       });
     }
   }

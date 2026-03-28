@@ -13,7 +13,12 @@ function stripRtlMarkers(str: string): string {
   return str.replace(/[\u200F\u200E\u202A-\u202E\u2066-\u2069]/g, '');
 }
 
-const MESSAGE_LINE_RE = /^(\d{1,2}\/\d{1,2}\/\d{4})،?\s*(\d{1,2}:\d{2})\s*(ص|م|AM|PM)\s*-\s*(.+?):\s(.*)$/;
+const MESSAGE_LINE_PATTERNS = [
+  /^(\d{1,2}\/\d{1,2}\/\d{4})،?\s*(\d{1,2}:\d{2})\s*(ص|م|AM|PM)\s*-\s*(.+?):\s(.*)$/,
+  /^(\d{1,2}\/\d{1,2}\/\d{2})،?\s*(\d{1,2}:\d{2})\s*(ص|م|AM|PM)\s*-\s*(.+?):\s(.*)$/,
+  /^\[(\d{1,2}\/\d{1,2}\/\d{4}),?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(ص|م|AM|PM)?\]\s*(.+?):\s(.*)$/,
+  /^(\d{1,2}\/\d{1,2}\/\d{4})،?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*-\s*(.+?):\s(.*)$/,
+];
 
 interface ParsedMessage {
   timestamp: Date;
@@ -24,15 +29,21 @@ interface ParsedMessage {
   messageOrder: number;
 }
 
-function parseTimestamp(dateStr: string, timeStr: string, period: string): Date {
-  const [day, month, year] = dateStr.split('/').map(Number);
-  let [hours, minutes] = timeStr.split(':').map(Number);
+function parseTimestamp(dateStr: string, timeStr: string, period: string | null): Date {
+  const parts = dateStr.split('/').map(Number);
+  const [day, month] = parts;
+  let year = parts[2];
+  if (year < 100) year += 2000;
+  const timeParts = timeStr.split(':').map(Number);
+  let hours = timeParts[0];
+  const minutes = timeParts[1];
 
-  const isPm = period === 'م' || period === 'PM';
-  const isAm = period === 'ص' || period === 'AM';
-
-  if (isPm && hours !== 12) hours += 12;
-  if (isAm && hours === 12) hours = 0;
+  if (period) {
+    const isPm = period === 'م' || period === 'PM';
+    const isAm = period === 'ص' || period === 'AM';
+    if (isPm && hours !== 12) hours += 12;
+    if (isAm && hours === 12) hours = 0;
+  }
 
   return new Date(year, month - 1, day, hours, minutes);
 }
@@ -72,13 +83,28 @@ export function parseWhatsAppChat(
     const line = rawLine.trim();
     if (!line) continue;
 
-    const match = line.match(MESSAGE_LINE_RE);
+    let match: RegExpMatchArray | null = null;
+    let matchedPatternIndex = -1;
+    for (let pi = 0; pi < MESSAGE_LINE_PATTERNS.length; pi++) {
+      match = line.match(MESSAGE_LINE_PATTERNS[pi]);
+      if (match) {
+        matchedPatternIndex = pi;
+        break;
+      }
+    }
     if (match) {
       if (currentMsg) {
         messages.push(currentMsg);
       }
 
-      const [, dateStr, timeStr, period, sender, text] = match;
+      let dateStr: string, timeStr: string, period: string | null, sender: string, text: string;
+      if (matchedPatternIndex === 3) {
+        [, dateStr, timeStr, sender, text] = match;
+        period = null;
+      } else {
+        [, dateStr, timeStr, period, sender, text] = match;
+        period = period || null;
+      }
       const timestamp = parseTimestamp(dateStr, timeStr, period);
       order++;
 

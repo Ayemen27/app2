@@ -211,6 +211,25 @@ export async function postApprovedTransaction(
   }
 
   const amount = safeParseNum(txn.amount);
+  if (amount <= 0) {
+    const attemptNum = await getNextAttemptNumber(canonicalTransactionId);
+    await db.insert(waPostingResults).values({
+      canonicalTransactionId,
+      targetTable: 'unknown',
+      postingStatus: 'failed',
+      postedBy,
+      attemptNumber: attemptNum,
+      errorMessage: 'Invalid amount: must be greater than zero',
+    });
+    return {
+      canonicalTransactionId,
+      status: 'failed',
+      targetTable: 'unknown',
+      targetRecordId: null,
+      errorMessage: 'Invalid amount: must be greater than zero',
+      attemptNumber: attemptNum,
+    };
+  }
   const targetTable = resolveTargetTable(txn.transactionType, txn.category);
   const dateStr = txn.transactionDate || new Date().toISOString().split('T')[0];
   const projectId = txn.projectId;
@@ -316,6 +335,15 @@ export async function postApprovedTransaction(
         throw new Error(`Unsupported target table: ${targetTable}`);
     }
 
+    const balanceCheck = await client.query(
+      `SELECT COALESCE(SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN entry_type = 'credit' THEN amount ELSE 0 END), 0) AS balance FROM journal_entries WHERE reference_id = $1`,
+      [targetRecordId]
+    );
+    const ledgerBalance = parseFloat(balanceCheck.rows[0]?.balance || '0');
+    if (Math.abs(ledgerBalance) > 0.01) {
+      throw new Error(`Ledger balance check failed: debit - credit = ${ledgerBalance} (expected 0). Rolling back.`);
+    }
+
     const attemptNum = await getNextAttemptNumber(canonicalTransactionId);
     await client.query(
       `INSERT INTO wa_posting_results (canonical_transaction_id, target_table, target_record_id, posted_by, posting_status, idempotency_key, attempt_number)
@@ -419,76 +447,77 @@ export async function approveCandidate(
   projectId: string,
   notes?: string
 ): Promise<{ canonicalId: number }> {
-  const candidate = await db.select()
-    .from(waExtractionCandidates)
-    .where(eq(waExtractionCandidates.id, candidateId))
-    .limit(1);
-
-  if (candidate.length === 0) throw new Error('Candidate not found');
-
-  const c = candidate[0];
-
-  const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
-
-  let dateStr: string | null = null;
+  const client = await pool.connect();
   try {
-    dateStr = await getTransactionDate(c.id, c.sourceMessageId, c.createdAt ? new Date(c.createdAt) : null);
-  } catch { /* fallback below */ }
-  if (!dateStr && c.createdAt) {
-    dateStr = formatDateForFingerprint(new Date(c.createdAt));
-  }
+    await client.query('BEGIN');
 
-  return await db.transaction(async (tx: any) => {
-    if (c.canonicalTransactionId) {
-      const existing = await tx.select().from(waCanonicalTransactions)
-        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
-      if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
-        throw new Error('Candidate already confirmed/posted');
-      }
-      await tx.update(waCanonicalTransactions)
-        .set({ status: 'confirmed', projectId, transactionDate: dateStr, reviewNotes: notes || null })
-        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
+    const lockedRes = await client.query(
+      `SELECT * FROM wa_extraction_candidates WHERE id = $1 FOR UPDATE`,
+      [candidateId]
+    );
+    if (lockedRes.rows.length === 0) throw new Error('Candidate not found');
 
-      await tx.insert(waReviewActions).values({
-        actionType: 'approve',
-        canonicalTransactionId: c.canonicalTransactionId,
-        candidateId,
-        reviewerId,
-        beforeState,
-        afterState: { status: 'confirmed', projectId },
-        notes: notes || null,
-      });
+    const c = lockedRes.rows[0];
 
-      return { canonicalId: c.canonicalTransactionId };
+    const amount = safeParseNum(c.amount);
+    if (amount <= 0) throw new Error('Invalid amount: must be greater than zero');
+
+    const beforeState = { matchStatus: c.match_status, candidateType: c.candidate_type };
+
+    let dateStr: string | null = null;
+    try {
+      dateStr = await getTransactionDate(c.id, c.source_message_id, c.created_at ? new Date(c.created_at) : null);
+    } catch { /* fallback below */ }
+    if (!dateStr && c.created_at) {
+      dateStr = formatDateForFingerprint(new Date(c.created_at));
     }
 
-    const [canonical] = await tx.insert(waCanonicalTransactions).values({
-      status: 'confirmed',
-      transactionType: c.candidateType,
-      amount: c.amount,
-      description: c.description,
-      transactionDate: dateStr,
-      projectId,
-      category: c.category,
-      mergedFromCandidates: [c.id],
-    }).returning();
+    if (c.canonical_transaction_id) {
+      const existingRes = await client.query(
+        `SELECT * FROM wa_canonical_transactions WHERE id = $1 FOR UPDATE`,
+        [c.canonical_transaction_id]
+      );
+      if (existingRes.rows.length > 0 && ['confirmed', 'posted'].includes(existingRes.rows[0].status || '')) {
+        throw new Error('Candidate already confirmed/posted');
+      }
+      await client.query(
+        `UPDATE wa_canonical_transactions SET status = 'confirmed', project_id = $1, transaction_date = $2, review_notes = $3 WHERE id = $4`,
+        [projectId, dateStr, notes || null, c.canonical_transaction_id]
+      );
 
-    await tx.update(waExtractionCandidates)
-      .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
-      .where(eq(waExtractionCandidates.id, candidateId));
+      await client.query(
+        `INSERT INTO wa_review_actions (action_type, canonical_transaction_id, candidate_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['approve', c.canonical_transaction_id, candidateId, reviewerId, JSON.stringify(beforeState), JSON.stringify({ status: 'confirmed', projectId }), notes || null]
+      );
 
-    await tx.insert(waReviewActions).values({
-      actionType: 'approve',
-      canonicalTransactionId: canonical.id,
-      candidateId,
-      reviewerId,
-      beforeState,
-      afterState: { status: 'confirmed', projectId },
-      notes,
-    });
+      await client.query('COMMIT');
+      return { canonicalId: c.canonical_transaction_id };
+    }
 
-    return { canonicalId: canonical.id };
-  });
+    const canonicalRes = await client.query(
+      `INSERT INTO wa_canonical_transactions (status, transaction_type, amount, description, transaction_date, project_id, category, merged_from_candidates) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      ['confirmed', c.candidate_type, c.amount, c.description, dateStr, projectId, c.category, JSON.stringify([c.id])]
+    );
+    const canonicalId = canonicalRes.rows[0].id;
+
+    await client.query(
+      `UPDATE wa_extraction_candidates SET canonical_transaction_id = $1, match_status = 'new_entry' WHERE id = $2`,
+      [canonicalId, candidateId]
+    );
+
+    await client.query(
+      `INSERT INTO wa_review_actions (action_type, canonical_transaction_id, candidate_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['approve', canonicalId, candidateId, reviewerId, JSON.stringify(beforeState), JSON.stringify({ status: 'confirmed', projectId }), notes || null]
+    );
+
+    await client.query('COMMIT');
+    return { canonicalId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function rejectCandidate(
@@ -496,55 +525,59 @@ export async function rejectCandidate(
   reviewerId: string,
   reason: string
 ): Promise<void> {
-  const candidate = await db.select()
-    .from(waExtractionCandidates)
-    .where(eq(waExtractionCandidates.id, candidateId))
-    .limit(1);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (candidate.length === 0) throw new Error('Candidate not found');
+    const lockedRes = await client.query(
+      `SELECT * FROM wa_extraction_candidates WHERE id = $1 FOR UPDATE`,
+      [candidateId]
+    );
+    if (lockedRes.rows.length === 0) throw new Error('Candidate not found');
 
-  const c = candidate[0];
-  const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
+    const c = lockedRes.rows[0];
+    const beforeState = { matchStatus: c.match_status, candidateType: c.candidate_type };
 
-  await db.transaction(async (tx: any) => {
     let canonicalId: number;
 
-    if (c.canonicalTransactionId) {
-      const existing = await tx.select().from(waCanonicalTransactions)
-        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
-      if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
+    if (c.canonical_transaction_id) {
+      const existingRes = await client.query(
+        `SELECT * FROM wa_canonical_transactions WHERE id = $1 FOR UPDATE`,
+        [c.canonical_transaction_id]
+      );
+      if (existingRes.rows.length > 0 && ['confirmed', 'posted'].includes(existingRes.rows[0].status || '')) {
         throw new Error('Candidate already confirmed/posted — cannot reject');
       }
-      await tx.update(waCanonicalTransactions)
-        .set({ status: 'excluded', excludeReason: reason })
-        .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId));
-      canonicalId = c.canonicalTransactionId;
+      await client.query(
+        `UPDATE wa_canonical_transactions SET status = 'excluded', exclude_reason = $1 WHERE id = $2`,
+        [reason, c.canonical_transaction_id]
+      );
+      canonicalId = c.canonical_transaction_id;
     } else {
-      const [canonical] = await tx.insert(waCanonicalTransactions).values({
-        status: 'excluded',
-        transactionType: c.candidateType,
-        amount: c.amount,
-        description: c.description,
-        excludeReason: reason,
-        mergedFromCandidates: [c.id],
-      }).returning();
-      canonicalId = canonical.id;
+      const canonicalRes = await client.query(
+        `INSERT INTO wa_canonical_transactions (status, transaction_type, amount, description, exclude_reason, merged_from_candidates) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        ['excluded', c.candidate_type, c.amount, c.description, reason, JSON.stringify([c.id])]
+      );
+      canonicalId = canonicalRes.rows[0].id;
 
-      await tx.update(waExtractionCandidates)
-        .set({ canonicalTransactionId: canonicalId })
-        .where(eq(waExtractionCandidates.id, candidateId));
+      await client.query(
+        `UPDATE wa_extraction_candidates SET canonical_transaction_id = $1 WHERE id = $2`,
+        [canonicalId, candidateId]
+      );
     }
 
-    await tx.insert(waReviewActions).values({
-      actionType: 'reject',
-      canonicalTransactionId: canonicalId,
-      candidateId,
-      reviewerId,
-      beforeState,
-      afterState: { status: 'excluded', reason },
-      notes: reason,
-    });
-  });
+    await client.query(
+      `INSERT INTO wa_review_actions (action_type, canonical_transaction_id, candidate_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['reject', canonicalId, candidateId, reviewerId, JSON.stringify(beforeState), JSON.stringify({ status: 'excluded', reason }), reason]
+    );
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateCandidateFields(
@@ -552,35 +585,55 @@ export async function updateCandidateFields(
   reviewerId: string,
   updates: { amount?: string; description?: string }
 ): Promise<any> {
-  const candidate = await db.select()
-    .from(waExtractionCandidates)
-    .where(eq(waExtractionCandidates.id, candidateId))
-    .limit(1);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (candidate.length === 0) throw new Error('Candidate not found');
-  const c = candidate[0];
-  if (c.canonicalTransactionId) throw new Error('Cannot edit a reviewed candidate');
+    const lockedRes = await client.query(
+      `SELECT * FROM wa_extraction_candidates WHERE id = $1 FOR UPDATE`,
+      [candidateId]
+    );
+    if (lockedRes.rows.length === 0) throw new Error('Candidate not found');
+    const c = lockedRes.rows[0];
+    if (c.canonical_transaction_id) throw new Error('Cannot edit a reviewed candidate');
 
-  const beforeState = { amount: c.amount, description: c.description };
-  const setFields: any = {};
-  if (updates.amount !== undefined) setFields.amount = updates.amount;
-  if (updates.description !== undefined) setFields.description = updates.description;
+    const beforeState = { amount: c.amount, description: c.description };
+    const setClauses: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
 
-  const [updated] = await db.update(waExtractionCandidates)
-    .set(setFields)
-    .where(eq(waExtractionCandidates.id, candidateId))
-    .returning();
+    if (updates.amount !== undefined) {
+      setClauses.push(`amount = $${paramIdx++}`);
+      params.push(updates.amount);
+    }
+    if (updates.description !== undefined) {
+      setClauses.push(`description = $${paramIdx++}`);
+      params.push(updates.description);
+    }
 
-  await db.insert(waReviewActions).values({
-    actionType: 'edit',
-    candidateId,
-    reviewerId,
-    beforeState,
-    afterState: setFields,
-    notes: 'Inline edit',
-  });
+    params.push(candidateId);
+    const updatedRes = await client.query(
+      `UPDATE wa_extraction_candidates SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+      params
+    );
 
-  return updated;
+    const afterState: any = {};
+    if (updates.amount !== undefined) afterState.amount = updates.amount;
+    if (updates.description !== undefined) afterState.description = updates.description;
+
+    await client.query(
+      `INSERT INTO wa_review_actions (action_type, candidate_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6)`,
+      ['edit', candidateId, reviewerId, JSON.stringify(beforeState), JSON.stringify(afterState), 'Inline edit']
+    );
+
+    await client.query('COMMIT');
+    return updatedRes.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function mergeCandidates(
@@ -590,44 +643,48 @@ export async function mergeCandidates(
 ): Promise<{ canonicalId: number }> {
   if (candidateIds.length < 2) throw new Error('Need at least 2 candidates to merge');
 
-  const candidates = await db.select()
-    .from(waExtractionCandidates)
-    .where(sql`${waExtractionCandidates.id} = ANY(${candidateIds})`);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (candidates.length !== candidateIds.length) throw new Error('Some candidates not found');
-  if (candidates.some((c: { canonicalTransactionId: number | null }) => c.canonicalTransactionId)) throw new Error('Some candidates already reviewed');
+    const lockedRes = await client.query(
+      `SELECT * FROM wa_extraction_candidates WHERE id = ANY($1) ORDER BY id FOR UPDATE`,
+      [candidateIds]
+    );
 
-  const totalAmount = candidates.reduce((sum: number, c: { amount: string | null }) => sum + safeParseNum(c.amount), 0);
-  const descriptions = candidates.map((c: { description: string | null }) => c.description).filter(Boolean).join(' + ');
+    if (lockedRes.rows.length !== candidateIds.length) throw new Error('Some candidates not found');
+    if (lockedRes.rows.some((c: any) => c.canonical_transaction_id)) throw new Error('Some candidates already reviewed');
 
-  return await db.transaction(async (tx: any) => {
-    const [canonical] = await tx.insert(waCanonicalTransactions).values({
-      status: 'confirmed',
-      transactionType: candidates[0].candidateType,
-      amount: totalAmount.toString(),
-      description: descriptions || null,
-      projectId,
-      category: candidates[0].category,
-      mergedFromCandidates: candidateIds,
-    }).returning();
+    const totalAmount = lockedRes.rows.reduce((sum: number, c: any) => sum + safeParseNum(c.amount), 0);
+    if (totalAmount <= 0) throw new Error('Invalid merged amount: must be greater than zero');
+    const descriptions = lockedRes.rows.map((c: any) => c.description).filter(Boolean).join(' + ');
 
-    for (const c of candidates) {
-      await tx.update(waExtractionCandidates)
-        .set({ canonicalTransactionId: canonical.id, matchStatus: 'new_entry' })
-        .where(eq(waExtractionCandidates.id, c.id));
+    const canonicalRes = await client.query(
+      `INSERT INTO wa_canonical_transactions (status, transaction_type, amount, description, project_id, category, merged_from_candidates) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      ['confirmed', lockedRes.rows[0].candidate_type, totalAmount.toString(), descriptions || null, projectId, lockedRes.rows[0].category, JSON.stringify(candidateIds)]
+    );
+    const canonicalId = canonicalRes.rows[0].id;
+
+    for (const c of lockedRes.rows) {
+      await client.query(
+        `UPDATE wa_extraction_candidates SET canonical_transaction_id = $1, match_status = 'new_entry' WHERE id = $2`,
+        [canonicalId, c.id]
+      );
     }
 
-    await tx.insert(waReviewActions).values({
-      actionType: 'merge',
-      canonicalTransactionId: canonical.id,
-      reviewerId,
-      beforeState: { candidateIds },
-      afterState: { status: 'confirmed', totalAmount, projectId },
-      notes: `Merged ${candidateIds.length} candidates`,
-    });
+    await client.query(
+      `INSERT INTO wa_review_actions (action_type, canonical_transaction_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6)`,
+      ['merge', canonicalId, reviewerId, JSON.stringify({ candidateIds }), JSON.stringify({ status: 'confirmed', totalAmount, projectId }), `Merged ${candidateIds.length} candidates`]
+    );
 
-    return { canonicalId: canonical.id };
-  });
+    await client.query('COMMIT');
+    return { canonicalId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function splitCandidate(
@@ -638,60 +695,64 @@ export async function splitCandidate(
 ): Promise<{ canonicalIds: number[] }> {
   if (splits.length < 2) throw new Error('Need at least 2 splits');
 
-  const candidate = await db.select()
-    .from(waExtractionCandidates)
-    .where(eq(waExtractionCandidates.id, candidateId))
-    .limit(1);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (candidate.length === 0) throw new Error('Candidate not found');
-  const c = candidate[0];
+    const lockedRes = await client.query(
+      `SELECT * FROM wa_extraction_candidates WHERE id = $1 FOR UPDATE`,
+      [candidateId]
+    );
+    if (lockedRes.rows.length === 0) throw new Error('Candidate not found');
+    const c = lockedRes.rows[0];
 
-  if (c.canonicalTransactionId) {
-    const existing = await db.select().from(waCanonicalTransactions)
-      .where(eq(waCanonicalTransactions.id, c.canonicalTransactionId)).limit(1);
-    if (existing.length > 0 && ['confirmed', 'posted'].includes(existing[0].status || '')) {
-      throw new Error('Candidate already confirmed/posted');
+    if (c.canonical_transaction_id) {
+      const existingRes = await client.query(
+        `SELECT * FROM wa_canonical_transactions WHERE id = $1 FOR UPDATE`,
+        [c.canonical_transaction_id]
+      );
+      if (existingRes.rows.length > 0 && ['confirmed', 'posted'].includes(existingRes.rows[0].status || '')) {
+        throw new Error('Candidate already confirmed/posted');
+      }
     }
-  }
 
-  const originalAmount = safeParseNum(c.amount);
-  const splitTotal = splits.reduce((sum, s) => sum + safeParseNum(s.amount), 0);
-  if (Math.abs(splitTotal - originalAmount) > 0.01) {
-    throw new Error(`Split total (${splitTotal}) does not match original amount (${originalAmount})`);
-  }
+    const originalAmount = safeParseNum(c.amount);
+    const splitTotal = splits.reduce((sum, s) => sum + safeParseNum(s.amount), 0);
+    if (Math.abs(splitTotal - originalAmount) > 0.01) {
+      throw new Error(`Split total (${splitTotal}) does not match original amount (${originalAmount})`);
+    }
 
-  return await db.transaction(async (tx: any) => {
     const canonicalIds: number[] = [];
 
     for (const split of splits) {
-      const [canonical] = await tx.insert(waCanonicalTransactions).values({
-        status: 'confirmed',
-        transactionType: c.candidateType,
-        amount: split.amount,
-        description: split.description,
-        projectId,
-        category: c.category,
-        mergedFromCandidates: [candidateId],
-      }).returning();
-      canonicalIds.push(canonical.id);
+      const splitAmount = safeParseNum(split.amount);
+      if (splitAmount <= 0) throw new Error('Invalid split amount: must be greater than zero');
+
+      const canonicalRes = await client.query(
+        `INSERT INTO wa_canonical_transactions (status, transaction_type, amount, description, project_id, category, merged_from_candidates) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        ['confirmed', c.candidate_type, split.amount, split.description, projectId, c.category, JSON.stringify([candidateId])]
+      );
+      canonicalIds.push(canonicalRes.rows[0].id);
     }
 
-    await tx.update(waExtractionCandidates)
-      .set({ canonicalTransactionId: canonicalIds[0], matchStatus: 'new_entry' })
-      .where(eq(waExtractionCandidates.id, candidateId));
+    await client.query(
+      `UPDATE wa_extraction_candidates SET canonical_transaction_id = $1, match_status = 'new_entry' WHERE id = $2`,
+      [canonicalIds[0], candidateId]
+    );
 
-    await tx.insert(waReviewActions).values({
-      actionType: 'split',
-      canonicalTransactionId: canonicalIds[0],
-      candidateId,
-      reviewerId,
-      beforeState: { amount: c.amount, description: c.description },
-      afterState: { splits, canonicalIds },
-      notes: `Split into ${splits.length} transactions`,
-    });
+    await client.query(
+      `INSERT INTO wa_review_actions (action_type, canonical_transaction_id, candidate_id, reviewer_id, before_state, after_state, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['split', canonicalIds[0], candidateId, reviewerId, JSON.stringify({ amount: c.amount, description: c.description }), JSON.stringify({ splits, canonicalIds }), `Split into ${splits.length} transactions`]
+    );
 
+    await client.query('COMMIT');
     return { canonicalIds };
-  });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function bulkApprove(

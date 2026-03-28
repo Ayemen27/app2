@@ -5,7 +5,7 @@ import {
 } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
-import { tryParseTransferReceipt } from './TransferReceiptParsers.js';
+import { tryParseTransferReceipt, tryParseTransferReceiptAsync, transferCompanyRegistry } from './TransferReceiptParsers.js';
 import { extractExpenses } from './ExpenseExtractors.js';
 import { isNonTransaction, isRunningTotal, isStickerMessage, findDuplicateTextBlocks, validateInlineDate, isWorkConversation } from './MessageFilters.js';
 import { clusterMessages, type RawMessageForClustering } from './ContextClusteringEngine.js';
@@ -45,6 +45,7 @@ export class WhatsAppExtractionService {
     const projectKeywords = await loadProjectKeywords();
     await loadCustodianNames();
     await waAliasService.loadCache();
+    await transferCompanyRegistry.loadCompanies();
 
     const existingCandidates = await db.select()
       .from(waExtractionCandidates)
@@ -123,6 +124,9 @@ export class WhatsAppExtractionService {
         await this.processCluster(cluster.anchorMessageId, cluster.mergedText, cluster.memberMessageIds, cluster.mediaMessageIds, batchId, chatSource, mediaByMessageId, messages, result, projectKeywords, ocrTextByMessageId);
       } catch (err: any) {
         result.errors.push(`Cluster ${cluster.anchorMessageId}: ${err.message}`);
+        for (const memberId of cluster.memberMessageIds) {
+          clusteredMessageIds.delete(memberId);
+        }
       }
     }
 
@@ -169,7 +173,7 @@ export class WhatsAppExtractionService {
       }
     }
 
-    const transferResult = tryParseTransferReceipt(textToAnalyze);
+    const transferResult = await tryParseTransferReceiptAsync(textToAnalyze);
     if (transferResult) {
       await this.createTransferCandidate(transferResult, anchorMsg, batchId, chatSource, memberIds, mediaIds, mediaByMessageId, true, result, projectKeywords);
       return;
@@ -242,7 +246,7 @@ export class WhatsAppExtractionService {
 
     const ocrText = isAttachmentOnly ? null : getOcrTextForMessage(msg.id, ocrTextByMessageId);
 
-    const transferResult = tryParseTransferReceipt(text);
+    const transferResult = await tryParseTransferReceiptAsync(text);
     if (transferResult) {
       if (ocrText && !transferResult.transferNumber) {
         const ocrTransferNum = ocrText.match(/(\d{6,})/);
@@ -528,9 +532,9 @@ export class WhatsAppExtractionService {
     for (let len = 3; len >= 1; len--) {
       for (let i = 0; i <= words.length - len; i++) {
         const phrase = words.slice(i, i + len).join(' ');
-        const workerId = await waAliasService.resolveAlias(phrase);
-        if (workerId) {
-          return { workerId, workerAlias: phrase };
+        const entityId = await waAliasService.resolveAlias(phrase);
+        if (entityId) {
+          return { workerId: entityId, workerAlias: phrase };
         }
       }
     }

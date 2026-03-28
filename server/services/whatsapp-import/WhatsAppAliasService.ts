@@ -1,27 +1,12 @@
 import { db } from "../../db.js";
-import { waWorkerAliases, workers } from "@shared/schema";
-import type { WaWorkerAlias, InsertWaWorkerAlias } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { waEntityAliases, workers } from "@shared/schema";
+import type { WaEntityAlias } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { normalizeArabicText } from './ArabicAmountParser.js';
 
-const KNOWN_ALIASES: Array<{ alias: string; workerId: string }> = [
-  { alias: 'النخرة', workerId: '6066edb5' },
-  { alias: 'عمي احمد', workerId: '51165865' },
-  { alias: 'الحج احمد', workerId: '51165865' },
-  { alias: 'سعيد', workerId: 'w004-سعيد' },
-  { alias: 'سعيد الحداد', workerId: 'w004-سعيد' },
-  { alias: 'عبدالله الخلاطة', workerId: '47f0c37a' },
-  { alias: 'عبدالله سواق الخلاطة', workerId: '47f0c37a' },
-  { alias: 'عمال الحفر', workerId: '1389a5ea' },
-  { alias: 'عمال حفر', workerId: '1389a5ea' },
-  { alias: 'عمال الصبة', workerId: '2943956a' },
-  { alias: 'نجار باجل', workerId: '78c1e5ab' },
-  { alias: 'نجار من باجل', workerId: '78c1e5ab' },
-  { alias: 'ناجي', workerId: '0350b938' },
-  { alias: 'ناجي المساعد', workerId: '0350b938' },
-  { alias: 'حسن النجار', workerId: 'd9f327e5' },
-  { alias: 'حسن', workerId: 'd9f327e5' },
-  { alias: 'محمد حسن نجار', workerId: 'd9f327e5' },
-];
+function normalizeAliasName(name: string): string {
+  return normalizeArabicText(name.trim().replace(/[\u200F\u200E\u202A\u202B\u202C\u200B]/g, ''));
+}
 
 export class WhatsAppAliasService {
   private aliasCache: Map<string, string | null> | null = null;
@@ -31,10 +16,14 @@ export class WhatsAppAliasService {
     if (this.aliasCache && Date.now() < this.cacheExpiry) {
       return this.aliasCache;
     }
-    const allAliases = await db.select().from(waWorkerAliases);
+    const allAliases = await db.select().from(waEntityAliases)
+      .where(and(
+        eq(waEntityAliases.isVerified, true),
+        eq(waEntityAliases.isActive, true)
+      ));
     this.aliasCache = new Map<string, string | null>();
     for (const alias of allAliases) {
-      this.aliasCache.set(alias.aliasName, alias.canonicalWorkerId);
+      this.aliasCache.set(normalizeAliasName(alias.aliasName), alias.canonicalEntityId);
     }
     this.cacheExpiry = Date.now() + 5 * 60 * 1000;
     return this.aliasCache;
@@ -45,114 +34,66 @@ export class WhatsAppAliasService {
     this.cacheExpiry = 0;
   }
 
-  async seedAliases(createdBy?: string): Promise<{ seeded: number; skipped: number }> {
-    let seeded = 0;
-    let skipped = 0;
-
-    for (const { alias, workerId } of KNOWN_ALIASES) {
-      try {
-        const existing = await db.select()
-          .from(waWorkerAliases)
-          .where(eq(waWorkerAliases.aliasName, alias))
-          .limit(1);
-
-        if (existing.length > 0) {
-          skipped++;
-          continue;
-        }
-
-        const worker = await db.select()
-          .from(workers)
-          .where(eq(workers.id, workerId))
-          .limit(1);
-
-        if (worker.length === 0) {
-          console.warn(`[WAAlias] Worker ${workerId} not found for alias "${alias}", skipping`);
-          skipped++;
-          continue;
-        }
-
-        await db.insert(waWorkerAliases).values({
-          aliasName: alias,
-          canonicalWorkerId: workerId,
-          createdBy: createdBy || null,
-        });
-        seeded++;
-      } catch (err: any) {
-        console.warn(`[WAAlias] Failed to seed alias "${alias}": ${err.message}`);
-        skipped++;
-      }
-    }
-
-    return { seeded, skipped };
-  }
-
-  async createMissingWorkers(createdBy: string): Promise<string[]> {
-    const createdIds: string[] = [];
-
-    const newWorkers = [
-      { name: 'عدنان محمد حسين حمدين', type: 'متطوع', dailyWage: '0' },
-      { name: 'عبداللة العباسي', type: 'عامل', dailyWage: '0' },
-    ];
-
-    for (const w of newWorkers) {
-      const existing = await db.select()
-        .from(workers)
-        .where(eq(workers.name, w.name))
-        .limit(1);
-
-      if (existing.length > 0) {
-        createdIds.push(existing[0].id);
-        continue;
-      }
-
-      const [created] = await db.insert(workers).values({
-        name: w.name,
-        type: w.type,
-        dailyWage: w.dailyWage,
-        created_by: createdBy,
-      }).returning();
-
-      createdIds.push(created.id);
-
-      if (w.name === 'عدنان محمد حسين حمدين') {
-        await db.insert(waWorkerAliases).values({
-          aliasName: 'ابو فارس',
-          canonicalWorkerId: created.id,
-          createdBy,
-        });
-      }
-    }
-
-    return createdIds;
-  }
-
   async resolveAlias(name: string): Promise<string | null> {
     const cache = await this.loadCache();
-    return cache.get(name) || null;
+    const normalized = normalizeAliasName(name);
+    return cache.get(normalized) || null;
   }
 
-  async getAliases(): Promise<WaWorkerAlias[]> {
-    return db.select().from(waWorkerAliases).orderBy(waWorkerAliases.aliasName);
+  async resolveAnyAlias(name: string): Promise<WaEntityAlias | null> {
+    const normalized = normalizeAliasName(name);
+    const results = await db.select().from(waEntityAliases)
+      .where(eq(waEntityAliases.aliasNameNormalized, normalized))
+      .limit(1);
+    return results[0] || null;
   }
 
-  async createAlias(data: InsertWaWorkerAlias): Promise<WaWorkerAlias> {
-    const [created] = await db.insert(waWorkerAliases).values(data).returning();
+  async getAliases(): Promise<WaEntityAlias[]> {
+    return db.select().from(waEntityAliases).orderBy(waEntityAliases.aliasName);
+  }
+
+  async createAlias(data: {
+    aliasName: string;
+    entityType?: string;
+    canonicalEntityId?: string;
+    entityTable?: string;
+    createdBy?: string | null;
+  }): Promise<WaEntityAlias> {
+    const [created] = await db.insert(waEntityAliases).values({
+      aliasName: data.aliasName,
+      aliasNameNormalized: normalizeAliasName(data.aliasName),
+      entityType: data.entityType || 'عامل',
+      canonicalEntityId: data.canonicalEntityId || null,
+      entityTable: data.entityTable || 'workers',
+      createdBy: data.createdBy || null,
+    }).returning();
     this.clearCache();
     return created;
   }
 
-  async updateAlias(id: number, data: Partial<InsertWaWorkerAlias>): Promise<WaWorkerAlias | undefined> {
-    const [updated] = await db.update(waWorkerAliases)
-      .set(data)
-      .where(eq(waWorkerAliases.id, id))
+  async updateAlias(id: number, data: Partial<{
+    aliasName: string;
+    entityType: string;
+    canonicalEntityId: string | null;
+    entityTable: string;
+    isVerified: boolean;
+    isActive: boolean;
+    updatedBy: string;
+  }>): Promise<WaEntityAlias | undefined> {
+    const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
+    if (data.aliasName) {
+      updateData.aliasNameNormalized = normalizeAliasName(data.aliasName);
+    }
+    const [updated] = await db.update(waEntityAliases)
+      .set(updateData)
+      .where(eq(waEntityAliases.id, id))
       .returning();
     this.clearCache();
     return updated;
   }
 
   async deleteAlias(id: number): Promise<void> {
-    await db.delete(waWorkerAliases).where(eq(waWorkerAliases.id, id));
+    await db.delete(waEntityAliases).where(eq(waEntityAliases.id, id));
     this.clearCache();
   }
 }

@@ -1,5 +1,9 @@
 import { normalizeArabicText, easternToWestern } from './ArabicAmountParser.js';
 import { safeParseNum } from '../../utils/safe-numbers.js';
+import { db } from '../../db.js';
+import { waTransferCompanies } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import type { WaTransferCompany } from '@shared/schema';
 
 export interface TransferReceiptResult {
   transferNumber: string;
@@ -9,16 +13,42 @@ export interface TransferReceiptResult {
   recipient: string;
   companyName: string;
   date: string | null;
-  patternType: 'rashad_bahir' | 'houshabi' | 'najm' | 'generic_transfer';
+  patternType: string;
   raw: string;
 }
 
-export function parseRashadBahir(messageText: string): TransferReceiptResult | null {
+class TransferCompanyRegistry {
+  private cache: WaTransferCompany[] | null = null;
+  private cacheExpiry = 0;
+
+  async loadCompanies(): Promise<WaTransferCompany[]> {
+    if (this.cache && Date.now() < this.cacheExpiry) {
+      return this.cache;
+    }
+    try {
+      this.cache = await db.select().from(waTransferCompanies)
+        .where(eq(waTransferCompanies.isActive, true));
+      this.cacheExpiry = Date.now() + 5 * 60 * 1000;
+      return this.cache;
+    } catch {
+      return this.cache || [];
+    }
+  }
+
+  clearCache(): void {
+    this.cache = null;
+    this.cacheExpiry = 0;
+  }
+}
+
+export const transferCompanyRegistry = new TransferCompanyRegistry();
+
+function parseDynamicCompany(messageText: string, company: WaTransferCompany): TransferReceiptResult | null {
   const text = normalizeArabicText(easternToWestern(messageText));
 
-  if (!text.includes('رشاد') && !text.includes('بحير')) {
-    return null;
-  }
+  const normalizedKeywords = company.keywordsNormalized || [];
+  const hasKeyword = normalizedKeywords.some(k => text.includes(k));
+  if (!hasKeyword) return null;
 
   let amount = 0;
   let fee = 0;
@@ -26,9 +56,20 @@ export function parseRashadBahir(messageText: string): TransferReceiptResult | n
   let recipient = '';
   let transferNumber = '';
 
-  const amountMatch = text.match(/(?:مبلغ\s*الحوالة|المبلغ)\s*:?\s*(\d[\d,.]*)/);
+  const amountMatch = text.match(/(?:مبلغ\s*الحوالة|المبلغ|مبلغ|حوالة)\s*:?\s*(\d[\d,.]*)/);
   if (amountMatch) {
     amount = safeParseNum(amountMatch[1]);
+  }
+
+  if (!amount) {
+    const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
+    const transferNumCandidate = text.match(/(?:رقم\s*:?\s*|رقم\s*الحوالة\s*:?\s*)(\d{4,})/);
+    if (numMatch) {
+      const numVal = numMatch[1];
+      if (!transferNumCandidate || transferNumCandidate[1] !== numVal) {
+        amount = safeParseNum(numVal);
+      }
+    }
   }
 
   const feeMatch = text.match(/(?:خدمة\s*(?:التحويل|تحويل)|رسوم|عمولة)\s*:?\s*(\d[\d,.]*)/);
@@ -36,12 +77,12 @@ export function parseRashadBahir(messageText: string): TransferReceiptResult | n
     fee = safeParseNum(feeMatch[1]);
   }
 
-  const recipientMatch = text.match(/(?:المستلم|اسم\s*المستلم)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
+  const recipientMatch = text.match(/(?:المستلم|اسم\s*المستلم|إلى|الى)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
   if (recipientMatch) {
     recipient = recipientMatch[1].trim();
   }
 
-  const senderMatch = text.match(/(?:المرسل|اسم\s*المرسل)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
+  const senderMatch = text.match(/(?:المرسل|اسم\s*المرسل|من)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
   if (senderMatch) {
     sender = senderMatch[1].trim();
   }
@@ -59,99 +100,9 @@ export function parseRashadBahir(messageText: string): TransferReceiptResult | n
     fee,
     sender,
     recipient,
-    companyName: 'شركه رشاد بحير',
+    companyName: company.displayName,
     date: null,
-    patternType: 'rashad_bahir',
-    raw: text,
-  };
-}
-
-export function parseHoushabi(messageText: string): TransferReceiptResult | null {
-  const text = normalizeArabicText(easternToWestern(messageText));
-
-  const transferNumMatch = text.match(/رقم\s*:?\s*(202\d{9})/);
-  if (!transferNumMatch) return null;
-
-  const transferNumber = transferNumMatch[1];
-
-  let amount = 0;
-  const amountMatch = text.match(/(?:مبلغ|المبلغ|حوالة)\s*:?\s*(\d[\d,.]*)/);
-  if (amountMatch) {
-    amount = safeParseNum(amountMatch[1]);
-  }
-
-  if (!amount) {
-    const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
-    if (numMatch && numMatch[1] !== transferNumber) {
-      amount = safeParseNum(numMatch[1]);
-    }
-  }
-
-  let sender = '';
-  let recipient = '';
-  const senderMatch = text.match(/(?:المرسل|من)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
-  if (senderMatch) sender = senderMatch[1].trim();
-
-  const recipientMatch = text.match(/(?:المستلم|الى|إلى)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
-  if (recipientMatch) recipient = recipientMatch[1].trim();
-
-  if (!amount || amount <= 0) return null;
-
-  return {
-    transferNumber,
-    amount,
-    fee: 0,
-    sender,
-    recipient,
-    companyName: 'الحوشبي',
-    date: null,
-    patternType: 'houshabi',
-    raw: text,
-  };
-}
-
-export function parseNajm(messageText: string): TransferReceiptResult | null {
-  const text = normalizeArabicText(easternToWestern(messageText));
-
-  if (!text.includes('النجم')) return null;
-
-  const transferNumMatch = text.match(/رقم\s*:?\s*(\d{6,12})/);
-  if (!transferNumMatch) return null;
-
-  const transferNumber = transferNumMatch[1];
-
-  let amount = 0;
-  const amountMatch = text.match(/(?:مبلغ|المبلغ|حوالة)\s*:?\s*(\d[\d,.]*)/);
-  if (amountMatch) {
-    amount = safeParseNum(amountMatch[1]);
-  }
-
-  if (!amount) {
-    const numMatch = text.match(/(\d{4,})(?:\s*ريال)?/);
-    if (numMatch && numMatch[1] !== transferNumber) {
-      amount = safeParseNum(numMatch[1]);
-    }
-  }
-
-  let sender = '';
-  let recipient = '';
-  const senderMatch = text.match(/(?:المرسل|من)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
-  if (senderMatch) sender = senderMatch[1].trim();
-
-  const recipientMatch = text.match(/(?:المستلم|الى|إلى)\s*:?\s*([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+?)(?:\n|$|:|\d)/);
-  if (recipientMatch) recipient = recipientMatch[1].trim();
-
-  if (!amount || amount <= 0) return null;
-
-  return {
-    transferNumber,
-    amount,
-    fee: 0,
-    sender,
-    recipient,
-    companyName: 'النجم',
-    date: null,
-    patternType: 'najm',
+    patternType: company.code,
     raw: text,
   };
 }
@@ -171,7 +122,13 @@ export function parseGenericTransfer(messageText: string): TransferReceiptResult
   const hasTransferNumber = /\d{6,}/.test(text);
   const hasRecipientLabel = /(?:المستلم|إلى|الى|لـ)\s*:/.test(text);
 
+  const hasCurrencyMention = /ريال/.test(text);
+
   if (hasWeakKeyword && !hasStrongKeyword && !hasTransferNumber && !hasRecipientLabel) {
+    return null;
+  }
+
+  if (hasStrongKeyword && !hasTransferNumber && !hasRecipientLabel && !hasCurrencyMention) {
     return null;
   }
 
@@ -221,9 +178,15 @@ export function parseGenericTransfer(messageText: string): TransferReceiptResult
   };
 }
 
+export async function tryParseTransferReceiptAsync(messageText: string): Promise<TransferReceiptResult | null> {
+  const companies = await transferCompanyRegistry.loadCompanies();
+  for (const company of companies) {
+    const result = parseDynamicCompany(messageText, company);
+    if (result) return result;
+  }
+  return parseGenericTransfer(messageText);
+}
+
 export function tryParseTransferReceipt(messageText: string): TransferReceiptResult | null {
-  return parseRashadBahir(messageText)
-    || parseHoushabi(messageText)
-    || parseNajm(messageText)
-    || parseGenericTransfer(messageText);
+  return parseGenericTransfer(messageText);
 }

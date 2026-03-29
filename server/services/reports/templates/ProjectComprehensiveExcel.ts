@@ -85,18 +85,29 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   row = xlSectionHeader(ws, row, '👷 القوى العاملة', COL_COUNT);
   if (data.workforce.workersByType.length > 0) {
     row = xlTableHeader(ws, row, ['النوع', 'العدد', 'أيام العمل', 'إجمالي الأجور', '', '', '', '', '']);
+    let xlTotalTypeCount = 0, xlTotalTypeDays = 0, xlTotalTypeWages = 0;
     data.workforce.workersByType.forEach((w, i) => {
+      xlTotalTypeCount += w.count;
+      xlTotalTypeDays += w.totalDays;
+      xlTotalTypeWages += w.totalWages;
       row = xlDataRow(ws, row, [w.type, w.count, formatNum(w.totalDays), formatNum(w.totalWages), '', '', '', '', ''], i % 2 === 1);
     });
+    row = xlGrandTotalRow(ws, row, ['الإجمالي', xlTotalTypeCount, formatNum(xlTotalTypeDays), formatNum(xlTotalTypeWages), '', '', '', '', '']);
     row++;
   }
 
   if (data.workforce.topWorkers.length > 0) {
     row = xlInfoRow(ws, row, 'أعلى 20 عامل من حيث الأجور', COL_COUNT);
     row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'المتبقي', '', '']);
+    let xlTopDays = 0, xlTopEarned = 0, xlTopPaid = 0, xlTopBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
+      xlTopDays += w.totalDays;
+      xlTopEarned += w.totalEarned;
+      xlTopPaid += w.totalPaid;
+      xlTopBalance += w.balance;
       row = xlDataRow(ws, row, [i + 1, w.name, w.type, formatNum(w.totalDays), formatNum(w.totalEarned), formatNum(w.totalPaid), formatNum(w.balance), '', ''], i % 2 === 1);
     });
+    row = xlGrandTotalRow(ws, row, ['', 'الإجمالي', '', formatNum(xlTopDays), formatNum(xlTopEarned), formatNum(xlTopPaid), formatNum(xlTopBalance), '', '']);
     row++;
   }
 
@@ -110,18 +121,21 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
         `${w.completionPercentage.toFixed(0)}%`, w.crewCount, formatNum(w.totalCrewWages),
       ], i % 2 === 1);
     });
-    row = xlTotalsRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, '', '']);
+    let xlTotalCrews = 0, xlTotalCrewWages = 0;
+    data.wells.wellsList.forEach(w => { xlTotalCrews += w.crewCount; xlTotalCrewWages += w.totalCrewWages; });
+    row = xlGrandTotalRow(ws, row, ['', '', 'الإجمالي', '', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, xlTotalCrews, formatNum(xlTotalCrewWages)]);
     row++;
   }
 
   row = xlSectionHeader(ws, row, '💰 ملخص المصروفات', COL_COUNT);
   row = xlTableHeader(ws, row, ['البند', 'المبلغ', 'النسبة', '', '', '', '', '', '']);
   const expenseItems = [
-    { label: 'أجور العمال', amount: data.totals.totalWages },
-    { label: 'مشتريات المواد', amount: data.totals.totalMaterials },
+    { label: 'أجور العمال (المدفوع)', amount: data.totals.totalWages },
+    { label: 'مشتريات المواد (نقداً)', amount: data.totals.totalMaterials },
     { label: 'مصاريف النقل', amount: data.totals.totalTransport },
     { label: 'مصاريف متنوعة', amount: data.totals.totalMisc },
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
+    { label: 'تحويلات لمشاريع أخرى', amount: data.totals.totalProjectTransfersOut || 0 },
     { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
   ];
   expenseItems.forEach((item, i) => {
@@ -152,10 +166,11 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   row = xlSectionHeader(ws, row, '🏦 الصندوق والأمانات', COL_COUNT);
   row = xlTableHeader(ws, row, ['البند', 'المبلغ', '', '', '', '', '', '', '']);
+  const xlCustodyIncome = data.cashCustody.totalFundTransfersIn + data.cashCustody.totalProjectTransfersIn;
   row = xlDataRow(ws, row, ['إجمالي التحويلات الواردة', formatNum(data.cashCustody.totalFundTransfersIn), '', '', '', '', '', '', ''], false);
-  row = xlDataRow(ws, row, ['تحويلات من مشاريع أخرى', formatNum(data.cashCustody.totalProjectTransfersIn), '', '', '', '', '', '', ''], true);
-  row = xlDataRow(ws, row, ['تحويلات لمشاريع أخرى', formatNum(data.cashCustody.totalProjectTransfersOut), '', '', '', '', '', '', ''], false);
-  row = xlDataRow(ws, row, ['إجمالي المصروفات', formatNum(data.cashCustody.totalExpenses), '', '', '', '', '', '', ''], true);
+  row = xlDataRow(ws, row, ['تحويلات من مشاريع أخرى (وارد)', formatNum(data.cashCustody.totalProjectTransfersIn), '', '', '', '', '', '', ''], true);
+  row = xlTotalsRow(ws, row, ['إجمالي الدخل', formatNum(xlCustodyIncome), '', '', '', '', '', '', '']);
+  row = xlDataRow(ws, row, ['إجمالي المصروفات (شامل الترحيل الصادر)', formatNum(data.cashCustody.totalExpenses), '', '', '', '', '', '', ''], true);
   row = xlGrandTotalRow(ws, row, ['صافي الرصيد', formatNum(data.cashCustody.netBalance), '', '', '', '', '', '', '']);
   row++;
 

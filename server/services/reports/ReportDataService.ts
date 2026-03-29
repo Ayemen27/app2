@@ -1487,7 +1487,7 @@ export class ReportDataService {
         client.query(`
           SELECT
             COALESCE(SUM(safe_numeric(wa.work_days::text)), 0) AS total_work_days,
-            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_wages,
+            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_earned,
             COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
@@ -1496,19 +1496,20 @@ export class ReportDataService {
         client.query(`
           SELECT
             COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
-            COALESCE(SUM(safe_numeric(paid_amount::text)), 0) AS total_paid
+            COALESCE(SUM(safe_numeric(paid_amount::text)), 0) AS total_paid,
+            COALESCE(SUM(CASE WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0) WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) AS total_cash
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
           SELECT
-            COALESCE(material_category, 'غير مصنف') AS category,
+            COALESCE(NULLIF(TRIM(material_category), ''), 'غير مصنف') AS category,
             COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
             COUNT(*) AS count
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
-          GROUP BY material_category ORDER BY total DESC
+          GROUP BY TRIM(material_category) ORDER BY total DESC
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
@@ -1607,12 +1608,13 @@ export class ReportDataService {
 
       const att = attendanceTotalsResult.rows[0];
       const totalWorkDays = safeNum(att?.total_work_days);
-      const totalWages = safeNum(att?.total_wages);
-      const totalPaid = safeNum(att?.total_paid);
+      const totalEarnedWages = safeNum(att?.total_earned);
+      const totalPaidWages = safeNum(att?.total_paid);
 
       const mat = materialsTotalResult.rows[0];
       const totalMaterials = safeNum(mat?.total);
       const totalMaterialsPaid = safeNum(mat?.total_paid);
+      const totalMaterialsCash = safeNum(mat?.total_cash);
 
       const trn = transportResult.rows[0];
       const totalTransport = safeNum(trn?.total);
@@ -1631,7 +1633,7 @@ export class ReportDataService {
       const totalProjectTransfersOut = safeNum(projectTransfersOutResult.rows[0]?.total);
 
       const totalIncome = totalFundTransfersIn + totalProjectTransfersIn;
-      const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPaymentsComp;
+      const totalExpenses = totalPaidWages + totalMaterialsCash + totalTransport + totalMisc + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPaymentsComp;
       const balance = totalIncome - totalExpenses;
 
       const budget = proj.budget ? safeNum(proj.budget) : undefined;
@@ -1724,8 +1726,8 @@ export class ReportDataService {
         },
         attendance: {
           totalWorkDays,
-          totalWages,
-          totalPaid,
+          totalWages: totalEarnedWages,
+          totalPaid: totalPaidWages,
           dailySummary: attendanceDailyResult.rows.map(r => ({
             date: r.date || '-',
             workerCount: safeNum(r.worker_count),
@@ -1787,8 +1789,8 @@ export class ReportDataService {
         totals: {
           totalIncome,
           totalExpenses,
-          totalWages,
-          totalMaterials,
+          totalWages: totalPaidWages,
+          totalMaterials: totalMaterialsCash,
           totalTransport,
           totalMisc,
           totalWorkerTransfers,

@@ -77,7 +77,11 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     body += `<table><thead><tr>
       <th>النوع</th><th>العدد</th><th>أيام العمل</th><th>إجمالي الأجور</th>
     </tr></thead><tbody>`;
+    let totalTypeCount = 0, totalTypeDays = 0, totalTypeWages = 0;
     data.workforce.workersByType.forEach(w => {
+      totalTypeCount += w.count;
+      totalTypeDays += w.totalDays;
+      totalTypeWages += w.totalWages;
       body += `<tr>
         <td style="text-align:right;">${escapeHtml(w.type)}</td>
         <td>${w.count}</td>
@@ -85,6 +89,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td class="debit-cell">${formatNum(w.totalWages)}</td>
       </tr>`;
     });
+    body += pdfGrandTotalRow(['الإجمالي', String(totalTypeCount), formatNum(totalTypeDays), formatNum(totalTypeWages)]);
     body += `</tbody></table>`;
   }
 
@@ -93,7 +98,12 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     body += `<table><thead><tr>
       <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>المتبقي</th>
     </tr></thead><tbody>`;
+    let topTotalDays = 0, topTotalEarned = 0, topTotalPaid = 0, topTotalBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
+      topTotalDays += w.totalDays;
+      topTotalEarned += w.totalEarned;
+      topTotalPaid += w.totalPaid;
+      topTotalBalance += w.balance;
       body += `<tr>
         <td>${i + 1}</td>
         <td style="text-align:right;">${escapeHtml(w.name)}</td>
@@ -104,6 +114,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td class="balance-cell">${formatNum(w.balance)}</td>
       </tr>`;
     });
+    body += pdfGrandTotalRow(['', 'الإجمالي', '', formatNum(topTotalDays), formatNum(topTotalEarned), formatNum(topTotalPaid), formatNum(topTotalBalance)]);
     body += `</tbody></table>`;
   }
 
@@ -128,7 +139,10 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     body += `<table><thead><tr>
       <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>الطواقم</th><th>أجور الطواقم</th>
     </tr></thead><tbody>`;
+    let totalCrews = 0, totalCrewWages = 0;
     data.wells.wellsList.forEach((w, i) => {
+      totalCrews += w.crewCount;
+      totalCrewWages += w.totalCrewWages;
       body += `<tr>
         <td>${i + 1}</td>
         <td>${w.wellNumber}</td>
@@ -144,6 +158,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td>${formatNum(w.totalCrewWages)}</td>
       </tr>`;
     });
+    body += pdfGrandTotalRow(['', '', 'الإجمالي', '', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, String(totalCrews), formatNum(totalCrewWages)]);
     body += `</tbody></table>`;
   }
 
@@ -152,11 +167,12 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     <th>البند</th><th>المبلغ</th><th>النسبة من الإجمالي</th>
   </tr></thead><tbody>`;
   const expenseItems = [
-    { label: 'أجور العمال', amount: data.totals.totalWages },
-    { label: 'مشتريات المواد', amount: data.totals.totalMaterials },
+    { label: 'أجور العمال (المدفوع)', amount: data.totals.totalWages },
+    { label: 'مشتريات المواد (نقداً)', amount: data.totals.totalMaterials },
     { label: 'مصاريف النقل', amount: data.totals.totalTransport },
     { label: 'مصاريف متنوعة', amount: data.totals.totalMisc },
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
+    { label: 'تحويلات لمشاريع أخرى', amount: data.totals.totalProjectTransfersOut || 0 },
     { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
   ];
   expenseItems.forEach(item => {
@@ -195,11 +211,12 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
   }
 
   body += pdfSectionTitle('🏦 الصندوق والأمانات');
+  const custodyIncome = data.cashCustody.totalFundTransfersIn + data.cashCustody.totalProjectTransfersIn;
   body += `<table class="summary-table" style="width:100%;"><tbody>
     <tr><td class="label-cell">إجمالي التحويلات الواردة</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalFundTransfersIn)}</td></tr>
-    <tr><td class="label-cell">تحويلات من مشاريع أخرى</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalProjectTransfersIn)}</td></tr>
-    <tr><td class="label-cell">تحويلات لمشاريع أخرى</td><td class="value-cell credit-cell">${formatNum(data.cashCustody.totalProjectTransfersOut)}</td></tr>
-    <tr><td class="label-cell">إجمالي المصروفات</td><td class="value-cell credit-cell">${formatNum(data.cashCustody.totalExpenses)}</td></tr>
+    <tr><td class="label-cell">تحويلات من مشاريع أخرى (وارد)</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalProjectTransfersIn)}</td></tr>
+    <tr style="border-top:2px solid ${PDF_COLORS.navy};"><td class="label-cell" style="font-weight:800;">إجمالي الدخل</td><td class="value-cell debit-cell" style="font-weight:800;">${formatNum(custodyIncome)}</td></tr>
+    <tr><td class="label-cell">إجمالي المصروفات (شامل الترحيل الصادر)</td><td class="value-cell credit-cell">${formatNum(data.cashCustody.totalExpenses)}</td></tr>
   </tbody>`;
   body += pdfGrandTotalRow(['صافي الرصيد', formatNum(data.cashCustody.netBalance)]);
   body += `</table>`;

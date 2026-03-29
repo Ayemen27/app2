@@ -1219,13 +1219,39 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
     const { type } = req.params;
     const { format, project_id, date, worker_id, dateFrom, dateTo } = req.query;
 
-    if (!format || !['pdf', 'xlsx', 'json'].includes(format as string)) {
-      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (pdf أو xlsx أو json)' });
-    }
-
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (type === 'project-date-range') {
+      if (!project_id) {
+        return res.status(400).json({ success: false, error: 'معرف المشروع مطلوب' });
+      }
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+      }
+      try {
+        const result = await pool.query(`
+          SELECT MIN(d)::text AS min_date, MAX(d)::text AS max_date FROM (
+            SELECT COALESCE(NULLIF(date,''), attendance_date)::date AS d FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL
+            UNION ALL SELECT purchase_date::date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL
+            UNION ALL SELECT date::date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL
+            UNION ALL SELECT date::date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL
+            UNION ALL SELECT transfer_date::date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
+            UNION ALL SELECT (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) FROM fund_transfers WHERE project_id = $1
+            UNION ALL SELECT transfer_date::date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL
+            UNION ALL SELECT payment_date::date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL
+          ) sub WHERE d IS NOT NULL
+        `, [project_id]);
+        return res.json({ success: true, data: { minDate: result.rows[0]?.min_date || null, maxDate: result.rows[0]?.max_date || null } });
+      } catch (err: any) {
+        return res.status(500).json({ success: false, error: 'فشل في جلب نطاق التواريخ' });
+      }
+    }
+
+    if (!format || !['pdf', 'xlsx', 'json'].includes(format as string)) {
+      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (pdf أو xlsx أو json)' });
+    }
 
     if (type === 'daily') {
       if (!project_id || !date) {
@@ -1359,32 +1385,6 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         const html = generateMultiProjectFinalHTML(data);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(html);
-      }
-    }
-
-    if (type === 'project-date-range') {
-      if (!project_id) {
-        return res.status(400).json({ success: false, error: 'معرف المشروع مطلوب' });
-      }
-      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
-        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
-      }
-      try {
-        const result = await pool.query(`
-          SELECT MIN(d)::text AS min_date, MAX(d)::text AS max_date FROM (
-            SELECT COALESCE(NULLIF(date,''), attendance_date)::date AS d FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL
-            UNION ALL SELECT purchase_date::date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL
-            UNION ALL SELECT date::date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL
-            UNION ALL SELECT date::date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL
-            UNION ALL SELECT transfer_date::date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
-            UNION ALL SELECT (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) FROM fund_transfers WHERE project_id = $1
-            UNION ALL SELECT transfer_date::date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL
-            UNION ALL SELECT payment_date::date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL
-          ) sub WHERE d IS NOT NULL
-        `, [project_id]);
-        return res.json({ success: true, data: { minDate: result.rows[0]?.min_date || null, maxDate: result.rows[0]?.max_date || null } });
-      } catch (err: any) {
-        return res.status(500).json({ success: false, error: 'فشل في جلب نطاق التواريخ' });
       }
     }
 

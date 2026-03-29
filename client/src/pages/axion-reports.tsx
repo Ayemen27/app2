@@ -1119,16 +1119,53 @@ function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    sixMonthsAgo.setDate(1);
-    return { from: sixMonthsAgo, to: new Date() };
-  });
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [autoDateApplied, setAutoDateApplied] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
+
+  const { data: projectDateRange, isLoading: isLoadingDateRange, isError: isDateRangeError } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
+    queryKey: ["project-date-range", projectIdForApi],
+    queryFn: async () => {
+      const params = new URLSearchParams({ project_id: projectIdForApi });
+      const res = await fetch(`/api/reports/v2/export/project-date-range?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('فشل في جلب نطاق التواريخ');
+      return res.json();
+    },
+    enabled: !!projectIdForApi,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!autoDateApplied) {
+      if (projectDateRange?.data) {
+        const { minDate, maxDate } = projectDateRange.data;
+        if (minDate && maxDate) {
+          setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+        } else {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          setDateRange({ from: sixMonthsAgo, to: new Date() });
+        }
+        setAutoDateApplied(true);
+      } else if (isDateRangeError) {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        setDateRange({ from: sixMonthsAgo, to: new Date() });
+        setAutoDateApplied(true);
+      }
+    }
+  }, [projectDateRange, autoDateApplied, isDateRangeError]);
+
+  useEffect(() => {
+    setAutoDateApplied(false);
+    setDateRange({});
+  }, [projectIdForApi]);
+
   const dateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const dateTo = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+  const isDateRangeReady = !!dateFrom && !!dateTo;
 
   const { data: periodReport, isLoading, refetch } = useQuery<PeriodFinalReportData | null>({
     queryKey: ["reports-v2-period-final", projectIdForApi, dateFrom, dateTo],
@@ -1234,10 +1271,8 @@ function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         isRefreshing={isLoading}
         onReset={() => {
           setSearchValue("");
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-          sixMonthsAgo.setDate(1);
-          setDateRange({ from: sixMonthsAgo, to: new Date() });
+          setAutoDateApplied(false);
+          setDateRange({});
         }}
       />
 
@@ -1245,9 +1280,9 @@ function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير الختامي" icon={BarChart3} />
       )}
 
-      {!isAllProjects && isLoading && <LoadingSpinner message="جاري تحميل التقرير الختامي..." />}
+      {!isAllProjects && (isLoading || isLoadingDateRange || !isDateRangeReady) && <LoadingSpinner message="جاري تحميل التقرير الختامي..." />}
 
-      {!isAllProjects && !isLoading && !periodReport && (
+      {!isAllProjects && !isLoading && !isLoadingDateRange && isDateRangeReady && !periodReport && (
         <EmptyState message="لا توجد بيانات للفترة المحددة" />
       )}
 
@@ -1485,12 +1520,49 @@ function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) 
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    sixMonthsAgo.setDate(1);
-    return { from: sixMonthsAgo, to: new Date() };
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [autoDateApplied, setAutoDateApplied] = useState(false);
+
+  const firstSelectedId = selectedProjectIds.length > 0 ? selectedProjectIds[0] : "";
+
+  const { data: projectDateRange, isLoading: isLoadingDateRange, isError: isDateRangeError } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
+    queryKey: ["project-date-range", firstSelectedId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ project_id: firstSelectedId });
+      const res = await fetch(`/api/reports/v2/export/project-date-range?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('فشل في جلب نطاق التواريخ');
+      return res.json();
+    },
+    enabled: !!firstSelectedId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
+
+  useEffect(() => {
+    if (!autoDateApplied && selectedProjectIds.length > 0) {
+      if (projectDateRange?.data) {
+        const { minDate, maxDate } = projectDateRange.data;
+        if (minDate && maxDate) {
+          setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+        } else {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          setDateRange({ from: sixMonthsAgo, to: new Date() });
+        }
+        setAutoDateApplied(true);
+      } else if (isDateRangeError) {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        setDateRange({ from: sixMonthsAgo, to: new Date() });
+        setAutoDateApplied(true);
+      }
+    }
+  }, [projectDateRange, autoDateApplied, selectedProjectIds, isDateRangeError]);
+
+  useEffect(() => {
+    setAutoDateApplied(false);
+    setDateRange({});
+  }, [firstSelectedId]);
 
   const { data: projectsList = [] } = useQuery({
     queryKey: ['/api/projects'],
@@ -1593,10 +1665,8 @@ function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) 
         onReset={() => {
           setSearchValue("");
           setSelectedProjectIds([]);
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-          sixMonthsAgo.setDate(1);
-          setDateRange({ from: sixMonthsAgo, to: new Date() });
+          setAutoDateApplied(false);
+          setDateRange({});
         }}
       />
 
@@ -1640,9 +1710,9 @@ function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) 
         <EmptyState message="الرجاء اختيار مشروع واحد أو أكثر لعرض التقرير المجمع" icon={BarChart3} />
       )}
 
-      {selectedProjectIds.length > 0 && isLoading && <LoadingSpinner message="جاري تحميل التقرير المجمع..." />}
+      {selectedProjectIds.length > 0 && (isLoading || isLoadingDateRange || (!dateFrom || !dateTo)) && <LoadingSpinner message="جاري تحميل التقرير المجمع..." />}
 
-      {selectedProjectIds.length > 0 && isError && (
+      {selectedProjectIds.length > 0 && !isLoading && !isLoadingDateRange && !!dateFrom && !!dateTo && isError && (
         <Card className="border-destructive/50">
           <CardContent className="pt-6">
             <div className="text-center space-y-2" data-testid="multi-report-error">
@@ -1918,30 +1988,39 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
 
-  const { data: projectDateRange } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
+  const { data: projectDateRange, isLoading: isLoadingDateRange, isError: isDateRangeError } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
     queryKey: ["project-date-range", projectIdForApi],
     queryFn: async () => {
-      const params = new URLSearchParams({ type: 'project-date-range', project_id: projectIdForApi });
-      const res = await fetch(`/api/reports/v2/export?${params.toString()}`, { credentials: 'include' });
+      const params = new URLSearchParams({ project_id: projectIdForApi });
+      const res = await fetch(`/api/reports/v2/export/project-date-range?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('فشل في جلب نطاق التواريخ');
       return res.json();
     },
     enabled: !!projectIdForApi,
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   useEffect(() => {
-    if (projectDateRange?.data && !autoDateApplied) {
-      const { minDate, maxDate } = projectDateRange.data;
-      if (minDate && maxDate) {
-        setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+    if (!autoDateApplied) {
+      if (projectDateRange?.data) {
+        const { minDate, maxDate } = projectDateRange.data;
+        if (minDate && maxDate) {
+          setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+        } else {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          setDateRange({ from: sixMonthsAgo, to: new Date() });
+        }
         setAutoDateApplied(true);
-      } else {
+      } else if (isDateRangeError) {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         setDateRange({ from: sixMonthsAgo, to: new Date() });
+        setAutoDateApplied(true);
       }
     }
-  }, [projectDateRange, autoDateApplied]);
+  }, [projectDateRange, autoDateApplied, isDateRangeError]);
 
   useEffect(() => {
     setAutoDateApplied(false);
@@ -1950,6 +2029,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
 
   const dateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const dateTo = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+  const isDateRangeReady = !!dateFrom && !!dateTo;
 
   const { data: report, isLoading, isError, error, refetch } = useQuery<ProjectComprehensiveReportData | null>({
     queryKey: ["reports-v2-project-comprehensive", projectIdForApi, dateFrom, dateTo],
@@ -2032,13 +2112,13 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
         <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير الشامل" icon={Building2} />
       )}
 
-      {!isAllProjects && isLoading && <LoadingSpinner message="جاري تحميل التقرير الشامل..." />}
+      {!isAllProjects && (isLoading || isLoadingDateRange || !isDateRangeReady) && <LoadingSpinner message="جاري تحميل التقرير الشامل..." />}
 
-      {!isAllProjects && !isLoading && isError && (
+      {!isAllProjects && !isLoading && !isLoadingDateRange && isDateRangeReady && isError && (
         <EmptyState message={`حدث خطأ أثناء تحميل التقرير: ${(error as any)?.message || 'خطأ غير معروف'}`} icon={AlertCircle} />
       )}
 
-      {!isAllProjects && !isLoading && !isError && !report && (
+      {!isAllProjects && !isLoading && !isLoadingDateRange && isDateRangeReady && !isError && !report && (
         <EmptyState message="لا توجد بيانات للفترة المحددة" />
       )}
 

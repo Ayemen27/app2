@@ -307,7 +307,20 @@ function DailyExpensesContent() {
     ...queryOptions
   });
 
-  // استعلام جلب بيانات الحضور لليوم المحدد
+  const { data: projectWells = [] } = useQuery<any[]>({
+    queryKey: QUERY_KEYS.wellsByProject(selectedProjectId ?? ''),
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
+      try {
+        const response = await apiRequest(`/api/wells?project_id=${selectedProjectId}`);
+        if (response && response.success && Array.isArray(response.data)) return response.data;
+        return Array.isArray(response) ? response : (response?.data || []);
+      } catch { return []; }
+    },
+    enabled: !!selectedProjectId,
+    staleTime: 5 * 60 * 1000
+  });
+
   const { data: attendanceData = [], refetch: refetchAttendance } = useQuery<WorkerAttendance[]>({
     queryKey: QUERY_KEYS.workerAttendance(selectedProjectId, selectedDate),
     queryFn: async () => {
@@ -3456,6 +3469,33 @@ function DailyExpensesContent() {
                                 <span>الأجر اليومي: </span>
                                 <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage || worker?.dailyWage))}</span>
                               </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {(() => {
+                                const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
+                                let wellIds: number[] = [];
+                                try { wellIds = attendance.well_ids ? JSON.parse(attendance.well_ids) : (attendance.well_id ? [Number(attendance.well_id)] : []); } catch { wellIds = attendance.well_id ? [Number(attendance.well_id)] : []; }
+                                let crewTypes: string[] = [];
+                                try { crewTypes = attendance.crew_type ? (attendance.crew_type.startsWith('[') ? JSON.parse(attendance.crew_type) : [attendance.crew_type]) : []; } catch { crewTypes = []; }
+                                const wellNames = wellIds.map(id => {
+                                  const well = projectWells.find((w: any) => w.id === id);
+                                  return well ? (well.well_number || well.wellNumber || `بئر ${id}`) : `بئر ${id}`;
+                                });
+                                return (
+                                  <>
+                                    {wellNames.length > 0 && wellNames.map((name: string, wi: number) => (
+                                      <Badge key={`w-${wi}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800">
+                                        💧 {name}
+                                      </Badge>
+                                    ))}
+                                    {crewTypes.length > 0 && crewTypes.map((ct: string, ci: number) => (
+                                      <Badge key={`c-${ci}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800">
+                                        🔧 {crewTypeLabels[ct] || ct}
+                                      </Badge>
+                                    ))}
+                                  </>
+                                );
+                              })()}
                             </div>
                             {deferredAmount > 0 && (
                               <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">مؤجل: {formatCurrency(deferredAmount)}</p>

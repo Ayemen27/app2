@@ -19,6 +19,18 @@ function statusLabel(status: string): string {
     good: 'جيد',
     fair: 'متوسط',
     poor: 'ضعيف',
+    available: 'متاح',
+    unavailable: 'غير متاح',
+    in_use: 'قيد الاستخدام',
+    damaged: 'تالف',
+    lost: 'مفقود',
+    retired: 'مُستبعد',
+    reserved: 'محجوز',
+    under_repair: 'تحت الإصلاح',
+    new: 'جديد',
+    used: 'مستعمل',
+    broken: 'معطل',
+    rented: 'مؤجر',
   };
   return map[status] || status;
 }

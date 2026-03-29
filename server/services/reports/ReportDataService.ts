@@ -1398,6 +1398,24 @@ export class ReportDataService {
       const proj = projectInfo[0];
       if (!proj) throw new Error('المشروع غير موجود');
 
+      const autoDateResult = await client.query(`
+        SELECT MIN(d)::text AS min_date, MAX(d)::text AS max_date FROM (
+          SELECT COALESCE(NULLIF(date,''), attendance_date)::date AS d FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL
+          UNION ALL SELECT purchase_date::date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL
+          UNION ALL SELECT date::date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL
+          UNION ALL SELECT date::date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL
+          UNION ALL SELECT transfer_date::date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
+          UNION ALL SELECT (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) FROM fund_transfers WHERE project_id = $1
+          UNION ALL SELECT transfer_date::date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL
+          UNION ALL SELECT payment_date::date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL
+        ) sub WHERE d IS NOT NULL
+      `, [projectId]);
+
+      const actualMinDate = autoDateResult.rows[0]?.min_date || dateFrom;
+      const actualMaxDate = autoDateResult.rows[0]?.max_date || dateTo;
+      const effectiveDateFrom = actualMinDate < dateFrom ? actualMinDate : dateFrom;
+      const effectiveDateTo = actualMaxDate > dateTo ? dateTo : actualMaxDate;
+
       const [
         workforceResult,
         workersByTypeResult,
@@ -1697,7 +1715,7 @@ export class ReportDataService {
           startDate: proj.startDate || undefined,
           status: proj.status || undefined,
         },
-        period: { from: dateFrom, to: dateTo },
+        period: { from: actualMinDate || dateFrom, to: actualMaxDate || dateTo },
         kpis,
         workforce: {
           totalWorkers,

@@ -26,14 +26,26 @@ function statusLabel(status: string): string {
     good: 'جيد',
     fair: 'متوسط',
     poor: 'ضعيف',
+    available: 'متاح',
+    unavailable: 'غير متاح',
+    in_use: 'قيد الاستخدام',
+    damaged: 'تالف',
+    lost: 'مفقود',
+    retired: 'مُستبعد',
+    reserved: 'محجوز',
+    under_repair: 'تحت الإصلاح',
+    new: 'جديد',
+    used: 'مستعمل',
+    broken: 'معطل',
+    rented: 'مؤجر',
   };
   return map[status] || status;
 }
 
 function statusColor(status: string): string {
-  if (status === 'completed' || status === 'active' || status === 'excellent') return PDF_COLORS.green;
-  if (status === 'in_progress' || status === 'good') return PDF_COLORS.amber;
-  if (status === 'pending' || status === 'fair') return '#6C757D';
+  if (status === 'completed' || status === 'active' || status === 'excellent' || status === 'available') return PDF_COLORS.green;
+  if (status === 'in_progress' || status === 'good' || status === 'in_use' || status === 'reserved') return PDF_COLORS.amber;
+  if (status === 'pending' || status === 'fair' || status === 'new') return '#6C757D';
   return PDF_COLORS.red;
 }
 

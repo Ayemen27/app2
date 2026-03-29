@@ -805,7 +805,7 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
                   </span>
                   {dateRange.from && dateRange.to && (
                     <span className="text-[10px] text-muted-foreground mt-0.5">
-                      {format(dateRange.from, "d MMM", { locale: arSA })} — {format(dateRange.to, "d MMM yyyy", { locale: arSA })}
+                      {format(dateRange.from, "d MMM yyyy", { locale: arSA })} — {format(dateRange.to, "d MMM yyyy", { locale: arSA })}
                     </span>
                   )}
                 </div>
@@ -1913,12 +1913,11 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    sixMonthsAgo.setDate(1);
-    return { from: sixMonthsAgo, to: new Date() };
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+    from: new Date("2020-01-01"),
+    to: new Date(),
   });
+  const [autoDateApplied, setAutoDateApplied] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
@@ -1950,6 +1949,16 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
       onStatsReady([]);
     }
   }, [report, onStatsReady]);
+
+  useEffect(() => {
+    if (report && !autoDateApplied) {
+      const actualFrom = report.period?.from;
+      const actualTo = report.period?.to;
+      if (actualFrom && actualTo) {
+        setAutoDateApplied(true);
+      }
+    }
+  }, [report, autoDateApplied]);
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -1996,10 +2005,8 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
         isRefreshing={isLoading}
         onReset={() => {
           setSearchValue("");
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-          sixMonthsAgo.setDate(1);
-          setDateRange({ from: sixMonthsAgo, to: new Date() });
+          setAutoDateApplied(false);
+          setDateRange({ from: new Date("2020-01-01"), to: new Date() });
         }}
       />
 

@@ -92,10 +92,10 @@ export function FilterChips({
     }
     if (filter.type === 'date-range') {
       if (value?.from && value?.to) {
-        return `${format(value.from, 'dd MMM', { locale: ar })} - ${format(value.to, 'dd MMM', { locale: ar })}`;
+        return `${format(value.from, 'dd MMM yyyy', { locale: ar })} - ${format(value.to, 'dd MMM yyyy', { locale: ar })}`;
       }
       if (value?.from) {
-        return `من ${format(value.from, 'dd MMM', { locale: ar })}`;
+        return `من ${format(value.from, 'dd MMM yyyy', { locale: ar })}`;
       }
     }
     const option = filter.options?.find(o => o.value === value);

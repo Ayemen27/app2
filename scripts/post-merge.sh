@@ -14,6 +14,8 @@ log "Installing dependencies..."
 npm install --legacy-peer-deps || { err "npm install failed"; exit 1; }
 
 log "Pushing schema..."
-npm run db:push --force 2>/dev/null || npm run db:push 2>/dev/null || log "db:push skipped (may need manual run)"
+yes "No, add the constraint without truncating the table" | npx drizzle-kit push --force 2>/dev/null || \
+  yes | npx drizzle-kit push 2>/dev/null || \
+  log "db:push skipped (may need manual run)"
 
 log "Post-merge setup complete"

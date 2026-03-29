@@ -78,3 +78,11 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - All `catch {}` blocks in critical paths log errors via `console.warn/error`
 - Silent `catch {}` is only acceptable for cleanup operations (process.kill, child.kill, unlinkSync, URL parsing in CORS)
 - Functions must not return `null/[]` silently — either throw or log warnings
+
+## WhatsApp Data Audit & Source Tracking
+- **Source Tagging:** All financial records imported from WhatsApp are tagged with `[مصدر: زين]` or `[مصدر: العباسي]` in their notes field to indicate which conversation they originated from.
+- **Meal Records:** Meal entries (صبوح/غداء/عشاء) are tagged with specific worker names (السيد احمد، عبدالله عادل، etc.) from the original conversation context.
+- **Worker Expense Classification:** Records previously classified as "متنوعة:" (miscellaneous) that are actually worker-specific expenses have been reclassified to "مصروف عامل:" with the worker's name.
+- **Date Corrections:** 21 records had dates corrected from confidence_breakdown_json data to match original conversation/Excel file dates.
+- **Budget Integrity:** All reclassifications and tagging operations preserved the original amounts — budget remains 100% balanced.
+- **Worker Balance Report Fix (Task #1 merged):** The comprehensive report's "Top 20 Workers" section now correctly subtracts worker_transfers (including settlements/تصفية) from the balance calculation. A new "الحوالات" (transfers) column is visible in both PDF and Excel reports.

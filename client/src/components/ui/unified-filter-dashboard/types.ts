@@ -23,7 +23,7 @@ export interface StatItem {
 
 export interface StatsRowConfig {
   items: StatItem[];
-  columns?: 2 | 3 | 4 | 5 | 6;
+  columns?: 1 | 2 | 3 | 4 | 5 | 6;
   gap?: 'sm' | 'md' | 'lg';
 }
 

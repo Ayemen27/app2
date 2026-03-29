@@ -2184,7 +2184,7 @@ export class DatabaseActions {
       }
 
       if (allowedProjectIds && allowedProjectIds.length > 0) {
-        const allowed = projectResults.find(p => allowedProjectIds.includes(p.id));
+        const allowed = projectResults.find((p: any) => allowedProjectIds.includes(p.id));
         if (!allowed) {
           return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "project_wells" };
         }

@@ -1126,7 +1126,7 @@ export function EquipmentManagement() {
                         <h3 className="font-semibold">{eq.name}</h3>
                         <p className="text-xs text-gray-500">{eq.code}</p>
                         <div className="flex gap-1 mt-1">
-                          <Badge variant="outline" className="text-xs">{{ heavy_machinery: 'معدات ثقيلة', light_tool: 'أدوات خفيفة', vehicle: 'مركبات', electrical: 'كهربائية', plumbing: 'سباكة', safety: 'سلامة', measuring: 'قياس', hand_tool: 'أدوات يدوية', power_tool: 'أدوات كهربائية', other: 'أخرى' }[eq.type] || eq.type || 'عام'}</Badge>
+                          <Badge variant="outline" className="text-xs">{{ heavy_machinery: 'معدات ثقيلة', light_tool: 'أدوات خفيفة', vehicle: 'مركبات', electrical: 'كهربائية', plumbing: 'سباكة', safety: 'سلامة', measuring: 'قياس', hand_tool: 'أدوات يدوية', power_tool: 'أدوات كهربائية', other: 'أخرى' }[eq.type as string] || eq.type || 'عام'}</Badge>
                           <Badge className={`text-xs ${eq.status === 'available' ? 'bg-emerald-100 text-emerald-800' : eq.status === 'assigned' ? 'bg-blue-100 text-blue-800' : eq.status === 'maintenance' ? 'bg-amber-100 text-amber-800' : eq.status === 'lost' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
                             {statusLabel(eq.status)}
                           </Badge>
@@ -1311,7 +1311,7 @@ export function EquipmentManagement() {
             </div>
             <div>
               <Label>النوع</Label>
-              <Select value={editEquipmentForm.type} onValueChange={(v) => setEditEquipmentForm(f => ({ ...f, type: v }))}>
+              <Select value={editEquipmentForm.type} onValueChange={(v: string) => setEditEquipmentForm(f => ({ ...f, type: v }))}>
                 <SelectTrigger data-testid="select-edit-eq-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="heavy_machinery">معدات ثقيلة</SelectItem>
@@ -1367,7 +1367,7 @@ export function EquipmentManagement() {
           </DialogHeader>
           <p className="text-sm text-gray-600 mb-3">{selectedEquipment?.name}</p>
           <div className="space-y-3">
-            <Select value={selectedNewStatus} onValueChange={(v) => { setSelectedNewStatus(v); setIsAddingCustomStatus(false); }}>
+            <Select value={selectedNewStatus} onValueChange={(v: string) => { setSelectedNewStatus(v); setIsAddingCustomStatus(false); }}>
               <SelectTrigger data-testid="select-eq-status"><SelectValue placeholder="اختر الحالة" /></SelectTrigger>
               <SelectContent>
                 {equipmentStatuses.map(s => (

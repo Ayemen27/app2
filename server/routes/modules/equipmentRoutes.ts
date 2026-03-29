@@ -22,7 +22,7 @@ function buildEquipmentCode(id: number): string {
 equipmentRouter.get('/statuses', async (req: Request, res: Response) => {
   try {
     const result = await db.selectDistinct({ status: equipment.status }).from(equipment).where(sql`${equipment.status} IS NOT NULL AND TRIM(${equipment.status}) != ''`);
-    const dbStatuses = result.map(r => r.status!).filter(Boolean);
+    const dbStatuses = result.map((r: any) => r.status!).filter(Boolean);
     const defaults = [...DEFAULT_EQUIPMENT_STATUSES];
     const allStatuses = [...new Set([...defaults, ...dbStatuses])];
     res.json({ success: true, data: allStatuses });

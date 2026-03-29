@@ -447,6 +447,9 @@ export interface ProjectComprehensiveReportData {
       ownerName: string;
       region: string;
       depth: number;
+      panelCount: number;
+      baseCount: number;
+      pipeCount: number;
       status: string;
       completionPercentage: number;
       crewCount: number;

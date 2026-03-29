@@ -1484,7 +1484,16 @@ export class ReportDataService {
         client.query(`
           SELECT wc.well_id,
             COUNT(*) AS crew_count,
-            COALESCE(SUM(safe_numeric(wc.total_wages::text)), 0) AS total_wages
+            COALESCE(SUM(
+              CASE
+                WHEN safe_numeric(wc.crew_dues::text) > 0 THEN safe_numeric(wc.crew_dues::text)
+                WHEN safe_numeric(wc.total_wages::text) > 0 THEN safe_numeric(wc.total_wages::text)
+                ELSE (
+                  COALESCE(safe_numeric(wc.workers_count::text), 0) * COALESCE(safe_numeric(wc.worker_daily_wage::text), 0) * COALESCE(safe_numeric(wc.work_days::text), 0)
+                  + COALESCE(safe_numeric(wc.masters_count::text), 0) * COALESCE(safe_numeric(wc.master_daily_wage::text), 0) * COALESCE(safe_numeric(wc.work_days::text), 0)
+                )
+              END
+            ), 0) AS total_wages
           FROM well_work_crews wc
           JOIN wells w ON wc.well_id = w.id
           WHERE w.project_id = $1

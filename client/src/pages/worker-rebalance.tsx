@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
+import type { StatsRowConfig } from '@/components/ui/unified-filter-dashboard/types';
+import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,7 +22,6 @@ import {
   TrendingUp,
   ArrowRight,
   Loader2,
-  Shield,
   RefreshCw
 } from 'lucide-react';
 
@@ -87,12 +89,17 @@ export default function WorkerRebalancePage() {
   const [previewData, setPreviewData] = useState<RebalancePreview | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [completedWorkers, setCompletedWorkers] = useState<Set<string>>(new Set());
+  const [searchValue, setSearchValue] = useState('');
 
-  const { data: workersResponse, isLoading, refetch } = useQuery<{ success: boolean; data: ImbalancedWorker[] }>({
+  const { data: workersResponse, isLoading, refetch, isRefetching } = useQuery<{ success: boolean; data: ImbalancedWorker[] }>({
     queryKey: ['/api/worker-rebalance/imbalanced-workers'],
   });
 
   const workers = workersResponse?.data || [];
+
+  const filteredWorkers = workers.filter(w =>
+    !searchValue || w.workerName.includes(searchValue)
+  );
 
   const previewMutation = useMutation({
     mutationFn: async (workerId: string) => {
@@ -152,23 +159,62 @@ export default function WorkerRebalancePage() {
     });
   };
 
+  const totalPositive = workers.reduce((sum, w) => sum + w.positiveProjects, 0);
+  const totalNegative = workers.reduce((sum, w) => sum + w.negativeProjects, 0);
+
+  const statsRows: StatsRowConfig[] = [
+    {
+      items: [
+        {
+          key: 'total-workers',
+          label: 'عمال متضاربون',
+          value: workers.length,
+          icon: Users,
+          color: workers.length > 0 ? 'warning' : 'success',
+        },
+        {
+          key: 'positive-projects',
+          label: 'أرصدة موجبة',
+          value: totalPositive,
+          icon: TrendingUp,
+          color: 'success',
+        },
+        {
+          key: 'negative-projects',
+          label: 'أرصدة سالبة',
+          value: totalNegative,
+          icon: TrendingDown,
+          color: 'danger',
+        },
+        {
+          key: 'completed',
+          label: 'تمت تسويتهم',
+          value: completedWorkers.size,
+          icon: CheckCircle2,
+          color: 'info',
+        },
+      ],
+      columns: 4,
+    }
+  ];
+
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="page-title">
-            <Shield className="h-6 w-6 text-amber-600" />
-            تسوية أرصدة العمال القديمة
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            ترحيل الأموال بين المشاريع للعمال الذين لديهم رصيد سالب في مشروع وموجب في مشروع آخر
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => refetch()} data-testid="btn-refresh">
-          <RefreshCw className="h-4 w-4 ml-2" />
-          تحديث
-        </Button>
-      </div>
+    <div className="space-y-4 pb-24" dir="rtl">
+      <UnifiedFilterDashboard
+        statsRows={statsRows}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="بحث بالاسم..."
+        showSearch={workers.length > 0}
+        onRefresh={() => refetch()}
+        isRefreshing={isRefetching}
+        resultsSummary={workers.length > 0 ? {
+          count: filteredWorkers.length,
+          label: 'عامل بأرصدة متضاربة',
+          icon: AlertTriangle,
+          color: 'warning',
+        } : undefined}
+      />
 
       <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -184,7 +230,7 @@ export default function WorkerRebalancePage() {
           <span className="mr-2 text-muted-foreground">جارٍ تحميل البيانات...</span>
         </div>
       ) : workers.length === 0 ? (
-        <Card>
+        <Card className="border-green-200 dark:border-green-800">
           <CardContent className="py-12 text-center">
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold">لا توجد أرصدة متضاربة</h3>
@@ -192,96 +238,90 @@ export default function WorkerRebalancePage() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span data-testid="text-worker-count">تم العثور على <strong>{workers.length}</strong> عامل بأرصدة متضاربة</span>
-          </div>
-
-          <div className="grid gap-4">
-            {workers.map((worker) => {
-              const isCompleted = completedWorkers.has(worker.workerId);
-              return (
-                <Card
-                  key={worker.workerId}
-                  className={`transition-all ${isCompleted ? 'opacity-50 border-green-300' : 'hover:shadow-md'}`}
-                  data-testid={`card-worker-${worker.workerId}`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-lg" data-testid={`text-worker-name-${worker.workerId}`}>
-                            {worker.workerName}
-                          </h3>
-                          {isCompleted && (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              <CheckCircle2 className="h-3 w-3 ml-1" />
-                              تمت التسوية
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs">
-                            {worker.projectCount} مشاريع
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            الرصيد الكلي: {formatNumber(worker.totalBalance)}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
-                          {worker.projects.map((proj) => (
-                            <div
-                              key={proj.projectId}
-                              className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
-                                proj.balance < -0.01
-                                  ? 'bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800'
-                                  : proj.balance > 0.01
-                                  ? 'bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800'
-                                  : 'bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                              }`}
-                              data-testid={`project-balance-${worker.workerId}-${proj.projectId}`}
-                            >
-                              {proj.balance < -0.01 ? (
-                                <TrendingDown className="h-4 w-4 text-red-500 shrink-0" />
-                              ) : proj.balance > 0.01 ? (
-                                <TrendingUp className="h-4 w-4 text-green-500 shrink-0" />
-                              ) : (
-                                <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate font-medium">{proj.projectName}</div>
-                                <div className={`font-bold ${
-                                  proj.balance < -0.01 ? 'text-red-600' : proj.balance > 0.01 ? 'text-green-600' : 'text-gray-500'
-                                }`}>
-                                  {formatNumber(proj.balance)}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+        <UnifiedCardGrid columns={1}>
+          {filteredWorkers.map((worker) => {
+            const isCompleted = completedWorkers.has(worker.workerId);
+            return (
+              <UnifiedCard
+                key={worker.workerId}
+                title={worker.workerName}
+                titleIcon={Users}
+                data-testid={`card-worker-${worker.workerId}`}
+                className={isCompleted ? 'opacity-50 border-green-300' : ''}
+                badges={[
+                  ...(isCompleted ? [{
+                    label: 'تمت التسوية',
+                    variant: 'success' as const,
+                  }] : []),
+                  {
+                    label: `${worker.projectCount} مشاريع`,
+                    variant: 'outline' as const,
+                  },
+                  {
+                    label: `الرصيد: ${formatNumber(worker.totalBalance)}`,
+                    variant: 'secondary' as const,
+                  },
+                ]}
+                fields={[
+                  {
+                    label: 'مشاريع موجبة',
+                    value: worker.positiveProjects,
+                    icon: TrendingUp,
+                    color: 'success',
+                  },
+                  {
+                    label: 'مشاريع سالبة',
+                    value: worker.negativeProjects,
+                    icon: TrendingDown,
+                    color: 'danger',
+                  },
+                ]}
+                actions={[
+                  {
+                    icon: Eye,
+                    label: 'معاينة التسوية',
+                    onClick: () => handlePreview(worker),
+                    disabled: isCompleted || previewMutation.isPending,
+                    color: 'blue',
+                  },
+                ]}
+                customSection={
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
+                    {worker.projects.map((proj) => (
+                      <div
+                        key={proj.projectId}
+                        className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                          proj.balance < -0.01
+                            ? 'bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                            : proj.balance > 0.01
+                            ? 'bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                            : 'bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                        }`}
+                        data-testid={`project-balance-${worker.workerId}-${proj.projectId}`}
+                      >
+                        {proj.balance < -0.01 ? (
+                          <TrendingDown className="h-4 w-4 text-red-500 shrink-0" />
+                        ) : proj.balance > 0.01 ? (
+                          <TrendingUp className="h-4 w-4 text-green-500 shrink-0" />
+                        ) : (
+                          <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">{proj.projectName}</div>
+                          <div className={`font-bold ${
+                            proj.balance < -0.01 ? 'text-red-600' : proj.balance > 0.01 ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {formatNumber(proj.balance)}
+                          </div>
                         </div>
                       </div>
-
-                      <Button
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => handlePreview(worker)}
-                        disabled={isCompleted || previewMutation.isPending}
-                        data-testid={`btn-preview-${worker.workerId}`}
-                      >
-                        {previewMutation.isPending && selectedWorker?.workerId === worker.workerId ? (
-                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                        ) : (
-                          <Eye className="h-4 w-4 ml-2" />
-                        )}
-                        معاينة التسوية
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </>
+                    ))}
+                  </div>
+                }
+              />
+            );
+          })}
+        </UnifiedCardGrid>
       )}
 
       <Dialog open={!!previewData} onOpenChange={(open) => { if (!open) { setPreviewData(null); setSelectedWorker(null); } }}>

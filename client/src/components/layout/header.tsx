@@ -59,6 +59,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin/permissions': { title: 'إدارة الصلاحيات', icon: Lock },
   '/worker-settlements': { title: 'تصفية حساب العمال', icon: Scale },
   '/wa-import': { title: 'استيراد واتساب', icon: MessageSquare },
+  '/worker-rebalance': { title: 'تسوية أرصدة العمال', icon: ArrowLeftRight },
 };
 
 export default function Header() {

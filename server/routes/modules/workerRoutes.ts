@@ -1358,11 +1358,14 @@ workerRouter.get('/worker-rebalance/payment-dates/:workerId', async (req: Reques
     if (!isAdmin(req)) {
       return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
     }
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(req.params.workerId)) {
+    const workerId = req.params.workerId?.trim();
+    if (!workerId || workerId.length > 100) {
       return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
     }
-    const workerId = req.params.workerId;
+    const workerCheck = await pool.query('SELECT 1 FROM workers WHERE id = $1', [workerId]);
+    if (workerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
+    }
 
     const result = await pool.query(`
       SELECT date, SUM(amount) AS total_amount, COUNT(*) AS count, string_agg(DISTINCT source, '، ') AS sources
@@ -1404,11 +1407,15 @@ workerRouter.get('/worker-rebalance/preview/:workerId', async (req: Request, res
     if (!isAdmin(req)) {
       return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
     }
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(req.params.workerId)) {
+    const workerId = req.params.workerId?.trim();
+    if (!workerId || workerId.length > 100) {
       return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
     }
-    const preview = await LegacyRebalanceService.preview(req.params.workerId);
+    const workerCheck = await pool.query('SELECT 1 FROM workers WHERE id = $1', [workerId]);
+    if (workerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
+    }
+    const preview = await LegacyRebalanceService.preview(workerId);
     res.json({ success: true, data: preview });
   } catch (error: any) {
     console.error('❌ خطأ في معاينة التسوية:', error);
@@ -1427,7 +1434,6 @@ workerRouter.post('/worker-rebalance/execute', async (req: Request, res: Respons
     }
 
     const { workerId, lines, date } = req.body;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
     if (!workerId || !lines || !Array.isArray(lines) || lines.length === 0 || !date) {
@@ -1437,8 +1443,13 @@ workerRouter.post('/worker-rebalance/execute', async (req: Request, res: Respons
       });
     }
 
-    if (!uuidRegex.test(workerId)) {
+    const trimmedWorkerId = String(workerId).trim();
+    if (!trimmedWorkerId || trimmedWorkerId.length > 100) {
       return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
+    }
+    const workerCheck = await pool.query('SELECT 1 FROM workers WHERE id = $1', [trimmedWorkerId]);
+    if (workerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
     }
     if (!dateRegex.test(date)) {
       return res.status(400).json({ success: false, message: 'صيغة التاريخ غير صالحة (YYYY-MM-DD)' });
@@ -1456,7 +1467,7 @@ workerRouter.post('/worker-rebalance/execute', async (req: Request, res: Respons
       amount: Number(l.amount),
     }));
 
-    const result = await LegacyRebalanceService.execute(workerId, sanitizedLines, date, authUser.user_id);
+    const result = await LegacyRebalanceService.execute(trimmedWorkerId, sanitizedLines, date, authUser.user_id);
 
     console.log(`✅ [LegacyRebalance] تسوية ناجحة - rebalanceId: ${result.rebalanceId}, lines: ${result.lines.length}`);
 

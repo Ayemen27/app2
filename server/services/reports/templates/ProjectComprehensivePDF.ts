@@ -157,11 +157,10 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     </div>`;
 
     body += `<table><thead><tr>
-      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>أجور الفرق</th><th>المواصلات</th><th>المواد</th><th>إجمالي التكلفة</th>
+      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>المواصلات</th><th>المواد</th><th>إجمالي مصاريف البئر</th>
     </tr></thead><tbody>`;
-    let totalCrewWages = 0, totalTransportCost = 0, totalMaterialsCost = 0, totalWellCost = 0;
+    let totalTransportCost = 0, totalMaterialsCost = 0, totalWellCost = 0;
     data.wells.wellsList.forEach((w, i) => {
-      totalCrewWages += w.totalCrewWages;
       totalTransportCost += w.transportCost;
       totalMaterialsCost += w.materialsCost;
       totalWellCost += w.totalCost;
@@ -176,13 +175,12 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
           <div style="background:${w.completionPercentage >= 80 ? PDF_COLORS.green : w.completionPercentage >= 40 ? PDF_COLORS.amber : PDF_COLORS.red};height:100%;width:${Math.min(w.completionPercentage, 100)}%;"></div>
           <span style="position:absolute;top:0;left:0;right:0;font-size:8px;text-align:center;line-height:14px;font-weight:700;">${w.completionPercentage.toFixed(0)}%</span>
         </div></td>
-        <td>${formatNum(w.totalCrewWages)}</td>
         <td>${formatNum(w.transportCost)}</td>
         <td>${formatNum(w.materialsCost)}</td>
         <td style="font-weight:700;color:${PDF_COLORS.navy};">${formatNum(w.totalCost)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalCrewWages), formatNum(totalTransportCost), formatNum(totalMaterialsCost), formatNum(totalWellCost)]);
+    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalTransportCost), formatNum(totalMaterialsCost), formatNum(totalWellCost)]);
     body += `</tbody></table>`;
   }
 

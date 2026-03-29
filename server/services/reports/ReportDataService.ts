@@ -1709,7 +1709,6 @@ export class ReportDataService {
       const wellsList = wellsResult.rows.map(w => {
         const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
         const expenses = expenseMap.get(Number(w.id)) || { transport: 0, operationalMaterial: 0, consumableMaterial: 0, labor: 0, service: 0, totalExpenses: 0 };
-        const totalCost = crew.totalWages + expenses.totalExpenses;
         return {
           wellNumber: safeNum(w.well_number),
           ownerName: w.owner_name || '-',
@@ -1724,7 +1723,7 @@ export class ReportDataService {
           laborCost: expenses.labor,
           serviceCost: expenses.service,
           totalExpenses: expenses.totalExpenses,
-          totalCost,
+          totalCost: expenses.totalExpenses,
         };
       });
 

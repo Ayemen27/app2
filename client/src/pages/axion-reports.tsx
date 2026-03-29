@@ -2251,10 +2251,9 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         <th className="p-2 text-right">العمق</th>
                         <th className="p-2 text-right">الحالة</th>
                         <th className="p-2 text-right">الإنجاز</th>
-                        <th className="p-2 text-right">أجور الفرق</th>
                         <th className="p-2 text-right">المواصلات</th>
                         <th className="p-2 text-right">المواد</th>
-                        <th className="p-2 text-right">إجمالي التكلفة</th>
+                        <th className="p-2 text-right">إجمالي مصاريف البئر</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2292,7 +2291,6 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                               <span className="text-xs font-semibold">{w.completionPercentage.toFixed(0)}%</span>
                             </div>
                           </td>
-                          <td className="p-2">{formatCurrency(w.totalCrewWages)}</td>
                           <td className="p-2">{formatCurrency(w.transportCost)}</td>
                           <td className="p-2">{formatCurrency(w.materialsCost)}</td>
                           <td className="p-2 font-bold text-primary">{formatCurrency(w.totalCost)}</td>

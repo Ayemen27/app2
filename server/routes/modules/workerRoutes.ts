@@ -1268,6 +1268,13 @@ workerRouter.post('/worker-transfers/allocate', async (req: Request, res: Respon
     }
 
     for (const alloc of allocations) {
+      if (!alloc.projectId || typeof alloc.projectId !== 'string') {
+        return res.status(400).json({ success: false, message: 'كل تخصيص يجب أن يحتوي على projectId صالح' });
+      }
+      const allocAmount = Number(alloc.amount);
+      if (!Number.isFinite(allocAmount) || allocAmount <= 0) {
+        return res.status(400).json({ success: false, message: `مبلغ التخصيص غير صالح للمشروع ${alloc.projectId}` });
+      }
       const { allowed: allocAllowed } = checkProjectAccess(req, alloc.projectId);
       if (!allocAllowed) {
         return res.status(403).json({ 
@@ -1277,11 +1284,20 @@ workerRouter.post('/worker-transfers/allocate', async (req: Request, res: Respon
       }
     }
 
+    const sanitizedAllocations = allocations.map((a: any) => ({ projectId: a.projectId, amount: Number(a.amount) }));
+    const allocSum = sanitizedAllocations.reduce((s: number, a: any) => s + a.amount, 0);
+    if (Math.abs(allocSum - numAmount) > 1) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `مجموع التخصيصات (${allocSum}) لا يساوي المبلغ الكلي (${numAmount})` 
+      });
+    }
+
     const result = await PaymentAllocationService.executeAllocation(
       workerId,
       payerProjectId,
       numAmount,
-      allocations.map((a: any) => ({ projectId: a.projectId, amount: Number(a.amount) })),
+      sanitizedAllocations,
       {
         recipientName,
         recipientPhone: recipientPhone || undefined,
@@ -3585,14 +3601,28 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const projectsWorked = isAllProjects ? (Number(projectsWorkedResult[0]?.projectsCount) || 0) : (totalWorkDays > 0 ? 1 : 0);
 
-    const projectNamesResult = await pool.query(
-      `SELECT DISTINCT p.id, p.name
-       FROM worker_attendance wa
-       JOIN projects p ON p.id = wa.project_id
-       WHERE wa.worker_id = $1
-       ORDER BY p.name`,
-      [worker_id]
-    );
+    const accessibleProjectIds = (req as ProjectAccessRequest).accessibleProjectIds ?? [];
+
+    let projectNamesQuery: string;
+    let projectNamesParams: any[];
+
+    if (isAdminUser) {
+      projectNamesQuery = `SELECT DISTINCT p.id, p.name
+         FROM worker_attendance wa
+         JOIN projects p ON p.id = wa.project_id
+         WHERE wa.worker_id = $1
+         ORDER BY p.name`;
+      projectNamesParams = [worker_id];
+    } else {
+      projectNamesQuery = `SELECT DISTINCT p.id, p.name
+         FROM worker_attendance wa
+         JOIN projects p ON p.id = wa.project_id
+         WHERE wa.worker_id = $1 AND p.id = ANY($2)
+         ORDER BY p.name`;
+      projectNamesParams = [worker_id, accessibleProjectIds];
+    }
+
+    const projectNamesResult = await pool.query(projectNamesQuery, projectNamesParams);
     const workerProjectNames = projectNamesResult.rows.map((r: any) => ({ id: r.id, name: r.name }));
 
     const totalEarningsResult = await db.select({

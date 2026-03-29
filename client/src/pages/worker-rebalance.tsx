@@ -101,14 +101,13 @@ export default function WorkerRebalancePage() {
 
   const previewMutation = useMutation({
     mutationFn: async (workerId: string) => {
-      const res = await apiRequest(`/api/worker-rebalance/preview/${workerId}`, 'GET');
-      return res.json();
+      return await apiRequest(`/api/worker-rebalance/preview/${workerId}`, 'GET');
     },
-    onSuccess: (data) => {
-      if (data.success) {
-        setPreviewData(data.data);
+    onSuccess: (data: any) => {
+      if (data) {
+        setPreviewData(data);
       } else {
-        toast({ title: 'خطأ', description: data.message, variant: 'destructive' });
+        toast({ title: 'خطأ', description: 'لم يتم استلام بيانات المعاينة', variant: 'destructive' });
       }
     },
     onError: (error: any) => {
@@ -118,21 +117,16 @@ export default function WorkerRebalancePage() {
 
   const executeMutation = useMutation({
     mutationFn: async (params: { workerId: string; lines: any[]; date: string }) => {
-      const res = await apiRequest('/api/worker-rebalance/execute', 'POST', params);
-      return res.json();
+      return await apiRequest('/api/worker-rebalance/execute', 'POST', params);
     },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast({ title: 'تمت التسوية بنجاح', description: data.message });
-        setCompletedWorkers(prev => new Set(prev).add(previewData?.workerId || ''));
-        setShowConfirmDialog(false);
-        setPreviewData(null);
-        setSelectedWorker(null);
-        queryClient.invalidateQueries({ queryKey: ['/api/worker-rebalance/imbalanced-workers'] });
-        refetch();
-      } else {
-        toast({ title: 'فشل التسوية', description: data.message, variant: 'destructive' });
-      }
+    onSuccess: (data: any) => {
+      toast({ title: 'تمت التسوية بنجاح', description: data?.note || 'تمت العملية' });
+      setCompletedWorkers(prev => new Set(prev).add(previewData?.workerId || ''));
+      setShowConfirmDialog(false);
+      setPreviewData(null);
+      setSelectedWorker(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/worker-rebalance/imbalanced-workers'] });
+      refetch();
     },
     onError: (error: any) => {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });

@@ -51,7 +51,8 @@ export class PaymentAllocationService {
         COALESCE(att.total_earned, 0) AS total_earned,
         COALESCE(att.total_paid, 0) AS total_paid,
         COALESCE(tr.total_transferred, 0) AS total_transferred,
-        COALESCE(att.total_earned, 0) - COALESCE(att.total_paid, 0) - COALESCE(tr.total_transferred, 0) AS current_balance
+        COALESCE(reb.rebalance_delta, 0) AS rebalance_delta,
+        COALESCE(att.total_earned, 0) - COALESCE(att.total_paid, 0) - COALESCE(tr.total_transferred, 0) + COALESCE(reb.rebalance_delta, 0) AS current_balance
       FROM projects p
       INNER JOIN (
         SELECT DISTINCT project_id FROM worker_attendance WHERE worker_id = $1
@@ -74,6 +75,19 @@ export class PaymentAllocationService {
           AND COALESCE(transfer_method, '') != 'settlement'
         GROUP BY project_id
       ) tr ON tr.project_id = p.id
+      LEFT JOIN (
+        SELECT project_id, SUM(delta) AS rebalance_delta FROM (
+          SELECT to_project_id AS project_id, safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE '%[' || $1 || ']%'
+          UNION ALL
+          SELECT from_project_id AS project_id, -safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE '%[' || $1 || ']%'
+        ) rd GROUP BY project_id
+      ) reb ON reb.project_id = p.id
       ORDER BY current_balance DESC
     `, [workerId]);
 

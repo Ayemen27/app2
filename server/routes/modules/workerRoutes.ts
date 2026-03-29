@@ -1358,6 +1358,10 @@ workerRouter.get('/worker-rebalance/preview/:workerId', async (req: Request, res
     if (!isAdmin(req)) {
       return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
     }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(req.params.workerId)) {
+      return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
+    }
     const preview = await LegacyRebalanceService.preview(req.params.workerId);
     res.json({ success: true, data: preview });
   } catch (error: any) {
@@ -1377,12 +1381,21 @@ workerRouter.post('/worker-rebalance/execute', async (req: Request, res: Respons
     }
 
     const { workerId, lines, date } = req.body;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
     if (!workerId || !lines || !Array.isArray(lines) || lines.length === 0 || !date) {
       return res.status(400).json({
         success: false,
         message: 'بيانات ناقصة: workerId, lines, date مطلوبة'
       });
+    }
+
+    if (!uuidRegex.test(workerId)) {
+      return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
+    }
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({ success: false, message: 'صيغة التاريخ غير صالحة (YYYY-MM-DD)' });
     }
 
     for (const line of lines) {

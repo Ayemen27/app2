@@ -10,6 +10,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
 import type { StatsRowConfig } from '@/components/ui/unified-filter-dashboard/types';
 import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -22,7 +24,8 @@ import {
   TrendingUp,
   ArrowRight,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 
 interface WorkerProject {
@@ -90,6 +93,7 @@ export default function WorkerRebalancePage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [completedWorkers, setCompletedWorkers] = useState<Set<string>>(new Set());
   const [searchValue, setSearchValue] = useState('');
+  const [rebalanceDate, setRebalanceDate] = useState(getTodayDate());
 
   const { data: workers = [], isLoading, isError, refetch, isRefetching } = useQuery<ImbalancedWorker[]>({
     queryKey: ['/api/worker-rebalance/imbalanced-workers'],
@@ -151,7 +155,7 @@ export default function WorkerRebalancePage() {
         toProjectId: l.toProjectId,
         amount: l.amount,
       })),
-      date: getTodayDate(),
+      date: rebalanceDate,
     });
   };
 
@@ -440,6 +444,19 @@ export default function WorkerRebalancePage() {
                   </div>
                 </>
               )}
+
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Label htmlFor="rebalance-date" className="text-sm font-medium whitespace-nowrap">تاريخ التسوية:</Label>
+                <Input
+                  id="rebalance-date"
+                  type="date"
+                  value={rebalanceDate}
+                  onChange={(e) => setRebalanceDate(e.target.value)}
+                  className="w-auto text-sm"
+                  data-testid="input-rebalance-date"
+                />
+              </div>
 
               <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
                 <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">

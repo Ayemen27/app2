@@ -109,6 +109,25 @@ export class LegacyRebalanceService {
         WHERE COALESCE(wt.transfer_method, '') != 'settlement'
         GROUP BY wt.worker_id, wt.project_id
       ),
+      rebalance_deltas AS (
+        SELECT worker_id, project_id, SUM(delta) AS rebalance_delta FROM (
+          SELECT 
+            substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]') AS worker_id,
+            pft.to_project_id AS project_id,
+            safe_numeric(pft.amount::text, 0) AS delta
+          FROM project_fund_transfers pft
+          WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+          UNION ALL
+          SELECT 
+            substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]') AS worker_id,
+            pft.from_project_id AS project_id,
+            -safe_numeric(pft.amount::text, 0) AS delta
+          FROM project_fund_transfers pft
+          WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+        ) rd
+        WHERE worker_id IS NOT NULL
+        GROUP BY worker_id, project_id
+      ),
       balances AS (
         SELECT 
           wpb.worker_id,
@@ -118,10 +137,13 @@ export class LegacyRebalanceService {
           wpb.total_earned,
           wpb.total_paid,
           COALESCE(wpt.total_transferred, 0) AS total_transferred,
-          wpb.total_earned - wpb.total_paid - COALESCE(wpt.total_transferred, 0) AS balance
+          COALESCE(rbd.rebalance_delta, 0) AS rebalance_delta,
+          wpb.total_earned - wpb.total_paid - COALESCE(wpt.total_transferred, 0) + COALESCE(rbd.rebalance_delta, 0) AS balance
         FROM worker_project_balances wpb
         LEFT JOIN worker_project_transfers wpt 
           ON wpt.worker_id = wpb.worker_id AND wpt.project_id = wpb.project_id
+        LEFT JOIN rebalance_deltas rbd
+          ON rbd.worker_id = wpb.worker_id AND rbd.project_id = wpb.project_id
       )
       SELECT 
         b.worker_id,

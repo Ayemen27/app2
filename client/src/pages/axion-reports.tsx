@@ -1913,13 +1913,41 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
-    from: new Date("2020-01-01"),
-    to: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [autoDateApplied, setAutoDateApplied] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
+
+  const { data: projectDateRange } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
+    queryKey: ["project-date-range", projectIdForApi],
+    queryFn: async () => {
+      const params = new URLSearchParams({ type: 'project-date-range', project_id: projectIdForApi });
+      const res = await fetch(`/api/reports/v2/export?${params.toString()}`, { credentials: 'include' });
+      return res.json();
+    },
+    enabled: !!projectIdForApi,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (projectDateRange?.data && !autoDateApplied) {
+      const { minDate, maxDate } = projectDateRange.data;
+      if (minDate && maxDate) {
+        setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+        setAutoDateApplied(true);
+      } else {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        setDateRange({ from: sixMonthsAgo, to: new Date() });
+      }
+    }
+  }, [projectDateRange, autoDateApplied]);
+
+  useEffect(() => {
+    setAutoDateApplied(false);
+    setDateRange({});
+  }, [projectIdForApi]);
+
   const dateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const dateTo = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
 
@@ -1949,16 +1977,6 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
       onStatsReady([]);
     }
   }, [report, onStatsReady]);
-
-  useEffect(() => {
-    if (report && !autoDateApplied) {
-      const actualFrom = report.period?.from;
-      const actualTo = report.period?.to;
-      if (actualFrom && actualTo) {
-        setAutoDateApplied(true);
-      }
-    }
-  }, [report, autoDateApplied]);
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -2006,7 +2024,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
         onReset={() => {
           setSearchValue("");
           setAutoDateApplied(false);
-          setDateRange({ from: new Date("2020-01-01"), to: new Date() });
+          setDateRange({});
         }}
       />
 

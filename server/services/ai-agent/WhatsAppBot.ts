@@ -72,6 +72,7 @@ export class WhatsAppBot {
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
   private rateMapsCleanupTimer: NodeJS.Timeout | null = null;
+  private waitingMessageSent: Map<string, number> = new Map();
   private static RATE_MAP_TTL_MS = 60 * 60 * 1000;
   private baileysExceptionHandler: ((err: Error) => void) | null = null;
   private notificationService: NotificationService = new NotificationService();
@@ -299,6 +300,9 @@ export class WhatsAppBot {
     this.cancelReconnect();
     if (this.sock) {
       try {
+        this.sock.ev?.removeAllListeners?.('connection.update');
+        this.sock.ev?.removeAllListeners?.('creds.update');
+        this.sock.ev?.removeAllListeners?.('messages.upsert');
         await this.sock.logout();
       } catch (e) {
         try {
@@ -307,13 +311,14 @@ export class WhatsAppBot {
       }
     }
     this.sock = null;
+    this.clearAuthState();
     this.status = "close";
     this.qr = null;
     this.pairingCode = null;
     this.connectedAt = null;
     this.needsRelink = false;
     this.lastError = "تم تسجيل الخروج وإلغاء ربط الجهاز";
-    console.log('[WhatsAppBot] Force logged out (session invalidated)');
+    console.log('[WhatsAppBot] Force logged out (session invalidated, auth cleared)');
   }
 
   async restart(phoneNumber?: string): Promise<void> {
@@ -670,11 +675,11 @@ export class WhatsAppBot {
       try {
         const whatsappAIService = getWhatsAppAIService();
 
-        const waitingSentKey = `wait_${cleanPhone}`;
-        if (botSettings.waitingMessage && text && text.length > 20 && !(this as any)[waitingSentKey]) {
-          (this as any)[waitingSentKey] = true;
+        const now = Date.now();
+        const lastWaiting = this.waitingMessageSent.get(cleanPhone) || 0;
+        if (botSettings.waitingMessage && text && text.length > 20 && (now - lastWaiting > 30000)) {
+          this.waitingMessageSent.set(cleanPhone, now);
           await this.safeSendMessage(from, { text: botSettings.waitingMessage });
-          setTimeout(() => { delete (this as any)[waitingSentKey]; }, 30000);
         }
 
         let msgMetadata: Record<string, any> | undefined;

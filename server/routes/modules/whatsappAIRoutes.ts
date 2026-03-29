@@ -205,10 +205,20 @@ router.post("/disconnect", requireAdminCheck, async (req: Request, res: Response
     const bot = getWhatsAppBot();
     if (bot.getStatus() === "open" || bot.getStatus() === "connecting") {
       await bot.disconnect();
-      res.json({ success: true, message: "تم فصل الاتصال بنجاح" });
+      res.json({ success: true, message: "تم فصل الاتصال مؤقتاً (الجلسة محفوظة)" });
     } else {
       res.json({ success: true, message: "الاتصال غير نشط بالفعل" });
     }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
+  }
+});
+
+router.post("/force-logout", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const bot = getWhatsAppBot();
+    await bot.forceLogout();
+    res.json({ success: true, message: "تم إلغاء ربط الجهاز بالكامل. يجب إعادة المسح بـ QR code." });
   } catch (error: any) {
     res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }

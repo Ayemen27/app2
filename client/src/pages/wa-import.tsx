@@ -380,7 +380,13 @@ export default function WAImportDashboard() {
         } else {
           mediaResult = mediaJob;
         }
-      } catch (_e) { /* non-blocking */ }
+      } catch (mediaErr: any) {
+        console.warn("[Pipeline] Media processing error (non-blocking):", mediaErr?.message);
+        try {
+          const fallback = await fetch(`/api/wa-import/batch/${batchId}/media-summary`, { credentials: 'include' });
+          if (fallback.ok) mediaResult = await fallback.json();
+        } catch (_) {}
+      }
       setPipelineResults(prev => ({ ...prev, media: mediaResult }));
 
       setPipelineStage('names');

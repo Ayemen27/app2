@@ -23,7 +23,16 @@ async function ocrImage(filePath: string): Promise<string> {
 
 async function extractPdfText(filePath: string): Promise<string> {
   const pdfModule = await import('pdf-parse');
-  const pdf = (pdfModule as any).default || pdfModule;
+  let pdf: any = pdfModule;
+  if (typeof pdf === 'object' && pdf.default) pdf = pdf.default;
+  if (typeof pdf === 'object' && pdf.default) pdf = pdf.default;
+  if (typeof pdf !== 'function') {
+    const keys = Object.keys(pdfModule);
+    for (const k of keys) {
+      if (typeof (pdfModule as any)[k] === 'function') { pdf = (pdfModule as any)[k]; break; }
+    }
+  }
+  if (typeof pdf !== 'function') throw new Error('pdf-parse module could not be resolved as function');
   const buffer = fs.readFileSync(filePath);
   const data = await pdf(buffer);
   return data.text || '';
@@ -108,6 +117,22 @@ export async function processMediaForBatch(batchId: number): Promise<MediaProces
       let extractedText = '';
 
       if (mime.startsWith('image/')) {
+        const fileName = asset.originalFilename || '';
+        if (fileName.startsWith('STK-') || fileName.startsWith('stk-')) {
+          await db.update(waMediaAssets)
+            .set({ mediaStatus: 'skipped_unsupported', skipReason: 'ستيكر واتساب - لا يحتوي بيانات مالية' })
+            .where(eq(waMediaAssets.id, asset.id));
+          result.skipped++;
+          continue;
+        }
+        const stats = fs.statSync(resolvedPath);
+        if (stats.size < 1024) {
+          await db.update(waMediaAssets)
+            .set({ mediaStatus: 'skipped_unsupported', skipReason: 'ملف صغير جداً' })
+            .where(eq(waMediaAssets.id, asset.id));
+          result.skipped++;
+          continue;
+        }
         extractedText = await ocrImage(resolvedPath);
       } else if (mime === 'application/pdf') {
         extractedText = await extractPdfText(resolvedPath);

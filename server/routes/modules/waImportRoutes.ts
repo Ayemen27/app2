@@ -621,6 +621,27 @@ waImportRouter.get("/custodian/:workerId/entries", requireAuth, requireAdminOrEd
   }
 });
 
+waImportRouter.get("/batch/:id/media-summary", requireAuth, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID" });
+    const batchId = parseInt(params.data.id);
+    const { db: database } = await import("../../db.js");
+    const { waMediaAssets } = await import("@shared/schema");
+    const { eq, sql } = await import("drizzle-orm");
+    const rows = await database.select({
+      totalAssets: sql<number>`count(*)::int`,
+      previouslyProcessed: sql<number>`count(case when ocr_text is not null and ocr_text != '' then 1 end)::int`,
+      failed: sql<number>`count(case when media_status = 'ocr_failed' then 1 end)::int`,
+      skipped: sql<number>`count(case when media_status in ('skipped_unsupported','skipped_too_large') then 1 end)::int`,
+    }).from(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
+    const r = rows[0] || { totalAssets: 0, previouslyProcessed: 0, failed: 0, skipped: 0 };
+    res.json({ totalAssets: r.totalAssets, previouslyProcessed: r.previouslyProcessed, failed: r.failed, skipped: r.skipped, processed: r.previouslyProcessed, newlyProcessed: 0 });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEditor, extractReconcileRateLimit, async (req, res) => {
   try {
     const params = idParamSchema.safeParse(req.params);

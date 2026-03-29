@@ -216,13 +216,15 @@ export default function WorkerRebalancePage() {
         } : undefined}
       />
 
-      <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="text-amber-800 dark:text-amber-200">
-          هذه الأداة مخصصة لإصلاح الأرصدة المتضاربة القديمة. كل عملية تُنشئ ترحيلات مالية بين المشاريع مع ملاحظات توضيحية تلقائية وقيود محاسبية.
-          <strong> التنفيذ يدوي — عامل بعامل مع معاينة قبل/بعد.</strong>
-        </AlertDescription>
-      </Alert>
+      {workers.length > 0 && (
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            هذه الأداة مخصصة لإصلاح الأرصدة المتضاربة القديمة. كل عملية تُنشئ ترحيلات مالية بين المشاريع مع ملاحظات توضيحية تلقائية وقيود محاسبية.
+            <strong> التنفيذ يدوي — عامل بعامل مع معاينة قبل/بعد.</strong>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

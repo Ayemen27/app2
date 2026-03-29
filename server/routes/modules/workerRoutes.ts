@@ -35,6 +35,7 @@ import { inArray } from 'drizzle-orm';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { FinancialIntegrityService } from '../../services/FinancialIntegrityService.js';
+import { PaymentAllocationService } from '../../services/PaymentAllocationService';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
@@ -669,6 +670,48 @@ workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
 });
 
 /**
+ * 💰 جلب أرصدة العامل المفتوحة لكل مشروع
+ * GET /api/workers/:id/open-balances
+ */
+workerRouter.get('/workers/:id/open-balances', async (req: Request, res: Response) => {
+  try {
+    const workerId = req.params.id;
+    if (!workerId) {
+      return res.status(400).json({ success: false, message: 'معرف العامل مطلوب' });
+    }
+
+    const workerRows = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    if (workerRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
+    }
+
+    const balances = await PaymentAllocationService.getWorkerOpenBalances(workerId);
+
+    const mappedBalances = balances.map(b => ({
+      projectId: b.projectId,
+      projectName: b.projectName,
+      balance: b.currentBalance,
+      totalEarned: b.totalEarned,
+      totalPaid: b.totalPaid,
+      totalTransferred: b.totalTransferred,
+    }));
+
+    res.json({
+      success: true,
+      data: mappedBalances,
+      message: `تم جلب أرصدة العامل "${workerRows[0].name}" لـ ${balances.length} مشروع`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أرصدة العامل المفتوحة:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'فشل في جلب أرصدة العامل المفتوحة',
+      data: null
+    });
+  }
+});
+
+/**
  * 🔍 جلب عامل محدد
  * GET /api/workers/:id
  */
@@ -1120,6 +1163,138 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
 // ===========================================
 // Worker Transfers Routes (تحويلات العمال)
 // ===========================================
+
+/**
+ * 📊 اقتراح توزيع حوالة على المشاريع
+ * POST /api/worker-transfers/suggest-allocation
+ */
+workerRouter.post('/worker-transfers/suggest-allocation', async (req: Request, res: Response) => {
+  try {
+    const { workerId, amount, mode } = req.body;
+
+    if (!workerId || !amount) {
+      return res.status(400).json({ success: false, message: 'workerId و amount مطلوبان' });
+    }
+
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'المبلغ يجب أن يكون رقم موجب' });
+    }
+
+    const allocMode = mode === 'fifo' ? 'fifo' : 'proportional';
+
+    const balances = await PaymentAllocationService.getWorkerOpenBalances(workerId);
+    const suggestedAllocations = PaymentAllocationService.suggestAllocation(balances, numAmount, allocMode);
+
+    const enrichedAllocations = suggestedAllocations.map(a => {
+      const bal = balances.find(b => b.projectId === a.projectId);
+      return {
+        ...a,
+        projectName: bal?.projectName || '',
+        balance: bal?.currentBalance || 0,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        balances: balances.map(b => ({
+          projectId: b.projectId,
+          projectName: b.projectName,
+          balance: b.currentBalance,
+        })),
+        suggestedAllocations: enrichedAllocations
+      },
+      message: 'تم اقتراح التوزيع بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في اقتراح توزيع الحوالة:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'فشل في اقتراح التوزيع',
+      data: null
+    });
+  }
+});
+
+/**
+ * 💸 تنفيذ توزيع حوالة على عدة مشاريع
+ * POST /api/worker-transfers/allocate
+ */
+workerRouter.post('/worker-transfers/allocate', async (req: Request, res: Response) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, message: 'يجب تسجيل الدخول' });
+    }
+
+    const {
+      workerId, payerProjectId, totalAmount,
+      recipientName, recipientPhone, transferNumber,
+      transferMethod, transferDate, senderName, notes,
+      allocations
+    } = req.body;
+
+    if (!workerId || !payerProjectId || !totalAmount || !recipientName || !transferMethod || !transferDate || !allocations) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات ناقصة: workerId, payerProjectId, totalAmount, recipientName, transferMethod, transferDate, allocations مطلوبة'
+      });
+    }
+
+    if (!Array.isArray(allocations) || allocations.length === 0) {
+      return res.status(400).json({ success: false, message: 'يجب تحديد توزيع واحد على الأقل' });
+    }
+
+    const numAmount = Number(totalAmount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'المبلغ يجب أن يكون رقم موجب' });
+    }
+
+    const { allowed } = checkProjectAccess(req, payerProjectId);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
+    const result = await PaymentAllocationService.executeAllocation(
+      workerId,
+      payerProjectId,
+      numAmount,
+      allocations.map((a: any) => ({ projectId: a.projectId, amount: Number(a.amount) })),
+      {
+        recipientName,
+        recipientPhone: recipientPhone || undefined,
+        transferNumber: transferNumber || undefined,
+        transferMethod,
+        transferDate,
+        senderName: senderName || undefined,
+        notes: notes || undefined,
+      },
+      authUser.user_id
+    );
+
+    console.log(`✅ [PaymentAllocation] تم توزيع حوالة بنجاح - batchId: ${result.batchId}, transfers: ${result.transferIds.length}`);
+
+    res.json({
+      success: true,
+      data: {
+        batchId: result.batchId,
+        transferIds: result.transferIds,
+        projectFundTransferIds: result.projectFundTransferIds,
+        allocations: result.allocations
+      },
+      message: `تم توزيع الحوالة بنجاح على ${result.allocations.length} مشروع`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في تنفيذ توزيع الحوالة:', error);
+    const statusCode = error.message?.includes('لا يساوي') || error.message?.includes('موجبة') ? 400 : 500;
+    res.status(statusCode).json({
+      success: false,
+      message: error.message || 'فشل في تنفيذ توزيع الحوالة',
+      data: null
+    });
+  }
+});
 
 /**
  * 🔄 تحديث تحويل عامل موجود
@@ -3421,6 +3596,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const totalSettled = Number(settlementTransfersResult[0]?.totalSettled) || 0;
 
+    const projectsCount = workerProjectNames.length;
+
     const stats = {
       totalWorkDays: totalWorkDays,
       lastAttendanceDate: lastAttendanceDate,
@@ -3430,6 +3607,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
       projectNames: workerProjectNames,
+      projectsCount: projectsCount,
+      isMultiProject: projectsCount > 1,
       totalEarnings: totalEarnings,
       project_id: isAllProjects ? null : project_id,
       isFilteredByProject: !isAllProjects,

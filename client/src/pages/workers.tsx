@@ -37,7 +37,10 @@ interface WorkerStats {
   totalWorkDays: number;
   totalTransfers: number;
   totalEarnings: number;
+  totalSettled?: number;
   projectsWorked: number;
+  projectsCount: number;
+  isMultiProject: boolean;
   projectNames?: { id: string; name: string }[];
   lastAttendanceDate: string | null;
   monthlyAttendanceRate: number;
@@ -378,19 +381,30 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
 const FinancialStatsFooter = ({ 
   stats,
   formatCurrency,
-  isLoading
+  isLoading,
+  isFilteredByProject
 }: { 
   stats: WorkerStats | undefined;
   formatCurrency: (amount: number) => string;
   isLoading: boolean;
+  isFilteredByProject?: boolean;
 }) => {
   const totalEarnings = stats?.totalEarnings ?? 0;
   const totalWithdrawals = stats?.totalTransfers ?? 0;
-  const totalSettled = (stats as any)?.totalSettled ?? 0;
+  const totalSettled = stats?.totalSettled ?? 0;
   const remaining = totalEarnings - totalWithdrawals - totalSettled;
+  const isMultiProject = stats?.isMultiProject;
 
   return (
-    <div className={`grid ${totalSettled > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2`}>
+    <div className="space-y-1">
+      {isMultiProject && isFilteredByProject && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1 text-center" data-testid="multi-project-notice">
+          <p className="text-[9px] text-amber-700 dark:text-amber-300">
+            ⚠️ الأرقام تخص المشروع المحدد فقط — للرصيد الكلي اختر "كل المشاريع"
+          </p>
+        </div>
+      )}
+      <div className={`grid ${totalSettled > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2`}>
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
           <Wallet className="h-3 w-3" />
@@ -431,6 +445,7 @@ const FinancialStatsFooter = ({
         <p className={`text-xs font-bold ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} data-testid="text-remaining">
           {isLoading ? '...' : formatCurrency(remaining)}
         </p>
+      </div>
       </div>
     </div>
   );
@@ -523,7 +538,11 @@ const WorkerCardWrapper = ({
           {
             label: worker.is_active ? 'نشط' : 'غير نشط',
             variant: worker.is_active ? 'success' : 'destructive',
-          }
+          },
+          ...(stats?.isMultiProject ? [{
+            label: `متعدد المشاريع (${stats.projectsCount})`,
+            variant: 'warning' as const,
+          }] : []),
         ]}
         fields={[
           {
@@ -601,6 +620,7 @@ const WorkerCardWrapper = ({
             stats={stats} 
             formatCurrency={formatCurrency} 
             isLoading={statsLoading}
+            isFilteredByProject={!!selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID}
           />
         }
         compact

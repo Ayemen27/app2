@@ -629,8 +629,11 @@ export const workerTransfers = pgTable("worker_transfers", {
   pendingSync: boolean("pending_sync").default(false),
   description: text("description"),
   updated_at: timestamp("updated_at").defaultNow(),
+  batchId: varchar("batch_id"),
+  allocationSourceProject: varchar("allocation_source_project"),
 }, (table) => ({
   idxWorkerTransfersProjectDate: index("idx_worker_transfers_project_date").on(table.project_id, table.transferDate),
+  idxWorkerTransfersBatchId: index("idx_worker_transfers_batch_id").on(table.batchId),
   chkTransferDateFormat: check("chk_transfer_date_format", sql`transfer_date ~ '^\d{4}-\d{2}-\d{2}$'`),
   chkTransferDateNotEmpty: check("chk_transfer_date_not_empty", sql`transfer_date <> ''`),
   chkWorkerTransAmountPositive: check("chk_worker_trans_amount_positive", sql`amount > 0`),

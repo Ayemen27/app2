@@ -46,7 +46,10 @@ import {
   FileText,
   Download,
   Building2,
-  Briefcase
+  Briefcase,
+  Split,
+  ArrowRightLeft,
+  Layers
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { downloadExcelFile } from '@/utils/webview-download';
@@ -94,6 +97,19 @@ interface TransferFormData {
   notes: string;
 }
 
+interface AllocationItem {
+  projectId: string;
+  projectName: string;
+  balance: number;
+  amount: number;
+}
+
+interface OpenBalanceItem {
+  projectId: string;
+  projectName: string;
+  balance: number;
+}
+
 export default function WorkerAccountsPage() {
   const [, setLocation] = useLocation();
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -107,6 +123,8 @@ export default function WorkerAccountsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showGuardDialog, setShowGuardDialog] = useState(false);
   const [guardData, setGuardData] = useState<FinancialGuardData | null>(null);
+  const [allocationMode, setAllocationMode] = useState(false);
+  const [allocations, setAllocations] = useState<AllocationItem[]>([]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -205,6 +223,109 @@ export default function WorkerAccountsPage() {
   const getWorkerProjectWage = (workerId: string) => {
     return projectWages.find((w: any) => w.worker_id === workerId && w.is_active);
   };
+
+  const dialogWorkerId = formData.worker_id;
+
+  const { data: openBalancesData } = useQuery<{ data: OpenBalanceItem[] }>({
+    queryKey: ['/api/workers', dialogWorkerId, 'open-balances'],
+    queryFn: () => apiRequest(`/api/workers/${dialogWorkerId}/open-balances`, 'GET'),
+    enabled: !!dialogWorkerId && showTransferDialog,
+  });
+
+  const openBalances: OpenBalanceItem[] = useMemo(() => {
+    const raw = openBalancesData?.data || (Array.isArray(openBalancesData) ? openBalancesData : []);
+    return (raw as OpenBalanceItem[]).filter(b => b.balance > 0);
+  }, [openBalancesData]);
+
+  const hasMultipleProjects = openBalances.length > 1;
+
+  useEffect(() => {
+    if (!showTransferDialog) {
+      setAllocationMode(false);
+      setAllocations([]);
+    }
+  }, [showTransferDialog]);
+
+  useEffect(() => {
+    if (allocationMode && openBalances.length > 0) {
+      setAllocations(openBalances.map(b => ({
+        projectId: b.projectId,
+        projectName: b.projectName,
+        balance: b.balance,
+        amount: 0,
+      })));
+    } else if (!allocationMode) {
+      setAllocations([]);
+    }
+  }, [allocationMode, openBalances]);
+
+  const allocationTotal = useMemo(() => {
+    return allocations.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  }, [allocations]);
+
+  const isAllocationMatched = allocationTotal === formData.amount && formData.amount > 0;
+
+  const handleProportionalAllocation = () => {
+    if (!formData.amount || openBalances.length === 0) return;
+    const totalBalance = openBalances.reduce((sum, b) => sum + b.balance, 0);
+    if (totalBalance <= 0) return;
+    const newAllocations = openBalances.map(b => ({
+      projectId: b.projectId,
+      projectName: b.projectName,
+      balance: b.balance,
+      amount: Math.round((b.balance / totalBalance) * formData.amount),
+    }));
+    const diff = formData.amount - newAllocations.reduce((s, a) => s + a.amount, 0);
+    if (diff !== 0 && newAllocations.length > 0) {
+      newAllocations[0].amount += diff;
+    }
+    setAllocations(newAllocations);
+  };
+
+  const suggestAllocationMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/worker-transfers/suggest-allocation', 'POST', {
+        workerId: formData.worker_id,
+        amount: formData.amount,
+      });
+    },
+    onSuccess: (result: any) => {
+      const suggested = result?.data?.suggestedAllocations || result?.data || [];
+      if (Array.isArray(suggested) && suggested.length > 0) {
+        setAllocations(suggested.map((s: any) => ({
+          projectId: s.projectId,
+          projectName: s.projectName || openBalances.find(b => b.projectId === s.projectId)?.projectName || '',
+          balance: s.balance ?? s.currentBalance ?? openBalances.find(b => b.projectId === s.projectId)?.balance ?? 0,
+          amount: Number(s.amount) || 0,
+        })));
+      }
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "فشل في اقتراح التوزيع", variant: "destructive" });
+    }
+  });
+
+  const allocateTransferMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await saveAllTransferAutocompleteValues();
+      return apiRequest('/api/worker-transfers/allocate', 'POST', data);
+    },
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerTransfers(selectedProjectId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
+      setShowTransferDialog(false);
+      setAllocationMode(false);
+      setAllocations([]);
+      resetForm();
+      toast({ title: "تم بنجاح", description: "تم توزيع الحوالة على المشاريع بنجاح" });
+    },
+    onError: (error: any) => {
+      let errorMessage = "فشل في توزيع الحوالة";
+      if (error?.responseData?.message) errorMessage = error.responseData.message;
+      else if (error?.message) errorMessage = error.message;
+      toast({ title: "خطأ", description: errorMessage, variant: "destructive" });
+    }
+  });
 
   useEffect(() => {
     const handleAddNew = () => {
@@ -412,6 +533,33 @@ export default function WorkerAccountsPage() {
   };
 
   const handleSubmit = () => {
+    if (allocationMode) {
+      if (!formData.worker_id || !formData.amount || !formData.recipientName || !formData.transferDate) {
+        toast({ title: "خطأ", description: "الرجاء ملء جميع الحقول المطلوبة", variant: "destructive" });
+        return;
+      }
+      if (!isAllocationMatched) {
+        toast({ title: "خطأ", description: "مجموع التوزيع لا يطابق المبلغ الكلي", variant: "destructive" });
+        return;
+      }
+      allocateTransferMutation.mutate({
+        workerId: formData.worker_id,
+        payerProjectId: formData.project_id || selectedProject,
+        totalAmount: formData.amount,
+        recipientName: formData.recipientName,
+        recipientPhone: formData.recipientPhone,
+        transferDate: formData.transferDate,
+        transferMethod: formData.transferMethod,
+        transferNumber: formData.transferNumber,
+        notes: formData.notes,
+        allocations: allocations.filter(a => a.amount > 0).map(a => ({
+          projectId: a.projectId,
+          amount: a.amount,
+        })),
+      });
+      return;
+    }
+
     if (!formData.worker_id || !formData.project_id || !formData.amount || !formData.recipientName || !formData.transferDate) {
       toast({
         title: "خطأ",
@@ -879,13 +1027,13 @@ export default function WorkerAccountsPage() {
       )}
 
       <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={allocationMode ? "max-w-2xl max-h-[90vh] overflow-y-auto" : "max-w-md"} dir="rtl">
           <DialogHeader>
             <DialogTitle>
-              {editingTransfer ? 'تعديل الحولة' : 'حولة جديدة'}
+              {editingTransfer ? 'تعديل الحولة' : allocationMode ? 'حولة موزعة على المشاريع' : 'حولة جديدة'}
             </DialogTitle>
             <DialogDescription>
-              {editingTransfer ? 'قم بتعديل بيانات الحولة المالية' : 'إنشاء حولة مالية جديدة للعامل'}
+              {editingTransfer ? 'قم بتعديل بيانات الحولة المالية' : allocationMode ? 'توزيع الحوالة على مشاريع متعددة' : 'إنشاء حولة مالية جديدة للعامل'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -894,21 +1042,49 @@ export default function WorkerAccountsPage() {
                 <Label>العامل *</Label>
                 <WorkerSelect
                   value={formData.worker_id}
-                  onValueChange={(value) => setFormData({...formData, worker_id: value})}
+                  onValueChange={(value) => {
+                    setFormData({...formData, worker_id: value});
+                    setAllocationMode(false);
+                    setAllocations([]);
+                  }}
                   workers={workers}
                   placeholder="اختر العامل"
+                  data-testid="select-worker-transfer"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>المشروع *</Label>
+                <Label>{allocationMode ? 'المشروع الدافع' : 'المشروع *'}</Label>
                 <ProjectSelect
                   value={formData.project_id}
                   onValueChange={(value) => setFormData({...formData, project_id: value})}
                   projects={projects}
                   placeholder="اختر المشروع"
+                  data-testid="select-project-transfer"
                 />
               </div>
             </div>
+
+            {hasMultipleProjects && !editingTransfer && (
+              <Card className="border-dashed">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Layers className="h-4 w-4 text-blue-500" />
+                      <span className="text-muted-foreground">العامل لديه أرصدة في {openBalances.length} مشاريع</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={allocationMode ? "default" : "outline"}
+                      onClick={() => setAllocationMode(!allocationMode)}
+                      data-testid="button-toggle-allocation"
+                    >
+                      <Split className="h-4 w-4 ml-1" />
+                      {allocationMode ? 'إلغاء التوزيع' : 'وضع التوزيع'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -927,6 +1103,7 @@ export default function WorkerAccountsPage() {
                   maxWidth={200}
                   min="0"
                   className="text-center arabic-numbers"
+                  data-testid="input-transfer-amount"
                 />
               </div>
               <div>
@@ -935,9 +1112,96 @@ export default function WorkerAccountsPage() {
                   value={formData.transferDate}
                   onChange={(date) => setFormData({...formData, transferDate: date ? format(date, "yyyy-MM-dd") : ""})}
                   className="w-full"
+                  data-testid="input-transfer-date"
                 />
               </div>
             </div>
+
+            {allocationMode && allocations.length > 0 && (
+              <Card data-testid="card-allocation-table">
+                <CardContent className="p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <ArrowRightLeft className="h-4 w-4" />
+                      <span>توزيع المبلغ على المشاريع</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleProportionalAllocation}
+                        disabled={!formData.amount}
+                        data-testid="button-proportional-allocation"
+                      >
+                        <Split className="h-3.5 w-3.5 ml-1" />
+                        توزيع نسبي
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => suggestAllocationMutation.mutate()}
+                        disabled={!formData.amount || suggestAllocationMutation.isPending}
+                        data-testid="button-suggest-allocation"
+                      >
+                        {suggestAllocationMutation.isPending ? (
+                          <div className="animate-spin w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full ml-1" />
+                        ) : (
+                          <Layers className="h-3.5 w-3.5 ml-1" />
+                        )}
+                        توزيع يدوي
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-md">
+                    <div className="grid grid-cols-3 gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                      <span>المشروع</span>
+                      <span className="text-center">المتبقي الحالي</span>
+                      <span className="text-center">المبلغ المخصص</span>
+                    </div>
+                    {allocations.map((alloc, index) => (
+                      <div
+                        key={alloc.projectId}
+                        className="grid grid-cols-3 gap-2 p-2 items-center border-b last:border-b-0"
+                        data-testid={`row-allocation-${alloc.projectId}`}
+                      >
+                        <span className="text-sm truncate" title={alloc.projectName}>
+                          {alloc.projectName}
+                        </span>
+                        <span className={`text-sm text-center font-medium ${alloc.balance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {Math.round(alloc.balance).toLocaleString('en-US')}
+                        </span>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          step="1"
+                          min="0"
+                          value={alloc.amount || ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : 0;
+                            setAllocations(prev => prev.map((a, i) =>
+                              i === index ? { ...a, amount: val } : a
+                            ));
+                          }}
+                          className="text-center text-sm"
+                          data-testid={`input-allocation-amount-${alloc.projectId}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className={`flex items-center justify-between p-2 rounded-md text-sm font-medium ${isAllocationMatched ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`} data-testid="text-allocation-summary">
+                    <span>المجموع: {Math.round(allocationTotal).toLocaleString('en-US')} ر.ي</span>
+                    <span>المبلغ الكلي: {Math.round(formData.amount).toLocaleString('en-US')} ر.ي</span>
+                    {isAllocationMatched ? (
+                      <Badge variant="default" className="bg-green-600 text-white">متطابق</Badge>
+                    ) : (
+                      <Badge variant="destructive">غير متطابق</Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -947,6 +1211,7 @@ export default function WorkerAccountsPage() {
                   value={formData.recipientName}
                   onChange={(value) => setFormData({...formData, recipientName: value})}
                   placeholder="اسم المستلم"
+                  data-testid="input-recipient-name"
                 />
               </div>
               <div>
@@ -955,7 +1220,7 @@ export default function WorkerAccountsPage() {
                   value={formData.transferMethod}
                   onValueChange={(value: 'cash' | 'bank' | 'hawaleh') => setFormData({...formData, transferMethod: value})}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="select-transfer-method">
                     <SelectValue placeholder="اختر الطريقة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -975,6 +1240,7 @@ export default function WorkerAccountsPage() {
                   value={formData.recipientPhone}
                   onChange={(value) => setFormData({...formData, recipientPhone: value})}
                   placeholder="رقم الهاتف"
+                  data-testid="input-recipient-phone"
                 />
               </div>
               <div>
@@ -984,6 +1250,7 @@ export default function WorkerAccountsPage() {
                   value={formData.transferNumber}
                   onChange={(value) => setFormData({...formData, transferNumber: value})}
                   placeholder="رقم التحويل"
+                  data-testid="input-transfer-number"
                 />
               </div>
             </div>
@@ -997,21 +1264,25 @@ export default function WorkerAccountsPage() {
                 placeholder="ملاحظات إضافية..."
                 autoWidth
                 maxWidth={400}
+                data-testid="input-transfer-notes"
               />
             </div>
 
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleSubmit}
-                disabled={createTransferMutation.isPending || updateTransferMutation.isPending}
+                disabled={createTransferMutation.isPending || updateTransferMutation.isPending || allocateTransferMutation.isPending || (allocationMode && !isAllocationMatched)}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
+                data-testid="button-submit-transfer"
               >
-                {createTransferMutation.isPending || updateTransferMutation.isPending ? (
+                {createTransferMutation.isPending || updateTransferMutation.isPending || allocateTransferMutation.isPending ? (
                   <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full ml-2" />
+                ) : allocationMode ? (
+                  <Split className="h-4 w-4 ml-2" />
                 ) : (
                   <Send className="h-4 w-4 ml-2" />
                 )}
-                {editingTransfer ? 'تحديث الحولة' : 'إرسال الحولة'}
+                {editingTransfer ? 'تحديث الحولة' : allocationMode ? 'توزيع وإرسال' : 'إرسال الحولة'}
               </Button>
               <Button
                 type="button"
@@ -1019,8 +1290,11 @@ export default function WorkerAccountsPage() {
                 onClick={() => {
                   setShowTransferDialog(false);
                   setEditingTransfer(null);
+                  setAllocationMode(false);
+                  setAllocations([]);
                   resetForm();
                 }}
+                data-testid="button-cancel-transfer"
               >
                 إلغاء
               </Button>

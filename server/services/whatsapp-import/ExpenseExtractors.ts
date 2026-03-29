@@ -1,4 +1,4 @@
-import { normalizeArabicText, normalizeArabicTextPreserveLines, easternToWestern, extractAmountFromInlineExpense, extractAllAmounts } from './ArabicAmountParser.js';
+import { normalizeArabicText, normalizeArabicTextPreserveLines, easternToWestern, extractAmountFromInlineExpense, extractAllAmounts, isLineNonFinancial } from './ArabicAmountParser.js';
 
 export interface ExtractedExpense {
   amount: number;
@@ -30,6 +30,7 @@ export function splitMultiLineExpenses(messageText: string): ExtractedExpense[] 
 
   for (let i = 0; i < lines.length; i++) {
     const line = easternToWestern(lines[i]);
+    if (isLineNonFinancial(line)) continue;
     const result = extractAmountFromInlineExpense(line);
     if (result) {
       financialLineCount++;

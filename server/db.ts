@@ -157,7 +157,6 @@ try {
   } else {
     // محاولة الاتصال بـ Postgres مع مهلة زمنية أطول للاتصالات البعيدة
     const drizzleDb = drizzle(pool, { schema });
-    // Proxy for database to support both .query and .execute (for raw SQL)
     dbInstance = new Proxy(drizzleDb, {
       get(target, prop, receiver) {
         if (prop === 'execute') {
@@ -165,39 +164,17 @@ try {
             if (!query) throw new Error("A query must have either text or a name.");
             
             try {
-              let text = '';
-              let values = [];
-              
               if (typeof query === 'string') {
-                text = query;
-              } else if (query && typeof query.toQuery === 'function') {
-                try {
-                  const q = query.toQuery();
-                  text = q.text;
-                  values = q.values;
-                } catch (e) {
-                  // If toQuery fails, try standard sql/params
-                  text = query.sql || '';
-                  values = query.params || [];
-                }
-              } else if (query && typeof query.sql === 'string') {
-                // Handle cases where the query object has sql and params (standard Drizzle/custom)
-                text = query.sql;
-                values = query.params || [];
-              } else if (query && query.inlineParams) {
-                // Handle cases where the query object has inlineParams
-                text = query.sql || '';
-                values = query.params || [];
-              } else if (query && query.text) {
-                text = query.text;
-                values = query.values || [];
-              } else {
-                // FALLBACK: Attempt to use the object directly
-                return pool.query(query);
+                const result = await pool.query(query);
+                return { rows: result.rows || result };
               }
-              
-              const result = await pool.query(text, values);
-              return { rows: result.rows || result };
+
+              if (query && query.text && typeof query.text === 'string') {
+                const result = await pool.query(query.text, query.values || []);
+                return { rows: result.rows || result };
+              }
+
+              return target.execute(query);
             } catch (err) {
               console.error("❌ [DB Proxy] Error executing query:", err);
               throw err;

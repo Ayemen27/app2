@@ -4,6 +4,8 @@ import { z } from "zod";
 import * as path from "path";
 import { existsSync } from "fs";
 import rateLimit from "express-rate-limit";
+import { db } from "../../db.js";
+import { sql } from "drizzle-orm";
 import { requireAuth, requireAdminOrEditor, requireRole, type AuthenticatedRequest } from "../../middleware/auth.js";
 import { waIngestionService } from "../../services/whatsapp-import/WhatsAppIngestionService.js";
 import { waAliasService } from "../../services/whatsapp-import/WhatsAppAliasService.js";
@@ -686,6 +688,8 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
       return res.status(400).json({ error: `Batch status is '${batch.status}', must be 'completed' to extract` });
     }
 
+    const forceReExtract = req.body?.force === true;
+
     cleanOldJobs();
     const existing = findRunningJob(batchId, 'extract');
     if (existing) return res.json({ jobId: existing.id, status: 'running' });
@@ -697,6 +701,13 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
 
     (async () => {
       try {
+        if (forceReExtract) {
+          console.log(`[WAImport] Force re-extract: deleting old candidates for batch ${batchId}`);
+          await db.execute(sql`DELETE FROM wa_transaction_evidence_links WHERE candidate_id IN (SELECT id FROM wa_extraction_candidates WHERE batch_id = ${batchId})`);
+          await db.execute(sql`DELETE FROM wa_extraction_candidates WHERE batch_id = ${batchId}`);
+          console.log(`[WAImport] Old candidates cleared for batch ${batchId}`);
+        }
+
         try { await processMediaForBatch(batchId); } catch (ocrErr) {
           console.warn("[WAImport] OCR pre-processing failed (non-blocking):", ocrErr);
         }
@@ -711,7 +722,7 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
 
         const result = await waExtractionService.extractFromBatch(batchId);
         job.status = 'completed';
-        job.result = { ...result, linkingWarning };
+        job.result = { ...result, linkingWarning, forceReExtracted: forceReExtract };
         job.completedAt = Date.now();
       } catch (err: any) {
         job.status = 'failed';
@@ -744,6 +755,62 @@ waImportRouter.get("/batch/:id/candidates", requireAuth, requireAdminOrEditor, a
   } catch (error) {
     console.error("[WAImport] Get candidates error:", error);
     res.status(500).json({ error: "Failed to get candidates" });
+  }
+});
+
+waImportRouter.get("/batch/:id/daily-summary", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return res.status(400).json({ error: "Invalid batch ID", details: params.error.issues });
+    const batchId = parseInt(params.data.id);
+
+    const rows = await db.execute(sql`
+      SELECT 
+        COALESCE(
+          (c.confidence_breakdown_json->>'date')::date,
+          m.wa_timestamp::date,
+          c.created_at::date
+        ) as transaction_date,
+        c.category,
+        c.candidate_type,
+        COUNT(*)::int as count,
+        ROUND(SUM(c.amount)::numeric, 2) as total_amount,
+        ROUND(AVG(c.amount)::numeric, 2) as avg_amount,
+        ROUND(MIN(c.amount)::numeric, 2) as min_amount,
+        ROUND(MAX(c.amount)::numeric, 2) as max_amount
+      FROM wa_extraction_candidates c
+      LEFT JOIN wa_raw_messages m ON m.id = c.source_message_id
+      WHERE c.batch_id = ${batchId}
+      GROUP BY 1, c.category, c.candidate_type
+      ORDER BY 1 DESC, total_amount DESC
+    `);
+
+    const byDate: Record<string, any> = {};
+    for (const row of rows.rows) {
+      const date = String(row.transaction_date);
+      if (!byDate[date]) {
+        byDate[date] = { date, categories: [], totalAmount: 0, totalCount: 0 };
+      }
+      byDate[date].categories.push({
+        category: row.category,
+        candidateType: row.candidate_type,
+        count: Number(row.count),
+        totalAmount: Number(row.total_amount),
+        avgAmount: Number(row.avg_amount),
+        minAmount: Number(row.min_amount),
+        maxAmount: Number(row.max_amount),
+      });
+      byDate[date].totalAmount += Number(row.total_amount);
+      byDate[date].totalCount += Number(row.count);
+    }
+
+    res.json({
+      batchId,
+      dailySummary: Object.values(byDate).sort((a: any, b: any) => b.date.localeCompare(a.date)),
+    });
+  } catch (error) {
+    console.error("[WAImport] Daily summary error:", error);
+    res.status(500).json({ error: "Failed to get daily summary" });
   }
 });
 

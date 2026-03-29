@@ -195,6 +195,12 @@ export default function WAImportDashboard() {
     enabled: !!selectedBatchId,
   });
 
+  const dailySummaryQuery = useQuery<any>({
+    queryKey: ['/api/wa-import/batch', selectedBatchId, 'daily-summary'],
+    queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/daily-summary`),
+    enabled: !!selectedBatchId,
+  });
+
   const verificationQuery = useQuery<any[]>({
     queryKey: ['/api/wa-import/batch', selectedBatchId, 'verification-queue'],
     queryFn: () => apiRequest(`/api/wa-import/batch/${selectedBatchId}/verification-queue`),
@@ -561,8 +567,24 @@ export default function WAImportDashboard() {
       const batchId = data._batchId || selectedBatchId;
       toast({ title: "تم الاستخراج بنجاح" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'daily-summary'] });
     },
     onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const forceReExtractMutation = useMutation({
+    mutationFn: async (batchId: number) => {
+      const resp = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', { force: true });
+      if (resp.jobId) return { ...(await pollJob(resp.jobId)), _batchId: batchId };
+      return { ...resp, _batchId: batchId };
+    },
+    onSuccess: (data: any) => {
+      const batchId = data._batchId || selectedBatchId;
+      toast({ title: "تم إعادة الاستخراج بنجاح", description: "تم حذف البيانات القديمة واستخراج جديد" });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'daily-summary'] });
+    },
+    onError: (err: any) => toast({ title: "خطأ في إعادة الاستخراج", description: err.message, variant: "destructive" }),
   });
 
   const processMediaMutation = useMutation({
@@ -830,6 +852,7 @@ export default function WAImportDashboard() {
             { value: 'reconciliation', label: 'المطابقة', icon: BarChart3, badge: 0 },
             { value: 'custodians', label: 'أمناء العُهد', icon: Wallet, badge: 0 },
             { value: 'aliases', label: 'الأسماء المستعارة', icon: Users, badge: 0 },
+            { value: 'daily', label: 'ملخص يومي', icon: Calendar, badge: 0 },
             { value: 'autolinks', label: 'الربط التلقائي', icon: UserCheck, badge: (autoLinksQuery.data?.summary?.pending || 0) },
             { value: 'loans', label: 'قروض المقاولين', icon: ArrowLeftRight, badge: 0 },
           ].map(tab => {
@@ -932,6 +955,13 @@ export default function WAImportDashboard() {
                         onClick: () => reconcileMutation.mutate(batch.id),
                         disabled: reconcileMutation.isPending,
                         color: 'green' as const,
+                      },
+                      {
+                        icon: RefreshCw,
+                        label: 'إعادة الاستخراج (تنظيف)',
+                        onClick: () => { if (confirm('سيتم حذف جميع المرشحين السابقين وإعادة الاستخراج من البداية. هل تريد المتابعة؟')) forceReExtractMutation.mutate(batch.id); },
+                        disabled: forceReExtractMutation.isPending,
+                        color: 'orange' as const,
                       },
                     ] : []),
                     {
@@ -1668,6 +1698,109 @@ export default function WAImportDashboard() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="daily" className="mt-4">
+          <div className="space-y-4">
+            {!selectedBatchId ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">اختر دُفعة لعرض الملخص اليومي</p>
+              </Card>
+            ) : dailySummaryQuery.isLoading ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">جاري تحميل الملخص اليومي...</p>
+              </Card>
+            ) : dailySummaryQuery.isError ? (
+              <Card className="p-8 text-center border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                <p className="text-red-600">فشل تحميل الملخص اليومي</p>
+              </Card>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold" data-testid="text-daily-summary-title">الملخص اليومي - دُفعة #{selectedBatchId}</h3>
+                  <Badge variant="outline" data-testid="badge-daily-count">{dailySummaryQuery.data?.dailySummary?.length || 0} يوم</Badge>
+                </div>
+                {(dailySummaryQuery.data?.dailySummary || []).map((day: any) => (
+                  <Card key={day.date} className="overflow-hidden" data-testid={`card-day-${day.date}`}>
+                    <div className="bg-muted/50 dark:bg-muted/20 px-4 py-2 flex items-center justify-between border-b">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-blue-500" />
+                        <span className="font-semibold text-sm" data-testid={`text-date-${day.date}`}>
+                          {new Date(day.date + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-muted-foreground">{day.totalCount} معاملة</span>
+                        <span className="font-bold text-green-600 dark:text-green-400" data-testid={`text-total-${day.date}`}>
+                          {Number(day.totalAmount).toLocaleString('ar-YE')} ر.ي
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {day.categories.map((cat: any, idx: number) => {
+                          const categoryLabels: Record<string, string> = {
+                            'fund_transfer': 'تحويلات',
+                            'fuel': 'وقود',
+                            'cement': 'إسمنت',
+                            'concrete': 'خرسانة',
+                            'steel': 'حديد',
+                            'meals': 'وجبات',
+                            'carpentry': 'نجارة',
+                            'welding': 'حدادة/لحام',
+                            'transport': 'نقل/مواصلات',
+                            'electricity': 'كهرباء',
+                            'construction_materials': 'مواد بناء',
+                            'water': 'مياه',
+                            'labor': 'عمالة',
+                            'rent': 'إيجار',
+                            'maintenance': 'صيانة',
+                            'tools': 'أدوات',
+                            'safety': 'سلامة',
+                            'concrete_pump': 'مضخة خرسانة',
+                            'miscellaneous': 'متنوع',
+                            'custodian_receipt': 'أمانات',
+                          };
+                          const typeLabels: Record<string, string> = {
+                            'expense': 'مصروف',
+                            'transfer': 'تحويل',
+                            'loan': 'قرض',
+                            'custodian_receipt': 'أمانة',
+                            'settlement': 'تسوية',
+                          };
+                          const categoryColors: Record<string, string> = {
+                            'fund_transfer': 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+                            'fuel': 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
+                            'labor': 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+                            'meals': 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
+                            'transport': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
+                            'miscellaneous': 'bg-gray-100 dark:bg-gray-800/30 text-gray-800 dark:text-gray-300',
+                            'custodian_receipt': 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
+                          };
+                          return (
+                            <div key={idx} className={`rounded-md px-3 py-2 text-xs ${categoryColors[cat.category] || categoryColors.miscellaneous}`} data-testid={`cat-${day.date}-${cat.category}-${idx}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{categoryLabels[cat.category] || cat.category}</span>
+                                <Badge variant="secondary" className="text-[10px]">{typeLabels[cat.candidateType] || cat.candidateType}</Badge>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span>{cat.count} معاملة</span>
+                                <span className="font-bold">{Number(cat.totalAmount).toLocaleString('ar-YE')} ر.ي</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-0.5 text-[10px] opacity-70">
+                                <span>المتوسط: {Number(cat.avgAmount).toLocaleString('ar-YE')}</span>
+                                <span>{Number(cat.minAmount).toLocaleString('ar-YE')} - {Number(cat.maxAmount).toLocaleString('ar-YE')}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="aliases" className="mt-4">

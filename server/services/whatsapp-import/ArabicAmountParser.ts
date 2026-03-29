@@ -5,6 +5,43 @@ const EASTERN_TO_WESTERN: Record<string, string> = {
   '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
 };
 
+const MAX_REASONABLE_AMOUNT = 500_000_000;
+
+const PHONE_PATTERNS = [
+  /^967\d{9}$/,
+  /^00967\d{9}$/,
+  /^\+967\d{9}$/,
+  /^7[0-9]\d{7}$/,
+  /^20\d{10}$/,
+  /^00\d{11,}$/,
+];
+
+const NON_AMOUNT_CONTEXT_RE = /(?:هاتف|تلفون|جوال|موبايل|رقم\s*(?:المرسل|المستلم|الهاتف|الجوال|المرجعي|الطلب|العملية|الحوالة)|phone|mobile|ref|BTL-|الرقم\s*المرجعي|رقم\s*الطلب)/i;
+
+function isPhoneNumber(numStr: string): boolean {
+  const clean = numStr.replace(/[\s\-\.]+/g, '');
+  if (PHONE_PATTERNS.some(p => p.test(clean))) return true;
+  if (clean.length >= 9 && clean.length <= 12 && clean.startsWith('7')) return true;
+  if (clean.length >= 12 && clean.startsWith('967')) return true;
+  return false;
+}
+
+function isNonAmountByContext(fullLine: string, matchedNum: string): boolean {
+  const idx = fullLine.indexOf(matchedNum);
+  if (idx < 0) return false;
+  const before = fullLine.slice(Math.max(0, idx - 40), idx);
+  return NON_AMOUNT_CONTEXT_RE.test(before);
+}
+
+function isReasonableAmount(val: number): boolean {
+  return val > 0 && val <= MAX_REASONABLE_AMOUNT;
+}
+
+export function isLineNonFinancial(line: string): boolean {
+  const normalized = normalizeArabicText(line);
+  return NON_AMOUNT_CONTEXT_RE.test(normalized) && !/مبلغ|ريال|الف|ألف|آلاف|مليون/.test(normalized);
+}
+
 export function easternToWestern(text: string): string {
   return text.replace(/[٠-٩]/g, (ch) => EASTERN_TO_WESTERN[ch] || ch);
 }
@@ -95,7 +132,7 @@ export function parseArabicAmount(text: string): ParsedAmount | null {
   const commaNum = normalized.match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/);
   if (commaNum) {
     const val = safeParseNum(commaNum[1].replace(/,/g, ''));
-    if (val > 0) {
+    if (isReasonableAmount(val) && !isPhoneNumber(commaNum[1].replace(/,/g, '')) && !isNonAmountByContext(normalized, commaNum[1])) {
       return { value: val, raw: commaNum[0], currency: 'YER' };
     }
   }
@@ -103,7 +140,7 @@ export function parseArabicAmount(text: string): ParsedAmount | null {
   const plainNum = normalized.match(/(\d+(?:\.\d+)?)/);
   if (plainNum) {
     const val = safeParseNum(plainNum[1]);
-    if (val > 0) {
+    if (isReasonableAmount(val) && !isPhoneNumber(plainNum[1]) && !isNonAmountByContext(normalized, plainNum[1])) {
       return { value: val, raw: plainNum[0], currency: 'YER' };
     }
   }
@@ -143,8 +180,9 @@ export function extractAllAmounts(text: string): ParsedAmount[] {
 
   const commaRe = /(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g;
   while ((m = commaRe.exec(normalized)) !== null) {
-    const val = safeParseNum(m[1].replace(/,/g, ''));
-    if (val > 0 && !results.some(r => r.value === val)) {
+    const rawDigits = m[1].replace(/,/g, '');
+    const val = safeParseNum(rawDigits);
+    if (isReasonableAmount(val) && !isPhoneNumber(rawDigits) && !isNonAmountByContext(normalized, m[1]) && !results.some(r => r.value === val)) {
       results.push({ value: val, raw: m[0], currency: 'YER' });
     }
   }
@@ -152,7 +190,7 @@ export function extractAllAmounts(text: string): ParsedAmount[] {
   const plainRe = /(?<![,\d])(\d{3,})(?:\.\d+)?(?![,\d])/g;
   while ((m = plainRe.exec(normalized)) !== null) {
     const val = safeParseNum(m[1]);
-    if (val > 0 && !results.some(r => r.value === val)) {
+    if (isReasonableAmount(val) && !isPhoneNumber(m[1]) && !isNonAmountByContext(normalized, m[1]) && !results.some(r => r.value === val)) {
       results.push({ value: val, raw: m[0], currency: 'YER' });
     }
   }
@@ -178,7 +216,7 @@ export function extractAmountFromInlineExpense(text: string): { amount: number; 
   if (m) {
     const amount = safeParseNum(m[1]);
     const desc = m[2].trim();
-    if (amount >= 100 && desc.length > 0) {
+    if (amount >= 100 && desc.length > 0 && isReasonableAmount(amount) && !isPhoneNumber(m[1]) && !isNonAmountByContext(normalized, m[1])) {
       return { amount, description: desc, raw: m[0] };
     }
   }
@@ -188,7 +226,7 @@ export function extractAmountFromInlineExpense(text: string): { amount: number; 
   if (m) {
     const desc = m[1].trim();
     const amount = safeParseNum(m[2]);
-    if (amount >= 100 && desc.length > 0) {
+    if (amount >= 100 && desc.length > 0 && isReasonableAmount(amount) && !isPhoneNumber(m[2]) && !isNonAmountByContext(normalized, m[2])) {
       return { amount, description: desc, raw: m[0] };
     }
   }

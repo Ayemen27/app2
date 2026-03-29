@@ -41,6 +41,10 @@ import { safeErrorMessage } from '../../middleware/api-response';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
+function safeFileName(name: string): string {
+  return name.replace(/[^\w\u0600-\u06FF._-]/g, '_').substring(0, 150) || 'report';
+}
+
 export const reportRouter = express.Router();
 
 reportRouter.use(requireAuth);
@@ -1234,7 +1238,7 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'xlsx') {
         const buffer = await generateDailyReportExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="daily-report-${date}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="daily-report-${safeFileName(date as string)}.xlsx"`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateDailyReportHTML(data);
@@ -1301,7 +1305,7 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'xlsx') {
         const buffer = await generateDailyRangeExcel(allReports);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="daily-range-${dateFrom}-${dateTo}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="daily-range-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
         return res.send(buffer);
       } else {
         const html = generateDailyRangeHTML(allReports, dateFrom as string, dateTo as string);
@@ -1321,7 +1325,7 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'xlsx') {
         const buffer = await generatePeriodFinalExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="period-report-${dateFrom}-${dateTo}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="period-report-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generatePeriodFinalHTML(data);
@@ -1349,7 +1353,7 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'xlsx') {
         const buffer = await generateMultiProjectFinalExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="multi-project-report-${dateFrom}-${dateTo}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="multi-project-report-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateMultiProjectFinalHTML(data);
@@ -1392,7 +1396,7 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'xlsx') {
         const buffer = await generateProjectComprehensiveExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="project-comprehensive-${dateFrom}-${dateTo}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="project-comprehensive-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateProjectComprehensiveHTML(data);

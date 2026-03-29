@@ -22,6 +22,33 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const MAX_TOTAL_FILES = 50;
 const MAX_FILES_PER_USER = 5;
 
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv',
+  'text/html',
+  'application/json',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+  'application/octet-stream',
+]);
+
+function sanitizeFileName(name: string): string {
+  const cleaned = name
+    .replace(/\.\./g, '_')
+    .replace(/[\/\\:*?"<>|]/g, '_')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim();
+  return cleaned.length > 0 ? cleaned.substring(0, 200) : 'download';
+}
+
+function sanitizeMimeType(type: string): string {
+  const normalized = type.toLowerCase().trim();
+  return ALLOWED_MIME_TYPES.has(normalized) ? normalized : 'application/octet-stream';
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const [id, file] of tempFiles) {
@@ -77,10 +104,13 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
 
     const id = crypto.randomUUID();
 
+    const safeStoredName = sanitizeFileName(fileName);
+    const safeMime = sanitizeMimeType(mimeType);
+
     tempFiles.set(id, {
       data: buffer,
-      fileName,
-      mimeType,
+      fileName: safeStoredName,
+      mimeType: safeMime,
       created_at: Date.now(),
       user_id,
       _accessCount: 0,

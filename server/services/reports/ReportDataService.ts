@@ -1679,19 +1679,11 @@ export class ReportDataService {
         });
       }
 
-      const wellsWithCrew = Array.from(crewMap.values()).filter(c => c.totalWages > 0);
-      const totalAllCrewWages = wellsWithCrew.reduce((s, c) => s + c.totalWages, 0);
-      const wellsWithoutCrew = wellsResult.rows.filter(w => {
-        const crew = crewMap.get(Number(w.id));
-        return !crew || crew.totalWages === 0;
-      }).length;
-      const avgCrewWages = wellsWithCrew.length > 0 ? totalAllCrewWages / wellsWithCrew.length : 0;
-      const adjustedTotal = totalAllCrewWages + (wellsWithoutCrew * avgCrewWages);
+      const totalAllCrewWages = Array.from(crewMap.values()).reduce((s, c) => s + c.totalWages, 0);
 
       const wellsList = wellsResult.rows.map(w => {
         const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
-        const effectiveWages = crew.totalWages > 0 ? crew.totalWages : avgCrewWages;
-        const proportion = adjustedTotal > 0 ? effectiveWages / adjustedTotal : 0;
+        const proportion = totalAllCrewWages > 0 ? crew.totalWages / totalAllCrewWages : 0;
         const wellTotalCost = Math.round(totalExpenses * proportion * 100) / 100;
         return {
           wellNumber: safeNum(w.well_number),

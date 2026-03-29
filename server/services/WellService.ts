@@ -26,12 +26,22 @@ export interface CreateWellDTO {
 }
 
 export interface UpdateWellDTO {
+  wellNumber?: number;
   ownerName?: string;
   region?: string;
+  wellDepth?: number;
+  waterLevel?: number | null;
+  numberOfPanels?: number;
+  numberOfBases?: number;
+  numberOfPipes?: number;
+  fanType?: string | null;
+  pumpPower?: number | null;
   status?: 'pending' | 'in_progress' | 'completed';
-  completionPercentage?: number;
-  completionDate?: string;
-  notes?: string;
+  completionPercentage?: number | string;
+  startDate?: string | null;
+  completionDate?: string | null;
+  notes?: string | null;
+  beneficiaryPhone?: string | null;
 }
 
 export interface CreateTaskDTO {
@@ -179,12 +189,22 @@ export class WellService {
     try {
       const updateData: any = {};
       
+      if (data.wellNumber !== undefined) updateData.wellNumber = data.wellNumber;
       if (data.ownerName !== undefined) updateData.ownerName = data.ownerName;
       if (data.region !== undefined) updateData.region = data.region;
+      if (data.wellDepth !== undefined) updateData.wellDepth = data.wellDepth;
+      if (data.waterLevel !== undefined) updateData.waterLevel = data.waterLevel;
+      if (data.numberOfPanels !== undefined) updateData.numberOfPanels = data.numberOfPanels;
+      if (data.numberOfBases !== undefined) updateData.numberOfBases = data.numberOfBases;
+      if (data.numberOfPipes !== undefined) updateData.numberOfPipes = data.numberOfPipes;
+      if (data.fanType !== undefined) updateData.fanType = data.fanType;
+      if (data.pumpPower !== undefined) updateData.pumpPower = data.pumpPower;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.completionPercentage !== undefined) updateData.completionPercentage = this.sanitizeDecimal(data.completionPercentage) ?? '0';
+      if (data.startDate !== undefined) updateData.startDate = this.sanitizeDate(data.startDate);
       if (data.completionDate !== undefined) updateData.completionDate = this.sanitizeDate(data.completionDate);
       if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.beneficiaryPhone !== undefined) updateData.beneficiaryPhone = data.beneficiaryPhone;
       
       updateData.updated_at = new Date();
       

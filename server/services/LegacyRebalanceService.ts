@@ -106,7 +106,6 @@ export class LegacyRebalanceService {
           wt.project_id,
           COALESCE(SUM(safe_numeric(wt.amount::text, 0)), 0) AS total_transferred
         FROM worker_transfers wt
-        WHERE COALESCE(wt.transfer_method, '') != 'settlement'
         GROUP BY wt.worker_id, wt.project_id
       ),
       rebalance_deltas AS (

@@ -72,7 +72,6 @@ export class PaymentAllocationService {
         SELECT project_id,
           SUM(safe_numeric(amount::text, 0)) AS total_transferred
         FROM worker_transfers WHERE worker_id = $1
-          AND COALESCE(transfer_method, '') != 'settlement'
         GROUP BY project_id
       ) tr ON tr.project_id = p.id
       LEFT JOIN (

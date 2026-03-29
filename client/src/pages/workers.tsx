@@ -392,7 +392,8 @@ const FinancialStatsFooter = ({
   const totalEarnings = stats?.totalEarnings ?? 0;
   const totalWithdrawals = stats?.totalTransfers ?? 0;
   const totalSettled = stats?.totalSettled ?? 0;
-  const remaining = totalEarnings - totalWithdrawals - totalSettled;
+  const rebalanceDelta = (stats as any)?.rebalanceDelta ?? 0;
+  const remaining = totalEarnings - totalWithdrawals - totalSettled + rebalanceDelta;
   const isMultiProject = stats?.isMultiProject;
 
   return (

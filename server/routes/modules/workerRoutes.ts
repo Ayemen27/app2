@@ -3767,6 +3767,28 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const totalSettled = Number(settlementTransfersResult[0]?.totalSettled) || 0;
 
+    let rebalanceDelta = 0;
+    try {
+      const rebalanceResult = await pool.query(`
+        SELECT COALESCE(SUM(delta), 0) AS total_delta FROM (
+          SELECT safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE $1
+            ${!isAllProjects ? 'AND to_project_id = $2' : ''}
+          UNION ALL
+          SELECT -safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE $1
+            ${!isAllProjects ? 'AND from_project_id = $2' : ''}
+        ) rd
+      `, !isAllProjects ? [`%[${worker_id}]%`, project_id] : [`%[${worker_id}]%`]);
+      rebalanceDelta = Number(rebalanceResult.rows[0]?.total_delta) || 0;
+    } catch (e) {
+      console.warn('[Stats] Failed to compute rebalance delta:', e);
+    }
+
     const projectsCount = workerProjectNames.length;
 
     const stats = {
@@ -3775,6 +3797,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       monthlyAttendanceRate: monthlyAttendanceRate,
       totalTransfers: totalTransfers,
       totalSettled: totalSettled,
+      rebalanceDelta: rebalanceDelta,
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
       projectNames: workerProjectNames,

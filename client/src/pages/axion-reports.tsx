@@ -93,6 +93,7 @@ function buildExportUrl(type: string, fmt: string, params: Record<string, string
 
 async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any) {
   const url = buildExportUrl(type, fmt, params);
+  let phase = 'fetch';
   try {
     const response = await fetch(url, {
       credentials: getFetchCredentials(),
@@ -103,27 +104,72 @@ async function secureDownloadExport(type: string, fmt: string, params: Record<st
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(errorText || `HTTP ${response.status}`);
+      phase = 'server';
+      let errorDetail = '';
+      try {
+        const errBody = await response.text();
+        const parsed = JSON.parse(errBody);
+        errorDetail = parsed.error || parsed.message || '';
+      } catch {
+        errorDetail = '';
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً');
+      }
+      if (response.status === 404) {
+        throw new Error('البيانات المطلوبة غير موجودة');
+      }
+      throw new Error(errorDetail || `خطأ من الخادم (${response.status})`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      phase = 'server';
+      const errBody = await response.json();
+      if (errBody.success === false) {
+        throw new Error(errBody.error || 'فشل إنشاء التقرير');
+      }
+      throw new Error('استجابة غير متوقعة من الخادم');
     }
 
     const contentDisposition = response.headers.get('content-disposition');
     let fileName = `report-${type}.${fmt}`;
     if (contentDisposition) {
-      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (match && match[1]) {
-        fileName = match[1].replace(/['"]/g, '');
+      const starMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)/);
+      if (starMatch && starMatch[1]) {
+        try {
+          fileName = decodeURIComponent(starMatch[1].trim());
+        } catch {
+          fileName = starMatch[1].trim();
+        }
+      } else {
+        const plainMatch = contentDisposition.match(/filename\s*=\s*"?([^";\n]+)"?/);
+        if (plainMatch && plainMatch[1]) {
+          fileName = plainMatch[1].trim();
+        }
       }
     }
 
+    phase = 'download';
     const blob = await response.blob();
+
+    if (blob.size === 0) {
+      throw new Error('الخادم أرجع ملفاً فارغاً');
+    }
+
     const { downloadFile } = await import('@/utils/webview-download');
     await downloadFile(blob, fileName);
   } catch (error: any) {
-    console.error('[Export] Download failed:', error);
+    console.error(`[Export] Failed at phase="${phase}":`, error?.message || error);
+    const defaultMessages: Record<string, string> = {
+      fetch: 'فشل الاتصال بالخادم - تحقق من الإنترنت',
+      server: 'فشل إنشاء التقرير في الخادم',
+      download: 'تم إنشاء التقرير لكن فشل تحميل الملف',
+    };
     toast({
       title: 'خطأ في التصدير',
-      description: toUserMessage(error, 'فشل تحميل الملف'),
+      description: error?.message || defaultMessages[phase] || 'فشل تحميل الملف',
       variant: 'destructive',
     });
   }

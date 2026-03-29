@@ -9,20 +9,34 @@ export function isCapacitorNative(): boolean {
   }
 }
 
+const KNOWN_ANDROID_BROWSERS = [
+  'chrome/', 'firefox/', 'edg/', 'edge/', 'opr/', 'opera/',
+  'samsungbrowser/', 'ucbrowser/', 'brave/', 'vivaldi/',
+  'kiwi', 'yandex/', 'duckduckgo/', 'ecosia/', 'puffin/',
+  'miuibrowser/', 'huaweibrowser/', 'oppobrowser/',
+];
+
 export function isAndroidWebView(): boolean {
   if (isCapacitorNative()) return true;
   const ua = navigator.userAgent.toLowerCase();
-  return (
-    ua.includes('wv') ||
-    ua.includes('webview') ||
-    (ua.includes('android') && !ua.includes('chrome/')) ||
-    (ua.includes('android') && ua.includes('version/'))
-  );
+  if (!ua.includes('android')) return false;
+  if (ua.includes('; wv)') || ua.includes(';wv)')) return true;
+  if (ua.includes('webview')) return true;
+  if (KNOWN_ANDROID_BROWSERS.some(b => ua.includes(b))) return false;
+  if (!ua.includes('chrome/') && ua.includes('version/')) return true;
+  return false;
 }
 
 export function isIOSWebView(): boolean {
   const ua = navigator.userAgent.toLowerCase();
-  return (ua.includes('iphone') || ua.includes('ipad')) && !ua.includes('safari/');
+  if (!(ua.includes('iphone') || ua.includes('ipad'))) return false;
+  if (ua.includes('crios/') || ua.includes('fxios/') || ua.includes('edgios/') || ua.includes('opios/')) return false;
+  return !ua.includes('safari/');
+}
+
+export function isMobileDevice(): boolean {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('android') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('mobile');
 }
 
 export function isMobileWebView(): boolean {
@@ -292,15 +306,22 @@ export async function downloadFile(
   const type = mimeType || blob.type || 'application/octet-stream';
   const onMobile = isMobileWebView();
   const onCapacitor = isCapacitorNative();
+  const onMobileDevice = isMobileDevice();
 
   console.log('[DL] === START ===', {
     fileName,
     type,
     size: blob.size,
     capacitor: onCapacitor,
-    mobile: onMobile,
-    ua: navigator.userAgent.substring(0, 100),
+    mobileWebView: onMobile,
+    mobileDevice: onMobileDevice,
+    ua: navigator.userAgent.substring(0, 120),
   });
+
+  if (blob.size === 0) {
+    console.error('[DL] === FAIL: Empty blob ===');
+    throw new Error('الملف فارغ - لم يتم إنشاء التقرير بشكل صحيح');
+  }
 
   const tried: string[] = [];
 
@@ -328,7 +349,27 @@ export async function downloadFile(
     }
   }
 
-  if (onMobile) {
+  if (hasAndroidBridge()) {
+    tried.push('AndroidBridge');
+    try {
+      const base64 = await blobToBase64(blob);
+      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
+      if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
+      if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
+    } catch (e) { console.error('[DL] AndroidBridge:', e); }
+  }
+
+  if (hasIOSBridge()) {
+    tried.push('iOSBridge');
+    try {
+      const base64 = await blobToBase64(blob);
+      window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType: type });
+      console.log('[DL] === SUCCESS via iOSBridge ===');
+      return true;
+    } catch (e) { console.error('[DL] iOSBridge:', e); }
+  }
+
+  if (onMobile || onMobileDevice) {
     tried.push('WebShare');
     try {
       const r = await tryWebShareAPI(blob, fileName, type);
@@ -339,41 +380,31 @@ export async function downloadFile(
     } catch (e: any) {
       console.error('[DL] WebShare threw:', e?.message || e);
     }
+  }
 
+  if (onMobile) {
     tried.push('ServerProxy');
     try {
       const r = await tryServerProxyDownload(blob, fileName, type);
       if (r) {
-        console.log('[DL] === SUCCESS via ServerProxy (iframe) ===');
+        console.log('[DL] === SUCCESS via ServerProxy ===');
         return true;
       }
     } catch (e: any) {
       console.error('[DL] ServerProxy threw:', e?.message || e);
     }
-
-    console.error('[DL] === ALL MOBILE METHODS FAILED ===', tried);
-    return false;
   }
 
-  if (hasAndroidBridge()) {
-    try {
-      const base64 = await blobToBase64(blob);
-      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); return true; }
-      if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); return true; }
-      if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); return true; }
-    } catch (e) { console.error('[DL] AndroidBridge:', e); }
+  tried.push('BrowserDownload');
+  console.log('[DL] Trying standard browser download (universal fallback)');
+  const browserResult = downloadForBrowser(blob, fileName);
+  if (browserResult) {
+    console.log('[DL] === SUCCESS via BrowserDownload ===');
+    return true;
   }
 
-  if (hasIOSBridge()) {
-    try {
-      const base64 = await blobToBase64(blob);
-      window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType: type });
-      return true;
-    } catch (e) { console.error('[DL] iOSBridge:', e); }
-  }
-
-  console.log('[DL] Using browser download');
-  return downloadForBrowser(blob, fileName);
+  console.error('[DL] === ALL METHODS FAILED ===', tried);
+  throw new Error('فشل تحميل الملف - جرّب متصفح آخر أو تحقق من إعدادات التحميل');
 }
 
 export async function downloadExcelFile(buffer: ArrayBuffer | Buffer, fileName: string): Promise<boolean> {
@@ -390,8 +421,15 @@ export function getDownloadCapabilities() {
   return {
     isWebView: isMobileWebView(),
     isCapacitor: isCapacitorNative(),
+    isMobile: isMobileDevice(),
     hasNativeBridge: hasAndroidBridge() || hasIOSBridge(),
     hasShareAPI: hasShareAPI(),
-    recommendedMethod: isCapacitorNative() ? 'filesharer' : isMobileWebView() ? 'webshare' : 'browser',
+    recommendedMethod: isCapacitorNative()
+      ? 'filesharer'
+      : hasAndroidBridge() || hasIOSBridge()
+        ? 'native-bridge'
+        : isMobileWebView()
+          ? 'webshare'
+          : 'browser',
   };
 }

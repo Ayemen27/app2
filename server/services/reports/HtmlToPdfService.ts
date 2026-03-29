@@ -2,6 +2,7 @@ import { chromium, type Browser } from 'playwright';
 import { existsSync } from 'fs';
 
 let browserInstance: Browser | null = null;
+let chromiumAvailable: boolean | null = null;
 
 function findChromiumPath(): string | undefined {
   const candidates = [
@@ -12,6 +13,7 @@ function findChromiumPath(): string | undefined {
     '/usr/bin/chromium',
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
+    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-131.0.6778.204/bin/chromium',
   ];
 
   for (const p of candidates) {
@@ -28,17 +30,33 @@ async function getBrowser(): Promise<Browser> {
 
   const execPath = findChromiumPath();
 
-  browserInstance = await chromium.launch({
-    ...(execPath ? { executablePath: execPath } : {}),
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
-  });
+  try {
+    browserInstance = await chromium.launch({
+      ...(execPath ? { executablePath: execPath } : {}),
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--no-first-run',
+      ],
+    });
+    chromiumAvailable = true;
+    return browserInstance;
+  } catch (err: unknown) {
+    chromiumAvailable = false;
+    console.error('[PDF] Chromium launch failed:', (err as Error)?.message);
+    throw new Error('PDF_ENGINE_UNAVAILABLE');
+  }
+}
 
-  return browserInstance;
+export function isPdfEngineAvailable(): boolean {
+  if (chromiumAvailable !== null) return chromiumAvailable;
+  const path = findChromiumPath();
+  return path !== undefined;
 }
 
 export async function convertHtmlToPdf(htmlContent: string): Promise<Buffer> {

@@ -1403,7 +1403,19 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
 
     return res.status(400).json({ success: false, error: 'نوع التقرير غير صالح' });
   } catch (error: any) {
-    console.error('❌ [Reports V2] خطأ في التصدير:', error);
-    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
+    console.error('❌ [Reports V2] خطأ في التصدير:', error?.message || error);
+    if (error?.message === 'PDF_ENGINE_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        error: 'محرك PDF غير متوفر حالياً. يرجى تصدير بصيغة Excel بدلاً من ذلك'
+      });
+    }
+    if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+      return res.status(503).json({
+        success: false,
+        error: 'خطأ في الاتصال بقاعدة البيانات. يرجى المحاولة لاحقاً'
+      });
+    }
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ في إنشاء التقرير') });
   }
 });

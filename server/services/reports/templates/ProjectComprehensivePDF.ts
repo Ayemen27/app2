@@ -157,7 +157,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     </div>`;
 
     body += `<table><thead><tr>
-      <th>#</th><th>رقم البئر</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>أجور الفرق</th><th>المواصلات</th><th>المواد</th><th>إجمالي التكلفة</th>
+      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>أجور الفرق</th><th>المواصلات</th><th>المواد</th><th>إجمالي التكلفة</th>
     </tr></thead><tbody>`;
     let totalCrewWages = 0, totalTransportCost = 0, totalMaterialsCost = 0, totalWellCost = 0;
     data.wells.wellsList.forEach((w, i) => {
@@ -168,6 +168,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
       body += `<tr>
         <td>${i + 1}</td>
         <td>${w.wellNumber}</td>
+        <td style="text-align:right;">${escapeHtml(w.ownerName)}</td>
         <td>${escapeHtml(w.region)}</td>
         <td>${w.depth} م</td>
         <td style="color:${statusColor(w.status)};font-weight:600;">${escapeHtml(statusLabel(w.status))}</td>
@@ -181,7 +182,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td style="font-weight:700;color:${PDF_COLORS.navy};">${formatNum(w.totalCost)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalCrewWages), formatNum(totalTransportCost), formatNum(totalMaterialsCost), formatNum(totalWellCost)]);
+    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalCrewWages), formatNum(totalTransportCost), formatNum(totalMaterialsCost), formatNum(totalWellCost)]);
     body += `</tbody></table>`;
   }
 

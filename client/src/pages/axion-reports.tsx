@@ -2246,6 +2246,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                       <tr className="border-b bg-muted/50">
                         <th className="p-2 text-right">#</th>
                         <th className="p-2 text-right">رقم البئر</th>
+                        <th className="p-2 text-right">المالك</th>
                         <th className="p-2 text-right">المنطقة</th>
                         <th className="p-2 text-right">العمق</th>
                         <th className="p-2 text-right">الحالة</th>
@@ -2268,6 +2269,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         <tr key={i} className="border-b hover:bg-muted/30">
                           <td className="p-2">{i + 1}</td>
                           <td className="p-2 font-medium">{w.wellNumber}</td>
+                          <td className="p-2">{w.ownerName}</td>
                           <td className="p-2">{w.region}</td>
                           <td className="p-2">{w.depth} م</td>
                           <td className="p-2">

@@ -172,6 +172,12 @@ export class PaymentAllocationService {
       if (!balanceMap.has(alloc.projectId)) {
         throw new Error(`المشروع ${alloc.projectId} ليس ضمن مشاريع العامل`);
       }
+      const projectBalance = balanceMap.get(alloc.projectId)!;
+      if (alloc.amount > projectBalance + 0.01) {
+        throw new Error(
+          `مبلغ التخصيص (${alloc.amount}) يتجاوز رصيد المشروع المفتوح (${projectBalance}) للمشروع ${alloc.projectId}`
+        );
+      }
     }
 
     const client = await pool.connect();

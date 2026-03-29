@@ -402,14 +402,16 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
       numberOfBases: z.number().int().nonnegative().optional(),
       numberOfPanels: z.number().int().nonnegative().optional(),
       wellDepth: z.number().positive().optional(),
-      waterLevel: z.number().optional(),
+      waterLevel: z.number().nullable().optional(),
       numberOfPipes: z.number().int().nonnegative().optional(),
-      fanType: z.string().optional(),
-      pumpPower: z.number().optional(),
-      startDate: z.string().optional(),
-      notes: z.string().max(1000).optional(),
+      fanType: z.string().nullable().optional(),
+      pumpPower: z.number().nullable().optional(),
+      startDate: z.string().nullable().optional(),
+      completionDate: z.string().nullable().optional(),
+      notes: z.string().max(1000).nullable().optional(),
       status: z.string().optional(),
-      completionPercentage: z.string().optional(),
+      completionPercentage: z.string().nullable().optional(),
+      beneficiaryPhone: z.string().nullable().optional(),
     }).passthrough();
     const parsed = updateWellSchema.safeParse(req.body);
     if (!parsed.success) {

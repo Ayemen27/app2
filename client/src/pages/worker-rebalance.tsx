@@ -77,18 +77,16 @@ interface RebalancePreview {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('ar-SA');
+  return n.toLocaleString('en-US');
 }
 
-function toArabicDigits(str: string): string {
-  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return str.replace(/[0-9]/g, (d) => arabicDigits[parseInt(d)]);
-}
-
-function formatDateArabic(dateStr: string): string {
+function formatDateBritish(dateStr: string): string {
   if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return toArabicDigits(d.toLocaleDateString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit' }));
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
 }
 
 function getTodayDate(): string {
@@ -500,7 +498,7 @@ export default function WorkerRebalancePage() {
                           }`}
                           data-testid={`btn-date-${pd.date}`}
                         >
-                          <span className="font-medium">{formatDateArabic(pd.date)}</span>
+                          <span className="font-medium">{formatDateBritish(pd.date)}</span>
                           <span className="text-muted-foreground">{formatNumber(pd.totalAmount)} ر.ي — {pd.sources}</span>
                         </button>
                       ))}

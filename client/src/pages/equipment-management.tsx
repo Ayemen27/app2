@@ -236,24 +236,97 @@ export function EquipmentManagement() {
     });
   }, [stockItems, stockStatusFilter]);
 
-  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
-    {
-      columns: 2,
-      gap: 'sm',
-      items: [
-        { key: 'total_items', label: 'إجمالي المواد', value: stats.total_items || 0, icon: Package, color: 'blue' },
-        { key: 'items_in_stock', label: 'مواد متوفرة', value: stats.items_in_stock || 0, icon: CheckCircle2, color: 'green' },
-      ]
-    },
-    {
-      columns: 2,
-      gap: 'sm',
-      items: [
-        { key: 'stock_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber', unit: 'ر.ي' },
-        { key: 'out_of_stock', label: 'نفذت من المخزن', value: stats.out_of_stock_items || 0, icon: AlertTriangle, color: 'red' },
-      ]
+  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN'), [transactions]);
+  const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
+  const returnTx = useMemo(() => transactions.filter(t => t.type === 'RETURN'), [transactions]);
+
+  const eqStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    equipmentList.forEach((eq: any) => {
+      const s = eq.status || 'unknown';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return counts;
+  }, [equipmentList]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
+    if (activeTab === 'stock') {
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'total_items', label: 'إجمالي المواد', value: stats.total_items || 0, icon: Package, color: 'blue' },
+          { key: 'items_in_stock', label: 'مواد متوفرة', value: stats.items_in_stock || 0, icon: CheckCircle2, color: 'green' },
+        ]},
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'stock_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber', unit: 'ر.ي' },
+          { key: 'out_of_stock', label: 'نفذت من المخزن', value: stats.out_of_stock_items || 0, icon: AlertTriangle, color: 'red' },
+        ]},
+      ];
     }
-  ], [stats]);
+    if (activeTab === 'incoming') {
+      const totalQty = incomingTx.reduce((s, t) => s + parseFloat(t.quantity || '0'), 0);
+      const totalCost = incomingTx.reduce((s, t) => s + parseFloat(t.total_cost || '0'), 0);
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'in_count', label: 'عدد حركات الوارد', value: incomingTx.length, icon: ArrowDownToLine, color: 'green' },
+          { key: 'in_qty', label: 'إجمالي الكمية الواردة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+        ]},
+        { columns: 1, gap: 'sm' as const, items: [
+          { key: 'in_cost', label: 'إجمالي تكلفة الوارد', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
+        ]},
+      ];
+    }
+    if (activeTab === 'outgoing') {
+      const totalQty = outgoingTx.reduce((s, t) => s + parseFloat(t.quantity || '0'), 0);
+      const totalCost = outgoingTx.reduce((s, t) => s + parseFloat(t.total_cost || '0'), 0);
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'out_count', label: 'عدد حركات الصرف', value: outgoingTx.length, icon: ArrowUpFromLine, color: 'red' },
+          { key: 'out_qty', label: 'إجمالي الكمية المصروفة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+        ]},
+        { columns: 1, gap: 'sm' as const, items: [
+          { key: 'out_cost', label: 'إجمالي تكلفة الصرف', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
+        ]},
+      ];
+    }
+    if (activeTab === 'returns') {
+      const totalQty = returnTx.reduce((s, t) => s + parseFloat(t.quantity || '0'), 0);
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'ret_count', label: 'عدد حركات المرتجع', value: returnTx.length, icon: RefreshCw, color: 'blue' },
+          { key: 'ret_qty', label: 'إجمالي الكمية المرتجعة', value: totalQty.toFixed(1), icon: Package, color: 'green' },
+        ]},
+      ];
+    }
+    if (activeTab === 'reports') {
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'rpt_items', label: 'إجمالي المواد', value: stats.total_items || 0, icon: Package, color: 'blue' },
+          { key: 'rpt_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber' },
+        ]},
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'rpt_in', label: 'حركات الوارد', value: incomingTx.length, icon: ArrowDownToLine, color: 'green' },
+          { key: 'rpt_out', label: 'حركات الصرف', value: outgoingTx.length, icon: ArrowUpFromLine, color: 'red' },
+        ]},
+      ];
+    }
+    if (activeTab === 'assets') {
+      const totalEquipment = equipmentList.length;
+      const availableCount = eqStatusCounts['available'] || 0;
+      const maintenanceCount = eqStatusCounts['maintenance'] || 0;
+      const lostCount = eqStatusCounts['lost'] || 0;
+      return [
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'eq_total', label: 'إجمالي المعدات', value: totalEquipment, icon: Settings, color: 'blue' },
+          { key: 'eq_available', label: 'متاح', value: availableCount, icon: CheckCircle2, color: 'green' },
+        ]},
+        { columns: 2, gap: 'sm' as const, items: [
+          { key: 'eq_maintenance', label: 'صيانة', value: maintenanceCount, icon: AlertTriangle, color: 'amber' },
+          { key: 'eq_lost', label: 'مفقود / أخرى', value: totalEquipment - availableCount - maintenanceCount, icon: Box, color: 'red' },
+        ]},
+      ];
+    }
+    return [];
+  }, [activeTab, stats, incomingTx, outgoingTx, returnTx, equipmentList, eqStatusCounts]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => {
     const baseFilters: FilterConfig[] = [
@@ -317,10 +390,6 @@ export function EquipmentManagement() {
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
   }, [queryClient]);
-
-  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN'), [transactions]);
-  const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
-  const returnTx = useMemo(() => transactions.filter(t => t.type === 'RETURN'), [transactions]);
 
   const tabExportConfig = useMemo(() => {
     const dateStr = new Date().toLocaleDateString('ar-SA');

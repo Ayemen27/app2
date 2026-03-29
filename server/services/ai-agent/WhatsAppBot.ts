@@ -279,6 +279,26 @@ export class WhatsAppBot {
     this.cancelReconnect();
     if (this.sock) {
       try {
+        this.sock.ev?.removeAllListeners?.('connection.update');
+        this.sock.ev?.removeAllListeners?.('creds.update');
+        this.sock.ev?.removeAllListeners?.('messages.upsert');
+        await this.sock.end(undefined);
+      } catch (e) {
+        console.warn('[WhatsAppBot] Error during graceful disconnect:', e);
+      }
+    }
+    this.sock = null;
+    this.status = "close";
+    this.qr = null;
+    this.pairingCode = null;
+    this.lastError = "تم إيقاف الاتصال مؤقتاً (الجلسة محفوظة)";
+    console.log('[WhatsAppBot] Disconnected gracefully (session preserved)');
+  }
+
+  async forceLogout(): Promise<void> {
+    this.cancelReconnect();
+    if (this.sock) {
+      try {
         await this.sock.logout();
       } catch (e) {
         try {
@@ -292,8 +312,8 @@ export class WhatsAppBot {
     this.pairingCode = null;
     this.connectedAt = null;
     this.needsRelink = false;
-    this.lastError = "تم فصل الاتصال يدوياً";
-    console.log('[WhatsAppBot] Disconnected manually');
+    this.lastError = "تم تسجيل الخروج وإلغاء ربط الجهاز";
+    console.log('[WhatsAppBot] Force logged out (session invalidated)');
   }
 
   async restart(phoneNumber?: string): Promise<void> {

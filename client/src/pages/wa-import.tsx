@@ -2,15 +2,24 @@ import { useState, useMemo, useCallback, useRef, useEffect, Fragment } from "rea
 
 async function pollJob(jobId: string, intervalMs = 2000, timeoutMs = 600000): Promise<any> {
   const start = Date.now();
+  let consecutiveErrors = 0;
   while (Date.now() - start < timeoutMs) {
-    const res = await fetch(`/api/wa-import/job/${jobId}`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`Job polling failed: ${res.status}`);
-    const job = await res.json();
-    if (job.status === 'completed') return job.result;
-    if (job.status === 'failed') throw new Error(job.error || 'Job failed');
-    await new Promise(r => setTimeout(r, intervalMs));
+    try {
+      const res = await fetch(`/api/wa-import/job/${jobId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const job = await res.json();
+      consecutiveErrors = 0;
+      if (job.status === 'completed') return job.result;
+      if (job.status === 'failed') throw new Error(job.error || 'Job failed');
+    } catch (err: any) {
+      if (err.message?.includes('Job failed')) throw err;
+      consecutiveErrors++;
+      if (consecutiveErrors > 10) throw new Error('فقد الاتصال بالسيرفر');
+    }
+    const backoff = Math.min(intervalMs * (1 + consecutiveErrors * 0.5), 10000);
+    await new Promise(r => setTimeout(r, backoff));
   }
-  throw new Error('Job timed out');
+  throw new Error('انتهت مهلة الانتظار');
 }
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -524,13 +533,14 @@ export default function WAImportDashboard() {
   const reconcileMutation = useMutation({
     mutationFn: async (batchId: number) => {
       const resp = await apiRequest(`/api/wa-import/batch/${batchId}/reconcile`, 'POST', {});
-      if (resp.jobId) return await pollJob(resp.jobId);
-      return resp;
+      if (resp.jobId) return { ...(await pollJob(resp.jobId)), _batchId: batchId };
+      return { ...resp, _batchId: batchId };
     },
     onSuccess: (data: any) => {
+      const batchId = data._batchId || selectedBatchId;
       toast({ title: "تمت المطابقة", description: `${data.totalCandidates} مرشح, ${data.newEntries} جديد` });
-      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'verification-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'verification-queue'] });
     },
     onError: (err: any) => toast({ title: "خطأ في المطابقة", description: err.message, variant: "destructive" }),
   });
@@ -538,12 +548,13 @@ export default function WAImportDashboard() {
   const extractMutation = useMutation({
     mutationFn: async (batchId: number) => {
       const resp = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
-      if (resp.jobId) return await pollJob(resp.jobId);
-      return resp;
+      if (resp.jobId) return { ...(await pollJob(resp.jobId)), _batchId: batchId };
+      return { ...resp, _batchId: batchId };
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      const batchId = data._batchId || selectedBatchId;
       toast({ title: "تم الاستخراج بنجاح" });
-      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
     },
     onError: (err: any) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });

@@ -32,6 +32,7 @@ interface BackgroundJob {
   batchId: number;
   type: 'process-media' | 'extract-names' | 'extract' | 'auto-link' | 'reconcile';
   status: 'running' | 'completed' | 'failed';
+  createdBy: string;
   result?: any;
   error?: string;
   startedAt: number;
@@ -44,11 +45,31 @@ function createJobId(): string {
   return `job_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 }
 
+function findRunningJob(batchId: number, type: BackgroundJob['type']): BackgroundJob | undefined {
+  for (const job of backgroundJobs.values()) {
+    if (job.batchId === batchId && job.type === type && job.status === 'running') {
+      if (Date.now() - job.startedAt > 15 * 60 * 1000) {
+        job.status = 'failed';
+        job.error = 'Job timed out (15 min)';
+        job.completedAt = Date.now();
+        continue;
+      }
+      return job;
+    }
+  }
+  return undefined;
+}
+
 function cleanOldJobs() {
-  const cutoff = Date.now() - 30 * 60 * 1000;
+  const completedCutoff = Date.now() - 30 * 60 * 1000;
+  const stuckCutoff = Date.now() - 15 * 60 * 1000;
   for (const [id, job] of backgroundJobs) {
-    if (job.completedAt && job.completedAt < cutoff) {
+    if (job.completedAt && job.completedAt < completedCutoff) {
       backgroundJobs.delete(id);
+    } else if (job.status === 'running' && job.startedAt < stuckCutoff) {
+      job.status = 'failed';
+      job.error = 'Job timed out (15 min)';
+      job.completedAt = Date.now();
     }
   }
 }
@@ -227,10 +248,13 @@ const updateTransferCompanySchema = z.object({
 
 const waImportRouter = Router();
 
-waImportRouter.get("/job/:jobId", requireAuth, async (req, res) => {
+waImportRouter.get("/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res) => {
   const job = backgroundJobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json(job);
+  if (job.createdBy !== req.user?.user_id && req.user?.role !== 'admin') {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  res.json({ id: job.id, batchId: job.batchId, type: job.type, status: job.status, result: job.result, error: job.error, startedAt: job.startedAt, completedAt: job.completedAt });
 });
 
 waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, uploadRateLimit, upload.single("file"), async (req: AuthenticatedRequest, res) => {
@@ -297,10 +321,23 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
           ).map((c: any) => c.canonicalTransactionId).filter(Boolean) as number[]
         : [];
 
+      let safeCanonicalIds: number[] = [];
+      let sharedCanonicalIds: number[] = [];
       if (canonicalIds.length > 0) {
-        await tx.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
-        await tx.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
-        await tx.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
+        const otherBatchRefs = (await tx.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+          .from(waExtractionCandidates)
+          .where(sql`${waExtractionCandidates.canonicalTransactionId} = ANY(${canonicalIds}) AND ${waExtractionCandidates.batchId} != ${batchId}`)
+        ).map((r: any) => r.canonicalTransactionId).filter(Boolean) as number[];
+        const sharedSet = new Set(otherBatchRefs);
+        safeCanonicalIds = canonicalIds.filter((id: number) => !sharedSet.has(id));
+        sharedCanonicalIds = canonicalIds.filter((id: number) => sharedSet.has(id));
+      }
+
+      if (safeCanonicalIds.length > 0) {
+        await tx.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, safeCanonicalIds));
+        await tx.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, safeCanonicalIds));
+        await tx.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, safeCanonicalIds));
+        await tx.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, safeCanonicalIds));
       }
 
       if (candidateIds.length > 0) {
@@ -310,25 +347,14 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
         await tx.delete(waProjectHypotheses).where(inArray(waProjectHypotheses.candidateId, candidateIds));
         await tx.delete(waDedupKeys).where(inArray(waDedupKeys.candidateId, candidateIds));
       }
-      if (canonicalIds.length > 0) {
-        await tx.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
-      }
 
       await tx.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
 
-      if (canonicalIds.length > 0) {
-        const stillReferenced = (await tx.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
-          .from(waExtractionCandidates)
-          .where(inArray(waExtractionCandidates.canonicalTransactionId, canonicalIds))
-        ).map((r: any) => r.canonicalTransactionId).filter(Boolean) as number[];
-
-        const safeToDelete = canonicalIds.filter((id: number) => !stillReferenced.includes(id));
-        if (safeToDelete.length > 0) {
-          await tx.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, safeToDelete));
-        }
-        if (stillReferenced.length > 0) {
-          console.log(`[WAImport] Skipped ${stillReferenced.length} shared canonical transactions (referenced by other batches)`);
-        }
+      if (safeCanonicalIds.length > 0) {
+        await tx.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, safeCanonicalIds));
+      }
+      if (sharedCanonicalIds.length > 0) {
+        console.log(`[WAImport] Skipped ${sharedCanonicalIds.length} shared canonical transactions (referenced by other batches)`);
       }
 
       await tx.delete(waCustodianEntries).where(eq(waCustodianEntries.linkedBatchId, batchId));
@@ -609,8 +635,11 @@ waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEdito
     }
 
     cleanOldJobs();
+    const existing = findRunningJob(batchId, 'process-media');
+    if (existing) return res.json({ jobId: existing.id, status: 'running' });
+
     const jobId = createJobId();
-    const job: BackgroundJob = { id: jobId, batchId, type: 'process-media', status: 'running', startedAt: Date.now() };
+    const job: BackgroundJob = { id: jobId, batchId, type: 'process-media', status: 'running', createdBy: (req as any).user?.user_id || '', startedAt: Date.now() };
     backgroundJobs.set(jobId, job);
     res.json({ jobId, status: 'running' });
 
@@ -637,8 +666,11 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
     }
 
     cleanOldJobs();
+    const existing = findRunningJob(batchId, 'extract');
+    if (existing) return res.json({ jobId: existing.id, status: 'running' });
+
     const jobId = createJobId();
-    const job: BackgroundJob = { id: jobId, batchId, type: 'extract', status: 'running', startedAt: Date.now() };
+    const job: BackgroundJob = { id: jobId, batchId, type: 'extract', status: 'running', createdBy: (req as any).user?.user_id || '', startedAt: Date.now() };
     backgroundJobs.set(jobId, job);
     res.json({ jobId, status: 'running' });
 
@@ -722,8 +754,11 @@ waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, e
     const batchId = parseInt(params.data.id);
 
     cleanOldJobs();
+    const existing = findRunningJob(batchId, 'reconcile');
+    if (existing) return res.json({ jobId: existing.id, status: 'running' });
+
     const jobId = createJobId();
-    const job: BackgroundJob = { id: jobId, batchId, type: 'reconcile', status: 'running', startedAt: Date.now() };
+    const job: BackgroundJob = { id: jobId, batchId, type: 'reconcile', status: 'running', createdBy: (req as any).user?.user_id || '', startedAt: Date.now() };
     backgroundJobs.set(jobId, job);
     res.json({ jobId, status: 'running' });
 
@@ -1031,8 +1066,11 @@ waImportRouter.post("/batches/:batchId/extract-names", requireAuth, requireAdmin
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
     cleanOldJobs();
+    const existing = findRunningJob(batchId, 'extract-names');
+    if (existing) return res.json({ jobId: existing.id, status: 'running' });
+
     const jobId = createJobId();
-    const job: BackgroundJob = { id: jobId, batchId, type: 'extract-names', status: 'running', startedAt: Date.now() };
+    const job: BackgroundJob = { id: jobId, batchId, type: 'extract-names', status: 'running', createdBy: req.user?.user_id || '', startedAt: Date.now() };
     backgroundJobs.set(jobId, job);
     res.json({ jobId, status: 'running' });
 

@@ -60,6 +60,7 @@ const sections: SidebarSection[] = [
       { title: "حضور العمال", url: "/worker-attendance", icon: UserCheck },
       { title: "حسابات العمال", url: "/worker-accounts", icon: Wallet },
       { title: "تصفية الحسابات", url: "/worker-settlements", icon: Scale },
+      { title: "تسوية الأرصدة", url: "/worker-rebalance", icon: ArrowLeftRight, adminOnly: true },
       { title: "سجل العمليات", url: "/project-transactions", icon: FileText, adminOnly: true },
     ]
   },

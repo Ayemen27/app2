@@ -78,6 +78,7 @@ import { EnvironmentBadge } from "./components/layout/EnvironmentBadge";
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
 const WAImportDashboard = lazy(() => import("./pages/wa-import"));
 const WorkerSettlementsPage = lazy(() => import("./pages/worker-settlements"));
+const WorkerRebalancePage = lazy(() => import("./pages/worker-rebalance"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
 const CustomersPage = lazy(() => import("./pages/customers"));
 const SupplierAccountsPage = lazy(() => import("./pages/supplier-accounts"));
@@ -321,6 +322,11 @@ function Router() {
       <Route path="/worker-settlements">
         <Suspense fallback={<PageLoader />}>
           <WorkerSettlementsPage />
+        </Suspense>
+      </Route>
+      <Route path="/worker-rebalance">
+        <Suspense fallback={<PageLoader />}>
+          <WorkerRebalancePage />
         </Suspense>
       </Route>
       <Route path="/suppliers-pro">

@@ -1,0 +1,470 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRightLeft,
+  Eye,
+  Play,
+  Users,
+  Building2,
+  TrendingDown,
+  TrendingUp,
+  ArrowRight,
+  Loader2,
+  Shield,
+  RefreshCw
+} from 'lucide-react';
+
+interface WorkerProject {
+  projectId: string;
+  projectName: string;
+  earned: number;
+  paid: number;
+  transferred: number;
+  balance: number;
+}
+
+interface ImbalancedWorker {
+  workerId: string;
+  workerName: string;
+  projectCount: number;
+  positiveProjects: number;
+  negativeProjects: number;
+  totalBalance: number;
+  projects: WorkerProject[];
+}
+
+interface PreviewLine {
+  fromProjectId: string;
+  fromProjectName: string;
+  fromWorkerBalanceBefore: number;
+  fromWorkerBalanceAfter: number;
+  toProjectId: string;
+  toProjectName: string;
+  toWorkerBalanceBefore: number;
+  toWorkerBalanceAfter: number;
+  amount: number;
+}
+
+interface ProjectFundBalance {
+  projectId: string;
+  projectName: string;
+  totalIncome: number;
+  totalExpenses: number;
+  fundBalance: number;
+}
+
+interface RebalancePreview {
+  workerId: string;
+  workerName: string;
+  lines: PreviewLine[];
+  totalRebalanced: number;
+  projectFundsBefore: ProjectFundBalance[];
+  projectFundsAfter: ProjectFundBalance[];
+}
+
+function formatNumber(n: number): string {
+  return n.toLocaleString('ar-SA');
+}
+
+function getTodayDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function WorkerRebalancePage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedWorker, setSelectedWorker] = useState<ImbalancedWorker | null>(null);
+  const [previewData, setPreviewData] = useState<RebalancePreview | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [completedWorkers, setCompletedWorkers] = useState<Set<string>>(new Set());
+
+  const { data: workersResponse, isLoading, refetch } = useQuery<{ success: boolean; data: ImbalancedWorker[] }>({
+    queryKey: ['/api/worker-rebalance/imbalanced-workers'],
+  });
+
+  const workers = workersResponse?.data || [];
+
+  const previewMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const res = await apiRequest('GET', `/api/worker-rebalance/preview/${workerId}`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setPreviewData(data.data);
+      } else {
+        toast({ title: 'خطأ', description: data.message, variant: 'destructive' });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const executeMutation = useMutation({
+    mutationFn: async (params: { workerId: string; lines: any[]; date: string }) => {
+      const res = await apiRequest('POST', '/api/worker-rebalance/execute', params);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: 'تمت التسوية بنجاح', description: data.message });
+        setCompletedWorkers(prev => new Set(prev).add(previewData?.workerId || ''));
+        setShowConfirmDialog(false);
+        setPreviewData(null);
+        setSelectedWorker(null);
+        queryClient.invalidateQueries({ queryKey: ['/api/worker-rebalance/imbalanced-workers'] });
+        refetch();
+      } else {
+        toast({ title: 'فشل التسوية', description: data.message, variant: 'destructive' });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handlePreview = (worker: ImbalancedWorker) => {
+    setSelectedWorker(worker);
+    previewMutation.mutate(worker.workerId);
+  };
+
+  const handleExecute = () => {
+    if (!previewData) return;
+    executeMutation.mutate({
+      workerId: previewData.workerId,
+      lines: previewData.lines.map(l => ({
+        fromProjectId: l.fromProjectId,
+        toProjectId: l.toProjectId,
+        amount: l.amount,
+      })),
+      date: getTodayDate(),
+    });
+  };
+
+  return (
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="page-title">
+            <Shield className="h-6 w-6 text-amber-600" />
+            تسوية أرصدة العمال القديمة
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            ترحيل الأموال بين المشاريع للعمال الذين لديهم رصيد سالب في مشروع وموجب في مشروع آخر
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => refetch()} data-testid="btn-refresh">
+          <RefreshCw className="h-4 w-4 ml-2" />
+          تحديث
+        </Button>
+      </div>
+
+      <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-800 dark:text-amber-200">
+          هذه الأداة مخصصة لإصلاح الأرصدة المتضاربة القديمة. كل عملية تُنشئ ترحيلات مالية بين المشاريع مع ملاحظات توضيحية تلقائية وقيود محاسبية.
+          <strong> التنفيذ يدوي — عامل بعامل مع معاينة قبل/بعد.</strong>
+        </AlertDescription>
+      </Alert>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="mr-2 text-muted-foreground">جارٍ تحميل البيانات...</span>
+        </div>
+      ) : workers.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold">لا توجد أرصدة متضاربة</h3>
+            <p className="text-muted-foreground mt-1">جميع حسابات العمال متوازنة</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span data-testid="text-worker-count">تم العثور على <strong>{workers.length}</strong> عامل بأرصدة متضاربة</span>
+          </div>
+
+          <div className="grid gap-4">
+            {workers.map((worker) => {
+              const isCompleted = completedWorkers.has(worker.workerId);
+              return (
+                <Card
+                  key={worker.workerId}
+                  className={`transition-all ${isCompleted ? 'opacity-50 border-green-300' : 'hover:shadow-md'}`}
+                  data-testid={`card-worker-${worker.workerId}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-lg" data-testid={`text-worker-name-${worker.workerId}`}>
+                            {worker.workerName}
+                          </h3>
+                          {isCompleted && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle2 className="h-3 w-3 ml-1" />
+                              تمت التسوية
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {worker.projectCount} مشاريع
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            الرصيد الكلي: {formatNumber(worker.totalBalance)}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
+                          {worker.projects.map((proj) => (
+                            <div
+                              key={proj.projectId}
+                              className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                                proj.balance < -0.01
+                                  ? 'bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                                  : proj.balance > 0.01
+                                  ? 'bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                                  : 'bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                              }`}
+                              data-testid={`project-balance-${worker.workerId}-${proj.projectId}`}
+                            >
+                              {proj.balance < -0.01 ? (
+                                <TrendingDown className="h-4 w-4 text-red-500 shrink-0" />
+                              ) : proj.balance > 0.01 ? (
+                                <TrendingUp className="h-4 w-4 text-green-500 shrink-0" />
+                              ) : (
+                                <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">{proj.projectName}</div>
+                                <div className={`font-bold ${
+                                  proj.balance < -0.01 ? 'text-red-600' : proj.balance > 0.01 ? 'text-green-600' : 'text-gray-500'
+                                }`}>
+                                  {formatNumber(proj.balance)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => handlePreview(worker)}
+                        disabled={isCompleted || previewMutation.isPending}
+                        data-testid={`btn-preview-${worker.workerId}`}
+                      >
+                        {previewMutation.isPending && selectedWorker?.workerId === worker.workerId ? (
+                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                        ) : (
+                          <Eye className="h-4 w-4 ml-2" />
+                        )}
+                        معاينة التسوية
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <Dialog open={!!previewData} onOpenChange={(open) => { if (!open) { setPreviewData(null); setSelectedWorker(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+              معاينة تسوية — {previewData?.workerName}
+            </DialogTitle>
+            <DialogDescription>
+              مراجعة الأرصدة قبل وبعد التسوية — تأكد من صحة البيانات قبل التنفيذ
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewData && previewData.lines.length > 0 ? (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                إجمالي المبالغ المرحّلة: <strong className="text-foreground">{formatNumber(previewData.totalRebalanced)}</strong>
+              </div>
+
+              <div className="text-sm font-semibold text-muted-foreground mt-2">رصيد العامل في المشاريع:</div>
+              {previewData.lines.map((line, idx) => (
+                <Card key={idx} className="border-blue-200 dark:border-blue-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      <div className="text-center flex-1 min-w-[140px]">
+                        <div className="text-xs text-muted-foreground mb-1">المصدر (موجب)</div>
+                        <div className="font-semibold text-sm truncate" data-testid={`text-from-project-${idx}`}>
+                          {line.fromProjectName}
+                        </div>
+                        <div className="flex items-center justify-center gap-2 mt-1">
+                          <span className="text-green-600 text-sm">{formatNumber(line.fromWorkerBalanceBefore)}</span>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-blue-600 font-bold text-sm">{formatNumber(line.fromWorkerBalanceAfter)}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full px-4 py-2 text-center" data-testid={`text-amount-${idx}`}>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">ترحيل</div>
+                        <div className="font-bold text-blue-700 dark:text-blue-300">{formatNumber(line.amount)}</div>
+                      </div>
+
+                      <div className="text-center flex-1 min-w-[140px]">
+                        <div className="text-xs text-muted-foreground mb-1">الهدف (سالب)</div>
+                        <div className="font-semibold text-sm truncate" data-testid={`text-to-project-${idx}`}>
+                          {line.toProjectName}
+                        </div>
+                        <div className="flex items-center justify-center gap-2 mt-1">
+                          <span className="text-red-600 text-sm">{formatNumber(line.toWorkerBalanceBefore)}</span>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-blue-600 font-bold text-sm">{formatNumber(line.toWorkerBalanceAfter)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {previewData.projectFundsBefore.length > 0 && (
+                <>
+                  <div className="text-sm font-semibold text-muted-foreground mt-4 flex items-center gap-1">
+                    <Building2 className="h-4 w-4" />
+                    أرصدة صناديق المشاريع (قبل ← بعد):
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {previewData.projectFundsBefore.map((pf) => {
+                      const after = previewData.projectFundsAfter.find(a => a.projectId === pf.projectId);
+                      const diff = (after?.fundBalance || 0) - pf.fundBalance;
+                      return (
+                        <Card key={pf.projectId} className="border-gray-200 dark:border-gray-700">
+                          <CardContent className="p-3">
+                            <div className="font-semibold text-sm truncate mb-2" data-testid={`fund-project-${pf.projectId}`}>
+                              {pf.projectName}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <span className="text-muted-foreground">الدخل: </span>
+                                <span className="font-medium">{formatNumber(pf.totalIncome)}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">المصروفات: </span>
+                                <span className="font-medium">{formatNumber(pf.totalExpenses)}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">الصندوق: </span>
+                                <span className={`font-bold ${pf.fundBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {formatNumber(pf.fundBalance)}
+                                </span>
+                              </div>
+                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <div className="text-sm">
+                                <span className={`font-bold ${(after?.fundBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {formatNumber(after?.fundBalance || 0)}
+                                </span>
+                                <span className={`mr-1 text-xs ${diff > 0 ? 'text-green-500' : diff < 0 ? 'text-red-500' : ''}`}>
+                                  ({diff > 0 ? '+' : ''}{formatNumber(diff)})
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
+                  <strong>ملاحظة تلقائية ستُضاف:</strong> &quot;تسوية رصيد قديم — ترحيل مستحقات العامل &quot;{previewData.workerName}&quot;&quot;
+                  <br />
+                  سيتم إنشاء {previewData.lines.length} ترحيل(ات) مالية + قيود محاسبية مزدوجة + مزامنة أرصدة العامل
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setPreviewData(null); setSelectedWorker(null); }}
+                  data-testid="btn-cancel-preview"
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  variant="default"
+                  className="bg-amber-600 hover:bg-amber-700"
+                  onClick={() => setShowConfirmDialog(true)}
+                  data-testid="btn-confirm-step1"
+                >
+                  <Play className="h-4 w-4 ml-2" />
+                  تنفيذ التسوية
+                </Button>
+              </div>
+            </div>
+          ) : previewData && previewData.lines.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
+              <p>لا توجد عمليات ترحيل مطلوبة لهذا العامل</p>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              تأكيد التنفيذ
+            </DialogTitle>
+            <DialogDescription>
+              هل أنت متأكد من تنفيذ التسوية للعامل <strong>{previewData?.workerName}</strong>؟
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <p>سيتم ترحيل <strong>{formatNumber(previewData?.totalRebalanced || 0)}</strong> عبر <strong>{previewData?.lines.length || 0}</strong> عمليات</p>
+            <p className="text-muted-foreground">هذه العملية قابلة للعكس عبر معرف التسوية (rebalanceId)</p>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} data-testid="btn-cancel-confirm">
+              تراجع
+            </Button>
+            <Button
+              variant="destructive"
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleExecute}
+              disabled={executeMutation.isPending}
+              data-testid="btn-execute-final"
+            >
+              {executeMutation.isPending ? (
+                <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 ml-2" />
+              )}
+              تأكيد ونفذ
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

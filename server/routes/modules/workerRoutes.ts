@@ -27,6 +27,7 @@ import {
   workerProjectWages, insertWorkerProjectWageSchema
 } from '@shared/schema';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
+import { LegacyRebalanceService, RebalanceValidationError, RebalanceNotFoundError, RebalanceConflictError } from '../../services/LegacyRebalanceService.js';
 import { getAuthUser, isAdmin } from '../../internal/auth-user.js';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService.js';
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
@@ -1330,6 +1331,112 @@ workerRouter.post('/worker-transfers/allocate', async (req: Request, res: Respon
       message: error.message || 'فشل في تنفيذ توزيع الحوالة',
       data: null
     });
+  }
+});
+
+/**
+ * GET /api/worker-rebalance/imbalanced-workers
+ */
+workerRouter.get('/worker-rebalance/imbalanced-workers', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
+    }
+    const workers = await LegacyRebalanceService.getImbalancedWorkers();
+    res.json({ success: true, data: workers });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب العمال المتضاربين:', error);
+    res.status(500).json({ success: false, message: error.message || 'فشل في جلب البيانات' });
+  }
+});
+
+/**
+ * GET /api/worker-rebalance/preview/:workerId
+ */
+workerRouter.get('/worker-rebalance/preview/:workerId', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
+    }
+    const preview = await LegacyRebalanceService.preview(req.params.workerId);
+    res.json({ success: true, data: preview });
+  } catch (error: any) {
+    console.error('❌ خطأ في معاينة التسوية:', error);
+    res.status(500).json({ success: false, message: error.message || 'فشل في إنشاء المعاينة' });
+  }
+});
+
+/**
+ * POST /api/worker-rebalance/execute
+ */
+workerRouter.post('/worker-rebalance/execute', async (req: Request, res: Response) => {
+  try {
+    const authUser = getAuthUser(req);
+    if (!authUser || !isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
+    }
+
+    const { workerId, lines, date } = req.body;
+
+    if (!workerId || !lines || !Array.isArray(lines) || lines.length === 0 || !date) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات ناقصة: workerId, lines, date مطلوبة'
+      });
+    }
+
+    for (const line of lines) {
+      if (!line.fromProjectId || !line.toProjectId || !Number.isFinite(Number(line.amount)) || Number(line.amount) <= 0) {
+        return res.status(400).json({ success: false, message: 'كل سطر يجب أن يحتوي على fromProjectId, toProjectId, amount صالح' });
+      }
+    }
+
+    const sanitizedLines = lines.map((l: any) => ({
+      fromProjectId: l.fromProjectId,
+      toProjectId: l.toProjectId,
+      amount: Number(l.amount),
+    }));
+
+    const result = await LegacyRebalanceService.execute(workerId, sanitizedLines, date, authUser.user_id);
+
+    console.log(`✅ [LegacyRebalance] تسوية ناجحة - rebalanceId: ${result.rebalanceId}, lines: ${result.lines.length}`);
+
+    res.json({
+      success: true,
+      data: result,
+      message: result.note
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في تنفيذ التسوية:', error);
+    const statusCode = error instanceof RebalanceValidationError ? 400
+      : error instanceof RebalanceConflictError ? 409
+      : error instanceof RebalanceNotFoundError ? 404
+      : 500;
+    res.status(statusCode).json({ success: false, message: error.message || 'فشل في تنفيذ التسوية' });
+  }
+});
+
+/**
+ * POST /api/worker-rebalance/reverse
+ */
+workerRouter.post('/worker-rebalance/reverse', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
+    }
+    const { rebalanceId } = req.body;
+    if (!rebalanceId) {
+      return res.status(400).json({ success: false, message: 'rebalanceId مطلوب' });
+    }
+    const result = await LegacyRebalanceService.reverseRebalance(rebalanceId);
+    res.json({ success: true, data: result, message: `تم عكس التسوية بنجاح (${result.reversedCount} عمليات)` });
+  } catch (error: any) {
+    console.error('❌ خطأ في عكس التسوية:', error);
+    const statusCode = error instanceof RebalanceNotFoundError ? 404
+      : error instanceof RebalanceValidationError ? 400
+      : error instanceof RebalanceConflictError ? 409
+      : 500;
+    res.status(statusCode).json({ success: false, message: error.message || 'فشل في عكس التسوية' });
   }
 });
 

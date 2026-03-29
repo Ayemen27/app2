@@ -858,7 +858,7 @@ export class ReportDataService {
       FROM supplier_payments sp
       LEFT JOIN suppliers s ON sp.supplier_id = s.id
       LEFT JOIN material_purchases mp ON sp.purchase_id = mp.id
-      WHERE sp.project_id = $1 AND sp.payment_date >= $2 AND sp.payment_date <= $3
+      WHERE sp.project_id = $1 AND sp.payment_date::date >= $2::date AND sp.payment_date::date <= $3::date
       ORDER BY sp.payment_date
     `, [projectId, dateFrom, dateTo]);
 
@@ -931,7 +931,7 @@ export class ReportDataService {
     const cashMaterialsResult = await pool.query(`SELECT COALESCE(SUM(
       CASE WHEN safe_numeric(paid_amount::text) > 0 THEN safe_numeric(paid_amount::text)
            ELSE safe_numeric(total_amount::text) END
-    ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date >= $2 AND purchase_date <= $3`, [projectId, dateFrom, dateTo]);
+    ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date`, [projectId, dateFrom, dateTo]);
     const totalMaterialsCash = safeParseNum(cashMaterialsResult.rows[0]?.total);
 
     const transportTotal = safeNum(transportRows[0]?.totalAmount);
@@ -974,7 +974,7 @@ export class ReportDataService {
     const totalProjectTransfersIn = projectTransferInRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
-    const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
+    const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date >= $2::date AND payment_date::date <= $3::date`, [projectId, dateFrom, dateTo]);
     const totalSupplierPaymentsPeriod = safeParseNum(supplierPayPeriodResult.rows[0]?.total);
 
     const inventoryPeriodResult = await pool.query(`
@@ -996,7 +996,7 @@ export class ReportDataService {
       LEFT JOIN lot_totals lt ON lt.item_id = t.item_id
       LEFT JOIN projects p ON p.id = t.from_project_id
       WHERE t.type = 'OUT'
-        AND t.transaction_date >= $2 AND t.transaction_date <= $3
+        AND t.transaction_date::date >= $2::date AND t.transaction_date::date <= $3::date
         AND (t.from_project_id = $1 OR t.to_project_id = $1)
       ORDER BY t.transaction_date
     `, [projectId, dateFrom, dateTo]);
@@ -1444,9 +1444,9 @@ export class ReportDataService {
         client.query(`
           SELECT
             COUNT(DISTINCT wa.worker_id) AS total_workers,
-            COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 THEN wa.worker_id END) AS active_workers
+            COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date THEN wa.worker_id END) AS active_workers
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1457,7 +1457,7 @@ export class ReportDataService {
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_wages
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date <= $3::date
           GROUP BY w.type ORDER BY total_wages DESC
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
@@ -1470,7 +1470,7 @@ export class ReportDataService {
             COALESCE((SELECT SUM(safe_numeric(wt.amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id = wa.worker_id AND wt.project_id = $1 AND wt.transfer_date::date >= $2::date AND wt.transfer_date::date <= $3::date), 0) AS total_transfers
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date <= $3::date
           GROUP BY wa.worker_id, w.name, w.type
           ORDER BY total_earned DESC LIMIT 20
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
@@ -1516,7 +1516,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(wa.work_days::text)), 0) AS total_work_days,
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_wages
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date <= $3::date
           GROUP BY COALESCE(NULLIF(wa.date,''), wa.attendance_date) ORDER BY COALESCE(NULLIF(wa.date,''), wa.attendance_date)
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
@@ -1526,7 +1526,7 @@ export class ReportDataService {
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_earned,
             COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date >= $2::date AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1535,7 +1535,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(paid_amount::text)), 0) AS total_paid,
             COALESCE(SUM(CASE WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0) WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) AS total_cash
           FROM material_purchases
-          WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
+          WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1544,7 +1544,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
             COUNT(*) AS count
           FROM material_purchases
-          WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
+          WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
           GROUP BY TRIM(material_category) ORDER BY total DESC
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
@@ -1553,7 +1553,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(amount::text)), 0) AS total,
             COUNT(*) AS trip_count
           FROM transportation_expenses
-          WHERE project_id = $1 AND date >= $2 AND date <= $3
+          WHERE project_id = $1 AND date::date >= $2::date AND date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1561,7 +1561,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(amount::text)), 0) AS total,
             COUNT(*) AS count
           FROM worker_misc_expenses
-          WHERE project_id = $1 AND date >= $2 AND date <= $3
+          WHERE project_id = $1 AND date::date >= $2::date AND date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1569,7 +1569,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(amount::text)), 0) AS total,
             COUNT(*) AS count
           FROM worker_transfers
-          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          WHERE project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1597,13 +1597,13 @@ export class ReportDataService {
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
-          WHERE to_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          WHERE to_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
-          WHERE from_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          WHERE from_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
@@ -1625,7 +1625,7 @@ export class ReportDataService {
       const supplierPayCompResult = await client.query(`
         SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total, COUNT(*) AS count
         FROM supplier_payments
-        WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3
+        WHERE project_id = $1 AND payment_date::date >= $2::date AND payment_date::date <= $3::date
       `, [projectId, effectiveDateFrom, effectiveDateTo]);
       const totalSupplierPaymentsComp = safeNum(supplierPayCompResult.rows[0]?.total);
       const supplierPaymentsCount = safeNum(supplierPayCompResult.rows[0]?.count);
@@ -1635,7 +1635,7 @@ export class ReportDataService {
           COALESCE(s.name, sp.supplier_id) AS supplier_name
         FROM supplier_payments sp
         LEFT JOIN suppliers s ON s.id = sp.supplier_id
-        WHERE sp.project_id = $1 AND sp.payment_date >= $2 AND sp.payment_date <= $3
+        WHERE sp.project_id = $1 AND sp.payment_date::date >= $2::date AND sp.payment_date::date <= $3::date
         ORDER BY sp.payment_date
       `, [projectId, effectiveDateFrom, effectiveDateTo]);
 

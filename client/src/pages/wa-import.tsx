@@ -1,4 +1,17 @@
 import { useState, useMemo, useCallback, useRef, useEffect, Fragment } from "react";
+
+async function pollJob(jobId: string, intervalMs = 2000, timeoutMs = 600000): Promise<any> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const res = await fetch(`/api/wa-import/job/${jobId}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Job polling failed: ${res.status}`);
+    const job = await res.json();
+    if (job.status === 'completed') return job.result;
+    if (job.status === 'failed') throw new Error(job.error || 'Job failed');
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  throw new Error('Job timed out');
+}
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -270,9 +283,13 @@ export default function WAImportDashboard() {
   });
 
   const extractNamesMutation = useMutation({
-    mutationFn: (batchId: number) =>
-      apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {}),
-    onSuccess: (data: any, batchId: number) => {
+    mutationFn: async (batchId: number) => {
+      const resp = await apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {});
+      if (resp.jobId) return { ...(await pollJob(resp.jobId)), _batchId: batchId };
+      return { ...resp, _batchId: batchId };
+    },
+    onSuccess: (data: any) => {
+      const batchId = data._batchId;
       const msg = `تم استخراج ${data.totalNames || 0} اسم (${data.newNames || 0} جديد، ${data.unlinkedNames || 0} غير مربوط)`;
       toast({ title: "تم استخراج الأسماء", description: msg });
       if ((data.unlinkedNames || 0) > 0) {
@@ -348,12 +365,23 @@ export default function WAImportDashboard() {
     try {
       let mediaResult: any = { skipped: 0, processed: 0, failed: 0, previouslyProcessed: 0, totalAssets: 0, newlyProcessed: 0 };
       try {
-        mediaResult = await apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {});
+        const mediaJob = await apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {});
+        if (mediaJob.jobId) {
+          mediaResult = await pollJob(mediaJob.jobId);
+        } else {
+          mediaResult = mediaJob;
+        }
       } catch (_e) { /* non-blocking */ }
       setPipelineResults(prev => ({ ...prev, media: mediaResult }));
 
       setPipelineStage('names');
-      const namesResult = await apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {});
+      const namesJob = await apiRequest(`/api/wa-import/batches/${batchId}/extract-names`, 'POST', {});
+      let namesResult: any;
+      if (namesJob.jobId) {
+        namesResult = await pollJob(namesJob.jobId);
+      } else {
+        namesResult = namesJob;
+      }
       setPipelineResults(prev => ({ ...prev, names: namesResult }));
 
       setPipelineStage('autolink');
@@ -363,7 +391,7 @@ export default function WAImportDashboard() {
       } catch (_e) { /* non-blocking */ }
       setPipelineResults(prev => ({ ...prev, autoLink: autoLinkResult }));
 
-      if ((namesResult.unlinkedNames || 0) - (autoLinkResult.linked || 0) > 0) {
+      if ((namesResult?.unlinkedNames || 0) - (autoLinkResult.linked || 0) > 0) {
         setNameLinkingBatchId(batchId);
         setPipelineStage('linking');
         setLinkSelections({});
@@ -394,7 +422,13 @@ export default function WAImportDashboard() {
     setPipelineStage('extract');
     setPipelineResults(prev => ({ ...prev, extractEngine: aiAvailable ? { method: 'ai', model: aiActiveModel || 'AI' } : { method: 'regex' } }));
     try {
-      const extResult = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
+      const extJob = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
+      let extResult: any;
+      if (extJob.jobId) {
+        extResult = await pollJob(extJob.jobId);
+      } else {
+        extResult = extJob;
+      }
       setPipelineResults(prev => ({ ...prev, extract: extResult }));
       setPipelineStage('done');
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', batchId, 'candidates'] });
@@ -411,7 +445,13 @@ export default function WAImportDashboard() {
     setPipelineResults(prev => ({ ...prev, extractEngine: { method: 'regex' } }));
     setPipelineError(null);
     try {
-      const extResult = await apiRequest(`/api/wa-import/batch/${pipelineBatchId}/extract`, 'POST', {});
+      const extJob = await apiRequest(`/api/wa-import/batch/${pipelineBatchId}/extract`, 'POST', {});
+      let extResult: any;
+      if (extJob.jobId) {
+        extResult = await pollJob(extJob.jobId);
+      } else {
+        extResult = extJob;
+      }
       setPipelineResults(prev => ({ ...prev, extract: extResult }));
       setPipelineStage('done');
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', pipelineBatchId, 'candidates'] });
@@ -482,8 +522,11 @@ export default function WAImportDashboard() {
   });
 
   const reconcileMutation = useMutation({
-    mutationFn: (batchId: number) =>
-      apiRequest(`/api/wa-import/batch/${batchId}/reconcile`, 'POST', {}),
+    mutationFn: async (batchId: number) => {
+      const resp = await apiRequest(`/api/wa-import/batch/${batchId}/reconcile`, 'POST', {});
+      if (resp.jobId) return await pollJob(resp.jobId);
+      return resp;
+    },
     onSuccess: (data: any) => {
       toast({ title: "تمت المطابقة", description: `${data.totalCandidates} مرشح, ${data.newEntries} جديد` });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -493,8 +536,11 @@ export default function WAImportDashboard() {
   });
 
   const extractMutation = useMutation({
-    mutationFn: (batchId: number) =>
-      apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {}),
+    mutationFn: async (batchId: number) => {
+      const resp = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
+      if (resp.jobId) return await pollJob(resp.jobId);
+      return resp;
+    },
     onSuccess: () => {
       toast({ title: "تم الاستخراج بنجاح" });
       queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batch', selectedBatchId, 'candidates'] });
@@ -503,9 +549,13 @@ export default function WAImportDashboard() {
   });
 
   const processMediaMutation = useMutation({
-    mutationFn: (batchId: number) =>
-      apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {}),
-    onSuccess: (data: any, batchId: number) => {
+    mutationFn: async (batchId: number) => {
+      const resp = await apiRequest(`/api/wa-import/batch/${batchId}/process-media`, 'POST', {});
+      if (resp.jobId) return { ...(await pollJob(resp.jobId)), _batchId: batchId };
+      return { ...resp, _batchId: batchId };
+    },
+    onSuccess: (data: any) => {
+      const batchId = data._batchId;
       toast({
         title: "تمت معالجة الوسائط",
         description: `تمت المعالجة: ${data.processed || 0} | فشل: ${data.failed || 0} | تم تخطيه: ${data.skipped || 0}`,

@@ -27,6 +27,32 @@ import { autoLinkingService } from "../../services/whatsapp-import/AutoLinkingSe
 
 const ALLOWED_MEDIA_ROOT = path.resolve("uploads/wa-import");
 
+interface BackgroundJob {
+  id: string;
+  batchId: number;
+  type: 'process-media' | 'extract-names' | 'extract' | 'auto-link' | 'reconcile';
+  status: 'running' | 'completed' | 'failed';
+  result?: any;
+  error?: string;
+  startedAt: number;
+  completedAt?: number;
+}
+
+const backgroundJobs = new Map<string, BackgroundJob>();
+
+function createJobId(): string {
+  return `job_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+}
+
+function cleanOldJobs() {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [id, job] of backgroundJobs) {
+    if (job.completedAt && job.completedAt < cutoff) {
+      backgroundJobs.delete(id);
+    }
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 },
@@ -200,6 +226,12 @@ const updateTransferCompanySchema = z.object({
 });
 
 const waImportRouter = Router();
+
+waImportRouter.get("/job/:jobId", requireAuth, async (req, res) => {
+  const job = backgroundJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  res.json(job);
+});
 
 waImportRouter.post("/upload", requireAuth, requireAdminOrEditor, uploadRateLimit, upload.single("file"), async (req: AuthenticatedRequest, res) => {
   try {
@@ -576,8 +608,15 @@ waImportRouter.post("/batch/:id/process-media", requireAuth, requireAdminOrEdito
       return res.status(400).json({ error: `Batch status is '${batch.status}', must be 'completed' to process media` });
     }
 
-    const result = await processMediaForBatch(batchId);
-    res.json(result);
+    cleanOldJobs();
+    const jobId = createJobId();
+    const job: BackgroundJob = { id: jobId, batchId, type: 'process-media', status: 'running', startedAt: Date.now() };
+    backgroundJobs.set(jobId, job);
+    res.json({ jobId, status: 'running' });
+
+    processMediaForBatch(batchId)
+      .then(result => { job.status = 'completed'; job.result = result; job.completedAt = Date.now(); })
+      .catch(err => { job.status = 'failed'; job.error = err?.message || 'فشل في معالجة الوسائط'; job.completedAt = Date.now(); console.error("[WAImport] Media processing error:", err); });
   } catch (error: any) {
     console.error("[WAImport] Media processing error:", error);
     res.status(500).json({ error: "فشل في معالجة الوسائط" });
@@ -597,25 +636,37 @@ waImportRouter.post("/batch/:id/extract", requireAuth, requireAdminOrEditor, ext
       return res.status(400).json({ error: `Batch status is '${batch.status}', must be 'completed' to extract` });
     }
 
-    try {
-      await processMediaForBatch(batchId);
-    } catch (ocrErr) {
-      console.warn("[WAImport] OCR pre-processing failed (non-blocking):", ocrErr);
-    }
+    cleanOldJobs();
+    const jobId = createJobId();
+    const job: BackgroundJob = { id: jobId, batchId, type: 'extract', status: 'running', startedAt: Date.now() };
+    backgroundJobs.set(jobId, job);
+    res.json({ jobId, status: 'running' });
 
-    let linkingWarning: string | undefined;
-    try {
-      const linkingStatus = await nameExtractionService.checkLinkingReadiness(batchId);
-      console.log(`[WAImport] Linking status for batch ${batchId}: ${linkingStatus.linked}/${linkingStatus.total} (${linkingStatus.linkedPercent}%)`);
-      if (linkingStatus.linkedPercent < 50 && linkingStatus.total > 0) {
-        linkingWarning = `Only ${linkingStatus.linkedPercent}% of discovered names are linked. Consider linking more names before extraction.`;
+    (async () => {
+      try {
+        try { await processMediaForBatch(batchId); } catch (ocrErr) {
+          console.warn("[WAImport] OCR pre-processing failed (non-blocking):", ocrErr);
+        }
+
+        let linkingWarning: string | undefined;
+        try {
+          const linkingStatus = await nameExtractionService.checkLinkingReadiness(batchId);
+          if (linkingStatus.linkedPercent < 50 && linkingStatus.total > 0) {
+            linkingWarning = `Only ${linkingStatus.linkedPercent}% of discovered names are linked.`;
+          }
+        } catch (_e) {}
+
+        const result = await waExtractionService.extractFromBatch(batchId);
+        job.status = 'completed';
+        job.result = { ...result, linkingWarning };
+        job.completedAt = Date.now();
+      } catch (err: any) {
+        job.status = 'failed';
+        job.error = err?.message || 'Failed to extract from batch';
+        job.completedAt = Date.now();
+        console.error("[WAImport] Extraction error:", err);
       }
-    } catch (linkErr) {
-      console.warn("[WAImport] Linking readiness check failed (non-blocking):", linkErr);
-    }
-
-    const result = await waExtractionService.extractFromBatch(batchId);
-    res.json({ ...result, linkingWarning });
+    })();
   } catch (error: any) {
     console.error("[WAImport] Extraction error:", error);
     res.status(500).json({ error: "Failed to extract from batch" });
@@ -670,13 +721,17 @@ waImportRouter.post("/batch/:id/reconcile", requireAuth, requireAdminOrEditor, e
     }
     const batchId = parseInt(params.data.id);
 
-    const report = await runReconciliation(batchId, body.data.otherBatchIds, body.data.tolerancePercent);
-    res.json(report);
+    cleanOldJobs();
+    const jobId = createJobId();
+    const job: BackgroundJob = { id: jobId, batchId, type: 'reconcile', status: 'running', startedAt: Date.now() };
+    backgroundJobs.set(jobId, job);
+    res.json({ jobId, status: 'running' });
+
+    runReconciliation(batchId, body.data.otherBatchIds, body.data.tolerancePercent)
+      .then(report => { job.status = 'completed'; job.result = report; job.completedAt = Date.now(); })
+      .catch(err => { job.status = 'failed'; job.error = err?.message || 'Failed to reconcile'; job.completedAt = Date.now(); console.error("[WAImport] Reconciliation error:", err); });
   } catch (error: any) {
     console.error("[WAImport] Reconciliation error:", error);
-    if (error.message?.includes('No candidates found')) {
-      return res.status(400).json({ error: error.message });
-    }
     res.status(500).json({ error: "Failed to reconcile batch" });
   }
 });
@@ -975,8 +1030,15 @@ waImportRouter.post("/batches/:batchId/extract-names", requireAuth, requireAdmin
     const batch = await waIngestionService.getBatch(batchId);
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const result = await nameExtractionService.extractNamesFromBatch(batchId);
-    res.json(result);
+    cleanOldJobs();
+    const jobId = createJobId();
+    const job: BackgroundJob = { id: jobId, batchId, type: 'extract-names', status: 'running', startedAt: Date.now() };
+    backgroundJobs.set(jobId, job);
+    res.json({ jobId, status: 'running' });
+
+    nameExtractionService.extractNamesFromBatch(batchId)
+      .then(result => { job.status = 'completed'; job.result = result; job.completedAt = Date.now(); })
+      .catch(err => { job.status = 'failed'; job.error = err?.message || 'Failed to extract names'; job.completedAt = Date.now(); console.error("[WAImport] Name extraction error:", err); });
   } catch (error: any) {
     console.error("[WAImport] Name extraction error:", error);
     res.status(500).json({ error: error.message || "Failed to extract names" });

@@ -8,7 +8,7 @@ import { projectAccessService } from '../../services/ProjectAccessService';
 import { safeErrorMessage } from '../../middleware/api-response';
 
 const VALID_EQUIPMENT_TYPES = ['heavy_machinery', 'light_tool', 'vehicle', 'electrical', 'plumbing', 'safety', 'measuring', 'hand_tool', 'power_tool', 'other'] as const;
-const VALID_EQUIPMENT_STATUSES = ['available', 'assigned', 'maintenance', 'lost', 'consumed'] as const;
+const DEFAULT_EQUIPMENT_STATUSES = ['available', 'assigned', 'maintenance', 'lost', 'consumed'] as const;
 const VALID_EQUIPMENT_CONDITIONS = ['excellent', 'good', 'fair', 'poor', 'damaged'] as const;
 
 const equipmentRouter = Router();
@@ -18,6 +18,19 @@ equipmentRouter.use(attachAccessibleProjects);
 function buildEquipmentCode(id: number): string {
   return `EQ-${String(id).padStart(5, '0')}`;
 }
+
+equipmentRouter.get('/statuses', async (req: Request, res: Response) => {
+  try {
+    const result = await db.selectDistinct({ status: equipment.status }).from(equipment).where(sql`${equipment.status} IS NOT NULL AND TRIM(${equipment.status}) != ''`);
+    const dbStatuses = result.map(r => r.status!).filter(Boolean);
+    const defaults = [...DEFAULT_EQUIPMENT_STATUSES];
+    const allStatuses = [...new Set([...defaults, ...dbStatuses])];
+    res.json({ success: true, data: allStatuses });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب حالات المعدات:', error);
+    res.status(500).json({ success: false, message: 'فشل في جلب الحالات' });
+  }
+});
 
 equipmentRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -128,8 +141,8 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
     if (type && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
       return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
     }
-    if (eqStatus && !VALID_EQUIPMENT_STATUSES.includes(eqStatus as any)) {
-      return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
+    if (eqStatus && typeof eqStatus === 'string' && eqStatus.trim().length === 0) {
+      return res.status(400).json({ success: false, message: 'حالة المعدة لا يمكن أن تكون فارغة' });
     }
     if (condition && !VALID_EQUIPMENT_CONDITIONS.includes(condition as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });
@@ -218,8 +231,8 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
     if (type !== undefined && type !== null && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
       return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
     }
-    if (eqStatus !== undefined && eqStatus !== null && !VALID_EQUIPMENT_STATUSES.includes(eqStatus as any)) {
-      return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
+    if (eqStatus !== undefined && eqStatus !== null && typeof eqStatus === 'string' && eqStatus.trim().length === 0) {
+      return res.status(400).json({ success: false, message: 'حالة المعدة لا يمكن أن تكون فارغة' });
     }
     if (condition !== undefined && condition !== null && !VALID_EQUIPMENT_CONDITIONS.includes(condition as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });

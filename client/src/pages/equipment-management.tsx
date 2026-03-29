@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
   Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
-  FileText, Download, Pencil, Trash2, FolderKanban
+  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -101,6 +101,13 @@ export function EquipmentManagement() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editForm, setEditForm] = useState({ name: '', category: '', unit: '', min_quantity: '', adjustment_quantity: '' });
+  const [showEditEquipmentDialog, setShowEditEquipmentDialog] = useState(false);
+  const [showDeleteEquipmentConfirm, setShowDeleteEquipmentConfirm] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [editEquipmentForm, setEditEquipmentForm] = useState({ name: '', type: '', unit: '', quantity: '', description: '' });
+  const [selectedNewStatus, setSelectedNewStatus] = useState('');
+  const [customStatusInput, setCustomStatusInput] = useState('');
+  const [isAddingCustomStatus, setIsAddingCustomStatus] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -208,6 +215,14 @@ export function EquipmentManagement() {
   const reports = reportsData?.data || [];
   const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.data || projectsData?.projects || []);
   const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);
+
+  const { data: statusesData } = useQuery<{ success: boolean; data: string[] }>({
+    queryKey: ['/api/equipment/statuses'],
+    queryFn: () => fetch(ENV.getApiUrl('/api/equipment/statuses')).then(r => r.json()),
+  });
+  const defaultStatusLabels: Record<string, string> = { available: 'متاح', assigned: 'مخصص', maintenance: 'صيانة', lost: 'مفقود', consumed: 'مستهلك', active: 'نشط' };
+  const equipmentStatuses: string[] = statusesData?.data || Object.keys(defaultStatusLabels);
+  const statusLabel = (s: string) => defaultStatusLabels[s] || s;
 
   const filteredStockItems = useMemo(() => {
     if (stockStatusFilter === 'all') return stockItems;
@@ -746,6 +761,59 @@ export function EquipmentManagement() {
     },
   });
 
+  const updateEquipmentMutation = useMutation({
+    mutationFn: (data: { id: number; [key: string]: any }) => {
+      const { id, ...body } = data;
+      return apiRequest(`/api/equipment/${id}`, 'PUT', body);
+    },
+    onSuccess: () => {
+      invalidateAll();
+      setShowEditEquipmentDialog(false);
+      setShowStatusDialog(false);
+      setSelectedEquipment(null);
+      toast({ title: "تم تحديث المعدة بنجاح" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في التحديث", description: toUserMessage(err), variant: "destructive" });
+    },
+  });
+
+  const deleteEquipmentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/equipment/${id}`, 'DELETE'),
+    onSuccess: () => {
+      invalidateAll();
+      setShowDeleteEquipmentConfirm(false);
+      setSelectedEquipment(null);
+      toast({ title: "تم حذف المعدة بنجاح" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في الحذف", description: toUserMessage(err), variant: "destructive" });
+    },
+  });
+
+  const handleEditEquipmentClick = useCallback((eq: any) => {
+    setSelectedEquipment(eq);
+    setEditEquipmentForm({
+      name: eq.name || '',
+      type: eq.type || '',
+      unit: eq.unit || '',
+      quantity: String(eq.quantity || 1),
+      description: eq.description || '',
+    });
+    setShowEditEquipmentDialog(true);
+  }, []);
+
+  const handleDeleteEquipmentClick = useCallback((eq: any) => {
+    setSelectedEquipment(eq);
+    setShowDeleteEquipmentConfirm(true);
+  }, []);
+
+  const handleStatusClick = useCallback((eq: any) => {
+    setSelectedEquipment(eq);
+    setSelectedNewStatus(eq.status || 'available');
+    setShowStatusDialog(true);
+  }, []);
+
   const handleEditClick = useCallback((item: InventoryItem) => {
     setEditingItem(item);
     setEditForm({
@@ -989,19 +1057,28 @@ export function EquipmentManagement() {
                         <h3 className="font-semibold">{eq.name}</h3>
                         <p className="text-xs text-gray-500">{eq.code}</p>
                         <div className="flex gap-1 mt-1">
-                          <Badge variant="outline" className="text-xs">{eq.type || 'عام'}</Badge>
-                          <Badge className={`text-xs ${eq.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {eq.status === 'active' ? 'نشط' : eq.status}
+                          <Badge variant="outline" className="text-xs">{{ heavy_machinery: 'معدات ثقيلة', light_tool: 'أدوات خفيفة', vehicle: 'مركبات', electrical: 'كهربائية', plumbing: 'سباكة', safety: 'سلامة', measuring: 'قياس', hand_tool: 'أدوات يدوية', power_tool: 'أدوات كهربائية', other: 'أخرى' }[eq.type] || eq.type || 'عام'}</Badge>
+                          <Badge className={`text-xs ${eq.status === 'available' ? 'bg-emerald-100 text-emerald-800' : eq.status === 'assigned' ? 'bg-blue-100 text-blue-800' : eq.status === 'maintenance' ? 'bg-amber-100 text-amber-800' : eq.status === 'lost' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {statusLabel(eq.status)}
                           </Badge>
                         </div>
                         <p className="text-sm mt-1 text-gray-600">الكمية: {eq.quantity} {eq.unit}</p>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
+                        <Button size="sm" variant="ghost" className="text-xs" data-testid={`btn-transfer-eq-${eq.id}`} onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
                           <Truck className="w-3 h-3 ml-1" /> نقل
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
+                        <Button size="sm" variant="ghost" className="text-xs" data-testid={`btn-history-eq-${eq.id}`} onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
                           <RefreshCw className="w-3 h-3 ml-1" /> سجل
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-xs text-blue-600" data-testid={`btn-edit-eq-${eq.id}`} onClick={() => handleEditEquipmentClick(eq)}>
+                          <Pencil className="w-3 h-3 ml-1" /> تعديل
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-xs text-amber-600" data-testid={`btn-status-eq-${eq.id}`} onClick={() => handleStatusClick(eq)}>
+                          <ToggleLeft className="w-3 h-3 ml-1" /> الحالة
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-xs text-red-600" data-testid={`btn-delete-eq-${eq.id}`} onClick={() => handleDeleteEquipmentClick(eq)}>
+                          <Trash2 className="w-3 h-3 ml-1" /> حذف
                         </Button>
                       </div>
                     </div>
@@ -1152,6 +1229,146 @@ export function EquipmentManagement() {
         onSubmit={(data) => updateTxMutation.mutate(data)}
         isPending={updateTxMutation.isPending}
       />
+
+      <Dialog open={showEditEquipmentDialog} onOpenChange={(open) => { if (!open) { setShowEditEquipmentDialog(false); setSelectedEquipment(null); } }}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تعديل المعدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>اسم المعدة</Label>
+              <Input data-testid="input-edit-eq-name" value={editEquipmentForm.name} onChange={(e) => setEditEquipmentForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>النوع</Label>
+              <Select value={editEquipmentForm.type} onValueChange={(v) => setEditEquipmentForm(f => ({ ...f, type: v }))}>
+                <SelectTrigger data-testid="select-edit-eq-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="heavy_machinery">معدات ثقيلة</SelectItem>
+                  <SelectItem value="light_tool">أدوات خفيفة</SelectItem>
+                  <SelectItem value="vehicle">مركبات</SelectItem>
+                  <SelectItem value="electrical">كهربائية</SelectItem>
+                  <SelectItem value="plumbing">سباكة</SelectItem>
+                  <SelectItem value="safety">سلامة</SelectItem>
+                  <SelectItem value="measuring">قياس</SelectItem>
+                  <SelectItem value="hand_tool">أدوات يدوية</SelectItem>
+                  <SelectItem value="power_tool">أدوات كهربائية</SelectItem>
+                  <SelectItem value="other">أخرى</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>الوحدة</Label>
+              <Input data-testid="input-edit-eq-unit" value={editEquipmentForm.unit} onChange={(e) => setEditEquipmentForm(f => ({ ...f, unit: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الكمية</Label>
+              <Input data-testid="input-edit-eq-quantity" type="number" min="1" value={editEquipmentForm.quantity} onChange={(e) => setEditEquipmentForm(f => ({ ...f, quantity: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الوصف</Label>
+              <Textarea data-testid="input-edit-eq-desc" value={editEquipmentForm.description} onChange={(e) => setEditEquipmentForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => { setShowEditEquipmentDialog(false); setSelectedEquipment(null); }}>إلغاء</Button>
+            <Button data-testid="button-save-edit-eq" disabled={updateEquipmentMutation.isPending || !editEquipmentForm.name.trim()} onClick={() => {
+              if (selectedEquipment) {
+                updateEquipmentMutation.mutate({
+                  id: selectedEquipment.id,
+                  name: editEquipmentForm.name,
+                  type: editEquipmentForm.type,
+                  unit: editEquipmentForm.unit,
+                  quantity: parseInt(editEquipmentForm.quantity) || 1,
+                  description: editEquipmentForm.description,
+                });
+              }
+            }}>
+              {updateEquipmentMutation.isPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showStatusDialog} onOpenChange={(open) => { if (!open) { setShowStatusDialog(false); setSelectedEquipment(null); setIsAddingCustomStatus(false); setCustomStatusInput(''); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تغيير حالة المعدة</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 mb-3">{selectedEquipment?.name}</p>
+          <div className="space-y-3">
+            <Select value={selectedNewStatus} onValueChange={(v) => { setSelectedNewStatus(v); setIsAddingCustomStatus(false); }}>
+              <SelectTrigger data-testid="select-eq-status"><SelectValue placeholder="اختر الحالة" /></SelectTrigger>
+              <SelectContent>
+                {equipmentStatuses.map(s => (
+                  <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!isAddingCustomStatus ? (
+              <Button variant="outline" size="sm" className="w-full text-xs" data-testid="btn-add-custom-status" onClick={() => setIsAddingCustomStatus(true)}>
+                + إضافة حالة مخصصة
+              </Button>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <Input
+                  data-testid="input-custom-status"
+                  placeholder="اكتب اسم الحالة الجديدة..."
+                  value={customStatusInput}
+                  onChange={(e) => setCustomStatusInput(e.target.value)}
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button size="sm" disabled={!customStatusInput.trim()} data-testid="btn-confirm-custom-status" onClick={() => {
+                  const trimmed = customStatusInput.trim();
+                  if (trimmed) {
+                    setSelectedNewStatus(trimmed);
+                    setCustomStatusInput('');
+                    setIsAddingCustomStatus(false);
+                  }
+                }}>
+                  تأكيد
+                </Button>
+              </div>
+            )}
+            {selectedNewStatus && !equipmentStatuses.includes(selectedNewStatus) && (
+              <p className="text-xs text-blue-600">حالة مخصصة: <strong>{selectedNewStatus}</strong></p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => { setShowStatusDialog(false); setSelectedEquipment(null); setIsAddingCustomStatus(false); setCustomStatusInput(''); }}>إلغاء</Button>
+            <Button data-testid="button-save-status-eq" disabled={updateEquipmentMutation.isPending || !selectedNewStatus || selectedNewStatus === selectedEquipment?.status} onClick={() => {
+              if (selectedEquipment) {
+                updateEquipmentMutation.mutate({ id: selectedEquipment.id, status: selectedNewStatus });
+                queryClient.invalidateQueries({ queryKey: ['/api/equipment/statuses'] });
+              }
+            }}>
+              {updateEquipmentMutation.isPending ? 'جاري التحديث...' : 'تحديث الحالة'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteEquipmentConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteEquipmentConfirm(false); setSelectedEquipment(null); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">تأكيد حذف المعدة</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            هل أنت متأكد من حذف المعدة <strong>"{selectedEquipment?.name}"</strong>؟
+          </p>
+          <p className="text-xs text-amber-600 mt-1">هذا الإجراء لا يمكن التراجع عنه.</p>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => { setShowDeleteEquipmentConfirm(false); setSelectedEquipment(null); }}>إلغاء</Button>
+            <Button data-testid="button-confirm-delete-eq" variant="destructive" disabled={deleteEquipmentMutation.isPending} onClick={() => {
+              if (selectedEquipment) deleteEquipmentMutation.mutate(selectedEquipment.id);
+            }}>
+              {deleteEquipmentMutation.isPending ? 'جاري الحذف...' : 'حذف'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

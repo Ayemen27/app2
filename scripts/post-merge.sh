@@ -13,9 +13,13 @@ trap cleanup EXIT
 log "Installing dependencies..."
 npm install --legacy-peer-deps || { err "npm install failed"; exit 1; }
 
-log "Pushing schema..."
-yes "No, add the constraint without truncating the table" | npx drizzle-kit push --force 2>/dev/null || \
-  yes | npx drizzle-kit push 2>/dev/null || \
-  log "db:push skipped (may need manual run)"
+log "Pushing schema (safe mode - no truncation)..."
+printf 'No, add the constraint without truncating the table\n%.0s' {1..20} | timeout 60 npx drizzle-kit push --force 2>/dev/null && log "db:push completed" || {
+  log "db:push with --force failed, attempting without --force..."
+  printf 'No, add the constraint without truncating the table\n%.0s' {1..20} | timeout 60 npx drizzle-kit push 2>/dev/null && log "db:push completed" || {
+    err "db:push failed - manual schema sync may be needed"
+    log "Run 'npx drizzle-kit push' manually to review and apply changes"
+  }
+}
 
 log "Post-merge setup complete"

@@ -1413,8 +1413,8 @@ export class ReportDataService {
 
       const actualMinDate = autoDateResult.rows[0]?.min_date || dateFrom;
       const actualMaxDate = autoDateResult.rows[0]?.max_date || dateTo;
-      const effectiveDateFrom = actualMinDate < dateFrom ? actualMinDate : dateFrom;
-      const effectiveDateTo = actualMaxDate > dateTo ? dateTo : actualMaxDate;
+      const effectiveDateFrom = actualMinDate > dateFrom ? actualMinDate : dateFrom;
+      const effectiveDateTo = actualMaxDate < dateTo ? actualMaxDate : dateTo;
 
       const [
         workforceResult,
@@ -1623,9 +1623,9 @@ export class ReportDataService {
             COUNT(*) AS expense_count
           FROM well_expenses we
           JOIN wells w ON we.well_id = w.id
-          WHERE w.project_id = $1
+          WHERE w.project_id = $1 AND we.expense_date >= $2 AND we.expense_date <= $3
           GROUP BY we.well_id
-        `, [projectId]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
       ]);
 
       const supplierPayCompResult = await client.query(`
@@ -1760,7 +1760,7 @@ export class ReportDataService {
           startDate: proj.startDate || undefined,
           status: proj.status || undefined,
         },
-        period: { from: actualMinDate || dateFrom, to: actualMaxDate || dateTo },
+        period: { from: effectiveDateFrom, to: effectiveDateTo },
         kpis,
         workforce: {
           totalWorkers,

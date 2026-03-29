@@ -2260,9 +2260,10 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                       {report.wells.wellsList
                         .filter(w => !searchValue.trim() || w.ownerName?.toLowerCase().includes(searchValue.trim().toLowerCase()) || w.region?.toLowerCase().includes(searchValue.trim().toLowerCase()))
                         .map((w, i) => {
-                        const wTransport = w.transportCost || 0;
-                        const wMaterials = w.materialsCost || 0;
-                        const wTotal = w.totalCost || (w.totalCrewWages + wTransport + wMaterials);
+                        const statusMap: Record<string, string> = {
+                          pending: 'قيد الانتظار', in_progress: 'جارية', completed: 'مكتملة',
+                          active: 'نشط', cancelled: 'ملغية', on_hold: 'معلّقة',
+                        };
                         return (
                         <tr key={i} className="border-b hover:bg-muted/30">
                           <td className="p-2">{i + 1}</td>
@@ -2271,7 +2272,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                           <td className="p-2">{w.depth} م</td>
                           <td className="p-2">
                             <Badge variant={w.status === 'completed' ? 'default' : w.status === 'in_progress' ? 'secondary' : 'outline'}>
-                              {w.status === 'completed' ? 'مكتملة' : w.status === 'in_progress' ? 'جارية' : 'قيد الانتظار'}
+                              {statusMap[w.status] || w.status}
                             </Badge>
                           </td>
                           <td className="p-2">
@@ -2286,9 +2287,9 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                             </div>
                           </td>
                           <td className="p-2">{formatCurrency(w.totalCrewWages)}</td>
-                          <td className="p-2">{formatCurrency(wTransport)}</td>
-                          <td className="p-2">{formatCurrency(wMaterials)}</td>
-                          <td className="p-2 font-bold text-primary">{formatCurrency(wTotal)}</td>
+                          <td className="p-2">{formatCurrency(w.transportCost)}</td>
+                          <td className="p-2">{formatCurrency(w.materialsCost)}</td>
+                          <td className="p-2 font-bold text-primary">{formatCurrency(w.totalCost)}</td>
                         </tr>
                         );
                       })}

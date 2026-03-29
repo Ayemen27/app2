@@ -48,7 +48,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   workbook.creator = 'Al-Fatihi Construction System';
   workbook.created = new Date();
 
-  const COL_COUNT = 9;
+  const COL_COUNT = 10;
   const ws = workbook.addWorksheet('التقرير الشامل', {
     views: [{ rightToLeft: true }],
     pageSetup: {
@@ -135,20 +135,18 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
     row = xlSectionHeader(ws, row, `🔵 الآبار (${data.wells.totalWells} بئر)`, COL_COUNT);
     row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المنطقة', 'العمق', 'الحالة', 'الإنجاز %', 'أجور الفرق', 'المواصلات', 'المواد', 'إجمالي التكلفة']);
     data.wells.wellsList.forEach((w, i) => {
-      const wTransport = w.transportCost || 0;
-      const wMaterials = w.materialsCost || 0;
-      const wTotal = w.totalCost || (w.totalCrewWages + wTransport + wMaterials);
       row = xlDataRow(ws, row, [
         i + 1, w.wellNumber, w.region,
         `${w.depth} م`, statusLabel(w.status),
-        `${w.completionPercentage.toFixed(0)}%`, formatNum(w.totalCrewWages), formatNum(wTransport), formatNum(wMaterials), formatNum(wTotal),
+        `${w.completionPercentage.toFixed(0)}%`, formatNum(w.totalCrewWages), formatNum(w.transportCost), formatNum(w.materialsCost), formatNum(w.totalCost),
       ], i % 2 === 1);
     });
-    let xlTotalCrews = 0, xlTotalCrewWages = 0, xlTotalTransport = 0, xlTotalMaterials = 0, xlTotalWellCost = 0;
+    let xlTotalCrewWages = 0, xlTotalTransport = 0, xlTotalMaterials = 0, xlTotalWellCost = 0;
     data.wells.wellsList.forEach(w => {
-      xlTotalCrews += w.crewCount; xlTotalCrewWages += w.totalCrewWages;
-      xlTotalTransport += (w.transportCost || 0); xlTotalMaterials += (w.materialsCost || 0);
-      xlTotalWellCost += (w.totalCost || (w.totalCrewWages + (w.transportCost || 0) + (w.materialsCost || 0)));
+      xlTotalCrewWages += w.totalCrewWages;
+      xlTotalTransport += w.transportCost;
+      xlTotalMaterials += w.materialsCost;
+      xlTotalWellCost += w.totalCost;
     });
     row = xlGrandTotalRow(ws, row, ['', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(xlTotalCrewWages), formatNum(xlTotalTransport), formatNum(xlTotalMaterials), formatNum(xlTotalWellCost)]);
     row++;

@@ -87,7 +87,7 @@ export class WellService {
         db.execute(sql`
           SELECT DISTINCT ON (well_id) well_id, inspection_status AS "inspectionStatus"
           FROM well_receptions
-          WHERE well_id = ANY(${wellIds}::int[])
+          WHERE well_id = ANY(ARRAY[${sql.join(wellIds.map(id => sql`${id}`), sql`, `)}]::int[])
           ORDER BY well_id, id DESC
         `),
       ]);

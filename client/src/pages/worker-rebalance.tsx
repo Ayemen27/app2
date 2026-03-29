@@ -103,11 +103,12 @@ export default function WorkerRebalancePage() {
     mutationFn: async (workerId: string) => {
       return await apiRequest(`/api/worker-rebalance/preview/${workerId}`, 'GET');
     },
-    onSuccess: (data: any) => {
-      if (data) {
-        setPreviewData(data);
+    onSuccess: (response: any) => {
+      const payload = response?.data ?? response;
+      if (payload && Array.isArray(payload.lines)) {
+        setPreviewData(payload);
       } else {
-        toast({ title: 'خطأ', description: 'لم يتم استلام بيانات المعاينة', variant: 'destructive' });
+        toast({ title: 'خطأ', description: response?.message || 'لم يتم استلام بيانات المعاينة', variant: 'destructive' });
       }
     },
     onError: (error: any) => {
@@ -119,9 +120,12 @@ export default function WorkerRebalancePage() {
     mutationFn: async (params: { workerId: string; lines: any[]; date: string }) => {
       return await apiRequest('/api/worker-rebalance/execute', 'POST', params);
     },
-    onSuccess: (data: any) => {
-      toast({ title: 'تمت التسوية بنجاح', description: data?.note || 'تمت العملية' });
-      setCompletedWorkers(prev => new Set(prev).add(previewData?.workerId || ''));
+    onSuccess: (response: any) => {
+      const msg = response?.message || response?.data?.note || 'تمت العملية';
+      toast({ title: 'تمت التسوية بنجاح', description: msg });
+      if (previewData?.workerId) {
+        setCompletedWorkers(prev => new Set(prev).add(previewData.workerId));
+      }
       setShowConfirmDialog(false);
       setPreviewData(null);
       setSelectedWorker(null);
@@ -139,7 +143,7 @@ export default function WorkerRebalancePage() {
   };
 
   const handleExecute = () => {
-    if (!previewData) return;
+    if (!previewData?.lines?.length) return;
     executeMutation.mutate({
       workerId: previewData.workerId,
       lines: previewData.lines.map(l => ({
@@ -342,7 +346,7 @@ export default function WorkerRebalancePage() {
             </DialogDescription>
           </DialogHeader>
 
-          {previewData && previewData.lines.length > 0 ? (
+          {previewData && (previewData.lines?.length ?? 0) > 0 ? (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
                 إجمالي المبالغ المرحّلة: <strong className="text-foreground">{formatNumber(previewData.totalRebalanced)}</strong>
@@ -441,7 +445,7 @@ export default function WorkerRebalancePage() {
                 <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
                   <strong>ملاحظة تلقائية ستُضاف:</strong> &quot;تسوية رصيد قديم — ترحيل مستحقات العامل &quot;{previewData.workerName}&quot;&quot;
                   <br />
-                  سيتم إنشاء {previewData.lines.length} ترحيل(ات) مالية + قيود محاسبية مزدوجة + مزامنة أرصدة العامل
+                  سيتم إنشاء {previewData.lines?.length ?? 0} ترحيل(ات) مالية + قيود محاسبية مزدوجة + مزامنة أرصدة العامل
                 </AlertDescription>
               </Alert>
 
@@ -464,7 +468,7 @@ export default function WorkerRebalancePage() {
                 </Button>
               </div>
             </div>
-          ) : previewData && previewData.lines.length === 0 ? (
+          ) : previewData && (previewData.lines?.length ?? 0) === 0 ? (
             <div className="text-center py-8">
               <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
               <p>لا توجد عمليات ترحيل مطلوبة لهذا العامل</p>
@@ -486,7 +490,7 @@ export default function WorkerRebalancePage() {
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
-            <p>سيتم ترحيل <strong>{formatNumber(previewData?.totalRebalanced || 0)}</strong> عبر <strong>{previewData?.lines.length || 0}</strong> عمليات</p>
+            <p>سيتم ترحيل <strong>{formatNumber(previewData?.totalRebalanced || 0)}</strong> عبر <strong>{previewData?.lines?.length ?? 0}</strong> عمليات</p>
             <p className="text-muted-foreground">هذه العملية قابلة للعكس عبر معرف التسوية (rebalanceId)</p>
           </div>
 

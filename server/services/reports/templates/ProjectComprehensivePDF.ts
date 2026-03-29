@@ -157,11 +157,9 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     </div>`;
 
     body += `<table><thead><tr>
-      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>عدد الألواح</th><th>الحالة</th><th>الإنجاز</th><th>التكلفة</th>
+      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الألواح</th><th>القواعد</th><th>المواسير</th><th>الحالة</th>
     </tr></thead><tbody>`;
-    let totalWellCost = 0;
     data.wells.wellsList.forEach((w, i) => {
-      totalWellCost += w.totalCost;
       body += `<tr>
         <td>${i + 1}</td>
         <td>${w.wellNumber}</td>
@@ -169,15 +167,12 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td>${escapeHtml(w.region)}</td>
         <td>${w.depth} م</td>
         <td>${w.panelCount || 0}</td>
+        <td>${w.baseCount || 0}</td>
+        <td>${w.pipeCount || 0}</td>
         <td style="color:${statusColor(w.status)};font-weight:600;">${escapeHtml(statusLabel(w.status))}</td>
-        <td><div style="background:#e9ecef;border-radius:4px;overflow:hidden;height:14px;position:relative;">
-          <div style="background:${w.completionPercentage >= 80 ? PDF_COLORS.green : w.completionPercentage >= 40 ? PDF_COLORS.amber : PDF_COLORS.red};height:100%;width:${Math.min(w.completionPercentage, 100)}%;"></div>
-          <span style="position:absolute;top:0;left:0;right:0;font-size:8px;text-align:center;line-height:14px;font-weight:700;">${w.completionPercentage.toFixed(0)}%</span>
-        </div></td>
-        <td style="font-weight:700;color:${PDF_COLORS.navy};">${formatNum(w.totalCost)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalWellCost)]);
+    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', '', '', '']);
     body += `</tbody></table>`;
   }
 

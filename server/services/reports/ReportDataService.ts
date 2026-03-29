@@ -1475,7 +1475,11 @@ export class ReportDataService {
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
-          SELECT id, well_number, owner_name, region, well_depth, COALESCE(number_of_panels, panel_count, 0) AS panel_count, status,
+          SELECT id, well_number, owner_name, region, well_depth,
+            COALESCE(number_of_panels, panel_count, 0) AS panel_count,
+            COALESCE(number_of_bases, base_count, 0) AS base_count,
+            COALESCE(number_of_pipes, pipe_count, 0) AS pipe_count,
+            status,
             COALESCE(safe_numeric(completion_percentage::text), 0) AS completion_percentage
           FROM wells WHERE project_id = $1
           ORDER BY well_number
@@ -1691,6 +1695,8 @@ export class ReportDataService {
           region: w.region || '-',
           depth: safeNum(w.well_depth),
           panelCount: safeNum(w.panel_count),
+          baseCount: safeNum(w.base_count),
+          pipeCount: safeNum(w.pipe_count),
           status: w.status || 'pending',
           completionPercentage: safeNum(w.completion_percentage),
           crewCount: crew.crewCount,
@@ -1700,7 +1706,7 @@ export class ReportDataService {
           laborCost: 0,
           serviceCost: 0,
           totalExpenses: 0,
-          totalCost: wellTotalCost,
+          totalCost: 0,
         };
       });
 

@@ -134,17 +134,14 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   if (data.wells.totalWells > 0) {
     row = xlSectionHeader(ws, row, `🔵 الآبار (${data.wells.totalWells} بئر)`, COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المالك', 'المنطقة', 'العمق', 'عدد الألواح', 'الحالة', 'الإنجاز %', 'التكلفة']);
+    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المالك', 'المنطقة', 'العمق', 'الألواح', 'القواعد', 'المواسير', 'الحالة']);
     data.wells.wellsList.forEach((w, i) => {
       row = xlDataRow(ws, row, [
         i + 1, w.wellNumber, w.ownerName, w.region,
-        `${w.depth} م`, w.panelCount || 0, statusLabel(w.status),
-        `${w.completionPercentage.toFixed(0)}%`, formatNum(w.totalCost),
+        `${w.depth} م`, w.panelCount || 0, w.baseCount || 0, w.pipeCount || 0, statusLabel(w.status),
       ], i % 2 === 1);
     });
-    let xlTotalWellCost = 0;
-    data.wells.wellsList.forEach(w => { xlTotalWellCost += w.totalCost; });
-    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(xlTotalWellCost)]);
+    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', '', '', '']);
     row++;
   }
 

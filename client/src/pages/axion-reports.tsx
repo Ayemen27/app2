@@ -2249,10 +2249,10 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         <th className="p-2 text-right">المالك</th>
                         <th className="p-2 text-right">المنطقة</th>
                         <th className="p-2 text-right">العمق</th>
-                        <th className="p-2 text-right">عدد الألواح</th>
+                        <th className="p-2 text-right">الألواح</th>
+                        <th className="p-2 text-right">القواعد</th>
+                        <th className="p-2 text-right">المواسير</th>
                         <th className="p-2 text-right">الحالة</th>
-                        <th className="p-2 text-right">الإنجاز</th>
-                        <th className="p-2 text-right">التكلفة</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2275,23 +2275,13 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                           <td className="p-2">{w.region}</td>
                           <td className="p-2">{w.depth} م</td>
                           <td className="p-2">{w.panelCount || 0}</td>
+                          <td className="p-2">{w.baseCount || 0}</td>
+                          <td className="p-2">{w.pipeCount || 0}</td>
                           <td className="p-2">
                             <Badge variant={w.status === 'completed' ? 'default' : w.status === 'in_progress' ? 'secondary' : 'outline'}>
                               {statusMap[w.status?.toLowerCase()] || w.status}
                             </Badge>
                           </td>
-                          <td className="p-2">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{
-                                  width: `${Math.min(w.completionPercentage, 100)}%`,
-                                  backgroundColor: w.completionPercentage >= 80 ? '#10b981' : w.completionPercentage >= 40 ? '#f59e0b' : '#ef4444'
-                                }} />
-                              </div>
-                              <span className="text-xs font-semibold">{w.completionPercentage.toFixed(0)}%</span>
-                            </div>
-                          </td>
-                          <td className="p-2 font-bold text-primary">{formatCurrency(w.totalCost)}</td>
                         </tr>
                         );
                       })}

@@ -31,8 +31,16 @@ function statusLabel(status: string): string {
     used: 'مستعمل',
     broken: 'معطل',
     rented: 'مؤجر',
+    consumed: 'مستهلك',
+    missing: 'مفقود',
+    disposed: 'تم التخلص',
+    transferred: 'منقول',
+    out_of_service: 'خارج الخدمة',
+    operational: 'تشغيلي',
+    idle: 'عاطل',
+    sold: 'مباع',
   };
-  return map[status] || status;
+  return map[status?.toLowerCase()] || status;
 }
 
 export async function generateProjectComprehensiveExcel(data: ProjectComprehensiveReportData): Promise<Buffer> {
@@ -125,17 +133,24 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   if (data.wells.totalWells > 0) {
     row = xlSectionHeader(ws, row, `🔵 الآبار (${data.wells.totalWells} بئر)`, COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المالك', 'المنطقة', 'العمق', 'الحالة', 'الإنجاز %', 'الطواقم', 'أجور الطواقم']);
+    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المنطقة', 'العمق', 'الحالة', 'الإنجاز %', 'أجور الفرق', 'المواصلات', 'المواد', 'إجمالي التكلفة']);
     data.wells.wellsList.forEach((w, i) => {
+      const wTransport = w.transportCost || 0;
+      const wMaterials = w.materialsCost || 0;
+      const wTotal = w.totalCost || (w.totalCrewWages + wTransport + wMaterials);
       row = xlDataRow(ws, row, [
-        i + 1, w.wellNumber, w.ownerName, w.region,
+        i + 1, w.wellNumber, w.region,
         `${w.depth} م`, statusLabel(w.status),
-        `${w.completionPercentage.toFixed(0)}%`, w.crewCount, formatNum(w.totalCrewWages),
+        `${w.completionPercentage.toFixed(0)}%`, formatNum(w.totalCrewWages), formatNum(wTransport), formatNum(wMaterials), formatNum(wTotal),
       ], i % 2 === 1);
     });
-    let xlTotalCrews = 0, xlTotalCrewWages = 0;
-    data.wells.wellsList.forEach(w => { xlTotalCrews += w.crewCount; xlTotalCrewWages += w.totalCrewWages; });
-    row = xlGrandTotalRow(ws, row, ['', '', 'الإجمالي', '', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, xlTotalCrews, formatNum(xlTotalCrewWages)]);
+    let xlTotalCrews = 0, xlTotalCrewWages = 0, xlTotalTransport = 0, xlTotalMaterials = 0, xlTotalWellCost = 0;
+    data.wells.wellsList.forEach(w => {
+      xlTotalCrews += w.crewCount; xlTotalCrewWages += w.totalCrewWages;
+      xlTotalTransport += (w.transportCost || 0); xlTotalMaterials += (w.materialsCost || 0);
+      xlTotalWellCost += (w.totalCost || (w.totalCrewWages + (w.transportCost || 0) + (w.materialsCost || 0)));
+    });
+    row = xlGrandTotalRow(ws, row, ['', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(xlTotalCrewWages), formatNum(xlTotalTransport), formatNum(xlTotalMaterials), formatNum(xlTotalWellCost)]);
     row++;
   }
 

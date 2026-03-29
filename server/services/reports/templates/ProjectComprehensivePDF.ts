@@ -38,8 +38,16 @@ function statusLabel(status: string): string {
     used: 'مستعمل',
     broken: 'معطل',
     rented: 'مؤجر',
+    consumed: 'مستهلك',
+    missing: 'مفقود',
+    disposed: 'تم التخلص',
+    transferred: 'منقول',
+    out_of_service: 'خارج الخدمة',
+    operational: 'تشغيلي',
+    idle: 'عاطل',
+    sold: 'مباع',
   };
-  return map[status] || status;
+  return map[status?.toLowerCase()] || status;
 }
 
 function statusColor(status: string): string {
@@ -149,16 +157,21 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     </div>`;
 
     body += `<table><thead><tr>
-      <th>#</th><th>رقم البئر</th><th>المالك</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>الطواقم</th><th>أجور الطواقم</th>
+      <th>#</th><th>رقم البئر</th><th>المنطقة</th><th>العمق</th><th>الحالة</th><th>الإنجاز</th><th>أجور الفرق</th><th>المواصلات</th><th>المواد</th><th>إجمالي التكلفة</th>
     </tr></thead><tbody>`;
-    let totalCrews = 0, totalCrewWages = 0;
+    let totalCrews = 0, totalCrewWages = 0, totalTransportCost = 0, totalMaterialsCost = 0, totalWellCost = 0;
     data.wells.wellsList.forEach((w, i) => {
       totalCrews += w.crewCount;
       totalCrewWages += w.totalCrewWages;
+      const wTransport = w.transportCost || 0;
+      const wMaterials = w.materialsCost || 0;
+      const wTotal = w.totalCost || (w.totalCrewWages + wTransport + wMaterials);
+      totalTransportCost += wTransport;
+      totalMaterialsCost += wMaterials;
+      totalWellCost += wTotal;
       body += `<tr>
         <td>${i + 1}</td>
         <td>${w.wellNumber}</td>
-        <td style="text-align:right;">${escapeHtml(w.ownerName)}</td>
         <td>${escapeHtml(w.region)}</td>
         <td>${w.depth} م</td>
         <td style="color:${statusColor(w.status)};font-weight:600;">${escapeHtml(statusLabel(w.status))}</td>
@@ -166,11 +179,13 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
           <div style="background:${w.completionPercentage >= 80 ? PDF_COLORS.green : w.completionPercentage >= 40 ? PDF_COLORS.amber : PDF_COLORS.red};height:100%;width:${Math.min(w.completionPercentage, 100)}%;"></div>
           <span style="position:absolute;top:0;left:0;right:0;font-size:8px;text-align:center;line-height:14px;font-weight:700;">${w.completionPercentage.toFixed(0)}%</span>
         </div></td>
-        <td>${w.crewCount}</td>
         <td>${formatNum(w.totalCrewWages)}</td>
+        <td>${formatNum(wTransport)}</td>
+        <td>${formatNum(wMaterials)}</td>
+        <td style="font-weight:700;color:${PDF_COLORS.navy};">${formatNum(wTotal)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', '', 'الإجمالي', '', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, String(totalCrews), formatNum(totalCrewWages)]);
+    body += pdfGrandTotalRow(['', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(totalCrewWages), formatNum(totalTransportCost), formatNum(totalMaterialsCost), formatNum(totalWellCost)]);
     body += `</tbody></table>`;
   }
 

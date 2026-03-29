@@ -448,6 +448,12 @@ export interface ProjectComprehensiveReportData {
       completionPercentage: number;
       crewCount: number;
       totalCrewWages: number;
+      transportCost: number;
+      materialsCost: number;
+      laborCost: number;
+      serviceCost: number;
+      totalExpenses: number;
+      totalCost: number;
     }>;
   };
   attendance: {

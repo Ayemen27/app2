@@ -1436,6 +1436,7 @@ export class ReportDataService {
         projectTransfersOutResult,
         equipmentResult,
         equipmentByStatusResult,
+        wellExpensesResult,
       ] = await Promise.all([
         client.query(`
           SELECT
@@ -1443,7 +1444,7 @@ export class ReportDataService {
             COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 THEN wa.worker_id END) AS active_workers
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1455,7 +1456,7 @@ export class ReportDataService {
           LEFT JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY w.type ORDER BY total_wages DESC
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1468,7 +1469,7 @@ export class ReportDataService {
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY w.name, w.type
           ORDER BY total_earned DESC LIMIT 20
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT id, well_number, owner_name, region, well_depth, status,
@@ -1509,7 +1510,7 @@ export class ReportDataService {
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY COALESCE(NULLIF(wa.date,''), wa.attendance_date) ORDER BY COALESCE(NULLIF(wa.date,''), wa.attendance_date)
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1518,7 +1519,7 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1527,7 +1528,7 @@ export class ReportDataService {
             COALESCE(SUM(CASE WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0) WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) AS total_cash
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1537,7 +1538,7 @@ export class ReportDataService {
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
           GROUP BY TRIM(material_category) ORDER BY total DESC
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1545,7 +1546,7 @@ export class ReportDataService {
             COUNT(*) AS trip_count
           FROM transportation_expenses
           WHERE project_id = $1 AND date >= $2 AND date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1553,7 +1554,7 @@ export class ReportDataService {
             COUNT(*) AS count
           FROM worker_misc_expenses
           WHERE project_id = $1 AND date >= $2 AND date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1561,7 +1562,7 @@ export class ReportDataService {
             COUNT(*) AS count
           FROM worker_transfers
           WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1570,7 +1571,7 @@ export class ReportDataService {
           WHERE project_id = $1
             AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) >= $2::date
             AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) <= $3::date
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
@@ -1583,19 +1584,19 @@ export class ReportDataService {
             AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) >= $2::date
             AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) <= $3::date
           ORDER BY transfer_date
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE to_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE from_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
-        `, [projectId, dateFrom, dateTo]),
+        `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT name, COALESCE(code, '-') AS code, COALESCE(type, '-') AS type,
@@ -1610,13 +1611,28 @@ export class ReportDataService {
           FROM equipment WHERE project_id = $1
           GROUP BY status
         `, [projectId]),
+
+        client.query(`
+          SELECT we.well_id,
+            COALESCE(SUM(CASE WHEN we.expense_type='transport' THEN safe_numeric(we.total_amount::text) END), 0) AS transport,
+            COALESCE(SUM(CASE WHEN we.expense_type='operational_material' THEN safe_numeric(we.total_amount::text) END), 0) AS operational_material,
+            COALESCE(SUM(CASE WHEN we.expense_type='consumable_material' THEN safe_numeric(we.total_amount::text) END), 0) AS consumable_material,
+            COALESCE(SUM(CASE WHEN we.expense_type='labor' THEN safe_numeric(we.total_amount::text) END), 0) AS labor,
+            COALESCE(SUM(CASE WHEN we.expense_type='service' THEN safe_numeric(we.total_amount::text) END), 0) AS service,
+            COALESCE(SUM(safe_numeric(we.total_amount::text)), 0) AS total_expenses,
+            COUNT(*) AS expense_count
+          FROM well_expenses we
+          JOIN wells w ON we.well_id = w.id
+          WHERE w.project_id = $1
+          GROUP BY we.well_id
+        `, [projectId]),
       ]);
 
       const supplierPayCompResult = await client.query(`
         SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total, COUNT(*) AS count
         FROM supplier_payments
         WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3
-      `, [projectId, dateFrom, dateTo]);
+      `, [projectId, effectiveDateFrom, effectiveDateTo]);
       const totalSupplierPaymentsComp = safeNum(supplierPayCompResult.rows[0]?.total);
       const supplierPaymentsCount = safeNum(supplierPayCompResult.rows[0]?.count);
 
@@ -1627,7 +1643,7 @@ export class ReportDataService {
         LEFT JOIN suppliers s ON s.id = sp.supplier_id
         WHERE sp.project_id = $1 AND sp.payment_date >= $2 AND sp.payment_date <= $3
         ORDER BY sp.payment_date
-      `, [projectId, dateFrom, dateTo]);
+      `, [projectId, effectiveDateFrom, effectiveDateTo]);
 
       const wf = workforceResult.rows[0];
       const totalWorkers = safeNum(wf?.total_workers);
@@ -1674,8 +1690,22 @@ export class ReportDataService {
         });
       }
 
+      const expenseMap = new Map<number, { transport: number; operationalMaterial: number; consumableMaterial: number; labor: number; service: number; totalExpenses: number }>();
+      for (const row of wellExpensesResult.rows) {
+        expenseMap.set(Number(row.well_id), {
+          transport: safeNum(row.transport),
+          operationalMaterial: safeNum(row.operational_material),
+          consumableMaterial: safeNum(row.consumable_material),
+          labor: safeNum(row.labor),
+          service: safeNum(row.service),
+          totalExpenses: safeNum(row.total_expenses),
+        });
+      }
+
       const wellsList = wellsResult.rows.map(w => {
         const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
+        const expenses = expenseMap.get(Number(w.id)) || { transport: 0, operationalMaterial: 0, consumableMaterial: 0, labor: 0, service: 0, totalExpenses: 0 };
+        const totalCost = crew.totalWages + expenses.totalExpenses;
         return {
           wellNumber: safeNum(w.well_number),
           ownerName: w.owner_name || '-',
@@ -1685,6 +1715,12 @@ export class ReportDataService {
           completionPercentage: safeNum(w.completion_percentage),
           crewCount: crew.crewCount,
           totalCrewWages: crew.totalWages,
+          transportCost: expenses.transport,
+          materialsCost: expenses.operationalMaterial + expenses.consumableMaterial,
+          laborCost: expenses.labor,
+          serviceCost: expenses.service,
+          totalExpenses: expenses.totalExpenses,
+          totalCost,
         };
       });
 

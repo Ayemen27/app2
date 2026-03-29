@@ -2246,22 +2246,27 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                       <tr className="border-b bg-muted/50">
                         <th className="p-2 text-right">#</th>
                         <th className="p-2 text-right">رقم البئر</th>
-                        <th className="p-2 text-right">المالك</th>
                         <th className="p-2 text-right">المنطقة</th>
                         <th className="p-2 text-right">العمق</th>
                         <th className="p-2 text-right">الحالة</th>
                         <th className="p-2 text-right">الإنجاز</th>
-                        <th className="p-2 text-right">الطواقم</th>
+                        <th className="p-2 text-right">أجور الفرق</th>
+                        <th className="p-2 text-right">المواصلات</th>
+                        <th className="p-2 text-right">المواد</th>
+                        <th className="p-2 text-right">إجمالي التكلفة</th>
                       </tr>
                     </thead>
                     <tbody>
                       {report.wells.wellsList
                         .filter(w => !searchValue.trim() || w.ownerName?.toLowerCase().includes(searchValue.trim().toLowerCase()) || w.region?.toLowerCase().includes(searchValue.trim().toLowerCase()))
-                        .map((w, i) => (
+                        .map((w, i) => {
+                        const wTransport = w.transportCost || 0;
+                        const wMaterials = w.materialsCost || 0;
+                        const wTotal = w.totalCost || (w.totalCrewWages + wTransport + wMaterials);
+                        return (
                         <tr key={i} className="border-b hover:bg-muted/30">
                           <td className="p-2">{i + 1}</td>
                           <td className="p-2 font-medium">{w.wellNumber}</td>
-                          <td className="p-2">{w.ownerName}</td>
                           <td className="p-2">{w.region}</td>
                           <td className="p-2">{w.depth} م</td>
                           <td className="p-2">
@@ -2280,9 +2285,13 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                               <span className="text-xs font-semibold">{w.completionPercentage.toFixed(0)}%</span>
                             </div>
                           </td>
-                          <td className="p-2">{w.crewCount}</td>
+                          <td className="p-2">{formatCurrency(w.totalCrewWages)}</td>
+                          <td className="p-2">{formatCurrency(wTransport)}</td>
+                          <td className="p-2">{formatCurrency(wMaterials)}</td>
+                          <td className="p-2 font-bold text-primary">{formatCurrency(wTotal)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

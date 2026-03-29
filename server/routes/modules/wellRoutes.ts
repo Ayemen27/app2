@@ -334,12 +334,12 @@ wellRouter.post('/', async (req: Request, res: Response) => {
       numberOfBases: z.number().int().nonnegative(),
       numberOfPanels: z.number().int().nonnegative(),
       wellDepth: z.number().positive(),
-      waterLevel: z.number().optional(),
+      waterLevel: z.number().nullable().optional(),
       numberOfPipes: z.number().int().nonnegative(),
-      fanType: z.string().optional(),
-      pumpPower: z.number().optional(),
-      startDate: z.string().optional(),
-      notes: z.string().max(1000).optional(),
+      fanType: z.string().nullable().optional(),
+      pumpPower: z.number().nullable().optional(),
+      startDate: z.string().nullable().optional(),
+      notes: z.string().max(1000).nullable().optional(),
     });
     const parsed = createWellSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -797,12 +797,12 @@ wellRouter.post('/:wellId/crews', async (req: Request, res: Response) => {
   try {
     const createCrewSchema = z.object({
       crewType: z.string().min(1),
-      teamName: z.string().optional(),
-      workersCount: z.number().int().nonnegative().optional(),
-      mastersCount: z.number().int().nonnegative().optional(),
-      workDays: z.union([z.string(), z.number()]).optional(),
-      workerDailyWage: z.union([z.string(), z.number()]).optional(),
-      masterDailyWage: z.union([z.string(), z.number()]).optional(),
+      teamName: z.string().nullable().optional(),
+      workersCount: z.number().int().nonnegative().nullable().optional(),
+      mastersCount: z.number().int().nonnegative().nullable().optional(),
+      workDays: z.union([z.string(), z.number()]).nullable().optional(),
+      workerDailyWage: z.union([z.string(), z.number()]).nullable().optional(),
+      masterDailyWage: z.union([z.string(), z.number()]).nullable().optional(),
     }).passthrough();
     const parsed = createCrewSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -978,12 +978,12 @@ wellRouter.get('/:wellId/transport', async (req: Request, res: Response) => {
 wellRouter.post('/:wellId/transport', async (req: Request, res: Response) => {
   try {
     const createTransportSchema = z.object({
-      railType: z.string().optional(),
-      withPanels: z.boolean().optional(),
-      transportPrice: z.union([z.string(), z.number()]).optional(),
-      crewEntitlements: z.union([z.string(), z.number()]).optional(),
-      transportDate: z.string().optional(),
-      notes: z.string().optional(),
+      railType: z.string().nullable().optional(),
+      withPanels: z.boolean().nullable().optional(),
+      transportPrice: z.union([z.string(), z.number()]).nullable().optional(),
+      crewEntitlements: z.union([z.string(), z.number()]).nullable().optional(),
+      transportDate: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
     }).passthrough();
     const parsed = createTransportSchema.safeParse(req.body);
     if (!parsed.success) {

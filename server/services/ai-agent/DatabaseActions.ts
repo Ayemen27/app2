@@ -2173,6 +2173,61 @@ export class DatabaseActions {
     }
   }
 
+  async getProjectWells(projectName: string, allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      const projectResults = await db.select().from(projects)
+        .where(like(projects.name, `%${projectName}%`));
+
+      let project = projectResults[0];
+      if (!project) {
+        return { success: false, message: `لم يتم العثور على مشروع باسم "${projectName}"`, action: "project_wells" };
+      }
+
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        const allowed = projectResults.find(p => allowedProjectIds.includes(p.id));
+        if (!allowed) {
+          return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "project_wells" };
+        }
+        project = allowed;
+      }
+
+      const wellsData = await db.select().from(wells)
+        .where(eq(wells.project_id, project.id))
+        .orderBy(wells.wellNumber);
+
+      const statusCounts: Record<string, number> = {};
+      let totalDepth = 0, totalPanels = 0, totalBases = 0;
+      for (const w of wellsData) {
+        const s = (w as any).status || 'pending';
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+        totalDepth += parseFloat(String((w as any).wellDepth || 0));
+        totalPanels += parseInt(String((w as any).numberOfPanels || 0));
+        totalBases += parseInt(String((w as any).numberOfBases || 0));
+      }
+
+      return {
+        success: true,
+        data: {
+          project: { id: project.id, name: project.name },
+          wells: wellsData,
+          stats: {
+            total: wellsData.length,
+            completed: statusCounts['completed'] || 0,
+            inProgress: statusCounts['in_progress'] || 0,
+            pending: statusCounts['pending'] || 0,
+            totalDepth,
+            totalPanels,
+            totalBases,
+          }
+        },
+        message: `مشروع "${project.name}" يحتوي على ${wellsData.length} بئر`,
+        action: "project_wells",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "project_wells" };
+    }
+  }
+
   async searchWells(keyword: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
       if (allowedProjectIds && allowedProjectIds.length === 0) {

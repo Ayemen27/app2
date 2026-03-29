@@ -339,38 +339,52 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
           </div>
           
           {/* Show existing misc expenses */}
-          {Array.isArray(todayMiscExpenses) && todayMiscExpenses.map((expense, index) => (
-            <div key={expense.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
-              <div className="flex-1 min-w-0">
-                <span className="text-sm block">{expense.description}</span>
-                {expense.notes && (
-                  <span className="text-[10px] text-muted-foreground block">{expense.notes}</span>
-                )}
-                {getWellLabel(expense.well_id) && (
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400">{getWellLabel(expense.well_id)}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
-                <div className="flex gap-1">
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    onClick={() => handleEditMiscExpense(expense)}
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => deleteMiscExpenseMutation.mutate(expense.id)}
-                    disabled={deleteMiscExpenseMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+          {Array.isArray(todayMiscExpenses) && todayMiscExpenses.map((expense: any, index) => (
+            <div key={expense.id || index} className="p-2 bg-muted rounded space-y-1">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm block">{expense.description}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
+                  <div className="flex gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => handleEditMiscExpense(expense)}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => deleteMiscExpenseMutation.mutate(expense.id)}
+                      disabled={deleteMiscExpenseMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              {expense.notes && (
+                <p className="text-[10px] text-muted-foreground pt-1 border-t border-dashed border-gray-200 dark:border-gray-700">
+                  {expense.notes.includes('مستورد من محادثة الواتساب') ? '📱 ' : 'الملاحظات: '}{expense.notes}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {getWellLabel(expense.well_id) && (
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-sky-50 dark:bg-sky-950/30 px-1.5 py-0.5 rounded border border-sky-200 dark:border-sky-800">💧 {getWellLabel(expense.well_id)}</span>
+                )}
+                {(() => {
+                  let crewTypes: string[] = [];
+                  try { crewTypes = expense.crew_type ? (expense.crew_type.startsWith('[') ? JSON.parse(expense.crew_type) : [expense.crew_type]) : []; } catch { crewTypes = []; }
+                  const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
+                  return crewTypes.map((ct: string, ci: number) => (
+                    <span key={ci} className="text-[10px] text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 rounded border border-violet-200 dark:border-violet-800">🔧 {crewTypeLabels[ct] || ct}</span>
+                  ));
+                })()}
               </div>
             </div>
           ))}

@@ -146,8 +146,16 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <div style="font-size:14px;font-weight:800;color:${PDF_COLORS.navy};">${data.wells.avgCompletionPercentage.toFixed(1)}%</div>
       </div>
       <div style="flex:1;background:${PDF_COLORS.lightBg};border:1px solid ${PDF_COLORS.border};border-radius:6px;padding:6px;text-align:center;">
-        <div style="font-size:8px;color:${PDF_COLORS.textMuted};">إجمالي العمق</div>
-        <div style="font-size:14px;font-weight:800;color:${PDF_COLORS.navy};">${formatInt(data.wells.totalDepth)} م</div>
+        <div style="font-size:8px;color:${PDF_COLORS.textMuted};">إجمالي الألواح</div>
+        <div style="font-size:14px;font-weight:800;color:${PDF_COLORS.navy};">${formatInt(data.wells.totalPanels || 0)}</div>
+      </div>
+      <div style="flex:1;background:${PDF_COLORS.lightBg};border:1px solid ${PDF_COLORS.border};border-radius:6px;padding:6px;text-align:center;">
+        <div style="font-size:8px;color:${PDF_COLORS.textMuted};">إجمالي القواعد</div>
+        <div style="font-size:14px;font-weight:800;color:${PDF_COLORS.navy};">${formatInt(data.wells.totalBases || 0)}</div>
+      </div>
+      <div style="flex:1;background:${PDF_COLORS.lightBg};border:1px solid ${PDF_COLORS.border};border-radius:6px;padding:6px;text-align:center;">
+        <div style="font-size:8px;color:${PDF_COLORS.textMuted};">إجمالي المواسير</div>
+        <div style="font-size:14px;font-weight:800;color:${PDF_COLORS.navy};">${formatInt(data.wells.totalPipes || 0)}</div>
       </div>
       ${data.wells.byStatus.map(s => `
       <div style="flex:1;background:${PDF_COLORS.lightBg};border:1px solid ${PDF_COLORS.border};border-radius:6px;padding:6px;text-align:center;">
@@ -172,7 +180,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td style="color:${statusColor(w.status)};font-weight:600;">${escapeHtml(statusLabel(w.status))}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, '', '', '', '']);
+    body += pdfGrandTotalRow(['', '', '', 'الإجمالي', `${formatInt(data.wells.totalDepth)} م`, formatInt(data.wells.totalPanels || 0), formatInt(data.wells.totalBases || 0), formatInt(data.wells.totalPipes || 0), '']);
     body += `</tbody></table>`;
   }
 

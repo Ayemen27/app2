@@ -1715,6 +1715,9 @@ export class ReportDataService {
         ? wellsList.reduce((s, w) => s + w.completionPercentage, 0) / totalWells
         : 0;
       const totalDepth = wellsList.reduce((s, w) => s + w.depth, 0);
+      const totalPanels = wellsList.reduce((s, w) => s + (w.panelCount || 0), 0);
+      const totalBases = wellsList.reduce((s, w) => s + (w.baseCount || 0), 0);
+      const totalPipes = wellsList.reduce((s, w) => s + (w.pipeCount || 0), 0);
 
       const costPerWell = totalWells > 0 ? totalExpenses / totalWells : 0;
       const costPerWorkerDay = totalWorkDays > 0 ? totalExpenses / totalWorkDays : 0;
@@ -1771,6 +1774,9 @@ export class ReportDataService {
           byStatus: wellStatusResult.rows.map(r => ({ status: r.status, count: safeNum(r.count) })),
           avgCompletionPercentage: avgCompletion,
           totalDepth,
+          totalPanels,
+          totalBases,
+          totalPipes,
           wellsList,
         },
         attendance: {

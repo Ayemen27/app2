@@ -141,7 +141,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
         `${w.depth} م`, w.panelCount || 0, w.baseCount || 0, w.pipeCount || 0, statusLabel(w.status),
       ], i % 2 === 1);
     });
-    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', '', '', '']);
+    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, data.wells.totalPanels || 0, data.wells.totalBases || 0, data.wells.totalPipes || 0, '']);
     row++;
   }
 

@@ -2285,6 +2285,14 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         </tr>
                         );
                       })}
+                      <tr className="border-t-2 bg-muted/70 font-bold">
+                        <td className="p-2" colSpan={4}>الإجمالي</td>
+                        <td className="p-2">{report.wells.totalDepth} م</td>
+                        <td className="p-2">{report.wells.totalPanels || 0}</td>
+                        <td className="p-2">{report.wells.totalBases || 0}</td>
+                        <td className="p-2">{report.wells.totalPipes || 0}</td>
+                        <td className="p-2"></td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>

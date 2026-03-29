@@ -439,6 +439,9 @@ export interface ProjectComprehensiveReportData {
     }>;
     avgCompletionPercentage: number;
     totalDepth: number;
+    totalPanels: number;
+    totalBases: number;
+    totalPipes: number;
     wellsList: Array<{
       wellNumber: number;
       ownerName: string;

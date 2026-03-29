@@ -390,14 +390,14 @@ export class ReportDataService {
       transferFilters.push(sql`1=0`);
     }
 
-    const effectiveAttDate = sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`;
+    const effectiveAttDate = sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})::date`;
     if (dateFrom) {
-      attendanceFilters.push(gte(effectiveAttDate, dateFrom));
-      transferFilters.push(gte(workerTransfers.transferDate, dateFrom));
+      attendanceFilters.push(sql`${effectiveAttDate} >= ${dateFrom}::date`);
+      transferFilters.push(sql`${workerTransfers.transferDate}::date >= ${dateFrom}::date`);
     }
     if (dateTo) {
-      attendanceFilters.push(lte(effectiveAttDate, dateTo));
-      transferFilters.push(lte(workerTransfers.transferDate, dateTo));
+      attendanceFilters.push(sql`${effectiveAttDate} <= ${dateTo}::date`);
+      transferFilters.push(sql`${workerTransfers.transferDate}::date <= ${dateTo}::date`);
     }
 
     const [attendanceRows, transferRows, projectWageRows] = await Promise.all([
@@ -524,12 +524,12 @@ export class ReportDataService {
       settlementProjectFilter += ' AND 1=0';
     }
     if (dateFrom) {
-      settlementProjectFilter += ` AND ws.settlement_date >= $${sParamIdx}`;
+      settlementProjectFilter += ` AND ws.settlement_date::date >= $${sParamIdx}::date`;
       settlementParams.push(dateFrom);
       sParamIdx++;
     }
     if (dateTo) {
-      settlementProjectFilter += ` AND ws.settlement_date <= $${sParamIdx}`;
+      settlementProjectFilter += ` AND ws.settlement_date::date <= $${sParamIdx}::date`;
       settlementParams.push(dateTo);
       sParamIdx++;
     }

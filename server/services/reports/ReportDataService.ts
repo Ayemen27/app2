@@ -1466,11 +1466,12 @@ export class ReportDataService {
             w.name, w.type,
             COALESCE(SUM(safe_numeric(wa.work_days::text)), 0) AS total_days,
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_earned,
-            COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid
+            COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid,
+            COALESCE((SELECT SUM(safe_numeric(wt.amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id = wa.worker_id AND wt.project_id = $1 AND wt.transfer_date::date >= $2::date AND wt.transfer_date::date <= $3::date), 0) AS total_transfers
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
-          GROUP BY w.name, w.type
+          GROUP BY wa.worker_id, w.name, w.type
           ORDER BY total_earned DESC LIMIT 20
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
@@ -1766,7 +1767,8 @@ export class ReportDataService {
             totalDays: safeNum(r.total_days),
             totalEarned: safeNum(r.total_earned),
             totalPaid: safeNum(r.total_paid),
-            balance: safeNum(r.total_earned) - safeNum(r.total_paid),
+            totalTransfers: safeNum(r.total_transfers),
+            balance: safeNum(r.total_earned) - safeNum(r.total_paid) - safeNum(r.total_transfers),
           })),
         },
         wells: {

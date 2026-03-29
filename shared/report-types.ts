@@ -428,6 +428,7 @@ export interface ProjectComprehensiveReportData {
       totalDays: number;
       totalEarned: number;
       totalPaid: number;
+      totalTransfers: number;
       balance: number;
     }>;
   };

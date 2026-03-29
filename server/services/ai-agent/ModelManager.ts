@@ -26,6 +26,7 @@ interface KeyState {
   isAvailable: boolean;
   lastError?: string;
   lastErrorTime?: Date;
+  isBalanceDepleted?: boolean;
   dailyUsage: number;
 }
 
@@ -195,14 +196,19 @@ export class ModelManager {
     }
   }
 
+  private getKeyCooldownMs(key: KeyState): number {
+    return key.isBalanceDepleted ? 60 * 60 * 1000 : 5 * 60 * 1000;
+  }
+
   private getNextAvailableKey(model: ModelConfig): KeyState | null {
     const startIndex = model.currentKeyIndex;
     for (let i = 0; i < model.keys.length; i++) {
       const idx = (startIndex + i) % model.keys.length;
       const key = model.keys[idx];
-      if (!key.isAvailable && key.lastErrorTime && Date.now() - key.lastErrorTime.getTime() > 5 * 60 * 1000) {
+      if (!key.isAvailable && key.lastErrorTime && Date.now() - key.lastErrorTime.getTime() > this.getKeyCooldownMs(key)) {
         key.isAvailable = true;
         key.lastError = undefined;
+        key.isBalanceDepleted = false;
       }
       if (key.isAvailable) {
         model.currentKeyIndex = idx;
@@ -220,9 +226,10 @@ export class ModelManager {
     for (let i = 1; i < model.keys.length; i++) {
       const idx = (failedIndex + i) % model.keys.length;
       const key = model.keys[idx];
-      if (!key.isAvailable && key.lastErrorTime && Date.now() - key.lastErrorTime.getTime() > 5 * 60 * 1000) {
+      if (!key.isAvailable && key.lastErrorTime && Date.now() - key.lastErrorTime.getTime() > this.getKeyCooldownMs(key)) {
         key.isAvailable = true;
         key.lastError = undefined;
+        key.isBalanceDepleted = false;
       }
       if (key.isAvailable) {
         model.currentKeyIndex = idx;
@@ -391,7 +398,12 @@ export class ModelManager {
         if (isRateLimitError(error)) {
           keyState.isAvailable = false;
           keyState.lastErrorTime = new Date();
-          console.log(`🔄 [ModelManager] ${model.provider} key#${model.currentKeyIndex + 1} rate-limited, trying next key...`);
+          if (error.status === 402 || error.message?.includes('Insufficient') || error.message?.includes('depleted') || error.message?.includes('credits')) {
+            keyState.isBalanceDepleted = true;
+            console.log(`💸 [ModelManager] ${model.provider} key#${model.currentKeyIndex + 1} balance depleted, cooldown 1hr`);
+          } else {
+            console.log(`🔄 [ModelManager] ${model.provider} key#${model.currentKeyIndex + 1} rate-limited, trying next key...`);
+          }
           const nextKey = this.rotateToNextKey(model);
           if (!nextKey) {
             model.isAvailable = false;
@@ -692,15 +704,15 @@ export class ModelManager {
     availableKeys: number;
   }> {
     const now = Date.now();
-    const cooldownMs = 5 * 60 * 1000;
     return this.models.map(m => {
       let availableKeys = 0;
       for (const k of m.keys) {
         if (k.isAvailable) {
           availableKeys++;
-        } else if (k.lastErrorTime && now - k.lastErrorTime.getTime() > cooldownMs) {
+        } else if (k.lastErrorTime && now - k.lastErrorTime.getTime() > this.getKeyCooldownMs(k)) {
           k.isAvailable = true;
           k.lastError = undefined;
+          k.isBalanceDepleted = false;
           availableKeys++;
         }
       }

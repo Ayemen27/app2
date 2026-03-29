@@ -440,7 +440,7 @@ export default function WAImportDashboard() {
       const extJob = await apiRequest(`/api/wa-import/batch/${batchId}/extract`, 'POST', {});
       let extResult: any;
       if (extJob.jobId) {
-        extResult = await pollJob(extJob.jobId);
+        extResult = await pollJob(extJob.jobId, 3000, 1800000);
       } else {
         extResult = extJob;
       }
@@ -463,7 +463,7 @@ export default function WAImportDashboard() {
       const extJob = await apiRequest(`/api/wa-import/batch/${pipelineBatchId}/extract`, 'POST', {});
       let extResult: any;
       if (extJob.jobId) {
-        extResult = await pollJob(extJob.jobId);
+        extResult = await pollJob(extJob.jobId, 3000, 1800000);
       } else {
         extResult = extJob;
       }

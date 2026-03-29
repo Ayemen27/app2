@@ -2264,6 +2264,10 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         const statusMap: Record<string, string> = {
                           pending: 'قيد الانتظار', in_progress: 'جارية', completed: 'مكتملة',
                           active: 'نشط', cancelled: 'ملغية', on_hold: 'معلّقة',
+                          consumed: 'مستهلك', missing: 'مفقود', disposed: 'تم التخلص',
+                          transferred: 'منقول', out_of_service: 'خارج الخدمة',
+                          operational: 'تشغيلي', idle: 'عاطل', sold: 'مباع',
+                          maintenance: 'صيانة', inactive: 'غير نشط',
                         };
                         return (
                         <tr key={i} className="border-b hover:bg-muted/30">
@@ -2274,7 +2278,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                           <td className="p-2">{w.depth} م</td>
                           <td className="p-2">
                             <Badge variant={w.status === 'completed' ? 'default' : w.status === 'in_progress' ? 'secondary' : 'outline'}>
-                              {statusMap[w.status] || w.status}
+                              {statusMap[w.status?.toLowerCase()] || w.status}
                             </Badge>
                           </td>
                           <td className="p-2">

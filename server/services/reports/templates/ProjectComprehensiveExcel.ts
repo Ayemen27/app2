@@ -59,8 +59,9 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   });
 
   ws.columns = [
-    { width: 5 }, { width: 22 }, { width: 14 }, { width: 14 },
-    { width: 15 }, { width: 15 }, { width: 14 }, { width: 15 }, { width: 15 },
+    { width: 5 }, { width: 18 }, { width: 18 }, { width: 14 },
+    { width: 12 }, { width: 12 }, { width: 10 }, { width: 14 }, { width: 14 },
+    { width: 14 }, { width: 15 },
   ];
 
   let row = 1;

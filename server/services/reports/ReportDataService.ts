@@ -1413,8 +1413,12 @@ export class ReportDataService {
 
       const actualMinDate = autoDateResult.rows[0]?.min_date || dateFrom;
       const actualMaxDate = autoDateResult.rows[0]?.max_date || dateTo;
-      const effectiveDateFrom = actualMinDate > dateFrom ? actualMinDate : dateFrom;
-      const effectiveDateTo = actualMaxDate < dateTo ? actualMaxDate : dateTo;
+      let effectiveDateFrom = actualMinDate > dateFrom ? actualMinDate : dateFrom;
+      let effectiveDateTo = actualMaxDate < dateTo ? actualMaxDate : dateTo;
+      if (effectiveDateFrom > effectiveDateTo) {
+        effectiveDateFrom = dateFrom;
+        effectiveDateTo = dateTo;
+      }
 
       const [
         workforceResult,

@@ -371,8 +371,10 @@ export default function ProjectTransfers() {
       fromProject: projects.find((p: any) => p.id === t.fromProjectId)?.name || 'غير محدد',
       toProject: projects.find((p: any) => p.id === t.toProjectId)?.name || 'غير محدد',
       amount: Number(t.amount),
-      reason: t.transferReason === 'settlement' ? 'تصفية حساب العمال' : (t.transferReason || '-'),
-      description: t.description || '-',
+      reason: t.transferReason === 'settlement' ? 'تصفية حساب العمال' : t.transferReason === 'legacy_worker_rebalance' ? 'تسوية أرصدة عمال' : (t.transferReason || '-'),
+      description: t.transferReason === 'legacy_worker_rebalance' && t.description
+        ? t.description.replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\s*\(rebalance:[^)]*\)\s*/g, '').trim()
+        : (t.description || '-'),
       notes: t.notes || '',
     }));
     await createProfessionalReport({
@@ -474,9 +476,9 @@ export default function ProjectTransfers() {
                         },
                         {
                           label: "السبب",
-                          value: transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : (transfer.transferReason || "غير محدد"),
+                          value: transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : transfer.transferReason === 'legacy_worker_rebalance' ? 'تسوية أرصدة عمال' : (transfer.transferReason || "غير محدد"),
                           icon: FileText,
-                          color: transfer.transferReason === 'settlement' ? "info" : "default"
+                          color: transfer.transferReason === 'settlement' ? "info" : transfer.transferReason === 'legacy_worker_rebalance' ? "info" : "default"
                         },
                         {
                           label: "التاريخ",

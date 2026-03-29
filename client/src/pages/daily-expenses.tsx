@@ -4298,7 +4298,7 @@ function DailyExpensesContent() {
                             <div className="grid grid-cols-3 gap-2 text-[11px]">
                               <div className="bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
                                 <span className="text-muted-foreground block mb-0.5">السبب</span>
-                                <span className="font-medium text-foreground">{transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : (transfer.transferReason || 'ترحيل أموال')}</span>
+                                <span className="font-medium text-foreground">{transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : transfer.transferReason === 'legacy_worker_rebalance' ? 'تسوية أرصدة عمال' : (transfer.transferReason || 'ترحيل أموال')}</span>
                               </div>
                               <div className="bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
                                 <span className="text-muted-foreground block mb-0.5">التاريخ</span>
@@ -4308,6 +4308,8 @@ function DailyExpensesContent() {
                                 <span className="text-muted-foreground block mb-0.5">النوع</span>
                                 {transfer.transferReason === 'settlement' ? (
                                   <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">تصفية عمال</span>
+                                ) : transfer.transferReason === 'legacy_worker_rebalance' ? (
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">تسوية أرصدة</span>
                                 ) : (
                                   <span className="font-medium text-foreground">ترحيل يدوي</span>
                                 )}
@@ -4316,7 +4318,11 @@ function DailyExpensesContent() {
                             {transfer.description && (
                               <div className="mt-2 text-[11px] bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
                                 <span className="text-muted-foreground">الوصف: </span>
-                                <span className="font-medium text-foreground">{transfer.description}</span>
+                                <span className="font-medium text-foreground">{
+                                  transfer.transferReason === 'legacy_worker_rebalance' && transfer.description
+                                    ? transfer.description.replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\s*\(rebalance:[^)]*\)\s*/g, '').trim()
+                                    : transfer.description
+                                }</span>
                               </div>
                             )}
                           </div>

@@ -48,7 +48,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   workbook.creator = 'Al-Fatihi Construction System';
   workbook.created = new Date();
 
-  const COL_COUNT = 8;
+  const COL_COUNT = 9;
   const ws = workbook.addWorksheet('التقرير الشامل', {
     views: [{ rightToLeft: true }],
     pageSetup: {
@@ -134,17 +134,17 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   if (data.wells.totalWells > 0) {
     row = xlSectionHeader(ws, row, `🔵 الآبار (${data.wells.totalWells} بئر)`, COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المالك', 'المنطقة', 'العمق', 'الحالة', 'الإنجاز %', 'التكلفة']);
+    row = xlTableHeader(ws, row, ['#', 'رقم البئر', 'المالك', 'المنطقة', 'العمق', 'عدد الألواح', 'الحالة', 'الإنجاز %', 'التكلفة']);
     data.wells.wellsList.forEach((w, i) => {
       row = xlDataRow(ws, row, [
         i + 1, w.wellNumber, w.ownerName, w.region,
-        `${w.depth} م`, statusLabel(w.status),
+        `${w.depth} م`, w.panelCount || 0, statusLabel(w.status),
         `${w.completionPercentage.toFixed(0)}%`, formatNum(w.totalCost),
       ], i % 2 === 1);
     });
     let xlTotalWellCost = 0;
     data.wells.wellsList.forEach(w => { xlTotalWellCost += w.totalCost; });
-    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(xlTotalWellCost)]);
+    row = xlGrandTotalRow(ws, row, ['', '', '', 'الإجمالي', `${data.wells.totalDepth} م`, '', '', `${data.wells.avgCompletionPercentage.toFixed(1)}%`, formatNum(xlTotalWellCost)]);
     row++;
   }
 

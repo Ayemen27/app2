@@ -2249,6 +2249,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         <th className="p-2 text-right">المالك</th>
                         <th className="p-2 text-right">المنطقة</th>
                         <th className="p-2 text-right">العمق</th>
+                        <th className="p-2 text-right">عدد الألواح</th>
                         <th className="p-2 text-right">الحالة</th>
                         <th className="p-2 text-right">الإنجاز</th>
                         <th className="p-2 text-right">التكلفة</th>
@@ -2273,6 +2274,7 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                           <td className="p-2">{w.ownerName}</td>
                           <td className="p-2">{w.region}</td>
                           <td className="p-2">{w.depth} م</td>
+                          <td className="p-2">{w.panelCount || 0}</td>
                           <td className="p-2">
                             <Badge variant={w.status === 'completed' ? 'default' : w.status === 'in_progress' ? 'secondary' : 'outline'}>
                               {statusMap[w.status?.toLowerCase()] || w.status}

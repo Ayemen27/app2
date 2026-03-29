@@ -1475,7 +1475,7 @@ export class ReportDataService {
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
-          SELECT id, well_number, owner_name, region, well_depth, status,
+          SELECT id, well_number, owner_name, region, well_depth, panel_count, status,
             COALESCE(safe_numeric(completion_percentage::text), 0) AS completion_percentage
           FROM wells WHERE project_id = $1
           ORDER BY well_number
@@ -1690,6 +1690,7 @@ export class ReportDataService {
           ownerName: w.owner_name || '-',
           region: w.region || '-',
           depth: safeNum(w.well_depth),
+          panelCount: safeNum(w.panel_count),
           status: w.status || 'pending',
           completionPercentage: safeNum(w.completion_percentage),
           crewCount: crew.crewCount,

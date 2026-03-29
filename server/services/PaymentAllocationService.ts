@@ -129,7 +129,7 @@ export class PaymentAllocationService {
   }
 
   private static _allocateFIFO(balances: ProjectBalance[], totalAmount: number): AllocationLine[] {
-    const sorted = [...balances].sort((a, b) => a.currentBalance - b.currentBalance);
+    const sorted = [...balances].sort((a, b) => b.currentBalance - a.currentBalance);
     const allocations: AllocationLine[] = [];
     let remaining = totalAmount;
 
@@ -283,6 +283,24 @@ export class PaymentAllocationService {
 
       const workerId = transfers.rows[0].worker_id;
 
+      const fundTransfers = await client.query(`
+        SELECT id FROM project_fund_transfers 
+        WHERE transfer_reason = 'worker_transfer_allocation' 
+          AND description LIKE $1
+      `, [`%batch: ${batchId}%`]);
+
+      const allSourceIds = [
+        ...transfers.rows.map((r: any) => r.id),
+        ...fundTransfers.rows.map((r: any) => r.id),
+      ];
+
+      if (allSourceIds.length > 0) {
+        await client.query(`
+          DELETE FROM journal_entries 
+          WHERE source_id IN (SELECT unnest($1::text[]))
+        `, [allSourceIds]);
+      }
+
       await client.query(`DELETE FROM worker_transfers WHERE batch_id = $1`, [batchId]);
 
       await client.query(`
@@ -290,11 +308,6 @@ export class PaymentAllocationService {
         WHERE transfer_reason = 'worker_transfer_allocation' 
           AND description LIKE $1
       `, [`%batch: ${batchId}%`]);
-
-      await client.query(`
-        DELETE FROM journal_entries 
-        WHERE source_id IN (SELECT unnest($1::text[]))
-      `, [transfers.rows.map((r: any) => r.id)]);
 
       await client.query('COMMIT');
 

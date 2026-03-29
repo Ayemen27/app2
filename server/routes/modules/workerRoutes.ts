@@ -685,9 +685,15 @@ workerRouter.get('/workers/:id/open-balances', async (req: Request, res: Respons
       return res.status(404).json({ success: false, message: 'العامل غير موجود' });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdmin = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
     const balances = await PaymentAllocationService.getWorkerOpenBalances(workerId);
 
-    const mappedBalances = balances.map(b => ({
+    const filteredBalances = isAdmin ? balances : balances.filter(b => accessibleIds.includes(b.projectId));
+
+    const mappedBalances = filteredBalances.map(b => ({
       projectId: b.projectId,
       projectName: b.projectName,
       balance: b.currentBalance,
@@ -1183,7 +1189,12 @@ workerRouter.post('/worker-transfers/suggest-allocation', async (req: Request, r
 
     const allocMode = mode === 'fifo' ? 'fifo' : 'proportional';
 
-    const balances = await PaymentAllocationService.getWorkerOpenBalances(workerId);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdmin = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const allBalances = await PaymentAllocationService.getWorkerOpenBalances(workerId);
+    const balances = isAdmin ? allBalances : allBalances.filter(b => accessibleIds.includes(b.projectId));
     const suggestedAllocations = PaymentAllocationService.suggestAllocation(balances, numAmount, allocMode);
 
     const enrichedAllocations = suggestedAllocations.map(a => {
@@ -1254,6 +1265,16 @@ workerRouter.post('/worker-transfers/allocate', async (req: Request, res: Respon
     const { allowed } = checkProjectAccess(req, payerProjectId);
     if (!allowed) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
+    for (const alloc of allocations) {
+      const { allowed: allocAllowed } = checkProjectAccess(req, alloc.projectId);
+      if (!allocAllowed) {
+        return res.status(403).json({ 
+          success: false, 
+          message: `ليس لديك صلاحية للوصول للمشروع المخصص: ${alloc.projectId}` 
+        });
+      }
     }
 
     const result = await PaymentAllocationService.executeAllocation(

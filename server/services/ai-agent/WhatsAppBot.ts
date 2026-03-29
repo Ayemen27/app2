@@ -670,8 +670,11 @@ export class WhatsAppBot {
       try {
         const whatsappAIService = getWhatsAppAIService();
 
-        if (botSettings.waitingMessage && text && text.length > 20) {
+        const waitingSentKey = `wait_${cleanPhone}`;
+        if (botSettings.waitingMessage && text && text.length > 20 && !(this as any)[waitingSentKey]) {
+          (this as any)[waitingSentKey] = true;
           await this.safeSendMessage(from, { text: botSettings.waitingMessage });
+          setTimeout(() => { delete (this as any)[waitingSentKey]; }, 30000);
         }
 
         let msgMetadata: Record<string, any> | undefined;

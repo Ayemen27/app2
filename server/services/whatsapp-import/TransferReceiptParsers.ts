@@ -26,8 +26,9 @@ class TransferCompanyRegistry {
       return this.cache;
     }
     try {
-      this.cache = await db.select().from(waTransferCompanies)
+      const result = await db.select().from(waTransferCompanies)
         .where(eq(waTransferCompanies.isActive, true));
+      this.cache = (result as WaTransferCompany[]) ?? [];
       this.cacheExpiry = Date.now() + 5 * 60 * 1000;
       return this.cache;
     } catch {

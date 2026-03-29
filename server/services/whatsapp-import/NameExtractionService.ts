@@ -236,7 +236,7 @@ export class NameExtractionService {
     const messageIdByIndex = new Map<number, number>();
 
     if (isAIAvailable()) {
-      const aiMessages: MessageForAI[] = messages.map((msg, idx) => {
+      const aiMessages: MessageForAI[] = messages.map((msg: any, idx: number) => {
         messageIdByIndex.set(idx, msg.id);
         return {
           index: idx,
@@ -448,15 +448,15 @@ export class NameExtractionService {
       .orderBy(waEntityAliases.aliasName);
 
     const linkedIds = results
-      .filter(r => r.canonicalEntityId && r.entityTable)
-      .map(r => ({ id: r.canonicalEntityId!, table: r.entityTable! }));
+      .filter((r: any) => r.canonicalEntityId && r.entityTable)
+      .map((r: any) => ({ id: r.canonicalEntityId!, table: r.entityTable! }));
 
     const entityNameMap: Record<string, string> = {};
     if (linkedIds.length > 0) {
       try {
-        const workerIds = linkedIds.filter(l => l.table === 'workers').map(l => l.id);
-        const projectIds = linkedIds.filter(l => l.table === 'projects').map(l => l.id);
-        const accountIds = linkedIds.filter(l => l.table === 'account_types').map(l => l.id);
+        const workerIds = linkedIds.filter((l: any) => l.table === 'workers').map((l: any) => l.id);
+        const projectIds = linkedIds.filter((l: any) => l.table === 'projects').map((l: any) => l.id);
+        const accountIds = linkedIds.filter((l: any) => l.table === 'account_types').map((l: any) => l.id);
 
         if (workerIds.length > 0) {
           const { rows } = await pool.query(
@@ -484,7 +484,7 @@ export class NameExtractionService {
       }
     }
 
-    return results.map(r => ({
+    return results.map((r: any) => ({
       ...r,
       linkedEntityName: r.canonicalEntityId && r.entityTable
         ? entityNameMap[`${r.entityTable}:${r.canonicalEntityId}`] || null

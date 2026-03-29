@@ -78,7 +78,7 @@ export class WhatsAppExtractionService {
       .from(waExtractionCandidates)
       .where(eq(waExtractionCandidates.batchId, batchId));
 
-    const processedMessageIds = new Set(existingCandidates.map(c => c.sourceMessageId).filter(Boolean));
+    const processedMessageIds = new Set(existingCandidates.map((c: any) => c.sourceMessageId).filter(Boolean));
     const isResuming = processedMessageIds.size > 0;
     if (isResuming) {
       console.log(`[WAExtraction] استئناف: تم تخطي ${processedMessageIds.size} رسالة معالجة سابقاً`);
@@ -794,10 +794,10 @@ export class WhatsAppExtractionService {
     if (candidates.length === 0) return candidates;
 
     const canonicalIds = candidates
-      .filter((c) => c.canonicalTransactionId !== null)
-      .map((c) => c.canonicalTransactionId!);
+      .filter((c: any) => c.canonicalTransactionId !== null)
+      .map((c: any) => c.canonicalTransactionId!);
 
-    if (canonicalIds.length === 0) return candidates.map((c) => ({ ...c, canonicalStatus: null }));
+    if (canonicalIds.length === 0) return candidates.map((c: any) => ({ ...c, canonicalStatus: null }));
 
     const canonicals = await db.select({ id: waCanonicalTransactions.id, status: waCanonicalTransactions.status })
       .from(waCanonicalTransactions)
@@ -805,7 +805,7 @@ export class WhatsAppExtractionService {
 
     const statusMap = new Map(canonicals.map((ct: { id: number; status: string | null }) => [ct.id, ct.status]));
 
-    return candidates.map((c) => ({
+    return candidates.map((c: any) => ({
       ...c,
       canonicalStatus: c.canonicalTransactionId ? statusMap.get(c.canonicalTransactionId) || null : null,
     }));

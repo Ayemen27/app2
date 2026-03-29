@@ -301,7 +301,7 @@ export default function WAImportDashboard() {
   const linkNameMutation = useMutation({
     mutationFn: (data: { aliasId: number; entityId: string; entityTable: string }) =>
       apiRequest(`/api/wa-import/names/${data.aliasId}/link`, 'POST', { entityId: data.entityId, entityTable: data.entityTable }),
-    onSuccess: (_data: any, variables: { aliasId: number }) => {
+    onSuccess: (_data: any, variables: { aliasId: number; entityId: string; entityTable: string }) => {
       toast({ title: "تم الربط بنجاح" });
       if (nameLinkingBatchId) {
         queryClient.invalidateQueries({ queryKey: ['/api/wa-import/batches', nameLinkingBatchId, 'discovered-names'] });
@@ -831,7 +831,7 @@ export default function WAImportDashboard() {
                     { label: 'الرسائل', value: batch.totalMessages || 0, icon: Hash },
                     { label: 'التاريخ', value: batch.createdAt ? new Date(batch.createdAt).toLocaleDateString('ar') : '-', icon: Clock },
                   ]}
-                  actions={[
+                  actions={([
                     {
                       icon: Eye,
                       label: 'عرض',
@@ -843,7 +843,7 @@ export default function WAImportDashboard() {
                         label: 'معالجة الوسائط',
                         onClick: () => processMediaMutation.mutate(batch.id),
                         disabled: processMediaMutation.isPending,
-                        color: 'purple' as const,
+                        color: 'blue' as const,
                       },
                       {
                         icon: Play,
@@ -874,7 +874,7 @@ export default function WAImportDashboard() {
                       disabled: deleteBatchMutation.isPending,
                       color: 'red' as const,
                     },
-                  ]}
+                  ] as any)}
                   compact
                 />
               ))}
@@ -2021,7 +2021,7 @@ export default function WAImportDashboard() {
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">الفئة</label>
-              <Select value={editCategory || '_none'} onValueChange={v => setEditCategory(v === '_none' ? '' : v)}>
+              <Select value={editCategory || '_none'} onValueChange={(v: string) => setEditCategory(v === '_none' ? '' : v)}>
                 <SelectTrigger data-testid="select-edit-category"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">بدون فئة</SelectItem>

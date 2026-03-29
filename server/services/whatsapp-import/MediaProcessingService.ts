@@ -22,7 +22,8 @@ async function ocrImage(filePath: string): Promise<string> {
 }
 
 async function extractPdfText(filePath: string): Promise<string> {
-  const pdf = (await import('pdf-parse')).default;
+  const pdfModule = await import('pdf-parse');
+  const pdf = (pdfModule as any).default || pdfModule;
   const buffer = fs.readFileSync(filePath);
   const data = await pdf(buffer);
   return data.text || '';

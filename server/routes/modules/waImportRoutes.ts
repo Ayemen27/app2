@@ -252,70 +252,61 @@ waImportRouter.delete("/batches/:batchId", requireAuth, requireRole('admin'), as
     const batch = await database.select().from(waImportBatches).where(eq(waImportBatches.id, batchId)).limit(1);
     if (batch.length === 0) return res.status(404).json({ error: "Batch not found" });
 
-    const candidateIds = (await database.select({ id: waExtractionCandidates.id })
-      .from(waExtractionCandidates)
-      .where(eq(waExtractionCandidates.batchId, batchId))
-    ).map(c => c.id);
-
-    const canonicalIds = candidateIds.length > 0
-      ? (await database.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
-          .from(waExtractionCandidates)
-          .where(eq(waExtractionCandidates.batchId, batchId))
-        ).map(c => c.canonicalTransactionId).filter(Boolean) as number[]
-      : [];
-
-    // Phase 1: Delete leaf tables referencing canonical transactions
-    if (canonicalIds.length > 0) {
-      await database.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
-      await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
-      await database.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
-    }
-
-    // Phase 2: Delete leaf tables referencing candidates (includes reviewActions which has BOTH candidate + canonical FK)
-    if (candidateIds.length > 0) {
-      await database.delete(waReviewActions).where(inArray(waReviewActions.candidateId, candidateIds));
-      await database.delete(waTransactionEvidenceLinks).where(inArray(waTransactionEvidenceLinks.candidateId, candidateIds));
-      await database.delete(waVerificationQueue).where(inArray(waVerificationQueue.candidateId, candidateIds));
-      await database.delete(waProjectHypotheses).where(inArray(waProjectHypotheses.candidateId, candidateIds));
-      await database.delete(waDedupKeys).where(inArray(waDedupKeys.candidateId, candidateIds));
-    }
-    if (canonicalIds.length > 0) {
-      await database.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
-    }
-
-    // Phase 3: Delete candidates BEFORE canonical (candidates.canonical_transaction_id FK → canonical)
-    await database.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
-
-    // Phase 4: Delete canonical transactions only if not referenced by other batches
-    if (canonicalIds.length > 0) {
-      const stillReferenced = (await database.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+    await database.transaction(async (tx: any) => {
+      const candidateIds = (await tx.select({ id: waExtractionCandidates.id })
         .from(waExtractionCandidates)
-        .where(inArray(waExtractionCandidates.canonicalTransactionId, canonicalIds))
-      ).map(r => r.canonicalTransactionId).filter(Boolean) as number[];
+        .where(eq(waExtractionCandidates.batchId, batchId))
+      ).map((c: any) => c.id);
 
-      const safeToDelete = canonicalIds.filter(id => !stillReferenced.includes(id));
-      if (safeToDelete.length > 0) {
-        await database.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, safeToDelete));
+      const canonicalIds = candidateIds.length > 0
+        ? (await tx.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+            .from(waExtractionCandidates)
+            .where(eq(waExtractionCandidates.batchId, batchId))
+          ).map((c: any) => c.canonicalTransactionId).filter(Boolean) as number[]
+        : [];
+
+      if (canonicalIds.length > 0) {
+        await tx.delete(waPostingResults).where(inArray(waPostingResults.canonicalTransactionId, canonicalIds));
+        await tx.delete(waVerificationQueue).where(inArray(waVerificationQueue.canonicalTransactionId, canonicalIds));
+        await tx.delete(waCustodianEntries).where(inArray(waCustodianEntries.canonicalTransactionId, canonicalIds));
       }
-      if (stillReferenced.length > 0) {
-        console.log(`[WAImport] Skipped ${stillReferenced.length} shared canonical transactions (referenced by other batches)`);
+
+      if (candidateIds.length > 0) {
+        await tx.delete(waReviewActions).where(inArray(waReviewActions.candidateId, candidateIds));
+        await tx.delete(waTransactionEvidenceLinks).where(inArray(waTransactionEvidenceLinks.candidateId, candidateIds));
+        await tx.delete(waVerificationQueue).where(inArray(waVerificationQueue.candidateId, candidateIds));
+        await tx.delete(waProjectHypotheses).where(inArray(waProjectHypotheses.candidateId, candidateIds));
+        await tx.delete(waDedupKeys).where(inArray(waDedupKeys.candidateId, candidateIds));
       }
-    }
+      if (canonicalIds.length > 0) {
+        await tx.delete(waReviewActions).where(inArray(waReviewActions.canonicalTransactionId, canonicalIds));
+      }
 
-    // Phase 5: Delete custodian entries linked to batch
-    await database.delete(waCustodianEntries).where(eq(waCustodianEntries.linkedBatchId, batchId));
+      await tx.delete(waExtractionCandidates).where(eq(waExtractionCandidates.batchId, batchId));
 
-    // Phase 6: Delete entity aliases BEFORE raw messages (aliases.sourceMessageId FK → rawMessages)
-    await database.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
+      if (canonicalIds.length > 0) {
+        const stillReferenced = (await tx.select({ canonicalTransactionId: waExtractionCandidates.canonicalTransactionId })
+          .from(waExtractionCandidates)
+          .where(inArray(waExtractionCandidates.canonicalTransactionId, canonicalIds))
+        ).map((r: any) => r.canonicalTransactionId).filter(Boolean) as number[];
 
-    // Phase 7: Delete raw messages and media
-    await database.delete(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
-    await database.delete(waRawMessages).where(eq(waRawMessages.batchId, batchId));
+        const safeToDelete = canonicalIds.filter((id: number) => !stillReferenced.includes(id));
+        if (safeToDelete.length > 0) {
+          await tx.delete(waCanonicalTransactions).where(inArray(waCanonicalTransactions.id, safeToDelete));
+        }
+        if (stillReferenced.length > 0) {
+          console.log(`[WAImport] Skipped ${stillReferenced.length} shared canonical transactions (referenced by other batches)`);
+        }
+      }
 
-    // Phase 8: Delete the batch itself
-    await database.delete(waImportBatches).where(eq(waImportBatches.id, batchId));
+      await tx.delete(waCustodianEntries).where(eq(waCustodianEntries.linkedBatchId, batchId));
+      await tx.delete(waEntityAliases).where(eq(waEntityAliases.sourceBatchId, batchId));
+      await tx.delete(waMediaAssets).where(eq(waMediaAssets.batchId, batchId));
+      await tx.delete(waRawMessages).where(eq(waRawMessages.batchId, batchId));
+      await tx.delete(waImportBatches).where(eq(waImportBatches.id, batchId));
+    });
 
-    console.log(`[WAImport] Batch #${batchId} fully deleted (${candidateIds.length} candidates, ${canonicalIds.length} canonical) by ${req.user?.email}`);
+    console.log(`[WAImport] Batch #${batchId} fully deleted atomically by ${req.user?.email}`);
     res.json({ success: true, message: `تم حذف الدُفعة #${batchId} وجميع بياناتها` });
   } catch (error: any) {
     console.error("[WAImport] Delete batch error:", error);
@@ -338,7 +329,7 @@ waImportRouter.get("/projects", requireAuth, requireAdminOrEditor, async (req: A
           eq(userProjectPermissions.user_id, req.user!.user_id),
           eq(userProjectPermissions.canView, true)
         ));
-      const allowedIds = userPerms.map(p => p.project_id);
+      const allowedIds = userPerms.map((p: any) => p.project_id);
       if (allowedIds.length > 0) {
         conditions.push(inArray(projects.id, allowedIds));
       } else {
@@ -955,19 +946,19 @@ waImportRouter.get("/workers-search", requireAuth, requireAdminOrEditor, async (
         .from(accountTypes)
         .where(accountCondition)
         .limit(30);
-      accountResults = rawAccounts.map(a => ({ id: String(a.id), name: a.name }));
+      accountResults = rawAccounts.map((a: any) => ({ id: String(a.id), name: a.name }));
     } catch (_err) {
       /* accountTypes table may not exist */
     }
 
     res.json({
-      workers: workerResults.map(w => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
-      projects: projectResults.map(p => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
-      accounts: accountResults.map(a => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
+      workers: workerResults.map((w: any) => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
+      projects: projectResults.map((p: any) => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
+      accounts: accountResults.map((a: any) => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
       all: [
-        ...workerResults.map(w => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
-        ...projectResults.map(p => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
-        ...accountResults.map(a => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
+        ...workerResults.map((w: any) => ({ ...w, entityTable: 'workers', entityLabel: 'عامل' })),
+        ...projectResults.map((p: any) => ({ ...p, entityTable: 'projects', entityLabel: 'مشروع' })),
+        ...accountResults.map((a: any) => ({ ...a, entityTable: 'account_types', entityLabel: 'حساب' })),
       ],
     });
   } catch (error) {
@@ -1446,7 +1437,7 @@ waImportRouter.get("/batch/:id/metrics", requireAuth, requireAdminOrEditor, asyn
 waImportRouter.post("/run-migration", requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
   try {
     const result = await runNameExtractionMigration();
-    res.json({ success: true, ...result });
+    res.json(result);
   } catch (error: any) {
     console.error("[WAImport] Migration error:", error);
     res.status(500).json({ error: error.message || "Failed to run migration" });

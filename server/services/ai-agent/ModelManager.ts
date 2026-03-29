@@ -691,16 +691,33 @@ export class ModelManager {
     totalKeys: number;
     availableKeys: number;
   }> {
-    return this.models.map(m => ({
-      provider: m.provider,
-      model: m.model,
-      isAvailable: m.isAvailable,
-      lastError: m.lastError,
-      dailyUsage: m.dailyUsage,
-      dailyLimit: m.dailyLimit,
-      totalKeys: m.keys.length,
-      availableKeys: m.keys.filter(k => k.isAvailable).length,
-    }));
+    const now = Date.now();
+    const cooldownMs = 5 * 60 * 1000;
+    return this.models.map(m => {
+      let availableKeys = 0;
+      for (const k of m.keys) {
+        if (k.isAvailable) {
+          availableKeys++;
+        } else if (k.lastErrorTime && now - k.lastErrorTime.getTime() > cooldownMs) {
+          k.isAvailable = true;
+          k.lastError = undefined;
+          availableKeys++;
+        }
+      }
+      if (availableKeys > 0 && !m.isAvailable) {
+        m.isAvailable = true;
+      }
+      return {
+        provider: m.provider,
+        model: m.model,
+        isAvailable: m.isAvailable,
+        lastError: m.lastError,
+        dailyUsage: m.dailyUsage,
+        dailyLimit: m.dailyLimit,
+        totalKeys: m.keys.length,
+        availableKeys,
+      };
+    });
   }
 }
 

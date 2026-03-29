@@ -91,11 +91,9 @@ export default function WorkerRebalancePage() {
   const [completedWorkers, setCompletedWorkers] = useState<Set<string>>(new Set());
   const [searchValue, setSearchValue] = useState('');
 
-  const { data: workersResponse, isLoading, refetch, isRefetching } = useQuery<{ success: boolean; data: ImbalancedWorker[] }>({
+  const { data: workers = [], isLoading, isError, refetch, isRefetching } = useQuery<ImbalancedWorker[]>({
     queryKey: ['/api/worker-rebalance/imbalanced-workers'],
   });
-
-  const workers = workersResponse?.data || [];
 
   const filteredWorkers = workers.filter(w =>
     !searchValue || w.workerName.includes(searchValue)
@@ -103,7 +101,7 @@ export default function WorkerRebalancePage() {
 
   const previewMutation = useMutation({
     mutationFn: async (workerId: string) => {
-      const res = await apiRequest('GET', `/api/worker-rebalance/preview/${workerId}`);
+      const res = await apiRequest(`/api/worker-rebalance/preview/${workerId}`, 'GET');
       return res.json();
     },
     onSuccess: (data) => {
@@ -120,7 +118,7 @@ export default function WorkerRebalancePage() {
 
   const executeMutation = useMutation({
     mutationFn: async (params: { workerId: string; lines: any[]; date: string }) => {
-      const res = await apiRequest('POST', '/api/worker-rebalance/execute', params);
+      const res = await apiRequest('/api/worker-rebalance/execute', 'POST', params);
       return res.json();
     },
     onSuccess: (data) => {
@@ -231,6 +229,18 @@ export default function WorkerRebalancePage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           <span className="mr-2 text-muted-foreground">جارٍ تحميل البيانات...</span>
         </div>
+      ) : isError ? (
+        <Card className="border-red-200 dark:border-red-800">
+          <CardContent className="py-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">فشل في تحميل البيانات</h3>
+            <p className="text-muted-foreground mt-1">تأكد من صلاحيات المدير وأعد المحاولة</p>
+            <Button variant="outline" className="mt-4" onClick={() => refetch()} data-testid="btn-retry">
+              <RefreshCw className="h-4 w-4 ml-2" />
+              إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
       ) : workers.length === 0 ? (
         <Card className="border-green-200 dark:border-green-800">
           <CardContent className="py-12 text-center">

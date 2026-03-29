@@ -1440,7 +1440,6 @@ export class ReportDataService {
         projectTransfersOutResult,
         equipmentResult,
         equipmentByStatusResult,
-        wellExpensesResult,
       ] = await Promise.all([
         client.query(`
           SELECT
@@ -1616,20 +1615,6 @@ export class ReportDataService {
           GROUP BY status
         `, [projectId]),
 
-        client.query(`
-          SELECT we.well_id,
-            COALESCE(SUM(CASE WHEN we.expense_type='transport' THEN safe_numeric(we.total_amount::text) END), 0) AS transport,
-            COALESCE(SUM(CASE WHEN we.expense_type='operational_material' THEN safe_numeric(we.total_amount::text) END), 0) AS operational_material,
-            COALESCE(SUM(CASE WHEN we.expense_type='consumable_material' THEN safe_numeric(we.total_amount::text) END), 0) AS consumable_material,
-            COALESCE(SUM(CASE WHEN we.expense_type='labor' THEN safe_numeric(we.total_amount::text) END), 0) AS labor,
-            COALESCE(SUM(CASE WHEN we.expense_type='service' THEN safe_numeric(we.total_amount::text) END), 0) AS service,
-            COALESCE(SUM(safe_numeric(we.total_amount::text)), 0) AS total_expenses,
-            COUNT(*) AS expense_count
-          FROM well_expenses we
-          JOIN wells w ON we.well_id = w.id
-          WHERE w.project_id = $1 AND we.expense_date >= $2 AND we.expense_date <= $3
-          GROUP BY we.well_id
-        `, [projectId, effectiveDateFrom, effectiveDateTo]),
       ]);
 
       const supplierPayCompResult = await client.query(`
@@ -1694,21 +1679,12 @@ export class ReportDataService {
         });
       }
 
-      const expenseMap = new Map<number, { transport: number; operationalMaterial: number; consumableMaterial: number; labor: number; service: number; totalExpenses: number }>();
-      for (const row of wellExpensesResult.rows) {
-        expenseMap.set(Number(row.well_id), {
-          transport: safeNum(row.transport),
-          operationalMaterial: safeNum(row.operational_material),
-          consumableMaterial: safeNum(row.consumable_material),
-          labor: safeNum(row.labor),
-          service: safeNum(row.service),
-          totalExpenses: safeNum(row.total_expenses),
-        });
-      }
+      const totalAllCrewWages = Array.from(crewMap.values()).reduce((s, c) => s + c.totalWages, 0);
 
       const wellsList = wellsResult.rows.map(w => {
         const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
-        const expenses = expenseMap.get(Number(w.id)) || { transport: 0, operationalMaterial: 0, consumableMaterial: 0, labor: 0, service: 0, totalExpenses: 0 };
+        const proportion = totalAllCrewWages > 0 ? crew.totalWages / totalAllCrewWages : 0;
+        const wellTotalCost = Math.round(totalExpenses * proportion * 100) / 100;
         return {
           wellNumber: safeNum(w.well_number),
           ownerName: w.owner_name || '-',
@@ -1718,12 +1694,12 @@ export class ReportDataService {
           completionPercentage: safeNum(w.completion_percentage),
           crewCount: crew.crewCount,
           totalCrewWages: crew.totalWages,
-          transportCost: expenses.transport,
-          materialsCost: expenses.operationalMaterial + expenses.consumableMaterial,
-          laborCost: expenses.labor,
-          serviceCost: expenses.service,
-          totalExpenses: expenses.totalExpenses,
-          totalCost: expenses.totalExpenses,
+          transportCost: 0,
+          materialsCost: 0,
+          laborCost: 0,
+          serviceCost: 0,
+          totalExpenses: 0,
+          totalCost: wellTotalCost,
         };
       });
 

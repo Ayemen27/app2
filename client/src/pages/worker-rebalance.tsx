@@ -80,9 +80,27 @@ function formatNumber(n: number): string {
   return n.toLocaleString('ar-SA');
 }
 
+function toArabicDigits(str: string): string {
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  return str.replace(/[0-9]/g, (d) => arabicDigits[parseInt(d)]);
+}
+
+function formatDateArabic(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return toArabicDigits(d.toLocaleDateString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit' }));
+}
+
 function getTodayDate(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+interface PaymentDate {
+  date: string;
+  totalAmount: number;
+  count: number;
+  sources: string;
 }
 
 export default function WorkerRebalancePage() {
@@ -94,6 +112,7 @@ export default function WorkerRebalancePage() {
   const [completedWorkers, setCompletedWorkers] = useState<Set<string>>(new Set());
   const [searchValue, setSearchValue] = useState('');
   const [rebalanceDate, setRebalanceDate] = useState(getTodayDate());
+  const [paymentDates, setPaymentDates] = useState<PaymentDate[]>([]);
 
   const { data: workers = [], isLoading, isError, refetch, isRefetching } = useQuery<ImbalancedWorker[]>({
     queryKey: ['/api/worker-rebalance/imbalanced-workers'],
@@ -141,9 +160,16 @@ export default function WorkerRebalancePage() {
     },
   });
 
-  const handlePreview = (worker: ImbalancedWorker) => {
+  const handlePreview = async (worker: ImbalancedWorker) => {
     setSelectedWorker(worker);
     previewMutation.mutate(worker.workerId);
+    try {
+      const resp = await apiRequest(`/api/worker-rebalance/payment-dates/${worker.workerId}`, 'GET');
+      const dates = resp?.data ?? resp;
+      setPaymentDates(Array.isArray(dates) ? dates : []);
+    } catch {
+      setPaymentDates([]);
+    }
   };
 
   const handleExecute = () => {
@@ -445,17 +471,42 @@ export default function WorkerRebalancePage() {
                 </>
               )}
 
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Label htmlFor="rebalance-date" className="text-sm font-medium whitespace-nowrap">تاريخ التسوية:</Label>
-                <Input
-                  id="rebalance-date"
-                  type="date"
-                  value={rebalanceDate}
-                  onChange={(e) => setRebalanceDate(e.target.value)}
-                  className="w-auto text-sm"
-                  data-testid="input-rebalance-date"
-                />
+              <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Label htmlFor="rebalance-date" className="text-sm font-medium whitespace-nowrap">تاريخ التسوية:</Label>
+                  <Input
+                    id="rebalance-date"
+                    type="date"
+                    value={rebalanceDate}
+                    onChange={(e) => setRebalanceDate(e.target.value)}
+                    className="w-auto text-sm"
+                    data-testid="input-rebalance-date"
+                  />
+                </div>
+                {paymentDates.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">تواريخ دفعات العامل السابقة (اضغط للاختيار):</p>
+                    <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                      {paymentDates.map((pd) => (
+                        <button
+                          key={pd.date}
+                          type="button"
+                          onClick={() => setRebalanceDate(pd.date)}
+                          className={`w-full flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+                            rebalanceDate === pd.date
+                              ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200'
+                              : 'bg-background hover:bg-muted/60 border-border'
+                          }`}
+                          data-testid={`btn-date-${pd.date}`}
+                        >
+                          <span className="font-medium">{formatDateArabic(pd.date)}</span>
+                          <span className="text-muted-foreground">{formatNumber(pd.totalAmount)} ر.ي — {pd.sources}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">

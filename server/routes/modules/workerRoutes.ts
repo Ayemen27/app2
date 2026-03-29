@@ -1351,6 +1351,52 @@ workerRouter.get('/worker-rebalance/imbalanced-workers', async (req: Request, re
 });
 
 /**
+ * GET /api/worker-rebalance/payment-dates/:workerId
+ */
+workerRouter.get('/worker-rebalance/payment-dates/:workerId', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'صلاحيات المدير مطلوبة' });
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(req.params.workerId)) {
+      return res.status(400).json({ success: false, message: 'معرف العامل غير صالح' });
+    }
+    const workerId = req.params.workerId;
+
+    const result = await pool.query(`
+      SELECT date, SUM(amount) AS total_amount, COUNT(*) AS count, string_agg(DISTINCT source, '، ') AS sources
+      FROM (
+        SELECT wt.transfer_date AS date, safe_numeric(wt.amount::text, 0) AS amount,
+          CASE WHEN wt.transfer_method = 'settlement' THEN 'تصفية' ELSE 'سحبية' END AS source
+        FROM worker_transfers wt
+        WHERE wt.worker_id = $1 AND wt.transfer_date IS NOT NULL
+        UNION ALL
+        SELECT wa.attendance_date AS date, safe_numeric(wa.paid_amount::text, 0) AS amount, 'أجر مدفوع' AS source
+        FROM worker_attendance wa
+        WHERE wa.worker_id = $1 AND safe_numeric(wa.paid_amount::text, 0) > 0
+      ) payments
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 50
+    `, [workerId]);
+
+    res.json({
+      success: true,
+      data: result.rows.map((r: any) => ({
+        date: r.date,
+        totalAmount: Number(r.total_amount) || 0,
+        count: Number(r.count) || 0,
+        sources: r.sources,
+      }))
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب تواريخ الدفعات:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * GET /api/worker-rebalance/preview/:workerId
  */
 workerRouter.get('/worker-rebalance/preview/:workerId', async (req: Request, res: Response) => {

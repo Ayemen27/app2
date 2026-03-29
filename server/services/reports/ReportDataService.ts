@@ -1475,7 +1475,7 @@ export class ReportDataService {
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
-          SELECT id, well_number, owner_name, region, well_depth, panel_count, status,
+          SELECT id, well_number, owner_name, region, well_depth, COALESCE(number_of_panels, panel_count, 0) AS panel_count, status,
             COALESCE(safe_numeric(completion_percentage::text), 0) AS completion_percentage
           FROM wells WHERE project_id = $1
           ORDER BY well_number
@@ -1680,11 +1680,15 @@ export class ReportDataService {
       }
 
       const totalAllCrewWages = Array.from(crewMap.values()).reduce((s, c) => s + c.totalWages, 0);
+      const overheadExpenses = totalExpenses - totalPaidWages;
+      const wellCount = wellsResult.rows.length || 1;
+      const overheadPerWell = Math.round(overheadExpenses / wellCount * 100) / 100;
 
       const wellsList = wellsResult.rows.map(w => {
         const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
-        const proportion = totalAllCrewWages > 0 ? crew.totalWages / totalAllCrewWages : 0;
-        const wellTotalCost = Math.round(totalExpenses * proportion * 100) / 100;
+        const wageProportion = totalPaidWages > 0 ? crew.totalWages / totalAllCrewWages : 0;
+        const wellWageShare = Math.round(totalPaidWages * wageProportion * 100) / 100;
+        const wellTotalCost = Math.round((wellWageShare + overheadPerWell) * 100) / 100;
         return {
           wellNumber: safeNum(w.well_number),
           ownerName: w.owner_name || '-',

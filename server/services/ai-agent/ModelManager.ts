@@ -348,7 +348,7 @@ export class ModelManager {
 
       if (!model.isAvailable) {
         const anyKeyRecovered = model.keys.some(k => 
-          !k.isAvailable && k.lastErrorTime && Date.now() - k.lastErrorTime.getTime() > 5 * 60 * 1000
+          !k.isAvailable && k.lastErrorTime && Date.now() - k.lastErrorTime.getTime() > this.getKeyCooldownMs(k)
         );
         if (anyKeyRecovered) {
           model.isAvailable = true;

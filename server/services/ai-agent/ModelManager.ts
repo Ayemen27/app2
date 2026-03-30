@@ -35,6 +35,7 @@ export interface ModelConfig {
   model: string;
   priority: number;
   isAvailable: boolean;
+  allKeysDepleted?: boolean;
   lastError?: string;
   lastErrorTime?: Date;
   dailyUsage: number;
@@ -197,7 +198,7 @@ export class ModelManager {
   }
 
   private getKeyCooldownMs(key: KeyState): number {
-    return key.isBalanceDepleted ? 60 * 60 * 1000 : 5 * 60 * 1000;
+    return key.isBalanceDepleted ? 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
   }
 
   private getNextAvailableKey(model: ModelConfig): KeyState | null {
@@ -239,7 +240,13 @@ export class ModelManager {
     }
 
     model.isAvailable = false;
-    console.log(`❌ [ModelManager] ${model.provider} all ${model.keys.length} keys exhausted`);
+    const allDepleted = model.keys.every(k => k.isBalanceDepleted);
+    if (allDepleted) {
+      model.allKeysDepleted = true;
+      console.log(`💀 [ModelManager] ${model.provider} all ${model.keys.length} keys BALANCE DEPLETED — skipping for 24h`);
+    } else {
+      console.log(`❌ [ModelManager] ${model.provider} all ${model.keys.length} keys exhausted (rate-limited)`);
+    }
     return null;
   }
 
@@ -340,6 +347,26 @@ export class ModelManager {
     for (let i = 0; i < this.models.length; i++) {
       const modelIndex = (this.currentModelIndex + i) % this.models.length;
       const model = this.models[modelIndex];
+
+      if (model.allKeysDepleted) {
+        const anyKeyRecovered = model.keys.some(k =>
+          k.isBalanceDepleted && k.lastErrorTime && Date.now() - k.lastErrorTime.getTime() > this.getKeyCooldownMs(k)
+        );
+        if (anyKeyRecovered) {
+          model.allKeysDepleted = false;
+          model.isAvailable = true;
+          for (const k of model.keys) {
+            if (k.isBalanceDepleted && k.lastErrorTime && Date.now() - k.lastErrorTime.getTime() > this.getKeyCooldownMs(k)) {
+              k.isAvailable = true;
+              k.isBalanceDepleted = false;
+              k.lastError = undefined;
+            }
+          }
+          console.log(`🔄 [ModelManager] ${model.provider} some keys recovered after cooldown, retrying`);
+        } else {
+          continue;
+        }
+      }
 
       if (!this.checkDailyLimit(model)) {
         model.isAvailable = false;
@@ -666,6 +693,7 @@ export class ModelManager {
     for (const model of this.models) {
       model.dailyUsage = 0;
       model.isAvailable = true;
+      model.allKeysDepleted = false;
       model.lastError = undefined;
       for (const key of model.keys) {
         key.dailyUsage = 0;

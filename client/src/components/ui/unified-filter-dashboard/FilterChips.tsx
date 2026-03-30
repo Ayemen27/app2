@@ -79,6 +79,7 @@ export function FilterChips({
       const value = filterValues[filter.key];
       if (filter.type === 'date') return value instanceof Date;
       if (filter.type === 'date-range') return value?.from || value?.to;
+      if (filter.type === 'multi-select') return Array.isArray(value) && value.length > 0;
       return value && value !== 'all' && value !== filter.defaultValue;
     });
   };
@@ -98,6 +99,10 @@ export function FilterChips({
         return `من ${format(value.from, 'dd MMM yyyy', { locale: ar })}`;
       }
     }
+    if (filter.type === 'multi-select' && Array.isArray(value)) {
+      const labels = value.map(v => filter.options?.find(o => o.value === v)?.label || v);
+      return labels.length <= 2 ? labels.join('، ') : `${labels.length} محدد`;
+    }
     const option = filter.options?.find(o => o.value === value);
     return option?.label || value;
   };
@@ -105,6 +110,8 @@ export function FilterChips({
   const handleRemoveFilter = (filter: FilterConfig) => {
     if (filter.type === 'date' || filter.type === 'date-range') {
       onFilterChange(filter.key, undefined);
+    } else if (filter.type === 'multi-select') {
+      onFilterChange(filter.key, []);
     } else {
       onFilterChange(filter.key, filter.defaultValue || 'all');
     }

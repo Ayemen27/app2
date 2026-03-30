@@ -33,6 +33,7 @@ export function UnifiedFilterDashboard({
     const value = filterValues[filter.key];
     if (filter.type === 'date') return value instanceof Date;
     if (filter.type === 'date-range') return value?.from || value?.to;
+    if (filter.type === 'multi-select') return Array.isArray(value) && value.length > 0;
     return value && value !== 'all' && value !== filter.defaultValue;
   }) || Boolean(searchValue && searchValue.length > 0);
 

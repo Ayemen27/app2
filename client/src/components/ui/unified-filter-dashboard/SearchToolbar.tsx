@@ -70,6 +70,7 @@ export function SearchToolbar({
       const value = filterValues[filter.key];
       if (filter.type === 'date') return value instanceof Date;
       if (filter.type === 'date-range') return value?.from || value?.to;
+      if (filter.type === 'multi-select') return Array.isArray(value) && value.length > 0;
       return value && value !== 'all' && value !== filter.defaultValue;
     }).length;
   };
@@ -146,6 +147,75 @@ export function SearchToolbar({
           </div>
         );
       
+      case 'multi-select': {
+        const selectedValues: string[] = Array.isArray(value) ? value : [];
+        const nonAllOptions = filter.options?.filter(o => o.value !== 'all') || [];
+        const selectedLabels = nonAllOptions.filter(o => selectedValues.includes(o.value)).map(o => o.label);
+        const displayText = selectedLabels.length === 0
+          ? (filter.placeholder || filter.label)
+          : selectedLabels.length <= 2
+            ? selectedLabels.join('، ')
+            : `${selectedLabels.length} محدد`;
+        return (
+          <div onClick={(e) => e.stopPropagation()} className="relative group mb-2">
+            <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[11px] font-bold text-slate-500 z-20">
+              {filter.label}
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full h-14 border-2 border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm font-medium flex items-center justify-between hover:border-primary/40 transition-all"
+                  data-testid={`filter-multi-${filter.key}`}
+                >
+                  <svg className="h-4 w-4 opacity-50 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+                  <span className={cn("truncate", selectedLabels.length === 0 && "text-muted-foreground")}>{displayText}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2 rounded-2xl z-[99999]" align="start">
+                <div className="max-h-60 overflow-y-auto space-y-0.5">
+                  {nonAllOptions.map((option) => {
+                    const isChecked = selectedValues.includes(option.value);
+                    return (
+                      <label
+                        key={option.value}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-sm text-right hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+                          isChecked && "bg-primary/10 dark:bg-primary/20"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            const newValues = isChecked
+                              ? selectedValues.filter(v => v !== option.value)
+                              : [...selectedValues, option.value];
+                            onFilterChange?.(filter.key, newValues.length > 0 ? newValues : []);
+                          }}
+                          className="w-4 h-4 rounded accent-primary"
+                        />
+                        <span className="flex-1 text-right">{option.label}</span>
+                        {option.dotColor && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: option.dotColor }} />}
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedValues.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onFilterChange?.(filter.key, [])}
+                    className="w-full mt-2 py-2 text-xs text-center text-muted-foreground hover:text-destructive rounded-xl hover:bg-destructive/10 transition-colors"
+                  >
+                    مسح الكل
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      }
+
       default:
         return (
           <div onClick={(e) => e.stopPropagation()} className="relative group mb-2">

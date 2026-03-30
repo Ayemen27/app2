@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import type { StatsRowConfig, FilterConfig, FilterType, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
@@ -20,6 +20,12 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
   Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown, FileText
 } from "lucide-react";
+
+function fmtNum(v: any): string {
+  const n = Number(v);
+  if (isNaN(n)) return '0';
+  return n % 1 === 0 ? String(Math.round(n)) : String(parseFloat(n.toFixed(4)));
+}
 
 interface CrewWorkerData {
   id: number;
@@ -81,7 +87,7 @@ function CrewLinkedWorkers({ crewId, manualWorkersCount, manualMastersCount, man
               </Badge>
             </div>
             <div className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
-              {w.work_days && <span>{w.work_days} يوم</span>}
+              {w.work_days && <span>{fmtNum(w.work_days)} يوم</span>}
               <span className="font-medium text-foreground">{Number(w.daily_wage_snapshot || w.worker_daily_wage || 0).toLocaleString()} ر</span>
             </div>
           </div>
@@ -90,7 +96,7 @@ function CrewLinkedWorkers({ crewId, manualWorkersCount, manualMastersCount, man
       {hasDiscrepancy && (
         <div className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400" data-testid={`text-crew-discrepancy-${crewId}`}>
           <TrendingUp className="h-2.5 w-2.5 shrink-0" />
-          <span>يدوي: {manualWorkersCount} عمال / {manualMastersCount} معلمين — تلقائي: {autoWorkers} عمال / {autoMasters} معلمين</span>
+          <span>يدوي: {fmtNum(manualWorkersCount)} عمال / {fmtNum(manualMastersCount)} معلمين — تلقائي: {fmtNum(autoWorkers)} عمال / {fmtNum(autoMasters)} معلمين</span>
         </div>
       )}
       {manualTotalWages > 0 && autoTotalWages > 0 && Math.abs(manualTotalWages - autoTotalWages) > 1 && (
@@ -162,7 +168,7 @@ export default function WellCrewsPage() {
 
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: 'all', crewType: 'all', status: 'all', teamName: 'all', dateRange: undefined
+    region: 'all', crewType: [], status: 'all', teamName: [], dateRange: undefined
   });
   const [showCrewForm, setShowCrewForm] = useState(false);
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -270,10 +276,12 @@ export default function WellCrewsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue('');
-    setFilterValues({ region: 'all', crewType: 'all', status: 'all', teamName: 'all', dateRange: undefined });
+    setFilterValues({ region: 'all', crewType: [], status: 'all', teamName: [], dateRange: undefined });
   }, []);
 
-  const hasCrewFilters = filterValues.crewType !== 'all' || filterValues.teamName !== 'all';
+  const selectedCrewTypes: string[] = Array.isArray(filterValues.crewType) ? filterValues.crewType : [];
+  const selectedTeamNames: string[] = Array.isArray(filterValues.teamName) ? filterValues.teamName : [];
+  const hasCrewFilters = selectedCrewTypes.length > 0 || selectedTeamNames.length > 0;
 
   const filteredData = useMemo(() => {
     const dateFrom = filterValues.dateRange?.from ? new Date(filterValues.dateRange.from) : null;
@@ -282,8 +290,10 @@ export default function WellCrewsPage() {
     if (dateTo) dateTo.setHours(23, 59, 59, 999);
 
     const crewMatchesFn = (c: any) => {
-      const matchesCT = filterValues.crewType === 'all' || (c.crewType || c.crew_type) === filterValues.crewType;
-      const matchesTN = filterValues.teamName === 'all' || (c.teamName || c.team_name) === filterValues.teamName;
+      const ct = c.crewType || c.crew_type;
+      const tn = c.teamName || c.team_name;
+      const matchesCT = selectedCrewTypes.length === 0 || selectedCrewTypes.includes(ct);
+      const matchesTN = selectedTeamNames.length === 0 || selectedTeamNames.includes(tn);
       let matchesD = true;
       if (dateFrom || dateTo) {
         const d = c.workDate || c.work_date;
@@ -325,16 +335,18 @@ export default function WellCrewsPage() {
 
       return matchesSearch && matchesRegion && hasMatchingCrews && matchesStatus && matchesDate;
     });
-  }, [fullData, searchValue, filterValues, hasCrewFilters]);
+  }, [fullData, searchValue, filterValues, hasCrewFilters, selectedCrewTypes, selectedTeamNames]);
 
   const getFilteredCrews = useCallback((crews: any[]) => {
     if (!hasCrewFilters) return crews;
     return crews.filter((c: any) => {
-      const matchesCT = filterValues.crewType === 'all' || (c.crewType || c.crew_type) === filterValues.crewType;
-      const matchesTN = filterValues.teamName === 'all' || (c.teamName || c.team_name) === filterValues.teamName;
+      const ct = c.crewType || c.crew_type;
+      const tn = c.teamName || c.team_name;
+      const matchesCT = selectedCrewTypes.length === 0 || selectedCrewTypes.includes(ct);
+      const matchesTN = selectedTeamNames.length === 0 || selectedTeamNames.includes(tn);
       return matchesCT && matchesTN;
     });
-  }, [filterValues, hasCrewFilters]);
+  }, [selectedCrewTypes, selectedTeamNames, hasCrewFilters]);
 
   const stats = useMemo(() => {
     const allCrews = filteredData.flatMap(w => getFilteredCrews(w.crews || []));
@@ -391,14 +403,12 @@ export default function WellCrewsPage() {
       defaultValue: 'all'
     },
     {
-      key: 'crewType', label: 'نوع الفريق', type: 'select', placeholder: 'اختر نوع الفريق',
-      options: [{ value: 'all', label: 'جميع الأنواع' }, ...CREW_TYPES],
-      defaultValue: 'all'
+      key: 'crewType', label: 'نوع العمل', type: 'multi-select' as FilterType, placeholder: 'اختر أنواع العمل',
+      options: [...CREW_TYPES],
     },
     {
-      key: 'teamName', label: 'اسم الفريق', type: 'select', placeholder: 'اختر الفريق',
-      options: [{ value: 'all', label: 'جميع الفرق' }, ...teamNameOptions],
-      defaultValue: 'all'
+      key: 'teamName', label: 'اسم الفريق', type: 'multi-select' as FilterType, placeholder: 'اختر الفرق',
+      options: [...teamNameOptions],
     },
     {
       key: 'dateRange', label: 'الفترة الزمنية', type: 'date-range' as any, placeholder: 'اختر الفترة',
@@ -918,9 +928,9 @@ export default function WellCrewsPage() {
                                 </div>
                               </div>
                               <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-[11px]">
-                                <span>عمال: <b className="text-foreground">{crew.workersCount ?? crew.workers_count ?? 0}</b></span>
-                                <span>معلمين: <b className="text-foreground">{crew.mastersCount ?? crew.masters_count ?? 0}</b></span>
-                                <span>أيام: <b className="text-foreground">{crew.workDays ?? crew.work_days ?? 0}</b></span>
+                                <span>عمال: <b className="text-foreground">{fmtNum(crew.workersCount ?? crew.workers_count ?? 0)}</b></span>
+                                <span>معلمين: <b className="text-foreground">{fmtNum(crew.mastersCount ?? crew.masters_count ?? 0)}</b></span>
+                                <span>أيام: <b className="text-foreground">{fmtNum(crew.workDays ?? crew.work_days ?? 0)}</b></span>
                                 {workDate ? (
                                   <span className="flex items-center gap-0.5">
                                     <Calendar className="h-3 w-3 text-muted-foreground" />

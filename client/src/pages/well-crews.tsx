@@ -712,7 +712,30 @@ export default function WellCrewsPage() {
     } finally { setIsExportingPdf(false); }
   }, [filteredData, stats, toast]);
 
+  const [isRebuilding, setIsRebuilding] = useState(false);
+  const handleRebuildCrewTotals = useCallback(async () => {
+    setIsRebuilding(true);
+    try {
+      await apiRequest('/api/wells/crews/rebuild-totals', { method: 'POST' });
+      toast({ title: 'تم إعادة بناء أجور الفرق بنجاح', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.WELLS_FULL_EXPORT] });
+    } catch (err) {
+      toast({ title: 'فشل في إعادة بناء أجور الفرق', variant: 'destructive' });
+    } finally {
+      setIsRebuilding(false);
+    }
+  }, [toast, queryClient]);
+
   const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'rebuild-totals',
+      icon: ArrowUpDown,
+      label: 'مزامنة الأجور',
+      onClick: handleRebuildCrewTotals,
+      variant: 'outline',
+      loading: isRebuilding,
+      tooltip: 'إعادة حساب أجور الفرق من بيانات العمال المرتبطين',
+    },
     {
       key: 'export-pdf',
       icon: FileText,
@@ -733,7 +756,7 @@ export default function WellCrewsPage() {
       disabled: filteredData.length === 0,
       tooltip: 'تصدير كشف الفرق والنقل إلى Excel',
     },
-  ], [handleExportExcel, handleExportPdf, isExporting, isExportingPdf, filteredData.length]);
+  ], [handleExportExcel, handleExportPdf, handleRebuildCrewTotals, isExporting, isExportingPdf, isRebuilding, filteredData.length]);
 
   const resultsSummary = useMemo(() => ({
     totalCount: (fullData as any[]).length,

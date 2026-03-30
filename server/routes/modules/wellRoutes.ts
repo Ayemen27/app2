@@ -888,6 +888,55 @@ wellRouter.delete('/crews/:crewId', async (req: Request, res: Response) => {
   }
 });
 
+wellRouter.post('/crews/rebuild-totals', async (req: Request, res: Response) => {
+  try {
+    const allCrews = await db.select({ id: wellWorkCrews.id }).from(wellWorkCrews);
+    let updated = 0;
+    for (const crew of allCrews) {
+      const linkedWorkers = await db
+        .select({
+          worker_id: wellCrewWorkers.worker_id,
+          daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+          work_days: wellCrewWorkers.work_days,
+        })
+        .from(wellCrewWorkers)
+        .where(eq(wellCrewWorkers.crew_id, crew.id));
+
+      if (linkedWorkers.length === 0) continue;
+
+      let totalWorkersCnt = 0;
+      let totalMastersCnt = 0;
+      let totalWages = 0;
+      let maxWorkDays = 0;
+
+      for (const lw of linkedWorkers) {
+        const workerRows = await db.select({ type: workers.type }).from(workers).where(eq(workers.id, lw.worker_id)).limit(1);
+        const isMaster = workerRows.length > 0 && (workerRows[0].type === 'معلم' || workerRows[0].type === 'مشرف');
+        if (isMaster) totalMastersCnt++; else totalWorkersCnt++;
+
+        const wage = parseFloat(lw.daily_wage_snapshot || '0');
+        const days = parseFloat(lw.work_days || '0');
+        totalWages += wage * days;
+        if (days > maxWorkDays) maxWorkDays = days;
+      }
+
+      await db.update(wellWorkCrews).set({
+        workersCount: totalWorkersCnt.toString(),
+        mastersCount: totalMastersCnt.toString(),
+        totalWages: totalWages.toString(),
+        workDays: maxWorkDays.toString(),
+        updated_at: new Date(),
+      }).where(eq(wellWorkCrews.id, crew.id));
+      updated++;
+    }
+
+    res.json({ success: true, message: `تم إعادة بناء ${updated} من ${allCrews.length} طاقم`, updated, total: allCrews.length });
+  } catch (error: any) {
+    console.error('[rebuild-crew-totals] Error:', error);
+    res.status(500).json({ success: false, message: 'فشل في إعادة بناء بيانات الفرق' });
+  }
+});
+
 // ============================================================
 // مكونات الطاقة الشمسية (Solar Components) - /api/wells/:wellId/solar-components
 // ============================================================

@@ -85,6 +85,49 @@ interface WorkerBalanceEntry {
   currentBalance: string;
 }
 
+async function recalcCrewTotalsFromWorkers(crewId: number) {
+  try {
+    const linkedWorkers = await db
+      .select({
+        worker_id: wellCrewWorkers.worker_id,
+        daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+        work_days: wellCrewWorkers.work_days,
+      })
+      .from(wellCrewWorkers)
+      .where(eq(wellCrewWorkers.crew_id, crewId));
+
+    if (linkedWorkers.length === 0) return;
+
+    let totalWorkers = 0;
+    let totalMasters = 0;
+    let totalWages = 0;
+    let maxWorkDays = 0;
+
+    for (const lw of linkedWorkers) {
+      const workerRows = await db.select({ type: workers.type }).from(workers).where(eq(workers.id, lw.worker_id)).limit(1);
+      const isMaster = workerRows.length > 0 && (workerRows[0].type === 'معلم' || workerRows[0].type === 'مشرف');
+      if (isMaster) totalMasters++; else totalWorkers++;
+
+      const wage = parseFloat(lw.daily_wage_snapshot || '0');
+      const days = parseFloat(lw.work_days || '0');
+      totalWages += wage * days;
+      if (days > maxWorkDays) maxWorkDays = days;
+    }
+
+    await db.update(wellWorkCrews).set({
+      workersCount: totalWorkers.toString(),
+      mastersCount: totalMasters.toString(),
+      totalWages: totalWages.toString(),
+      workDays: maxWorkDays.toString(),
+      updated_at: new Date(),
+    }).where(eq(wellWorkCrews.id, crewId));
+
+    console.log(`[recalcCrewTotals] Crew ${crewId}: ${totalWorkers} workers, ${totalMasters} masters, wages=${totalWages}`);
+  } catch (error) {
+    console.error('[recalcCrewTotals] Error:', error);
+  }
+}
+
 async function syncAttendanceToWellCrews(attendanceRecord: any) {
   try {
     const workerId = attendanceRecord.worker_id;
@@ -126,14 +169,13 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
     const worker = workerRows[0];
 
     const workerType = worker.type;
-    const dailyWage = parseFloat(worker.dailyWage || '0');
-    const workDaysVal = parseFloat(attendanceRecord.workDays || '0');
-    const workDate = attendanceRecord.date || attendanceRecord.attendanceDate;
+    const dailyWage = parseFloat(attendanceRecord.daily_wage || attendanceRecord.dailyWage || worker.dailyWage || '0');
+    const workDaysVal = parseFloat(attendanceRecord.work_days || attendanceRecord.workDays || '0');
+    const workDate = attendanceRecord.date || attendanceRecord.attendanceDate || attendanceRecord.attendance_date;
     const isMaster = workerType === 'معلم' || workerType === 'مشرف';
 
     const splitFactor = wellIds.length * crewTypes.length;
     const splitWorkDays = workDaysVal / splitFactor;
-    const splitWage = (dailyWage * workDaysVal) / splitFactor;
 
     for (const wellId of wellIds) {
       for (const crewType of crewTypes) {
@@ -149,36 +191,14 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
 
         if (existingCrews.length > 0) {
           crewId = existingCrews[0].id;
-          const existingWorkerLink = await db.select().from(wellCrewWorkers).where(
-            and(
-              eq(wellCrewWorkers.crew_id, crewId),
-              eq(wellCrewWorkers.worker_id, workerId)
-            )
-          ).limit(1);
-
-          if (existingWorkerLink.length === 0) {
-            const wCount = Number(existingCrews[0].workersCount) + (isMaster ? 0 : 1);
-            const mCount = Number(existingCrews[0].mastersCount) + (isMaster ? 1 : 0);
-            const existingTotal = parseFloat(existingCrews[0].totalWages || '0');
-            const newTotal = existingTotal + splitWage;
-
-            await db.update(wellWorkCrews).set({
-              workersCount: wCount.toString(),
-              mastersCount: mCount.toString(),
-              totalWages: newTotal.toString(),
-              updated_at: new Date(),
-            }).where(eq(wellWorkCrews.id, crewId));
-          }
         } else {
           const newCrew = await db.insert(wellWorkCrews).values({
             well_id: wellId,
             crewType: crewType,
-            workersCount: (isMaster ? 0 : 1).toString(),
-            mastersCount: (isMaster ? 1 : 0).toString(),
-            workDays: splitWorkDays.toString(),
-            workerDailyWage: isMaster ? null : dailyWage.toString(),
-            masterDailyWage: isMaster ? dailyWage.toString() : null,
-            totalWages: splitWage.toString(),
+            workersCount: '0',
+            mastersCount: '0',
+            workDays: '0',
+            totalWages: '0',
             workDate: workDate || null,
           }).returning();
           crewId = newCrew[0].id;
@@ -206,6 +226,8 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
             crew_type: crewType,
           }).where(eq(wellCrewWorkers.id, existingLink[0].id));
         }
+
+        await recalcCrewTotalsFromWorkers(crewId);
 
         console.log(`[syncAttendanceToWellCrews] Synced worker ${workerId} to well ${wellId} crew ${crewId} (split 1/${splitFactor})`);
       }
@@ -2783,9 +2805,10 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
                 eq(wellCrewWorkers.worker_id, attendanceToDelete.worker_id)
               )
             );
+            await recalcCrewTotalsFromWorkers(crew.id);
           }
         }
-        console.log(`[WellCrew] Removed worker ${attendanceToDelete.worker_id} from well crews`);
+        console.log(`[WellCrew] Removed worker ${attendanceToDelete.worker_id} from well crews and recalculated crew totals`);
       } catch (err) {
         console.error('[WellCrew] Error cleaning up crew links:', err);
       }

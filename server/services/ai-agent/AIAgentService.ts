@@ -1418,8 +1418,8 @@ export class AIAgentService {
     cleaned = cleaned.replace(/أوامر \[?ACTION\]?.*?(?:الموضحة|المتاحة|التالية).*?(?:\n|$)/g, "");
     cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
     cleaned = cleaned.trim();
-    if (!cleaned || cleaned.length < 5) {
-      cleaned = "لا توجد بيانات مسجلة حالياً. يمكنك سؤالي عن المشاريع، العمال، المصروفات، أو أي معلومة أخرى.";
+    if (!cleaned) {
+      cleaned = "لم أتمكن من فهم طلبك. حاول مرة أخرى أو أرسل *0* للقائمة.";
     }
     return cleaned;
   }

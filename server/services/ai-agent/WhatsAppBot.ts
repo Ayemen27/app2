@@ -735,11 +735,10 @@ export class WhatsAppBot {
       try {
         const whatsappAIService = getWhatsAppAIService();
 
-        const now = Date.now();
-        const lastWaiting = this.waitingMessageSent.get(cleanPhone) || 0;
-        if (botSettings.waitingMessage && text && text.length > 20 && (now - lastWaiting > 30000)) {
-          this.waitingMessageSent.set(cleanPhone, now);
-          await this.safeSendMessage(from, { text: botSettings.waitingMessage });
+        if (this.sock && text && text.length > 20) {
+          try {
+            await this.sock.sendPresenceUpdate('composing', from);
+          } catch (_) {}
         }
 
         let msgMetadata: Record<string, any> | undefined;

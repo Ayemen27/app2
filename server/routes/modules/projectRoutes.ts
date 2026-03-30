@@ -255,6 +255,16 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
             paidAmount: workerAttendance.paidAmount,
             actualWage: workerAttendance.actualWage,
             workDays: workerAttendance.workDays,
+            dailyWage: workerAttendance.dailyWage,
+            totalPay: workerAttendance.totalPay,
+            remainingAmount: workerAttendance.remainingAmount,
+            paymentType: workerAttendance.paymentType,
+            notes: workerAttendance.notes,
+            workDescription: workerAttendance.workDescription,
+            well_id: workerAttendance.well_id,
+            well_ids: workerAttendance.well_ids,
+            crew_type: workerAttendance.crew_type,
+            team_name: workerAttendance.team_name,
             workerName: workers.name
           })
           .from(workerAttendance)
@@ -2259,6 +2269,16 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
         paidAmount: workerAttendance.paidAmount,
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
+        dailyWage: workerAttendance.dailyWage,
+        totalPay: workerAttendance.totalPay,
+        remainingAmount: workerAttendance.remainingAmount,
+        paymentType: workerAttendance.paymentType,
+        notes: workerAttendance.notes,
+        workDescription: workerAttendance.workDescription,
+        well_id: workerAttendance.well_id,
+        well_ids: workerAttendance.well_ids,
+        crew_type: workerAttendance.crew_type,
+        team_name: workerAttendance.team_name,
         workerName: workers.name
       })
       .from(workerAttendance)
@@ -2439,6 +2459,16 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
         paidAmount: workerAttendance.paidAmount,
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
+        dailyWage: workerAttendance.dailyWage,
+        totalPay: workerAttendance.totalPay,
+        remainingAmount: workerAttendance.remainingAmount,
+        paymentType: workerAttendance.paymentType,
+        notes: workerAttendance.notes,
+        workDescription: workerAttendance.workDescription,
+        well_id: workerAttendance.well_id,
+        well_ids: workerAttendance.well_ids,
+        crew_type: workerAttendance.crew_type,
+        team_name: workerAttendance.team_name,
         workerName: workers.name
       })
       .from(workerAttendance)

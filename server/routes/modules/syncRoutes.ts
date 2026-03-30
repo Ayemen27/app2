@@ -720,24 +720,24 @@ const ALLOWED_COLUMNS_BY_TABLE: Record<string, { insert: Set<string>; update: Se
     update: new Set(['amount', 'sender_name', 'transfer_number', 'transfer_type', 'transfer_date', 'notes']),
   },
   worker_attendance: {
-    insert: new Set(['id', 'project_id', 'worker_id', 'attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'description']),
-    update: new Set(['attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'description']),
+    insert: new Set(['id', 'project_id', 'worker_id', 'attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'team_name', 'description']),
+    update: new Set(['attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'team_name', 'description']),
   },
   transportation_expenses: {
-    insert: new Set(['id', 'project_id', 'worker_id', 'amount', 'description', 'category', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
-    update: new Set(['amount', 'description', 'category', 'date', 'notes', 'worker_id', 'well_id', 'well_ids', 'crew_type']),
+    insert: new Set(['id', 'project_id', 'worker_id', 'amount', 'description', 'category', 'date', 'notes', 'well_id', 'well_ids', 'crew_type', 'team_name']),
+    update: new Set(['amount', 'description', 'category', 'date', 'notes', 'worker_id', 'well_id', 'well_ids', 'crew_type', 'team_name']),
   },
   material_purchases: {
-    insert: new Set(['id', 'project_id', 'supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'add_to_inventory', 'equipment_id', 'description']),
-    update: new Set(['supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'add_to_inventory', 'equipment_id', 'description']),
+    insert: new Set(['id', 'project_id', 'supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'team_name', 'add_to_inventory', 'equipment_id', 'description']),
+    update: new Set(['supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'team_name', 'add_to_inventory', 'equipment_id', 'description']),
   },
   worker_transfers: {
     insert: new Set(['id', 'worker_id', 'project_id', 'amount', 'transfer_number', 'sender_name', 'recipient_name', 'recipient_phone', 'transfer_method', 'transfer_date', 'notes', 'description']),
     update: new Set(['amount', 'transfer_number', 'sender_name', 'recipient_name', 'recipient_phone', 'transfer_method', 'transfer_date', 'notes', 'description']),
   },
   worker_misc_expenses: {
-    insert: new Set(['id', 'project_id', 'amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
-    update: new Set(['amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
+    insert: new Set(['id', 'project_id', 'amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type', 'team_name']),
+    update: new Set(['amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type', 'team_name']),
   },
   projects: {
     insert: new Set(['id', 'name', 'description', 'location', 'client_name', 'budget', 'start_date', 'end_date', 'status', 'engineer_id', 'manager_name', 'contact_phone', 'notes', 'image_url', 'project_type_id', 'is_active']),

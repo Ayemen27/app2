@@ -225,7 +225,8 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
           notes: miscNotes || undefined,
           well_id: miscWellIds[0] || null,
           well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
-          crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
+          crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null,
+          team_name: miscTeamNames.length > 0 ? JSON.stringify(miscTeamNames) : null
         } as any
       });
     } else {
@@ -237,7 +238,8 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
         date: selectedDate,
         well_id: miscWellIds[0] || null,
         well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
-        crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
+        crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null,
+        team_name: miscTeamNames.length > 0 ? JSON.stringify(miscTeamNames) : null
       });
     }
   };
@@ -374,7 +376,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
                   {expense.notes.includes('مستورد من محادثة الواتساب') ? '📱 ' : 'الملاحظات: '}{expense.notes}
                 </p>
               )}
-              <WellCrewBadges wellIds={(expense as any).well_ids} wellId={expense.well_id} crewType={(expense as any).crew_type} projectWells={wells} isWellsProject={isWellsProject} />
+              <WellCrewBadges wellIds={(expense as any).well_ids} wellId={expense.well_id} crewType={(expense as any).crew_type} teamName={(expense as any).team_name} projectWells={wells} isWellsProject={isWellsProject} />
             </div>
           ))}
           

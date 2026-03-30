@@ -459,6 +459,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs e.g. "[1,5]" for multi-well
   crew_type: varchar("crew_type", { length: 255 }), // welding, steel_installation, panel_installation
+  team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
@@ -539,6 +540,7 @@ export const materialPurchases = pgTable("material_purchases", {
   well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
+  team_name: text("team_name"),
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -594,6 +596,7 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
+  team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
@@ -787,6 +790,7 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
+  team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),

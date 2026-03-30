@@ -881,6 +881,7 @@ export default function WorkerAttendance() {
           well_id: (data as any).well_ids?.[0] || data.well_id || null,
           well_ids: (data as any).well_ids?.length ? JSON.stringify((data as any).well_ids) : null,
           crew_type: (data as any).crewTypes?.length ? JSON.stringify((data as any).crewTypes) : null,
+          team_name: (data as any).teamNames?.length ? JSON.stringify((data as any).teamNames) : null,
         };
 
         // إذا كان هناك recordId، أضفه للحفظ حتى نعرف أنه تعديل

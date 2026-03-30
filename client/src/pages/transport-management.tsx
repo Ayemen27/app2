@@ -411,6 +411,7 @@ export default function TransportManagement() {
       well_id: selectedWellIds[0] || null,
       well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
       crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+      team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
     });
   };
 

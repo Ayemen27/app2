@@ -393,6 +393,7 @@ function DailyExpensesContent() {
             well_id: selectedWellIds[0] || null,
             well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
             crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+            team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
           },
         });
         setShowOverpaymentDialog(true);
@@ -513,6 +514,7 @@ function DailyExpensesContent() {
       well_id: selectedWellIds[0] || null,
       well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
       crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+      team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
       paymentType: paidAmountNum > 0 ? (paidAmountNum >= actualWage && actualWage > 0 ? "full" : "partial") : "credit",
     };
 
@@ -1060,7 +1062,7 @@ function DailyExpensesContent() {
       }
       
       // أضف well_id إلى البيانات
-      const dataWithWell = { ...data, well_id: selectedWellIds[0] || null, well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null, crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null };
+      const dataWithWell = { ...data, well_id: selectedWellIds[0] || null, well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null, crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null, team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null };
       return apiRequest("/api/transportation-expenses", "POST", dataWithWell);
     },
     onSuccess: async (newExpense) => {
@@ -1096,7 +1098,8 @@ function DailyExpensesContent() {
           project_id: selectedProjectId,
           well_id: selectedWellIds[0] || null,
           well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
-          crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null
+          crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+          team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null
         };
         await queueForSync('create', '/api/transportation-expenses', dataWithWell);
         toast({
@@ -1321,6 +1324,7 @@ function DailyExpensesContent() {
             well_id: purchaseWellIds[0] || null,
             well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
             crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
+            team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
             paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
             remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
           },
@@ -1344,6 +1348,7 @@ function DailyExpensesContent() {
           well_id: purchaseWellIds[0] || null,
           well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
           crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
+          team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
           paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
           remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
         };
@@ -1489,6 +1494,7 @@ function DailyExpensesContent() {
       well_id: purchaseWellIds[0] || null,
       well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
       crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
+      team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
       paidAmount: purchaseType === 'نقد' ? total.toString() : '0',
       remainingAmount: purchaseType === 'آجل' ? total.toString() : '0',
     };
@@ -2167,6 +2173,7 @@ function DailyExpensesContent() {
       well_id: selectedWellIds[0] || null,
       well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
       crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+      team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
     };
 
     if (editingTransportationId) {
@@ -3175,7 +3182,7 @@ function DailyExpensesContent() {
                             <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
                           ) : null}
                         </div>
-                        <WellCrewBadges wellIds={expense.well_ids} wellId={expense.well_id} crewType={expense.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
+                        <WellCrewBadges wellIds={expense.well_ids} wellId={expense.well_id} crewType={expense.crew_type} teamName={(expense as any).team_name} projectWells={projectWells} isWellsProject={isWellsProject} />
                         {isAllProjects && expense.projectName && (
                           <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {expense.projectName}</div>
                         )}
@@ -3374,6 +3381,7 @@ function DailyExpensesContent() {
                         well_id: selectedWellIds[0] || null,
                         well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
                         crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+                        team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
                       });
                     }}
                     className="bg-primary h-9 flex-1"
@@ -3474,7 +3482,7 @@ function DailyExpensesContent() {
                                 <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage || worker?.dailyWage))}</span>
                               </div>
                             </div>
-                            <WellCrewBadges wellIds={attendance.well_ids} wellId={attendance.well_id} crewType={attendance.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
+                            <WellCrewBadges wellIds={attendance.well_ids} wellId={attendance.well_id} crewType={attendance.crew_type} teamName={(attendance as any).team_name} projectWells={projectWells} isWellsProject={isWellsProject} />
                             {deferredAmount > 0 && (
                               <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">مؤجل: {formatCurrency(deferredAmount)}</p>
                             )}
@@ -3774,7 +3782,7 @@ function DailyExpensesContent() {
                                       {purchase.notes.includes('مستورد من محادثة الواتساب') ? '📱 ' : 'الملاحظات: '}{purchase.notes}
                                     </p>
                                   )}
-                                  <WellCrewBadges wellIds={purchase.well_ids} wellId={purchase.well_id} crewType={purchase.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
+                                  <WellCrewBadges wellIds={purchase.well_ids} wellId={purchase.well_id} crewType={purchase.crew_type} teamName={(purchase as any).team_name} projectWells={projectWells} isWellsProject={isWellsProject} />
                                   {isAllProjects && purchase.projectName && (
                                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
                                   )}

@@ -53,7 +53,7 @@ const ALLOWED_ATTENDANCE_PATCH_FIELDS = new Set([
   'isPresent', 'hoursWorked', 'overtime', 'overtimeRate',
   'workDays', 'dailyWage', 'actualWage', 'totalPay',
   'paidAmount', 'remainingAmount', 'paymentType', 'notes', 'well_id',
-  'well_ids', 'crew_type',
+  'well_ids', 'crew_type', 'team_name',
 ]);
 
 const ALLOWED_TRANSFER_PATCH_FIELDS = new Set([
@@ -63,7 +63,7 @@ const ALLOWED_TRANSFER_PATCH_FIELDS = new Set([
 
 const ALLOWED_MISC_EXPENSE_PATCH_FIELDS = new Set([
   'amount', 'description', 'date', 'notes', 'well_id',
-  'well_ids', 'crew_type',
+  'well_ids', 'crew_type', 'team_name',
 ]);
 
 function pickAllowedFields<T extends Record<string, unknown>>(data: T, allowed: Set<string>): Partial<T> {
@@ -3107,8 +3107,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
           worker_id, project_id, attendance_date, date, start_time, end_time,
           work_description, work_days, daily_wage, actual_wage, total_pay,
           paid_amount, remaining_amount, payment_type, is_present, notes,
-          well_id, well_ids, crew_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+          well_id, well_ids, crew_type, team_name
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         ON CONFLICT (worker_id, attendance_date, project_id) DO UPDATE SET
           work_days = EXCLUDED.work_days,
           daily_wage = EXCLUDED.daily_wage,
@@ -3117,7 +3117,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
           paid_amount = EXCLUDED.paid_amount,
           remaining_amount = EXCLUDED.remaining_amount,
           payment_type = EXCLUDED.payment_type,
-          notes = EXCLUDED.notes
+          notes = EXCLUDED.notes,
+          team_name = EXCLUDED.team_name
         RETURNING *`,
         [
           dataWithCalculatedFields.worker_id,
@@ -3139,6 +3140,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
           dataWithCalculatedFields.well_id || null,
           dataWithCalculatedFields.well_ids ? (typeof dataWithCalculatedFields.well_ids === 'string' ? dataWithCalculatedFields.well_ids : JSON.stringify(dataWithCalculatedFields.well_ids)) : null,
           dataWithCalculatedFields.crew_type ? (typeof dataWithCalculatedFields.crew_type === 'string' ? dataWithCalculatedFields.crew_type : JSON.stringify(dataWithCalculatedFields.crew_type)) : null,
+          dataWithCalculatedFields.team_name ? (typeof dataWithCalculatedFields.team_name === 'string' ? dataWithCalculatedFields.team_name : JSON.stringify(dataWithCalculatedFields.team_name)) : null,
         ]
       );
 

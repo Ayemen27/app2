@@ -296,7 +296,7 @@ export class WhatsAppAIService {
     // ═══════════════════════════════════════════════════════════
     // 3. MENU NUMBER SELECTION (when user navigated to a menu)
     // ═══════════════════════════════════════════════════════════
-    if (context.currentMenu && context.currentMenu !== 'main' && context.currentMenu !== 'ai_freetext') {
+    if (context.currentMenu && context.currentMenu !== 'main') {
       const numMatch = trimmedInput.match(/^(\d+)$/);
       if (numMatch) {
         const resolved = resolveUserInput(trimmedInput, context.currentMenu);

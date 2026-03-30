@@ -68,6 +68,7 @@ export class WhatsAppBot {
   private allowedCacheTime: number = 0;
   private static CACHE_TTL = 60_000;
   private processedMessages: Map<string, number> = new Map();
+  private recentContentHashes: Map<string, number> = new Map();
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
@@ -201,6 +202,23 @@ export class WhatsAppBot {
     return false;
   }
 
+  private isContentDuplicate(phone: string, text: string, inputType: string): boolean {
+    const contentKey = `${phone}:${inputType}:${text.substring(0, 100)}`;
+    const now = Date.now();
+    const lastTime = this.recentContentHashes.get(contentKey);
+    if (lastTime && now - lastTime < 5000) {
+      console.log(`[WhatsAppBot] Content-duplicate ignored for ${phone}: "${text.substring(0, 30)}..." (${now - lastTime}ms)`);
+      return true;
+    }
+    this.recentContentHashes.set(contentKey, now);
+    if (this.recentContentHashes.size > 500) {
+      for (const [key, ts] of this.recentContentHashes.entries()) {
+        if (now - ts > 30000) this.recentContentHashes.delete(key);
+      }
+    }
+    return false;
+  }
+
   private startDedupCleanup(): void {
     if (this.dedupCleanupTimer) clearInterval(this.dedupCleanupTimer);
     this.dedupCleanupTimer = setInterval(() => {
@@ -233,7 +251,7 @@ export class WhatsAppBot {
     }, 5 * 60_000);
   }
 
-  private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list' | 'image'; inputId?: string; imageCaption?: string } {
+  private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list' | 'image' | 'audio' | 'document'; inputId?: string; imageCaption?: string; documentInfo?: { mimetype?: string; fileName?: string }; } {
     const message = msg.message;
 
     if (message?.buttonsResponseMessage) {
@@ -266,6 +284,28 @@ export class WhatsAppBot {
         text: caption || '📷 صورة',
         inputType: 'image',
         imageCaption: caption,
+      };
+    }
+
+    if (message?.audioMessage || message?.pttMessage) {
+      const audioMsg = message.audioMessage || message.pttMessage;
+      const isPtt = !!message.pttMessage;
+      const seconds = audioMsg?.seconds || 0;
+      return {
+        text: isPtt ? '🎤 رسالة صوتية' : '🎵 ملف صوتي',
+        inputType: 'audio',
+      };
+    }
+
+    if (message?.documentMessage) {
+      const docMsg = message.documentMessage;
+      const mimetype = docMsg?.mimetype || '';
+      const fileName = docMsg?.fileName || docMsg?.title || '';
+      const caption = docMsg?.caption || '';
+      return {
+        text: caption || `📄 مستند: ${fileName || 'ملف'}`,
+        inputType: 'document',
+        documentInfo: { mimetype, fileName },
       };
     }
 
@@ -600,7 +640,7 @@ export class WhatsAppBot {
         return;
       }
 
-      const { text, inputType, inputId, imageCaption } = this.extractMessageContent(msg);
+      const { text, inputType, inputId, imageCaption, documentInfo } = this.extractMessageContent(msg);
 
       if (!text && !inputId) return;
 
@@ -616,6 +656,10 @@ export class WhatsAppBot {
         } else {
           console.log(`[WhatsAppBot] Could not resolve LID ${rawId}, trying as-is`);
         }
+      }
+
+      if (this.isContentDuplicate(cleanPhone, text || inputId || '', inputType)) {
+        return;
       }
 
       const isAllowed = await this.isPhoneAllowed(cleanPhone);
@@ -667,8 +711,8 @@ export class WhatsAppBot {
         return;
       }
 
-      if (inputType === 'image' && !botSettings.mediaEnabled) {
-        await this.safeSendMessage(from, { text: "📷 عذراً، استقبال الوسائط معطّل حالياً." });
+      if ((inputType === 'image' || inputType === 'audio' || inputType === 'document') && !botSettings.mediaEnabled) {
+        await this.safeSendMessage(from, { text: "عذراً، استقبال الوسائط معطّل حالياً." });
         return;
       }
 
@@ -693,6 +737,32 @@ export class WhatsAppBot {
             }
           } catch (dlErr) {
             console.warn('[WhatsAppBot] Failed to download image:', dlErr);
+          }
+        } else if (inputType === 'audio') {
+          msgMetadata = { type: 'audio' };
+          try {
+            const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+            const buffer = await downloadMediaMessage(msg, 'buffer', {});
+            if (buffer) {
+              msgMetadata.audioBase64 = Buffer.from(buffer).toString('base64');
+              msgMetadata.audioMimetype = msg.message?.audioMessage?.mimetype || msg.message?.pttMessage?.mimetype || 'audio/ogg';
+              msgMetadata.audioDuration = msg.message?.audioMessage?.seconds || msg.message?.pttMessage?.seconds || 0;
+              msgMetadata.isPtt = !!msg.message?.pttMessage;
+            }
+          } catch (dlErr) {
+            console.warn('[WhatsAppBot] Failed to download audio:', dlErr);
+          }
+        } else if (inputType === 'document') {
+          msgMetadata = { type: 'document', ...documentInfo };
+          try {
+            const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+            const buffer = await downloadMediaMessage(msg, 'buffer', {});
+            if (buffer) {
+              msgMetadata.documentBase64 = Buffer.from(buffer).toString('base64');
+              msgMetadata.documentSize = buffer.length;
+            }
+          } catch (dlErr) {
+            console.warn('[WhatsAppBot] Failed to download document:', dlErr);
           }
         }
 

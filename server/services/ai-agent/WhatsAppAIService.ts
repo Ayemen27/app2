@@ -16,7 +16,7 @@ import { generateDailyRangeHTML } from "../../services/reports/templates/DailyRa
 import { generateMultiProjectFinalHTML } from "../../services/reports/templates/MultiProjectFinalPDF";
 import { convertHtmlToPdf } from "../../services/reports/HtmlToPdfService";
 import * as path from "path";
-import { workers, projects, workerAttendance, whatsappUserLinks, whatsappMessages, aiChatSessions, fundTransfers, materialPurchases, dailyExpenseSummaries, transportationExpenses, workerMiscExpenses } from "@shared/schema";
+import { workers, projects, workerAttendance, whatsappUserLinks, whatsappMessages, aiChatSessions, aiChatMessages, fundTransfers, materialPurchases, dailyExpenseSummaries, transportationExpenses, workerMiscExpenses } from "@shared/schema";
 import { eq, ilike, and, sql, inArray, desc, sum, count } from "drizzle-orm";
 import {
   BotReply,
@@ -138,6 +138,7 @@ export class WhatsAppAIService {
             userName: '',
             menuStack: [],
             currentMenu: 'main',
+            ambiguityCount: 0,
             data: {},
           });
         }
@@ -165,7 +166,7 @@ export class WhatsAppAIService {
   async handleIncomingMessage(
     senderPhone: string,
     message: string,
-    inputType: 'text' | 'button' | 'list' | 'image' = 'text',
+    inputType: 'text' | 'button' | 'list' | 'image' | 'audio' | 'document' = 'text',
     inputId?: string,
     messageMetadata?: Record<string, any>
   ): Promise<BotReply> {
@@ -184,7 +185,7 @@ export class WhatsAppAIService {
   private async _processMessage(
     senderPhone: string,
     message: string,
-    inputType: 'text' | 'button' | 'list' | 'image' = 'text',
+    inputType: 'text' | 'button' | 'list' | 'image' | 'audio' | 'document' = 'text',
     inputId?: string,
     messageMetadata?: Record<string, any>
   ): Promise<BotReply> {
@@ -216,7 +217,7 @@ export class WhatsAppAIService {
         await storage.createWhatsAppMessage({
           sender: cleanPhone,
           wa_id: 'bot',
-          content: inputType === 'image' ? (message || '📷 صورة') : message.trim().substring(0, 5000),
+          content: inputType === 'image' ? (message || '📷 صورة') : inputType === 'audio' ? (message || '🎤 رسالة صوتية') : inputType === 'document' ? (message || '📄 مستند') : message.trim().substring(0, 5000),
           status: 'received',
           phone_number: cleanPhone,
           user_id: userId,
@@ -229,6 +230,16 @@ export class WhatsAppAIService {
       }
     }
 
+    if (inputType === 'audio') {
+      const audioHandled = await this.handleAudioMessage(userName, messageMetadata);
+      if (audioHandled) return audioHandled;
+    }
+
+    if (inputType === 'document') {
+      const docHandled = await this.handleDocumentMessage(userName, messageMetadata);
+      if (docHandled) return docHandled;
+    }
+
     const effectiveInput = inputId || message.trim();
     let context = this.sessions.get(senderPhone) || {
       step: 'idle' as const,
@@ -236,11 +247,12 @@ export class WhatsAppAIService {
       userName,
       menuStack: [],
       currentMenu: 'main',
+      ambiguityCount: 0,
       data: {},
     };
 
     if (context.userId !== userId) {
-      context = { step: 'idle', userId, userName, menuStack: [], currentMenu: 'main', data: {} };
+      context = { step: 'idle', userId, userName, menuStack: [], currentMenu: 'main', ambiguityCount: 0, data: {} };
     }
     context.userName = userName;
 
@@ -345,6 +357,66 @@ export class WhatsAppAIService {
     return this.processWithAI(effectiveInput, imageAnalysisText, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
   }
 
+  private async handleAudioMessage(userName: string, messageMetadata?: Record<string, any>): Promise<BotReply | null> {
+    const duration = messageMetadata?.audioDuration || 0;
+    const isPtt = messageMetadata?.isPtt ?? true;
+    const durationText = duration > 0 ? ` (${duration} ثانية)` : '';
+
+    console.log(`[WhatsAppAI] Audio message received from ${userName}: ptt=${isPtt}, duration=${duration}s`);
+
+    return textReply(
+      `مرحباً *${userName}*، حالياً لا أستطيع سماع الرسائل الصوتية${durationText}.\n` +
+      `أرسل لي رسالة نصية وراح أساعدك.\n\n` +
+      `*0* القائمة`
+    );
+  }
+
+  private async handleDocumentMessage(userName: string, messageMetadata?: Record<string, any>): Promise<BotReply | null> {
+    const mimetype = messageMetadata?.mimetype || '';
+    const fileName = messageMetadata?.fileName || '';
+    const documentBase64 = messageMetadata?.documentBase64 || '';
+    const isPdf = mimetype === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+
+    console.log(`[WhatsAppAI] Document received from ${userName}: ${fileName} (${mimetype}), isPdf=${isPdf}`);
+
+    if (isPdf && documentBase64) {
+      try {
+        const pdfParse = (await import('pdf-parse')).default;
+        const buffer = Buffer.from(documentBase64, 'base64');
+        const pdfData = await pdfParse(buffer);
+        const extractedText = pdfData?.text?.trim() || '';
+
+        if (extractedText && extractedText.length >= 10) {
+          console.log(`[WhatsAppAI] PDF text extracted: ${extractedText.length} chars from ${fileName}`);
+          return null;
+        }
+      } catch (pdfErr: any) {
+        console.warn(`[WhatsAppAI] PDF parsing failed for ${fileName}:`, pdfErr.message);
+      }
+    }
+
+    if (isPdf) {
+      return textReply(
+        `مرحباً *${userName}*، استلمت ملف PDF${fileName ? ` (${fileName})` : ''}.\n` +
+        `لم أتمكن من قراءة محتوى الملف. حاول أرسل صورة للمستند وراح أقدر أساعدك.\n\n` +
+        `*0* القائمة`
+      );
+    }
+
+    const supportedDocTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain', 'text/csv', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const docTypeName = mimetype.includes('excel') || mimetype.includes('spreadsheet') ? 'Excel'
+      : mimetype.includes('word') || mimetype.includes('document') ? 'Word'
+      : mimetype.includes('text') || mimetype.includes('csv') ? 'نصي'
+      : 'غير معروف';
+
+    return textReply(
+      `مرحباً *${userName}*، استلمت الملف${fileName ? ` (${fileName})` : ''}.\n` +
+      `حالياً أقدر أقرأ الصور فقط. حاول أرسل صورة للمستند.\n\n` +
+      `*0* القائمة`
+    );
+  }
+
   private async analyzeIncomingImage(imageBase64: string, caption: string): Promise<string> {
     try {
       let ocrText = '';
@@ -426,6 +498,10 @@ export class WhatsAppAIService {
       return textReply(`مرحباً *${userName}*، لا توجد مشاريع مرتبطة بحسابك.\nتواصل مع المسؤول.\n\n*0* القائمة`);
     }
 
+    if (typeof context.ambiguityCount !== 'number') {
+      context.ambiguityCount = 0;
+    }
+
     try {
       const sessionId = await this.getOrCreateAISession(userId, senderPhone);
 
@@ -433,8 +509,20 @@ export class WhatsAppAIService {
       if (imageContext) {
         const isJustPhoto = !input || input === '📷 صورة';
         enrichedMessage = isJustPhoto
-          ? `المستخدم (${userName}) أرسل صورة. نتائج تحليلها:\n${imageContext}\n\nحدد نوع الصورة (مستند مالي أم صورة عادية) وتصرّف حسب تعليمات تحليل الصور.`
-          : `المستخدم (${userName}) أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}\n\nحدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`;
+          ? `المستخدم اسمه "${userName}" أرسل صورة. نتائج تحليلها:\n${imageContext}\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم آخر من الصورة. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`
+          : `المستخدم اسمه "${userName}" أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم من الصورة. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`;
+      }
+
+      const recentHistory = await this.getRecentConversationHistory(sessionId, userId, 3);
+      if (recentHistory.length > 0 && !imageContext) {
+        const historyBlock = recentHistory.map(m =>
+          `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content.substring(0, 300)}`
+        ).join('\n');
+        enrichedMessage = `## آخر رسائل المحادثة:\n${historyBlock}\n\n## الرسالة الحالية:\n${enrichedMessage}`;
+      }
+
+      if (context.lastClarificationContext) {
+        enrichedMessage = `## سياق السؤال التوضيحي السابق:\n${context.lastClarificationContext}\n\n${enrichedMessage}`;
       }
 
       const projectNames = await this.getUserProjectNames(userProjectIds);
@@ -461,6 +549,9 @@ export class WhatsAppAIService {
       );
 
       if (response.action === 'START_EXPENSE' && response.data) {
+        context.ambiguityCount = 0;
+        context.lastClarificationContext = undefined;
+        this.sessions.set(senderPhone, context);
         const flowData = response.data;
         if (flowData.amount && flowData.workerName) {
           if (!securityContext.canAdd) {
@@ -475,6 +566,9 @@ export class WhatsAppAIService {
       }
 
       if (response.action === 'START_EXPORT_WORKER' && response.data) {
+        context.ambiguityCount = 0;
+        context.lastClarificationContext = undefined;
+        this.sessions.set(senderPhone, context);
         const flowData = response.data;
         if (flowData.workerName) {
           if (!securityContext.canRead) {
@@ -492,6 +586,9 @@ export class WhatsAppAIService {
       if (!response.action) {
         const fallback = this.detectFlowFallback(input);
         if (fallback) {
+          context.ambiguityCount = 0;
+          context.lastClarificationContext = undefined;
+          this.sessions.set(senderPhone, context);
           if (fallback.type === 'expense' && fallback.amount && fallback.workerName) {
             if (!securityContext.canAdd) {
               return textReply(`❌ ليس لديك صلاحية إضافة مصروفات.\n\n*0* القائمة`);
@@ -515,6 +612,39 @@ export class WhatsAppAIService {
           }
         }
       }
+
+      const isClarificationResponse = this.detectClarificationResponse(response.message, response.action);
+
+      if (isClarificationResponse) {
+        context.ambiguityCount = (context.ambiguityCount || 0) + 1;
+        context.lastClarificationContext = response.message.substring(0, 500);
+        this.sessions.set(senderPhone, context);
+        console.log(`[WhatsAppAI] Clarification detected, ambiguityCount=${context.ambiguityCount} for ${senderPhone}`);
+
+        if (context.ambiguityCount >= 3) {
+          context.ambiguityCount = 0;
+          context.lastClarificationContext = undefined;
+          context.step = 'idle';
+          context.currentMenu = 'main';
+          context.data = {};
+          this.sessions.set(senderPhone, context);
+          return buildWelcomeReply(userName);
+        }
+
+        let cleanResponse = response.message.replace(/\n{3,}/g, '\n\n').trim();
+        const quickOptions = await this.generateQuickReplySuggestions(cleanResponse, input, userProjectIds);
+        if (quickOptions) {
+          cleanResponse += `\n\n${quickOptions}`;
+        }
+        if (!cleanResponse.includes('*0* القائمة')) {
+          cleanResponse += '\n\n*0* القائمة';
+        }
+        return textReply(cleanResponse);
+      }
+
+      context.ambiguityCount = 0;
+      context.lastClarificationContext = undefined;
+      this.sessions.set(senderPhone, context);
 
       const outSettings = await botSettingsService.getSettings();
       if (outSettings.messageLogging) {
@@ -590,6 +720,112 @@ export class WhatsAppAIService {
     if (hasExcel && hasPdf) return 'both';
     if (hasExcel) return 'xlsx';
     if (hasPdf) return 'pdf';
+    return null;
+  }
+
+  private async getRecentConversationHistory(
+    sessionId: string,
+    userId: string,
+    limit: number
+  ): Promise<{ role: string; content: string }[]> {
+    try {
+      const messages = await db.select({
+        role: aiChatMessages.role,
+        content: aiChatMessages.content,
+      })
+        .from(aiChatMessages)
+        .where(eq(aiChatMessages.sessionId, sessionId))
+        .orderBy(desc(aiChatMessages.created_at))
+        .limit(limit * 2);
+      return messages.reverse();
+    } catch (e) {
+      console.warn('[WhatsAppAI] Failed to fetch conversation history:', e);
+      return [];
+    }
+  }
+
+  private detectClarificationResponse(responseMessage: string, action?: string): boolean {
+    if (action) return false;
+
+    const clarificationPatterns = [
+      /أي\s+(عامل|مشروع|حساب|شخص|اسم)/,
+      /تقصد\s/,
+      /من تقصد/,
+      /أي واحد/,
+      /حدد\s*(لي)?/,
+      /وضّح\s*(لي)?/,
+      /قصدك\s/,
+      /هل تقصد/,
+      /هل تريد/,
+      /أيهم تقصد/,
+      /اختر\s*(من|واحد)/,
+      /ممكن توضح/,
+      /لم أفهم.*وضح/,
+      /؟\s*$/,
+    ];
+
+    const hasClarificationPattern = clarificationPatterns.some(p => p.test(responseMessage));
+
+    const hasNumberedOptions = /[1-3][.):]\s/.test(responseMessage) || /[١-٣][.):]\s/.test(responseMessage);
+
+    return hasClarificationPattern && (hasNumberedOptions || responseMessage.includes('؟'));
+  }
+
+  private async generateQuickReplySuggestions(
+    aiResponse: string,
+    userInput: string,
+    userProjectIds: string[]
+  ): Promise<string | null> {
+    const namePattern = /(?:\*([^*]+)\*|[١-٩1-9][.)]\s*([^\n]+))/g;
+    const suggestedNames: string[] = [];
+    let match;
+    while ((match = namePattern.exec(aiResponse)) !== null) {
+      const name = (match[1] || match[2] || '').trim();
+      if (name.length >= 2 && name.length <= 30 && !name.includes('القائمة') && !name.includes('رجوع')) {
+        suggestedNames.push(name);
+      }
+    }
+
+    if (suggestedNames.length > 0 && suggestedNames.length <= 5) {
+      return suggestedNames.map((name, i) => `*${i + 1}.* ${name}`).join('\n');
+    }
+
+    const isAskingAboutWorker = /عامل|اسم|حساب|رصيد/.test(aiResponse);
+    if (isAskingAboutWorker) {
+      try {
+        const recentWorkers = await db.select({ name: workers.name })
+          .from(workers)
+          .where(
+            userProjectIds.length > 0
+              ? sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(userProjectIds.map(id => sql`${id}`), sql`, `)}))`
+              : sql`false`
+          )
+          .limit(5);
+
+        if (recentWorkers.length > 0) {
+          return recentWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
+        }
+      } catch (e) {
+        console.warn('[WhatsAppAI] Failed to fetch workers for quick replies:', e);
+      }
+    }
+
+    const isAskingAboutProject = /مشروع|أي مشروع/.test(aiResponse);
+    if (isAskingAboutProject) {
+      try {
+        const activeProjects = await db.select({ name: projects.name })
+          .from(projects)
+          .where(and(eq(projects.status, 'active'), inArray(projects.id, userProjectIds)))
+          .limit(5);
+
+        if (activeProjects.length > 0) {
+          return activeProjects.map((p, i) => `*${i + 1}.* ${p.name}`).join('\n');
+        }
+      } catch (e) {
+        console.warn('[WhatsAppAI] Failed to fetch projects for quick replies:', e);
+      }
+    }
+
     return null;
   }
 

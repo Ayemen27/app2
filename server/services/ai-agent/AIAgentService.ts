@@ -642,17 +642,26 @@ export class AIAgentService {
     } catch (error: any) {
       console.error("❌ [AIAgentService] Error:", error.message);
 
-      const errorMessage = `عذراً، حدث خطأ: ${error.message}`;
-      
-      // حفظ رسالة الخطأ
-      await db.insert(aiChatMessages).values({
-        sessionId,
-        role: "assistant",
-        content: errorMessage,
-      });
+      let userFriendlyMessage = "⚠️ عذراً، لم أتمكن من معالجة طلبك حالياً. حاول مرة أخرى بعد قليل.";
+      const errMsg = (error.message || '').toLowerCase();
+      if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('rate limit')) {
+        userFriendlyMessage = "⚠️ النظام مشغول حالياً. حاول مرة أخرى بعد دقيقة.";
+      } else if (errMsg.includes('timeout') || errMsg.includes('timed out')) {
+        userFriendlyMessage = "⚠️ استغرق الطلب وقتاً طويلاً. حاول مرة أخرى.";
+      } else if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('ECONNREFUSED')) {
+        userFriendlyMessage = "⚠️ مشكلة في الاتصال. حاول مرة أخرى بعد قليل.";
+      }
+
+      try {
+        await db.insert(aiChatMessages).values({
+          sessionId,
+          role: "assistant",
+          content: userFriendlyMessage,
+        });
+      } catch (_) {}
 
       return {
-        message: errorMessage,
+        message: userFriendlyMessage,
         sessionId,
       };
     }
@@ -1433,6 +1442,17 @@ export class AIAgentService {
     cleaned = cleaned.replace(/\(note to self[^)]*\)/gi, "");
     cleaned = cleaned.replace(/\(internal[^)]*\)/gi, "");
     cleaned = cleaned.replace(/\(don'?t [^)]*\)/gi, "");
+    cleaned = cleaned.replace(/^type:\s*.+$/gm, "");
+    cleaned = cleaned.replace(/^نوع:\s*.+$/gm, "");
+    cleaned = cleaned.replace(/^documentType:\s*.+$/gm, "");
+    cleaned = cleaned.replace(/^inputType:\s*.+$/gm, "");
+    cleaned = cleaned.replace(/^سند[_\s]مالي.*$/gm, "");
+    cleaned = cleaned.replace(/^إيصال[_\s]تحويل.*$/gm, "");
+    cleaned = cleaned.replace(/https?:\/\/platform\.openai\.com\S*/g, "");
+    cleaned = cleaned.replace(/\d{3}\s+You exceeded your current quota[^.]*\./gi, "");
+    cleaned = cleaned.replace(/please check your plan and billing details[^.]*/gi, "");
+    cleaned = cleaned.replace(/\[GoogleGenerativeAI Error\][^.]*/gi, "");
+    cleaned = cleaned.replace(/Error fetching from https?:\/\/\S*/gi, "");
     cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
     cleaned = cleaned.trim();
     if (!cleaned) {

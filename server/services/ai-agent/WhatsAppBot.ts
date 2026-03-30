@@ -626,25 +626,26 @@ export class WhatsAppBot {
     });
 
     this.sock.ev.on('messages.upsert', async (m: any) => {
-      const msg = m.messages[0];
-      if (!msg.message || msg.key.fromMe) return;
+      if (!m.messages || m.messages.length === 0) return;
+      for (const msg of m.messages) {
+      if (!msg.message || msg.key.fromMe) continue;
 
       const messageId = msg.key.id;
       if (messageId && this.isDuplicate(messageId)) {
         console.log(`[WhatsAppBot] Duplicate message ignored: ${messageId}`);
-        return;
+        continue;
       }
 
       const from = msg.key.remoteJid;
-      if (!from) return;
+      if (!from) continue;
 
       if (from.endsWith('@g.us') || from.endsWith('@broadcast') || from === 'status@broadcast') {
-        return;
+        continue;
       }
 
       const { text, inputType, inputId, imageCaption, documentInfo } = this.extractMessageContent(msg);
 
-      if (!text && !inputId) return;
+      if (!text && !inputId) continue;
 
       const rawId = from.split('@')[0];
       const isLid = from.endsWith('@lid');
@@ -692,11 +693,11 @@ export class WhatsAppBot {
         const isAllowedRaw = await this.isPhoneAllowed(rawId);
         if (!isAllowedRaw) {
           console.log(`[WhatsAppBot] Blocked message from non-allowed LID: ${rawId} (resolved: ${cleanPhone})`);
-          return;
+          continue;
         }
       } else if (!isAllowed) {
         console.log(`[WhatsAppBot] Blocked message from non-allowed number: ${cleanPhone}`);
-        return;
+        continue;
       }
 
       const displayText = inputId ? `[${inputType}:${inputId}] ${text}` : text;
@@ -706,39 +707,39 @@ export class WhatsAppBot {
 
       if (!botSettings.botEnabled) {
         console.log(`[WhatsAppBot] Bot is disabled. Ignoring message from ${cleanPhone}`);
-        return;
+        continue;
       }
 
       if (botSettings.maintenanceMode) {
         const maintenanceMsg = botSettings.maintenanceMessage || "🔧 البوت في وضع الصيانة حالياً.";
         await this.safeSendMessage(sendJid, { text: maintenanceMsg });
-        return;
+        continue;
       }
 
       if (!botSettingsService.isWithinBusinessHours(botSettings)) {
         const outsideMsg = botSettingsService.getOutsideHoursMessage(botSettings);
         await this.safeSendMessage(sendJid, { text: outsideMsg });
-        return;
+        continue;
       }
 
       if (this.dailyMessageCount >= botSettings.dailyMessageLimit) {
         console.warn(`[AntiBot] Daily message limit reached (${botSettings.dailyMessageLimit}). Ignoring message.`);
-        return;
+        continue;
       }
 
       if (!this.checkUserDailyLimit(cleanPhone, botSettings.perUserDailyLimit)) {
         console.warn(`[AntiBot] Per-user daily limit reached for ${cleanPhone} (${botSettings.perUserDailyLimit})`);
-        return;
+        continue;
       }
 
       if (!this.checkUserRateLimit(cleanPhone, botSettings.rateLimitPerMinute)) {
         console.warn(`[AntiBot] Rate limit exceeded for ${cleanPhone} (${botSettings.rateLimitPerMinute}/min)`);
-        return;
+        continue;
       }
 
       if ((inputType === 'image' || inputType === 'audio' || inputType === 'document') && !botSettings.mediaEnabled) {
         await this.safeSendMessage(sendJid, { text: "عذراً، استقبال الوسائط معطّل حالياً." });
-        return;
+        continue;
       }
 
         const whatsappAIService = getWhatsAppAIService();
@@ -836,6 +837,7 @@ export class WhatsAppBot {
           this.phoneProcessingLock.delete(cleanPhone);
         }, 3000);
       }
+      } // end for loop over m.messages
     });
   }
 

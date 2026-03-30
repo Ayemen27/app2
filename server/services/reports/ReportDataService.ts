@@ -372,7 +372,10 @@ export class ReportDataService {
     const worker = workerRows[0];
 
     const attendanceFilters: any[] = [eq(workerAttendance.worker_id, workerId)];
-    const transferFilters: any[] = [eq(workerTransfers.worker_id, workerId)];
+    const transferFilters: any[] = [
+      eq(workerTransfers.worker_id, workerId),
+      sql`(${workerTransfers.transferMethod} IS NULL OR ${workerTransfers.transferMethod} != 'settlement')`
+    ];
 
     if (projectId && projectId !== 'all') {
       if (!isAdmin && accessibleProjectIds && !accessibleProjectIds.includes(projectId)) {
@@ -558,6 +561,73 @@ export class ReportDataService {
         debit: 0,
         credit: amt,
         reference: 'تصفية حساب',
+      });
+    }
+
+    let rebalanceDelta = 0;
+    try {
+      const rebalanceParams: any[] = [`%[${workerId}]%`];
+      let paramIdx = 2;
+      let rebalanceProjectFilter = '';
+      let rebalanceProjectFilterFrom = '';
+      if (projectId && projectId !== 'all') {
+        rebalanceProjectFilter = `AND to_project_id = $${paramIdx}`;
+        rebalanceProjectFilterFrom = `AND from_project_id = $${paramIdx}`;
+        rebalanceParams.push(projectId);
+        paramIdx++;
+      } else if (!isAdmin && accessibleProjectIds && accessibleProjectIds.length > 0) {
+        const placeholders = accessibleProjectIds.map((_: string, i: number) => `$${paramIdx + i}`).join(',');
+        rebalanceProjectFilter = `AND to_project_id IN (${placeholders})`;
+        rebalanceProjectFilterFrom = `AND from_project_id IN (${placeholders})`;
+        rebalanceParams.push(...accessibleProjectIds);
+        paramIdx += accessibleProjectIds.length;
+      } else if (!isAdmin) {
+        rebalanceProjectFilter = 'AND 1=0';
+        rebalanceProjectFilterFrom = 'AND 1=0';
+      }
+      let dateFilter = '';
+      if (dateFrom) {
+        dateFilter += ` AND transfer_date::date >= $${paramIdx}::date`;
+        rebalanceParams.push(dateFrom);
+        paramIdx++;
+      }
+      if (dateTo) {
+        dateFilter += ` AND transfer_date::date <= $${paramIdx}::date`;
+        rebalanceParams.push(dateTo);
+        paramIdx++;
+      }
+      const rebalanceResult = await pool.query(`
+        SELECT COALESCE(SUM(delta), 0) AS total_delta FROM (
+          SELECT safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE $1
+            ${rebalanceProjectFilter}
+            ${dateFilter}
+          UNION ALL
+          SELECT -safe_numeric(amount::text, 0) AS delta
+          FROM project_fund_transfers
+          WHERE transfer_reason = 'legacy_worker_rebalance'
+            AND description LIKE $1
+            ${rebalanceProjectFilterFrom}
+            ${dateFilter}
+        ) rd
+      `, rebalanceParams);
+      rebalanceDelta = Number(rebalanceResult.rows[0]?.total_delta) || 0;
+    } catch (e) {
+      console.warn('[WorkerStatement] Failed to compute rebalance delta:', e);
+    }
+
+    if (rebalanceDelta !== 0) {
+      rawEntries.push({
+        date: rawEntries.length > 0 ? rawEntries[rawEntries.length - 1].date : new Date().toISOString().split('T')[0],
+        type: 'حوالة' as const,
+        description: 'تسوية ترحيل بين المشاريع',
+        projectName: '-',
+        workDays: 0,
+        debit: rebalanceDelta > 0 ? rebalanceDelta : 0,
+        credit: rebalanceDelta < 0 ? Math.abs(rebalanceDelta) : 0,
+        reference: 'تسوية ترحيل',
       });
     }
 
@@ -1467,7 +1537,8 @@ export class ReportDataService {
             COALESCE(SUM(safe_numeric(wa.work_days::text)), 0) AS total_days,
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_earned,
             COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid,
-            COALESCE((SELECT SUM(safe_numeric(wt.amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id = wa.worker_id AND wt.project_id = $1 AND wt.transfer_date::date >= $2::date AND wt.transfer_date::date <= $3::date), 0) AS total_transfers,
+            COALESCE((SELECT SUM(safe_numeric(wt.amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id = wa.worker_id AND wt.project_id = $1 AND wt.transfer_date::date >= $2::date AND wt.transfer_date::date <= $3::date AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement')), 0) AS total_transfers,
+            COALESCE((SELECT SUM(safe_numeric(wsl.amount::text, 0)) FROM worker_settlement_lines wsl JOIN worker_settlements ws ON ws.id = wsl.settlement_id WHERE wsl.worker_id = wa.worker_id AND ws.status = 'completed' AND (wsl.from_project_id = $1 OR wsl.to_project_id = $1) AND ws.settlement_date::date >= $2::date AND ws.settlement_date::date <= $3::date), 0) AS total_settled,
             COALESCE((
               SELECT SUM(delta) FROM (
                 SELECT safe_numeric(pft.amount::text, 0) AS delta
@@ -1785,7 +1856,8 @@ export class ReportDataService {
             totalEarned: safeNum(r.total_earned),
             totalPaid: safeNum(r.total_paid),
             totalTransfers: safeNum(r.total_transfers),
-            balance: safeNum(r.total_earned) - safeNum(r.total_paid) - safeNum(r.total_transfers) + safeNum(r.rebalance_delta),
+            totalSettled: safeNum(r.total_settled),
+            balance: safeNum(r.total_earned) - safeNum(r.total_paid) - safeNum(r.total_transfers) - safeNum(r.total_settled) + safeNum(r.rebalance_delta),
           })),
         },
         wells: {

@@ -329,33 +329,7 @@ export class WhatsAppAIService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 4. EXPENSE ENTRY FAST PATH (structured multi-step flow)
-    // ═══════════════════════════════════════════════════════════
-    if (securityContext.canAdd) {
-      const expenseMatch = effectiveInput.match(/(\d+)\s*(?:مصاريف|مصروف|ريال|ر\.?س)\s+(.+)/i);
-      const expenseMatch2 = effectiveInput.match(/(?:سجل|أضف|اضف|ضيف|حط)\s*(?:مصروف|مصاريف|مبلغ)\s*(\d+)\s+(?:ل|على|عامل|لـ)\s*(.+)/i);
-      if (expenseMatch || expenseMatch2) {
-        const match = expenseMatch || expenseMatch2;
-        return this.startExpenseFromText(
-          { amount: match![1], workerName: match![2].trim() },
-          context, senderPhone, userName, securityContext, userProjectIds
-        );
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 5. DIRECT WORKER EXPORT FAST PATH
-    // ═══════════════════════════════════════════════════════════
-    if (securityContext.canRead) {
-      const workerExportName = this.extractWorkerNameFromExport(effectiveInput);
-      if (workerExportName) {
-        const format = this.extractExportFormat(effectiveInput);
-        return this.handleDirectWorkerExport(workerExportName, format, context, senderPhone, userName, userProjectIds, isAdmin, securityContext);
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 6. IMAGE ANALYSIS PIPELINE
+    // 4. IMAGE ANALYSIS PIPELINE
     // ═══════════════════════════════════════════════════════════
     let imageAnalysisText = '';
     if (inputType === 'image' && messageMetadata?.imageBase64) {
@@ -363,10 +337,10 @@ export class WhatsAppAIService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 7. AI-FIRST PROCESSING (primary conversation engine)
+    // 5. AI-FIRST PROCESSING (primary conversation engine)
     //    The AI understands intent, asks questions, fetches data
+    //    AI can also trigger structured flows via START_EXPENSE etc.
     // ═══════════════════════════════════════════════════════════
-    context.currentMenu = 'main';
     this.sessions.set(senderPhone, context);
     return this.processWithAI(effectiveInput, imageAnalysisText, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
   }
@@ -437,17 +411,19 @@ export class WhatsAppAIService {
     role: string,
     isAdmin: boolean
   ): Promise<BotReply> {
-    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey', 'صباح', 'مساء'];
-    if (!imageContext && greetings.some(g => input.toLowerCase().includes(g))) {
+    const pureGreetings = [
+      'السلام عليكم', 'وعليكم السلام', 'سلام', 'مرحبا', 'مرحبًا',
+      'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey',
+      'صباح الخير', 'مساء الخير', 'صباح النور', 'مساء النور',
+    ];
+    const normalizedInput = input.trim().replace(/[!.،,؟?\s]+$/g, '').toLowerCase();
+    const isPureGreeting = !imageContext && pureGreetings.some(g => normalizedInput === g.toLowerCase());
+    if (isPureGreeting) {
       return buildWelcomeReply(userName);
     }
 
     if (userProjectIds.length === 0) {
       return textReply(`مرحباً *${userName}*، لا توجد مشاريع مرتبطة بحسابك.\nتواصل مع المسؤول.\n\n*0* القائمة`);
-    }
-
-    if (!securityContext.canRead) {
-      return textReply(`❌ ليس لديك صلاحية قراءة البيانات.\n\n*0* القائمة`);
     }
 
     try {
@@ -461,13 +437,57 @@ export class WhatsAppAIService {
           : `المستخدم أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}`;
       }
 
+      const projectNames = await this.getUserProjectNames(userProjectIds);
+      const userContextBlock = [
+        `\n\n## سياق المستخدم الحالي:`,
+        `- الاسم: ${userName}`,
+        `- الدور: ${role}`,
+        `- مسؤول: ${isAdmin ? 'نعم' : 'لا'}`,
+        `- يمكنه القراءة: ${securityContext.canRead ? 'نعم' : 'لا'}`,
+        `- يمكنه الإضافة: ${securityContext.canAdd ? 'نعم' : 'لا'}`,
+        `- المشاريع المتاحة: ${projectNames.join('، ') || 'لا توجد'}`,
+        securityContext.canAdd ? '' : '- تنبيه: هذا المستخدم لا يمكنه إضافة مصروفات. لا تقترح عليه START_EXPENSE.',
+        !securityContext.canRead ? '- تنبيه: هذا المستخدم لا يمكنه قراءة البيانات. أجب على أسئلته العامة فقط بدون أوامر ACTION.' : '',
+      ].filter(Boolean).join('\n');
+
+      const dynamicPrompt = WHATSAPP_SYSTEM_PROMPT + userContextBlock;
+
       const response = await this.aiAgent.processMessage(
         sessionId,
         enrichedMessage,
         userId,
         securityContext,
-        { systemPromptOverride: WHATSAPP_SYSTEM_PROMPT }
+        { systemPromptOverride: dynamicPrompt }
       );
+
+      if (response.action === 'START_EXPENSE' && response.data) {
+        const flowData = response.data;
+        if (flowData.amount && flowData.workerName) {
+          if (!securityContext.canAdd) {
+            return textReply(`❌ ليس لديك صلاحية إضافة مصروفات.\n\n*0* القائمة`);
+          }
+          console.log(`[WhatsAppAI] AI triggered START_EXPENSE flow: ${flowData.amount} for ${flowData.workerName}`);
+          return this.startExpenseFromText(
+            { amount: flowData.amount, workerName: flowData.workerName },
+            context, senderPhone, userName, securityContext, userProjectIds
+          );
+        }
+      }
+
+      if (response.action === 'START_EXPORT_WORKER' && response.data) {
+        const flowData = response.data;
+        if (flowData.workerName) {
+          if (!securityContext.canRead) {
+            return textReply(`❌ ليس لديك صلاحية تصدير البيانات.\n\n*0* القائمة`);
+          }
+          console.log(`[WhatsAppAI] AI triggered START_EXPORT_WORKER flow: ${flowData.workerName}`);
+          const format = this.extractExportFormat(input);
+          return this.handleDirectWorkerExport(
+            flowData.workerName, format,
+            context, senderPhone, userName, userProjectIds, isAdmin, securityContext
+          );
+        }
+      }
 
       const outSettings = await botSettingsService.getSettings();
       if (outSettings.messageLogging) {
@@ -496,6 +516,19 @@ export class WhatsAppAIService {
     } catch (e: any) {
       console.error('[WhatsAppAI] AI processing error:', e);
       return buildTextWithMenu('خطأ', '⚠️ لم أتمكن من معالجة طلبك.\nحاول إعادة صياغة السؤال.', 'main');
+    }
+  }
+
+  private async getUserProjectNames(projectIds: string[]): Promise<string[]> {
+    if (!projectIds || projectIds.length === 0) return [];
+    try {
+      const rows = await db.select({ name: projects.name })
+        .from(projects)
+        .where(inArray(projects.id, projectIds))
+        .limit(20);
+      return rows.map((r: any) => r.name);
+    } catch {
+      return [];
     }
   }
 
@@ -540,16 +573,6 @@ export class WhatsAppAIService {
       }
     }
     return null;
-  }
-
-  private extractWorkerNameFromExport(input: string): string | null {
-    const match = input.match(/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?لعامل)?\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
-    if (!match) return null;
-    let name = match[1].trim()
-      .replace(/\s*(?:ال[يى]|الى|إلى|في|ب|ك|بصيغة)?\s*(?:ملف\s*)?(?:اكسل|excel|xlsx|pdf|بي دي اف).*$/i, '')
-      .replace(/\s*(?:الى|إلى|ال[يى]|و)\s*$/i, '')
-      .trim();
-    return this.cleanExtractedName(name);
   }
 
   private cleanExtractedName(raw: string): string | null {
@@ -683,22 +706,23 @@ export class WhatsAppAIService {
     }
 
     if (actionId === 'report_daily' || actionId === 'report_project') {
-      context.currentMenu = 'ai_freetext';
       this.sessions.set(senderPhone, context);
-      return textReply(nav([
-        `📌 *اسأل ما تريد*`,
+      const reportType = actionId === 'report_daily' ? 'تقرير يومي' : 'تقرير مشروع';
+      return textReply([
+        `📌 *${reportType}*`,
         ``,
-        `أمثلة:`,
+        `اكتب طلبك مباشرة وسأجهزه لك:`,
         `• تقرير مصروفات اليوم`,
         `• ملخص مشروع الرياض`,
         `• إجمالي المصروفات هذا الشهر`,
-      ].join('\n')));
+        ``,
+        `*0* القائمة | *#* رجوع`,
+      ].join('\n'));
     }
 
     if (actionId === 'report_ask') {
-      context.currentMenu = 'ai_freetext';
       this.sessions.set(senderPhone, context);
-      return textReply(nav(`🤖 *اسأل الذكاء الاصطناعي*\nاكتب سؤالك مباشرة.`));
+      return textReply(`🤖 اكتب سؤالك مباشرة وسأجيبك.\n\n*0* القائمة | *#* رجوع`);
     }
 
     if (actionId === 'export_daily' || actionId === 'export_worker' || actionId === 'export_period'

@@ -497,7 +497,7 @@ export class AIAgentService {
     userMessage: string,
     userId: string,
     securityContext?: import("./WhatsAppSecurityContext").WhatsAppSecurityContext,
-    options?: { systemPromptOverride?: string }
+    options?: { systemPromptOverride?: string; rawCurrentMessage?: string }
   ): Promise<AgentResponse> {
     const steps: AgentStep[] = [
       { title: "تحليل طلبك", status: "in_progress" },
@@ -556,9 +556,10 @@ export class AIAgentService {
 
       let responseContent = aiResponse.content;
       
-      const conversationalReply = this.detectConversationalQuery(sanitizedMessage);
+      const currentMsgOnly = (options?.rawCurrentMessage || sanitizedMessage).replace(/## آخر رسائل المحادثة:[\s\S]*?## الرسالة الحالية:\s*/g, '').replace(/## سياق السؤال التوضيحي السابق:[\s\S]*?\n\n/g, '').trim();
+      const conversationalReply = this.detectConversationalQuery(currentMsgOnly);
       if (conversationalReply) {
-        console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون ACTION`);
+        console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون ACTION (input="${currentMsgOnly.substring(0, 50)}")`);
         responseContent = conversationalReply;
       } else {
         responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
@@ -572,7 +573,7 @@ export class AIAgentService {
         
         const hasAction = /\[ACTION:[^\]]+\]/.test(responseContent);
         if (!hasAction) {
-          const fallbackIntent = this.detectIntentFromUserMessage(sanitizedMessage);
+          const fallbackIntent = this.detectIntentFromUserMessage(currentMsgOnly);
           if (fallbackIntent) {
             responseContent = fallbackIntent;
             console.log(`🔍 [AIAgentService] AI لم يولّد ACTION، استخدام كشف النية كاحتياط: ${responseContent}`);

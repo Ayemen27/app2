@@ -54,6 +54,8 @@ export interface WhatsAppContext {
   userName: string;
   menuStack: string[];
   currentMenu: string;
+  ambiguityCount?: number;
+  lastClarificationContext?: string;
   data: {
     amount?: string;
     workerId?: string;
@@ -546,7 +548,7 @@ export class WhatsAppAIService {
         enrichedMessage,
         userId,
         securityContext,
-        { systemPromptOverride: dynamicPrompt }
+        { systemPromptOverride: dynamicPrompt, rawCurrentMessage: input }
       );
 
       if (response.action === 'START_EXPENSE' && response.data) {

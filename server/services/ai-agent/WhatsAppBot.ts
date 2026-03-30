@@ -83,6 +83,7 @@ export class WhatsAppBot {
   private static CONFLICT_WINDOW_MS = 300_000;
   private static MAX_CONFLICTS_IN_WINDOW = 5;
   private lastSentMessages: Map<string, { key: any; timestamp: number }[]> = new Map();
+  private sentContentGuard: Map<string, number> = new Map();
 
   getStatus(): BotStatus {
     return this.status;
@@ -207,7 +208,7 @@ export class WhatsAppBot {
     const contentKey = `${phone}:${inputType}:${text.substring(0, 100)}`;
     const now = Date.now();
     const lastTime = this.recentContentHashes.get(contentKey);
-    if (lastTime && now - lastTime < 5000) {
+    if (lastTime && now - lastTime < 60000) {
       console.log(`[WhatsAppBot] Content-duplicate ignored for ${phone}: "${text.substring(0, 30)}..." (${now - lastTime}ms)`);
       return true;
     }
@@ -659,6 +660,8 @@ export class WhatsAppBot {
         }
       }
 
+      const sendJid = isLid && cleanPhone !== rawId ? `${cleanPhone}@s.whatsapp.net` : from;
+
       const contentText = text || inputId || '';
       if (this.isContentDuplicate(cleanPhone, contentText, inputType)) {
         return;
@@ -704,13 +707,13 @@ export class WhatsAppBot {
 
       if (botSettings.maintenanceMode) {
         const maintenanceMsg = botSettings.maintenanceMessage || "🔧 البوت في وضع الصيانة حالياً.";
-        await this.safeSendMessage(from, { text: maintenanceMsg });
+        await this.safeSendMessage(sendJid, { text: maintenanceMsg });
         return;
       }
 
       if (!botSettingsService.isWithinBusinessHours(botSettings)) {
         const outsideMsg = botSettingsService.getOutsideHoursMessage(botSettings);
-        await this.safeSendMessage(from, { text: outsideMsg });
+        await this.safeSendMessage(sendJid, { text: outsideMsg });
         return;
       }
 
@@ -730,7 +733,7 @@ export class WhatsAppBot {
       }
 
       if ((inputType === 'image' || inputType === 'audio' || inputType === 'document') && !botSettings.mediaEnabled) {
-        await this.safeSendMessage(from, { text: "عذراً، استقبال الوسائط معطّل حالياً." });
+        await this.safeSendMessage(sendJid, { text: "عذراً، استقبال الوسائط معطّل حالياً." });
         return;
       }
 
@@ -738,7 +741,7 @@ export class WhatsAppBot {
 
         if (this.sock && text && text.length > 20) {
           try {
-            await this.sock.sendPresenceUpdate('composing', from);
+            await this.sock.sendPresenceUpdate('composing', sendJid);
           } catch (_) {}
         }
 
@@ -812,9 +815,9 @@ export class WhatsAppBot {
             const trimmedReply = botSettings.maxMessageLength && reply.length > botSettings.maxMessageLength
               ? reply.substring(0, botSettings.maxMessageLength) + "\n\n... (تم اختصار الرسالة)"
               : reply;
-            await this.safeSendMessage(from, { text: trimmedReply });
+            await this.safeSendMessage(sendJid, { text: trimmedReply });
           } else {
-            await this.sendInteractiveReply(from, reply);
+            await this.sendInteractiveReply(sendJid, reply);
           }
           this.dailyMessageCount++;
         }
@@ -825,7 +828,9 @@ export class WhatsAppBot {
       } catch (error) {
         console.error('[WhatsAppBot] Error processing message:', error);
       } finally {
-        this.phoneProcessingLock.delete(cleanPhone);
+        setTimeout(() => {
+          this.phoneProcessingLock.delete(cleanPhone);
+        }, 15000);
       }
     });
   }
@@ -1067,6 +1072,20 @@ export class WhatsAppBot {
     const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
     await new Promise(resolve => setTimeout(resolve, delay));
     
+    const scKey = `${jid}:${(content?.text || '').substring(0, 100)}`;
+    const scNow = Date.now();
+    const scLast = this.sentContentGuard.get(scKey);
+    if (scLast && scNow - scLast < 30000) {
+      console.log(`[SafeSend] BLOCKED duplicate send to ${jid} (same content within 30s)`);
+      return null;
+    }
+    this.sentContentGuard.set(scKey, scNow);
+    if (this.sentContentGuard.size > 200) {
+      for (const [k, v] of this.sentContentGuard) {
+        if (scNow - v > 60000) this.sentContentGuard.delete(k);
+      }
+    }
+
     if (content.text && typeof content.text === 'string') {
       const zeroWidthChars = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
       const numChars = Math.floor(Math.random() * 3) + 1;

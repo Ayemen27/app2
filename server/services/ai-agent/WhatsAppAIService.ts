@@ -1,4 +1,4 @@
-import { AIAgentService, getAIAgentService } from "./AIAgentService";
+import { AIAgentService, getAIAgentService, WHATSAPP_SYSTEM_PROMPT } from "./AIAgentService";
 import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
 import { storage } from "../../storage";
@@ -25,6 +25,7 @@ import {
   buildTextWithMenu,
   buildQuickOptions,
   resolveUserInput,
+  getMenuNode,
 } from "./whatsapp/InteractiveMenu";
 import {
   bold,
@@ -247,48 +248,255 @@ export class WhatsAppAIService {
       this.sessions.set(senderPhone, context);
     }
 
-    const intent = this.detectIntent(effectiveInput);
+    const trimmedInput = effectiveInput.trim();
+    const lowerInput = trimmedInput.toLowerCase();
 
-    if (intent && context.step === 'idle') {
-      return this.executeIntent(intent, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
-    }
-
-    if (context.step !== 'idle') {
-      return this.handleFlowStep(context, effectiveInput, senderPhone, userName, securityContext, userProjectIds);
-    }
-
-    const resolved = resolveUserInput(effectiveInput, context.currentMenu);
-
-    if (resolved.action === 'cancel') {
-      this.sessions.delete(senderPhone);
-      return buildTextWithMenu('تم الإلغاء', `✅ تم إلغاء العملية.`, 'main');
-    }
-
-    if (resolved.action === 'navigate' && resolved.targetMenuId === 'main') {
+    // ═══════════════════════════════════════════════════════════
+    // 1. QUICK NAVIGATION SHORTCUTS (instant, no AI needed)
+    // ═══════════════════════════════════════════════════════════
+    if (['0', 'menu', 'home'].includes(lowerInput) || ['القائمة', 'قائمة', 'الرئيسية', 'خدمات', 'الخدمات'].includes(trimmedInput)) {
+      context.step = 'idle';
       context.menuStack = [];
+      context.currentMenu = 'main';
+      context.data = {};
+      this.sessions.set(senderPhone, context);
+      return buildWelcomeReply(userName);
+    }
+
+    if (['#', 'back'].includes(lowerInput) || trimmedInput === 'رجوع') {
+      if (context.step !== 'idle') {
+        context.step = 'idle';
+        context.data = {};
+        this.sessions.set(senderPhone, context);
+        return buildMenuReply(context.currentMenu || 'main');
+      }
+      const menuNode = getMenuNode(context.currentMenu || 'main');
+      if (menuNode?.parentId) {
+        context.currentMenu = menuNode.parentId;
+        this.sessions.set(senderPhone, context);
+        return buildMenuReply(menuNode.parentId);
+      }
       context.currentMenu = 'main';
       this.sessions.set(senderPhone, context);
       return buildWelcomeReply(userName);
     }
 
-    if (resolved.action === 'navigate' && resolved.targetMenuId) {
-      if (context.currentMenu !== resolved.targetMenuId) {
-        context.menuStack.push(context.currentMenu);
+    if (['إلغاء', 'الغاء', 'cancel'].includes(lowerInput)) {
+      this.sessions.delete(senderPhone);
+      return buildTextWithMenu('تم الإلغاء', '✅ تم إلغاء العملية.', 'main');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 2. ACTIVE MULTI-STEP FLOWS (export, expense entry, etc.)
+    // ═══════════════════════════════════════════════════════════
+    if (context.step !== 'idle') {
+      return this.handleFlowStep(context, effectiveInput, senderPhone, userName, securityContext, userProjectIds);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. MENU NUMBER SELECTION (when user navigated to a menu)
+    // ═══════════════════════════════════════════════════════════
+    if (context.currentMenu && context.currentMenu !== 'main' && context.currentMenu !== 'ai_freetext') {
+      const numMatch = trimmedInput.match(/^(\d+)$/);
+      if (numMatch) {
+        const resolved = resolveUserInput(trimmedInput, context.currentMenu);
+        if (resolved.action === 'navigate' && resolved.targetMenuId) {
+          if (context.currentMenu !== resolved.targetMenuId) {
+            context.menuStack.push(context.currentMenu);
+          }
+          context.currentMenu = resolved.targetMenuId;
+          this.sessions.set(senderPhone, context);
+          return buildMenuReply(resolved.targetMenuId);
+        }
+        if (resolved.action === 'menu_select' && resolved.selectedOptionId) {
+          return this.handleMenuAction(resolved.selectedOptionId, context, senderPhone, userName, securityContext, userProjectIds);
+        }
       }
-      context.currentMenu = resolved.targetMenuId;
-      this.sessions.set(senderPhone, context);
-      return buildMenuReply(resolved.targetMenuId);
     }
 
-    if (resolved.action === 'menu_select' && resolved.selectedOptionId) {
-      return this.handleMenuAction(resolved.selectedOptionId, context, senderPhone, userName, securityContext, userProjectIds);
+    // Main menu number selection
+    if (context.currentMenu === 'main' || !context.currentMenu) {
+      const numMatch = trimmedInput.match(/^(\d+)$/);
+      if (numMatch) {
+        const resolved = resolveUserInput(trimmedInput, 'main');
+        if (resolved.action === 'navigate' && resolved.targetMenuId) {
+          context.menuStack.push('main');
+          context.currentMenu = resolved.targetMenuId;
+          this.sessions.set(senderPhone, context);
+          return buildMenuReply(resolved.targetMenuId);
+        }
+      }
     }
 
-    if (resolved.action === 'free_text') {
-      return this.handleFreeText(effectiveInput, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
+    // ═══════════════════════════════════════════════════════════
+    // 4. EXPENSE ENTRY FAST PATH (structured multi-step flow)
+    // ═══════════════════════════════════════════════════════════
+    if (securityContext.canAdd) {
+      const expenseMatch = effectiveInput.match(/(\d+)\s*(?:مصاريف|مصروف|ريال|ر\.?س)\s+(.+)/i);
+      const expenseMatch2 = effectiveInput.match(/(?:سجل|أضف|اضف|ضيف|حط)\s*(?:مصروف|مصاريف|مبلغ)\s*(\d+)\s+(?:ل|على|عامل|لـ)\s*(.+)/i);
+      if (expenseMatch || expenseMatch2) {
+        const match = expenseMatch || expenseMatch2;
+        return this.startExpenseFromText(
+          { amount: match![1], workerName: match![2].trim() },
+          context, senderPhone, userName, securityContext, userProjectIds
+        );
+      }
     }
 
-    return buildWelcomeReply(userName);
+    // ═══════════════════════════════════════════════════════════
+    // 5. DIRECT WORKER EXPORT FAST PATH
+    // ═══════════════════════════════════════════════════════════
+    if (securityContext.canRead) {
+      const workerExportName = this.extractWorkerNameFromExport(effectiveInput);
+      if (workerExportName) {
+        const format = this.extractExportFormat(effectiveInput);
+        return this.handleDirectWorkerExport(workerExportName, format, context, senderPhone, userName, userProjectIds, isAdmin, securityContext);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 6. IMAGE ANALYSIS PIPELINE
+    // ═══════════════════════════════════════════════════════════
+    let imageAnalysisText = '';
+    if (inputType === 'image' && messageMetadata?.imageBase64) {
+      imageAnalysisText = await this.analyzeIncomingImage(messageMetadata.imageBase64, message);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 7. AI-FIRST PROCESSING (primary conversation engine)
+    //    The AI understands intent, asks questions, fetches data
+    // ═══════════════════════════════════════════════════════════
+    context.currentMenu = 'main';
+    this.sessions.set(senderPhone, context);
+    return this.processWithAI(effectiveInput, imageAnalysisText, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
+  }
+
+  private async analyzeIncomingImage(imageBase64: string, caption: string): Promise<string> {
+    try {
+      let ocrText = '';
+      try {
+        const Tesseract = (await import('tesseract.js')).default;
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const { data } = await Tesseract.recognize(buffer, 'ara+eng');
+        ocrText = data.text || '';
+        console.log(`[WhatsAppAI] OCR extracted ${ocrText.length} chars from image`);
+      } catch (ocrErr: any) {
+        console.warn('[WhatsAppAI] OCR failed:', ocrErr.message);
+      }
+
+      if (ocrText && ocrText.trim().length >= 10) {
+        try {
+          const { analyzeImageWithAI, isAIAvailable } = await import('../whatsapp-import/AIExtractionOrchestrator');
+          if (isAIAvailable()) {
+            const analysis = await analyzeImageWithAI(ocrText);
+            if (analysis) {
+              const parts: string[] = [];
+              parts.push(`نوع المستند: ${analysis.documentType}`);
+              if (analysis.companyName) parts.push(`الشركة: ${analysis.companyName}`);
+              if (analysis.sender) parts.push(`المرسل: ${analysis.sender}`);
+              if (analysis.recipient) parts.push(`المستلم: ${analysis.recipient}`);
+              if (analysis.transferNumber) parts.push(`رقم التحويل: ${analysis.transferNumber}`);
+              if (analysis.extractedAmounts.length > 0) {
+                parts.push(`المبالغ: ${analysis.extractedAmounts.map(a => `${a.amount.toLocaleString('ar')} ${a.description}`).join('، ')}`);
+              }
+              if (analysis.extractedNames.length > 0) {
+                parts.push(`الأسماء: ${analysis.extractedNames.join('، ')}`);
+              }
+              if (analysis.date) parts.push(`التاريخ: ${analysis.date}`);
+              if (analysis.summary) parts.push(`الملخص: ${analysis.summary}`);
+              return parts.join('\n');
+            }
+          }
+        } catch (aiErr: any) {
+          console.warn('[WhatsAppAI] AI image analysis failed:', aiErr.message);
+        }
+        return `نص مستخرج من الصورة:\n${ocrText.substring(0, 1000)}`;
+      }
+
+      if (caption && caption !== '📷 صورة') {
+        return `صورة مرفقة بتعليق: ${caption}`;
+      }
+
+      return 'تم استلام صورة لكن لم يتم التعرف على محتوى نصي واضح فيها.';
+    } catch (err: any) {
+      console.error('[WhatsAppAI] Image analysis error:', err.message);
+      return 'تعذر تحليل الصورة حالياً.';
+    }
+  }
+
+  private async processWithAI(
+    input: string,
+    imageContext: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userId: string,
+    userName: string,
+    securityContext: WhatsAppSecurityContext,
+    userProjectIds: string[],
+    role: string,
+    isAdmin: boolean
+  ): Promise<BotReply> {
+    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey', 'صباح', 'مساء'];
+    if (!imageContext && greetings.some(g => input.toLowerCase().includes(g))) {
+      return buildWelcomeReply(userName);
+    }
+
+    if (userProjectIds.length === 0) {
+      return textReply(`مرحباً *${userName}*، لا توجد مشاريع مرتبطة بحسابك.\nتواصل مع المسؤول.\n\n*0* القائمة`);
+    }
+
+    if (!securityContext.canRead) {
+      return textReply(`❌ ليس لديك صلاحية قراءة البيانات.\n\n*0* القائمة`);
+    }
+
+    try {
+      const sessionId = await this.getOrCreateAISession(userId, senderPhone);
+
+      let enrichedMessage = input;
+      if (imageContext) {
+        const isJustPhoto = !input || input === '📷 صورة';
+        enrichedMessage = isJustPhoto
+          ? `المستخدم أرسل صورة. نتائج تحليلها:\n${imageContext}\n\nقم بتلخيص محتوى الصورة للمستخدم بشكل مفيد ومختصر.`
+          : `المستخدم أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}`;
+      }
+
+      const response = await this.aiAgent.processMessage(
+        sessionId,
+        enrichedMessage,
+        userId,
+        securityContext,
+        { systemPromptOverride: WHATSAPP_SYSTEM_PROMPT }
+      );
+
+      const outSettings = await botSettingsService.getSettings();
+      if (outSettings.messageLogging) {
+        try {
+          const cleanPhoneOut = senderPhone.replace(/\D/g, '');
+          await storage.createWhatsAppMessage({
+            sender: 'bot',
+            wa_id: cleanPhoneOut,
+            content: response.message.substring(0, 5000),
+            status: 'sent',
+            phone_number: cleanPhoneOut,
+            user_id: userId,
+            is_authorized: true,
+            security_scope: { role, projectIds: userProjectIds, isAdmin },
+          });
+        } catch (e2) {
+          console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
+        }
+      }
+
+      let cleanResponse = response.message.replace(/\n{3,}/g, '\n\n').trim();
+      if (!cleanResponse.includes('*0* القائمة')) {
+        cleanResponse += '\n\n*0* القائمة';
+      }
+      return textReply(cleanResponse);
+    } catch (e: any) {
+      console.error('[WhatsAppAI] AI processing error:', e);
+      return buildTextWithMenu('خطأ', '⚠️ لم أتمكن من معالجة طلبك.\nحاول إعادة صياغة السؤال.', 'main');
+    }
   }
 
   private extractExportFormat(input: string): string | null {
@@ -357,189 +565,6 @@ export class WhatsAppAIService {
     return null;
   }
 
-  private detectIntent(input: string): { type: string; params?: Record<string, string> } | null {
-    const norm = normalizeForSearch(input);
-    const raw = input.trim();
-
-    const expenseMatch = raw.match(/(\d+)\s*(?:مصاريف|مصروف|ريال|ر\.?س)\s+(.+)/i);
-    if (expenseMatch) {
-      return { type: 'add_expense', params: { amount: expenseMatch[1], workerName: expenseMatch[2].trim() } };
-    }
-
-    const expenseMatch2 = raw.match(/(?:سجل|أضف|اضف|ضيف|حط)\s*(?:مصروف|مصاريف|مبلغ)\s*(\d+)\s+(?:ل|على|عامل|لـ)\s*(.+)/i);
-    if (expenseMatch2) {
-      return { type: 'add_expense', params: { amount: expenseMatch2[1], workerName: expenseMatch2[2].trim() } };
-    }
-
-    if (/(?:احصائيات|احصاءات|ملخص|حاله)\s*(?:المشاريع|مشاريع|المشروع)/i.test(norm) ||
-        /(?:كم|كيف)\s*(?:المشاريع|مشاريع|حاله)/i.test(norm) ||
-        /(?:وضع|حاله)\s*(?:المشاريع|مشاريعي)/i.test(norm) ||
-        /(?:عرض)\s*(?:حاله|وضع)\s*(?:المشاريع)/i.test(norm) ||
-        /(?:اريد)\s*(?:حاله|وضع|احصائيات)\s*(?:المشاريع)/i.test(norm)) {
-      return { type: 'projects_status' };
-    }
-
-    if (/(?:مشاريعي|المشاريع|عرض.*مشاريع|اريد.*مشاريع)/i.test(norm)) {
-      return { type: 'projects_list' };
-    }
-
-    if (/(?:ملخص|كشف|مجموع)\s*(?:المصروفات|مصروفات|المصاريف|مصاريف)/i.test(norm) ||
-        /(?:كم|اجمالي)\s*(?:المصروفات|مصروفات|المصاريف|صرفنا)/i.test(norm)) {
-      return { type: 'expense_summary' };
-    }
-
-    if (/(?:كم|عدد)\s*(?:عامل|عمال|العمال|العماله)\s*(?:في|ب|على|عند)?\s*(?:المشروع|مشروع)?/i.test(norm) ||
-        /(?:عدد)\s*(?:العمال|العماله|عمال)/i.test(norm) ||
-        /(?:كم)\s*(?:واحد|شخص)\s*(?:يشتغل|شغال|عندنا)/i.test(norm)) {
-      return { type: 'worker_count' };
-    }
-
-    if (/(?:اخر|اخير)\s*(?:مصروف|مصاريف|عمليه|حركه|صرف)/i.test(norm) ||
-        /(?:ماذا)\s*(?:اخر)\s*(?:مصروف|عمليه|حركه|صرف)/i.test(norm) ||
-        /(?:اخر)\s*(?:شي|شيء)\s*(?:صرفناه|صرفنا|انصرف)/i.test(norm)) {
-      return { type: 'latest_expense' };
-    }
-
-    if (/(?:من)\s*(?:اكثر)\s*(?:عامل|واحد)?\s*(?:اخذ|صرف|استلم)/i.test(norm) ||
-        /(?:اعلى|اكبر)\s*(?:عامل|رصيد|مبلغ)/i.test(norm) ||
-        /(?:اكثر)\s*(?:عامل|واحد)\s*(?:اخذ|صرف|استلم|مديون)/i.test(norm)) {
-      return { type: 'top_worker' };
-    }
-
-    const balanceName = this.extractWorkerNameFromText(raw);
-    if (balanceName && /(?:كم|باقي|متبقي|رصيد|حساب|مستحق|طلعت?\s*ل)/i.test(raw)) {
-      return { type: 'worker_balance', params: { workerName: balanceName } };
-    }
-
-    const workerName = this.extractWorkerNameFromExport(raw);
-    if (workerName) {
-      const format = this.extractExportFormat(raw);
-      const params: Record<string, string> = { workerName };
-      if (format) params.format = format;
-      return { type: 'export_worker_direct', params };
-    }
-
-    if (/(?:تصدير|صدر|اريد|ارسل)\s*(?:كشف|تقرير|ملف|بيانات)/i.test(norm) ||
-        /(?:اكسل|excel|pdf|بي دي اف)/i.test(norm)) {
-      return { type: 'export' };
-    }
-
-    if (/(?:تقرير|اريد تقرير|اعطني.*تقرير)/i.test(norm)) {
-      return { type: 'reports' };
-    }
-
-    if (/(?:مساعده|اوامر|كيف.*استخدم|ماذا.*اسوي|ماذا.*اقدر|ماذا.*اسولف)/i.test(norm) ||
-        /(?:اريد)\s*(?:مساعده)/i.test(norm)) {
-      return { type: 'help' };
-    }
-
-    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'هلا', 'الو', 'اهلا', 'هاي', 'hi', 'hello', 'hey', 'صباح', 'مساء'];
-    if (greetings.some(g => norm.includes(normalizeArabic(g)))) {
-      return { type: 'greeting' };
-    }
-
-    return null;
-  }
-
-  private static readonly INTENT_PERMISSIONS: Record<string, 'read' | 'add' | 'none'> = {
-    greeting: 'none',
-    help: 'none',
-    add_expense: 'add',
-    projects_status: 'read',
-    projects_list: 'read',
-    expense_summary: 'read',
-    worker_balance: 'read',
-    worker_count: 'read',
-    latest_expense: 'read',
-    top_worker: 'read',
-    export_worker_direct: 'read',
-    export: 'read',
-    reports: 'read',
-  };
-
-  private checkIntentPermission(intentType: string, securityContext: WhatsAppSecurityContext): string | null {
-    const required = WhatsAppAIService.INTENT_PERMISSIONS[intentType] || 'read';
-    if (required === 'none') return null;
-    if (required === 'read' && !securityContext.canRead) return '❌ ليس لديك صلاحية عرض البيانات.';
-    if (required === 'add' && !securityContext.canAdd) return '❌ ليس لديك صلاحية إضافة بيانات.';
-    return null;
-  }
-
-  private async executeIntent(
-    intent: { type: string; params?: Record<string, string> },
-    context: WhatsAppContext,
-    senderPhone: string,
-    userId: string,
-    userName: string,
-    securityContext: WhatsAppSecurityContext,
-    userProjectIds: string[],
-    role: string,
-    isAdmin: boolean
-  ): Promise<BotReply> {
-    const permError = this.checkIntentPermission(intent.type, securityContext);
-    if (permError) {
-      return textReply(nav(permError));
-    }
-
-    const intentSettings = await botSettingsService.getSettings();
-
-    switch (intent.type) {
-      case 'greeting': {
-        const suggestCtx = { lastAction: 'greeting', security: securityContext, hasProjects: userProjectIds.length > 0, hasWorkers: true };
-        const suggestions = buildSuggestions(suggestCtx);
-        if (intentSettings.welcomeMessage && intentSettings.welcomeMessage.trim() !== '') {
-          const msg = intentSettings.welcomeMessage.replace('{name}', userName) + suggestions;
-          return buildTextWithMenu('مرحباً', msg, 'main');
-        }
-        return buildWelcomeReply(userName);
-      }
-
-      case 'add_expense':
-        return this.startExpenseFromText(intent.params!, context, senderPhone, userName, securityContext, userProjectIds);
-
-      case 'projects_status':
-        return this.showProjectsStatus(userProjectIds, securityContext);
-
-      case 'projects_list':
-        return this.showProjectsList(userProjectIds, securityContext);
-
-      case 'expense_summary':
-        return this.showExpenseSummary(userProjectIds, context, senderPhone);
-
-      case 'worker_balance':
-        return this.handleWorkerBalanceQuery(intent.params!.workerName, context, senderPhone, userName, userProjectIds, isAdmin, securityContext);
-
-      case 'worker_count':
-        return this.showWorkerCount(userProjectIds, securityContext);
-
-      case 'latest_expense':
-        return this.showLatestExpense(userProjectIds, securityContext);
-
-      case 'top_worker':
-        return this.showTopWorker(userProjectIds, securityContext);
-
-      case 'export_worker_direct':
-        return this.handleDirectWorkerExport(intent.params!.workerName, intent.params?.format || null, context, senderPhone, userName, userProjectIds, isAdmin, securityContext);
-
-      case 'export':
-        context.menuStack.push(context.currentMenu);
-        context.currentMenu = 'export_reports';
-        this.sessions.set(senderPhone, context);
-        return buildMenuReply('export_reports');
-
-      case 'reports':
-        context.menuStack.push(context.currentMenu);
-        context.currentMenu = 'reports';
-        this.sessions.set(senderPhone, context);
-        return buildMenuReply('reports');
-
-      case 'help':
-        return textReply(nav(formatHelp(userName)));
-
-      default:
-        return buildWelcomeReply(userName);
-    }
-  }
 
   private async startExpenseFromText(
     params: Record<string, string>,
@@ -2306,77 +2331,6 @@ export class WhatsAppAIService {
     }
   }
 
-  private async handleFreeText(
-    input: string,
-    context: WhatsAppContext,
-    senderPhone: string,
-    userId: string,
-    userName: string,
-    securityContext: WhatsAppSecurityContext,
-    userProjectIds: string[],
-    role: string,
-    isAdmin: boolean
-  ): Promise<BotReply> {
-
-    const expenseMatch = input.match(/(\d+)\s+مصاريف\s+(.+)/i);
-    if (expenseMatch) {
-      if (!securityContext.canAdd) {
-        return textReply(nav(`❌ ليس لديك صلاحية إضافة مصروفات.`));
-      }
-      return this.startExpenseFromText(
-        { amount: expenseMatch[1], workerName: expenseMatch[2].trim() },
-        context, senderPhone, userName, securityContext, userProjectIds
-      );
-    }
-
-    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey'];
-    if (greetings.some(g => input.toLowerCase().includes(g))) {
-      return buildWelcomeReply(userName);
-    }
-
-    if (userProjectIds.length === 0) {
-      return textReply(nav(`مرحباً *${userName}*، لا توجد مشاريع مرتبطة بحسابك.\nتواصل مع المسؤول.`));
-    }
-
-    if (!securityContext.canRead) {
-      return textReply(nav(`❌ ليس لديك صلاحية قراءة البيانات.`));
-    }
-
-    try {
-      const sessionId = await this.getOrCreateAISession(userId, senderPhone);
-
-      const response = await this.aiAgent.processMessage(
-        sessionId,
-        input,
-        userId,
-        securityContext
-      );
-
-      const outSettings = await botSettingsService.getSettings();
-      if (outSettings.messageLogging) {
-        try {
-          const cleanPhoneOut = senderPhone.replace(/\D/g, '');
-          await storage.createWhatsAppMessage({
-            sender: 'bot',
-            wa_id: cleanPhoneOut,
-            content: response.message.substring(0, 5000),
-            status: 'sent',
-            phone_number: cleanPhoneOut,
-            user_id: userId,
-            is_authorized: true,
-            security_scope: { role, projectIds: userProjectIds, isAdmin },
-          });
-        } catch (e2) {
-          console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
-        }
-      }
-
-      return textReply(nav(response.message));
-    } catch (e: any) {
-      console.error('[WhatsAppAI] AI processing error:', e);
-      return buildTextWithMenu('حاول مرة أخرى', `⚠️ لم أتمكن من معالجة طلبك.\nحاول إعادة صياغة السؤال.`, 'main');
-    }
-  }
 }
 
 let instance: WhatsAppAIService | null = null;

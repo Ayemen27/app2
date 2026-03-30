@@ -689,8 +689,7 @@ export class WhatsAppBot {
             const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
             const buffer = await downloadMediaMessage(msg, 'buffer', {});
             if (buffer) {
-              const b64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-              msgMetadata.imageBase64 = b64;
+              msgMetadata.imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
             }
           } catch (dlErr) {
             console.warn('[WhatsAppBot] Failed to download image:', dlErr);

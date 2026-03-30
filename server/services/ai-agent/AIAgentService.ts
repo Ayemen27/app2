@@ -577,6 +577,24 @@ export class AIAgentService {
             continue;
           }
 
+          const DATA_READ_ACTIONS = [
+            "DASHBOARD", "BUDGET_ANALYSIS", "MONTHLY_TRENDS", "PROJECT_COMPARISON",
+            "RECENT_ACTIVITIES", "LIST_PROJECTS", "GET_PROJECT", "PROJECT_EXPENSES",
+            "LIST_WORKERS", "FIND_WORKER", "WORKER_STATEMENT", "TOP_WORKERS",
+            "UNPAID_BALANCES", "LIST_SUPPLIERS", "SUPPLIER_STATEMENT", "LIST_EQUIPMENT",
+            "EQUIPMENT_MOVEMENTS", "LIST_WELLS", "WELL_DETAILS", "WELL_CREWS",
+            "WELL_SOLAR", "WELL_ANALYSIS", "WELL_CREWS_SUMMARY", "WELL_COMPARISON",
+            "PROJECT_WELLS", "SEARCH_WELLS", "GLOBAL_SEARCH", "DAILY_EXPENSES",
+            "EXPORT_EXCEL", "START_EXPORT_WORKER"
+          ];
+          if (securityContext && !securityContext.canRead && DATA_READ_ACTIONS.includes(actionType)) {
+            results.push({
+              type: actionType,
+              result: { success: false, message: "ليس لديك صلاحية عرض البيانات.", action: actionType }
+            });
+            continue;
+          }
+
           const scopeIds = securityContext ? securityContext.accessibleProjectIds : undefined;
 
           let currentResult: ActionResult | ReportResult | null = null;

@@ -489,6 +489,33 @@ export class WhatsAppAIService {
         }
       }
 
+      if (!response.action) {
+        const fallback = this.detectFlowFallback(input);
+        if (fallback) {
+          if (fallback.type === 'expense' && fallback.amount && fallback.workerName) {
+            if (!securityContext.canAdd) {
+              return textReply(`❌ ليس لديك صلاحية إضافة مصروفات.\n\n*0* القائمة`);
+            }
+            console.log(`[WhatsAppAI] Fallback triggered START_EXPENSE: ${fallback.amount} for ${fallback.workerName}`);
+            return this.startExpenseFromText(
+              { amount: fallback.amount, workerName: fallback.workerName },
+              context, senderPhone, userName, securityContext, userProjectIds
+            );
+          }
+          if (fallback.type === 'export' && fallback.workerName) {
+            if (!securityContext.canRead) {
+              return textReply(`❌ ليس لديك صلاحية تصدير البيانات.\n\n*0* القائمة`);
+            }
+            console.log(`[WhatsAppAI] Fallback triggered START_EXPORT_WORKER: ${fallback.workerName}`);
+            const format = this.extractExportFormat(input);
+            return this.handleDirectWorkerExport(
+              fallback.workerName, format,
+              context, senderPhone, userName, userProjectIds, isAdmin, securityContext
+            );
+          }
+        }
+      }
+
       const outSettings = await botSettingsService.getSettings();
       if (outSettings.messageLogging) {
         try {
@@ -532,6 +559,30 @@ export class WhatsAppAIService {
     }
   }
 
+  private detectFlowFallback(input: string): { type: string; amount?: string; workerName?: string } | null {
+    const expenseMatch = input.match(/(\d+)\s*(?:مصاريف|مصروف|مصروفات)\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i)
+      || input.match(/(?:سجل|اضف|ضيف)\s*(?:مصروف|مصاريف)\s*(\d+)\s*(?:لـ?|ل)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
+    if (expenseMatch) {
+      const amount = expenseMatch[1].trim();
+      const workerName = expenseMatch[2].trim().replace(/\s+$/g, '');
+      if (amount && workerName.length >= 2) {
+        return { type: 'expense', amount, workerName };
+      }
+    }
+
+    const exportMatch = input.match(/(?:صدر|تصدير|ابي|ابغى|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?ل?)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
+    if (exportMatch) {
+      let workerName = exportMatch[1].trim()
+        .replace(/\s*(?:اكسل|excel|xlsx|pdf|بي دي اف).*$/i, '')
+        .trim();
+      if (workerName.length >= 2) {
+        return { type: 'export', workerName };
+      }
+    }
+
+    return null;
+  }
+
   private extractExportFormat(input: string): string | null {
     const lower = input.toLowerCase();
     const hasExcel = /(?:اكسل|excel|xlsx)/i.test(lower);
@@ -554,39 +605,6 @@ export class WhatsAppAIService {
     'لي', 'لنا', 'لهم', 'عليه', 'عليها', 'فيه', 'فيها', 'منه', 'منها',
   ]);
 
-  private extractWorkerNameFromText(input: string): string | null {
-    const cleaned = input.trim();
-
-    const balancePatterns = [
-      /(?:كم|كيف|وش|ايش|شو)\s*(?:باقي|متبقي|رصيد|حساب|مستحق)\s*(?:لـ?ل?|على|عند|حق)?\s*(?:العامل|عامل)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]*)/i,
-      /(?:رصيد|حساب|باقي|مستحقات)\s*(?:العامل|عامل)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]*)/i,
-      /(?:العامل|عامل)\s+([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s*(?:كم|باقي|رصيد|حساب|مستحق|لة|له)/i,
-      /([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s+(?:كم\s*)?(?:باقي|متبقي|رصيد|مستحق)\s*(?:له|لة|عنده|عندة)?/i,
-      /([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s+(?:طلعت?\s*)?(?:له|لة|لها)\s+(?:كم|كيف)/i,
-    ];
-
-    for (const pattern of balancePatterns) {
-      const m = cleaned.match(pattern);
-      if (m) {
-        const raw = this.cleanExtractedName(m[1]);
-        if (raw) return raw;
-      }
-    }
-    return null;
-  }
-
-  private cleanExtractedName(raw: string): string | null {
-    const excludeWords = new Set(['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف', 'تقرير', 'كشف']);
-    let name = raw.trim()
-      .replace(/\s+/g, ' ')
-      .replace(/^(?:يا|ياعمار|عمار)\s+/i, '')
-      .replace(/^(?:لـ?ل?|لل)\s*/i, '');
-
-    const words = name.split(/\s+/).filter(w => !WhatsAppAIService.NOISE_WORDS.has(w) && !excludeWords.has(w) && w.length >= 2);
-    name = words.join(' ').trim();
-    if (name.length >= 2) return name;
-    return null;
-  }
 
 
   private async startExpenseFromText(
@@ -1046,51 +1064,6 @@ export class WhatsAppAIService {
     return matchedWorkers;
   }
 
-  private async handleWorkerBalanceQuery(
-    workerName: string,
-    context: WhatsAppContext,
-    senderPhone: string,
-    userName: string,
-    userProjectIds: string[],
-    isAdmin: boolean,
-    securityContext: WhatsAppSecurityContext
-  ): Promise<BotReply> {
-    try {
-      if (!isAdmin && (!userProjectIds || userProjectIds.length === 0)) {
-        return textReply(nav(`❌ ليس لديك صلاحية الوصول لأي مشروع.`));
-      }
-
-      const matchedWorkers = await this.smartWorkerSearch(workerName, isAdmin ? [] : userProjectIds);
-
-      if (matchedWorkers.length === 0) {
-        return textReply(nav(`❌ لم يتم العثور على عامل باسم "*${workerName}*".\nتأكد من الاسم وحاول مرة أخرى.`));
-      }
-
-      if (matchedWorkers.length === 1) {
-        const worker = matchedWorkers[0];
-        return this.formatWorkerBalance(worker, isAdmin, userProjectIds, context, senderPhone, securityContext);
-      }
-
-      context.data.pendingAction = 'worker_balance';
-      context.data.availableWorkers = matchedWorkers;
-      context.data.securityProjectIds = userProjectIds;
-      context.data.securityIsAdmin = isAdmin;
-      context.step = 'awaiting_worker_selection';
-      this.sessions.set(senderPhone, context);
-
-      const workerList = matchedWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
-      return textReply([
-        `🔍 هل تقصد أحد هؤلاء العمال؟`,
-        ``,
-        workerList,
-        ``,
-        `أرسل رقم العامل:`,
-      ].join('\n'));
-    } catch (error: any) {
-      console.error('[WhatsAppAI] Error in balance query:', error);
-      return textReply(nav(`❌ خطأ: ${error.message}`));
-    }
-  }
 
   private async formatWorkerBalance(
     worker: { id: string; name: string },

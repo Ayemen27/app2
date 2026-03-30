@@ -52,6 +52,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
     ),
     day_outgoing_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -60,6 +61,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
     ),
     day_wages AS (
       SELECT COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total

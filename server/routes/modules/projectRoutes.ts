@@ -2828,6 +2828,7 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
       ),
       all_expenses AS (
         SELECT safe_numeric(paid_amount::text, 0) as amount
@@ -2877,6 +2878,7 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM supplier_payments 

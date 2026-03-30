@@ -135,7 +135,7 @@ export class ExpenseLedgerService {
           WITH prev_income AS (
             SELECT amount FROM fund_transfers WHERE project_id = $1 AND transfer_date::date < $2::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date < $2::date
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date < $2::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
           )
           SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM prev_income
         `, [project_id, startDateStr]);
@@ -160,7 +160,7 @@ export class ExpenseLedgerService {
             UNION ALL
             SELECT amount FROM worker_misc_expenses WHERE project_id = $1 AND date::date < $2::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date < $2::date
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date < $2::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
             UNION ALL
             SELECT amount FROM supplier_payments WHERE project_id = $1 AND payment_date::date < $2::date
           )
@@ -206,8 +206,8 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_misc_expenses WHERE project_id = $1`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM fund_transfers WHERE project_id = $1`, [project_id]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1`, [project_id]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1`, [project_id]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id]),
           pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1`, [project_id]),
           pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1`, [project_id])
         ]);
@@ -229,8 +229,8 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date = $2::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id, cleanDate]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date = $2::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date = $2::date`, [project_id, cleanDate])
         ]);
@@ -252,8 +252,8 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
-          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date)::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo])
         ]);

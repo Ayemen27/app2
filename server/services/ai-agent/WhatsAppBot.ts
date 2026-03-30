@@ -665,15 +665,18 @@ export class WhatsAppBot {
 
       const contentText = text || inputId || '';
       if (this.isContentDuplicate(cleanPhone, contentText, inputType)) {
-        return;
+        continue;
       }
       if (isLid && cleanPhone === rawId) {
+        let lidAlreadyProcessed = false;
         for (const [key] of this.recentContentHashes.entries()) {
           if (key.endsWith(`:${inputType}:${contentText.substring(0, 100)}`) && !key.startsWith(rawId)) {
             console.log(`[WhatsAppBot] LID message already processed via phone JID, skipping`);
-            return;
+            lidAlreadyProcessed = true;
+            break;
           }
         }
+        if (lidAlreadyProcessed) continue;
       }
 
       if (this.phoneProcessingLock.get(cleanPhone)) {
@@ -681,7 +684,7 @@ export class WhatsAppBot {
         await new Promise(resolve => setTimeout(resolve, 3000));
         if (this.phoneProcessingLock.get(cleanPhone)) {
           console.log(`[WhatsAppBot] Phone ${cleanPhone} still locked after 3s, skipping`);
-          return;
+          continue;
         }
       }
       this.phoneProcessingLock.set(cleanPhone, true);
@@ -790,28 +793,29 @@ export class WhatsAppBot {
           }
         }
 
-        let retries = 0;
-        const maxRetries = botSettings.maxRetries || 3;
         let reply: any = null;
 
-        while (retries <= maxRetries) {
-          try {
-            reply = await whatsappAIService.handleIncomingMessage(
+        const AI_TIMEOUT_MS = 60000;
+        try {
+          reply = await Promise.race([
+            whatsappAIService.handleIncomingMessage(
               cleanPhone,
               text || inputId || '',
               inputType,
               inputId,
               msgMetadata
-            );
-            break;
-          } catch (retryErr) {
-            retries++;
-            if (retries > maxRetries) {
-              console.error(`[WhatsAppBot] Max retries (${maxRetries}) exceeded for message from ${cleanPhone}`);
-              throw retryErr;
-            }
-            console.warn(`[WhatsAppBot] Retry ${retries}/${maxRetries} for message from ${cleanPhone}`);
-            await new Promise(r => setTimeout(r, 1000 * retries));
+            ),
+            new Promise<null>((_, reject) =>
+              setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT_MS)
+            )
+          ]);
+        } catch (processErr: any) {
+          if (processErr.message === 'AI_TIMEOUT') {
+            console.error(`[WhatsAppBot] AI processing timeout (${AI_TIMEOUT_MS}ms) for ${cleanPhone}`);
+            reply = { body: '⚠️ استغرقت المعالجة وقتاً طويلاً. حاول مرة أخرى.\n\n*0* القائمة' };
+          } else {
+            console.error(`[WhatsAppBot] Processing error for ${cleanPhone}:`, processErr.message);
+            reply = { body: '⚠️ حدث خطأ. حاول مرة أخرى.\n\n*0* القائمة' };
           }
         }
 

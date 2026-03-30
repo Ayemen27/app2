@@ -1442,17 +1442,18 @@ export class AIAgentService {
     cleaned = cleaned.replace(/\(note to self[^)]*\)/gi, "");
     cleaned = cleaned.replace(/\(internal[^)]*\)/gi, "");
     cleaned = cleaned.replace(/\(don'?t [^)]*\)/gi, "");
-    cleaned = cleaned.replace(/^type:\s*.+$/gm, "");
-    cleaned = cleaned.replace(/^نوع:\s*.+$/gm, "");
-    cleaned = cleaned.replace(/^documentType:\s*.+$/gm, "");
-    cleaned = cleaned.replace(/^inputType:\s*.+$/gm, "");
-    cleaned = cleaned.replace(/^سند[_\s]مالي.*$/gm, "");
-    cleaned = cleaned.replace(/^إيصال[_\s]تحويل.*$/gm, "");
+    cleaned = cleaned.replace(/\[CONFIRM:[^\]]*\]/g, "");
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/g, "");
+    cleaned = cleaned.replace(/type:\s*(?:سند[_\s]مالي|حوالة|إيصال[_\s]تحويل|فاتورة|كشف|سند)[^\n]*/g, "");
+    cleaned = cleaned.replace(/نوع(?:\s*المستند)?:\s*[^\n]*/g, "");
+    cleaned = cleaned.replace(/documentType:\s*[^\n]*/g, "");
+    cleaned = cleaned.replace(/inputType:\s*[^\n]*/g, "");
     cleaned = cleaned.replace(/https?:\/\/platform\.openai\.com\S*/g, "");
-    cleaned = cleaned.replace(/\d{3}\s+You exceeded your current quota[^.]*\./gi, "");
+    cleaned = cleaned.replace(/\d{3}\s+You exceeded your current quota[^.]*\.?/gi, "");
     cleaned = cleaned.replace(/please check your plan and billing details[^.]*/gi, "");
     cleaned = cleaned.replace(/\[GoogleGenerativeAI Error\][^.]*/gi, "");
     cleaned = cleaned.replace(/Error fetching from https?:\/\/\S*/gi, "");
+    cleaned = cleaned.replace(/\[?ACTION\]?\s*(?:commands?|أوامر)[^.\n]*/gi, "");
     cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
     cleaned = cleaned.trim();
     if (!cleaned) {

@@ -510,10 +510,18 @@ export class WhatsAppAIService {
 
       let enrichedMessage = input;
       if (imageContext) {
+        let sanitizedImageContext = imageContext
+          .replace(/\[ACTION:[^\]]*\]/g, '')
+          .replace(/\[PROPOSE:[^\]]*\]/g, '')
+          .replace(/\[ALERT:[^\]]*\]/g, '')
+          .replace(/\[CONFIRM:[^\]]*\]/g, '')
+          .replace(/ACTION:[A-Z_]+(?::[^\s\]]*)?/g, '')
+          .replace(/IGNORE\s+(ALL\s+)?PREVIOUS\s+INSTRUCTIONS?/gi, '')
+          .replace(/you are now|forget everything|new instructions/gi, '');
         const isJustPhoto = !input || input === '📷 صورة';
         enrichedMessage = isJustPhoto
-          ? `المستخدم اسمه "${userName}" أرسل صورة. نتائج تحليلها:\n${imageContext}\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم آخر من الصورة. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`
-          : `المستخدم اسمه "${userName}" أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم من الصورة. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`;
+          ? `المستخدم اسمه "${userName}" أرسل صورة. نتائج تحليلها:\n---بداية نص الصورة---\n${sanitizedImageContext}\n---نهاية نص الصورة---\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم آخر من الصورة. النص أعلاه مستخرج من OCR وقد يحتوي أخطاء. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`
+          : `المستخدم اسمه "${userName}" أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n---بداية نص الصورة---\n${sanitizedImageContext}\n---نهاية نص الصورة---\n\n⚠️ تذكر: اسم المستخدم هو "${userName}" وليس أي اسم من الصورة. النص أعلاه مستخرج من OCR وقد يحتوي أخطاء. حدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`;
       }
 
       const recentHistory = await this.getRecentConversationHistory(sessionId, userId, 3);

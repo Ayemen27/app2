@@ -1255,7 +1255,7 @@ export class WhatsAppAIService {
       return buildTextWithMenu('تم', baseLine + suggestions, 'main');
     } catch (error: any) {
       console.error('[WhatsAppAI] Error saving expense:', error);
-      return textReply(nav(`❌ خطأ أثناء الحفظ: ${error.message}\nأرسل *إلغاء* وحاول مرة أخرى.`));
+      return textReply(nav(`❌ حصل خطأ أثناء الحفظ. أرسل *إلغاء* وحاول مرة أخرى.`));
     }
   }
 
@@ -1366,7 +1366,7 @@ export class WhatsAppAIService {
       return textReply(balanceLines + balSuggestions + '\n\n*0* القائمة | *#* رجوع');
     } catch (err: any) {
       console.error('[WhatsAppAI] formatWorkerBalance error:', err);
-      return textReply(nav(`⚠️ تعذّر استرجاع رصيد العامل *${worker.name}*.\nخطأ: ${err.message}`));
+      return textReply(nav(`⚠️ تعذّر استرجاع رصيد العامل *${worker.name}*. حاول مرة أخرى.`));
     }
   }
 
@@ -1445,7 +1445,7 @@ export class WhatsAppAIService {
             `✅ تم إرسال كشف حساب *${workerName}* (Excel + PDF)`,
           ].join('\n') + balExpSuggestions));
         } catch (err: any) {
-          return textReply(nav(`❌ خطأ: ${err.message}`));
+          return textReply(nav(`❌ حصل خطأ أثناء التصدير. حاول مرة أخرى.`));
         }
       }
 
@@ -1515,7 +1515,7 @@ export class WhatsAppAIService {
       ].join('\n'));
     } catch (error: any) {
       console.error('[WhatsAppAI] Error in direct worker export:', error);
-      return textReply(nav(`❌ خطأ: ${error.message}`));
+      return textReply(nav(`❌ حصل خطأ أثناء التصدير. حاول مرة أخرى.`));
     }
   }
 
@@ -1664,7 +1664,7 @@ export class WhatsAppAIService {
       return buildTextWithMenu('تم', `✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي ${formatLabel}`, 'main');
     } catch (err: any) {
       console.error('[WhatsAppAI] Worker export error:', err);
-      return textReply(nav(`❌ خطأ: ${err.message}`));
+      return textReply(nav(`❌ حصل خطأ أثناء التصدير. حاول مرة أخرى.`));
     }
   }
 
@@ -2174,7 +2174,7 @@ export class WhatsAppAIService {
     } catch (error: any) {
       console.error('[WhatsAppAI] Export error:', error);
       this.sessions.delete(senderPhone);
-      return textReply(nav(`❌ خطأ: ${error.message}\nأرسل *0* للقائمة.`));
+      return textReply(nav(`❌ حصل خطأ أثناء التصدير. أرسل *0* للقائمة.`));
     }
   }
 

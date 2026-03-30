@@ -545,6 +545,7 @@ export class AIAgentService {
       const conversationalReply = this.detectConversationalQuery(currentMsgOnly);
       
       let responseContent: string;
+      let aiResponse: ModelResponse = { content: '', model: 'local', provider: 'local', tokensUsed: 0 };
       
       if (conversationalReply) {
         console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون API call (input="${currentMsgOnly.substring(0, 50)}")`);
@@ -558,7 +559,7 @@ export class AIAgentService {
           content: m.content,
         }));
 
-        const aiResponse = await this.modelManager.chat(messages, dynamicSystemPrompt);
+        aiResponse = await this.modelManager.chat(messages, dynamicSystemPrompt);
         
         steps[0].status = "completed";
         steps[1].status = "in_progress";

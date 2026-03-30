@@ -171,7 +171,8 @@ export class WhatsAppAIService {
     messageMetadata?: Record<string, any>
   ): Promise<BotReply> {
     if (this.processingLock.has(senderPhone)) {
-      return textReply('⏳ جاري معالجة طلبك السابق...');
+      console.log(`[WhatsAppAI] Dropping duplicate for ${senderPhone} — already processing`);
+      return null as any;
     }
     this.processingLock.add(senderPhone);
 

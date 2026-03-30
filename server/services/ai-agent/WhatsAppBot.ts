@@ -676,6 +676,9 @@ export class WhatsAppBot {
         console.log(`[WhatsAppBot] Phone ${cleanPhone} is already processing a message, skipping duplicate`);
         return;
       }
+      this.phoneProcessingLock.set(cleanPhone, true);
+
+      try {
 
       const isAllowed = await this.isPhoneAllowed(cleanPhone);
       if (!isAllowed && isLid) {
@@ -731,8 +734,6 @@ export class WhatsAppBot {
         return;
       }
 
-      this.phoneProcessingLock.set(cleanPhone, true);
-      try {
         const whatsappAIService = getWhatsAppAIService();
 
         if (this.sock && text && text.length > 20) {

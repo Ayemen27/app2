@@ -11,6 +11,7 @@ import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { TeamSelector } from "@/components/team-selector";
 import { formatCurrency } from "@/lib/utils";
+import { WellCrewBadges } from "@/components/well-crew-badges";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -373,19 +374,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
                   {expense.notes.includes('مستورد من محادثة الواتساب') ? '📱 ' : 'الملاحظات: '}{expense.notes}
                 </p>
               )}
-              <div className="flex flex-wrap gap-1">
-                {getWellLabel(expense.well_id) && (
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-sky-50 dark:bg-sky-950/30 px-1.5 py-0.5 rounded border border-sky-200 dark:border-sky-800">💧 {getWellLabel(expense.well_id)}</span>
-                )}
-                {(() => {
-                  let crewTypes: string[] = [];
-                  try { crewTypes = expense.crew_type ? (expense.crew_type.startsWith('[') ? JSON.parse(expense.crew_type) : [expense.crew_type]) : []; } catch { crewTypes = []; }
-                  const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
-                  return crewTypes.map((ct: string, ci: number) => (
-                    <span key={ci} className="text-[10px] text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 rounded border border-violet-200 dark:border-violet-800">🔧 {crewTypeLabels[ct] || ct}</span>
-                  ));
-                })()}
-              </div>
+              <WellCrewBadges wellIds={(expense as any).well_ids} wellId={expense.well_id} crewType={(expense as any).crew_type} projectWells={wells} isWellsProject={isWellsProject} />
             </div>
           ))}
           

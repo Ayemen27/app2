@@ -34,6 +34,7 @@ import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber, fmtNum } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { WellCrewBadges } from "@/components/well-crew-badges";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
@@ -3174,33 +3175,7 @@ function DailyExpensesContent() {
                             <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
                           ) : null}
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(() => {
-                            const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
-                            let wellIds: number[] = [];
-                            try { wellIds = expense.well_ids ? JSON.parse(expense.well_ids) : (expense.well_id ? [Number(expense.well_id)] : []); } catch { wellIds = expense.well_id ? [Number(expense.well_id)] : []; }
-                            let crewTypes: string[] = [];
-                            try { crewTypes = expense.crew_type ? (expense.crew_type.startsWith('[') ? JSON.parse(expense.crew_type) : [expense.crew_type]) : []; } catch { crewTypes = []; }
-                            const wellNames = wellIds.map((id: number) => {
-                              const well = projectWells.find((w: any) => w.id === id);
-                              return well ? (well.well_number || well.wellNumber || `بئر ${id}`) : `بئر ${id}`;
-                            });
-                            return (
-                              <>
-                                {wellNames.length > 0 && wellNames.map((name: string, wi: number) => (
-                                  <Badge key={`w-${wi}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800">
-                                    💧 {name}
-                                  </Badge>
-                                ))}
-                                {crewTypes.length > 0 && crewTypes.map((ct: string, ci: number) => (
-                                  <Badge key={`c-${ci}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800">
-                                    🔧 {crewTypeLabels[ct] || ct}
-                                  </Badge>
-                                ))}
-                              </>
-                            );
-                          })()}
-                        </div>
+                        <WellCrewBadges wellIds={expense.well_ids} wellId={expense.well_id} crewType={expense.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
                         {isAllProjects && expense.projectName && (
                           <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {expense.projectName}</div>
                         )}
@@ -3499,33 +3474,7 @@ function DailyExpensesContent() {
                                 <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage || worker?.dailyWage))}</span>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {(() => {
-                                const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
-                                let wellIds: number[] = [];
-                                try { wellIds = attendance.well_ids ? JSON.parse(attendance.well_ids) : (attendance.well_id ? [Number(attendance.well_id)] : []); } catch { wellIds = attendance.well_id ? [Number(attendance.well_id)] : []; }
-                                let crewTypes: string[] = [];
-                                try { crewTypes = attendance.crew_type ? (attendance.crew_type.startsWith('[') ? JSON.parse(attendance.crew_type) : [attendance.crew_type]) : []; } catch { crewTypes = []; }
-                                const wellNames = wellIds.map(id => {
-                                  const well = projectWells.find((w: any) => w.id === id);
-                                  return well ? (well.well_number || well.wellNumber || `بئر ${id}`) : `بئر ${id}`;
-                                });
-                                return (
-                                  <>
-                                    {wellNames.length > 0 && wellNames.map((name: string, wi: number) => (
-                                      <Badge key={`w-${wi}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800">
-                                        💧 {name}
-                                      </Badge>
-                                    ))}
-                                    {crewTypes.length > 0 && crewTypes.map((ct: string, ci: number) => (
-                                      <Badge key={`c-${ci}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800">
-                                        🔧 {crewTypeLabels[ct] || ct}
-                                      </Badge>
-                                    ))}
-                                  </>
-                                );
-                              })()}
-                            </div>
+                            <WellCrewBadges wellIds={attendance.well_ids} wellId={attendance.well_id} crewType={attendance.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
                             {deferredAmount > 0 && (
                               <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">مؤجل: {formatCurrency(deferredAmount)}</p>
                             )}
@@ -3825,33 +3774,7 @@ function DailyExpensesContent() {
                                       {purchase.notes.includes('مستورد من محادثة الواتساب') ? '📱 ' : 'الملاحظات: '}{purchase.notes}
                                     </p>
                                   )}
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {(() => {
-                                      const crewTypeLabels: Record<string, string> = { welding: 'لحام', steel_installation: 'تركيب حديد', panel_installation: 'تركيب ألواح' };
-                                      let wellIds: number[] = [];
-                                      try { wellIds = purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []); } catch { wellIds = purchase.well_id ? [Number(purchase.well_id)] : []; }
-                                      let crewTypes: string[] = [];
-                                      try { crewTypes = purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : []; } catch { crewTypes = []; }
-                                      const wellNames = wellIds.map((id: number) => {
-                                        const well = projectWells.find((w: any) => w.id === id);
-                                        return well ? (well.well_number || well.wellNumber || `بئر ${id}`) : `بئر ${id}`;
-                                      });
-                                      return (
-                                        <>
-                                          {wellNames.length > 0 && wellNames.map((name: string, wi: number) => (
-                                            <Badge key={`w-${wi}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800">
-                                              💧 {name}
-                                            </Badge>
-                                          ))}
-                                          {crewTypes.length > 0 && crewTypes.map((ct: string, ci: number) => (
-                                            <Badge key={`c-${ci}`} variant="outline" className="text-[10px] px-1.5 h-4 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800">
-                                              🔧 {crewTypeLabels[ct] || ct}
-                                            </Badge>
-                                          ))}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
+                                  <WellCrewBadges wellIds={purchase.well_ids} wellId={purchase.well_id} crewType={purchase.crew_type} projectWells={projectWells} isWellsProject={isWellsProject} />
                                   {isAllProjects && purchase.projectName && (
                                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
                                   )}

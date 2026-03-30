@@ -273,22 +273,38 @@ export default function WellCrewsPage() {
     setFilterValues({ region: 'all', crewType: 'all', status: 'all', teamName: 'all', dateRange: undefined });
   }, []);
 
+  const hasCrewFilters = filterValues.crewType !== 'all' || filterValues.teamName !== 'all';
+
   const filteredData = useMemo(() => {
     const dateFrom = filterValues.dateRange?.from ? new Date(filterValues.dateRange.from) : null;
     const dateTo = filterValues.dateRange?.to ? new Date(filterValues.dateRange.to) : null;
     if (dateFrom) dateFrom.setHours(0, 0, 0, 0);
     if (dateTo) dateTo.setHours(23, 59, 59, 999);
 
+    const crewMatchesFn = (c: any) => {
+      const matchesCT = filterValues.crewType === 'all' || (c.crewType || c.crew_type) === filterValues.crewType;
+      const matchesTN = filterValues.teamName === 'all' || (c.teamName || c.team_name) === filterValues.teamName;
+      let matchesD = true;
+      if (dateFrom || dateTo) {
+        const d = c.workDate || c.work_date;
+        if (!d) { matchesD = false; }
+        else {
+          const date = new Date(d);
+          if (dateFrom && date < dateFrom) matchesD = false;
+          if (dateTo && date > dateTo) matchesD = false;
+        }
+      }
+      return matchesCT && matchesTN && matchesD;
+    };
+
     return (fullData as WellFullData[]).filter((well) => {
       const matchesSearch =
         well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
         String(well.wellNumber).includes(searchValue);
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
-      const matchesCrewType = filterValues.crewType === 'all' ||
-        well.crews?.some((c: any) => (c.crewType || c.crew_type) === filterValues.crewType);
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
-      const matchesTeamName = filterValues.teamName === 'all' ||
-        well.crews?.some((c: any) => (c.teamName || c.team_name) === filterValues.teamName);
+
+      const hasMatchingCrews = !hasCrewFilters || well.crews?.some(crewMatchesFn);
 
       let matchesDate = true;
       if (dateFrom || dateTo) {
@@ -307,12 +323,21 @@ export default function WellCrewsPage() {
         }
       }
 
-      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus && matchesTeamName && matchesDate;
+      return matchesSearch && matchesRegion && hasMatchingCrews && matchesStatus && matchesDate;
     });
-  }, [fullData, searchValue, filterValues]);
+  }, [fullData, searchValue, filterValues, hasCrewFilters]);
+
+  const getFilteredCrews = useCallback((crews: any[]) => {
+    if (!hasCrewFilters) return crews;
+    return crews.filter((c: any) => {
+      const matchesCT = filterValues.crewType === 'all' || (c.crewType || c.crew_type) === filterValues.crewType;
+      const matchesTN = filterValues.teamName === 'all' || (c.teamName || c.team_name) === filterValues.teamName;
+      return matchesCT && matchesTN;
+    });
+  }, [filterValues, hasCrewFilters]);
 
   const stats = useMemo(() => {
-    const allCrews = filteredData.flatMap(w => w.crews || []);
+    const allCrews = filteredData.flatMap(w => getFilteredCrews(w.crews || []));
     const allTransport = filteredData.flatMap(w => w.transport || []);
     const totalWorkDays = allCrews.reduce((sum, c) => sum + (Number(c.workDays || c.work_days) || 0), 0);
     const totalWages = allCrews.reduce((sum, c) => sum + (Number(c.totalWages || c.total_wages) || 0), 0);
@@ -326,7 +351,7 @@ export default function WellCrewsPage() {
       transportCount: allTransport.length,
       totalTransportCost,
     };
-  }, [filteredData]);
+  }, [filteredData, getFilteredCrews]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
@@ -804,9 +829,10 @@ export default function WellCrewsPage() {
       ) : (
         <UnifiedCardGrid columns={2}>
           {filteredData.map((well) => {
-            const crewCount = well.crews?.length || 0;
+            const visibleCrews = getFilteredCrews(well.crews || []);
+            const crewCount = visibleCrews.length;
             const transportCount = well.transport?.length || 0;
-            const totalCrewWages = (well.crews || []).reduce((s: number, c: any) => s + (Number(c.totalWages ?? c.total_wages) || 0), 0);
+            const totalCrewWages = visibleCrews.reduce((s: number, c: any) => s + (Number(c.totalWages ?? c.total_wages) || 0), 0);
             const totalTransportCost = (well.transport || []).reduce((s: number, t: any) => s + (Number(t.transportPrice ?? t.transport_price) || 0), 0);
 
             return (
@@ -868,7 +894,7 @@ export default function WellCrewsPage() {
                         <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                           <Users className="h-3 w-3 text-blue-500" /> الفرق ({crewCount})
                         </div>
-                        {well.crews.map((crew: any) => {
+                        {visibleCrews.map((crew: any) => {
                           const crewTypeKey = crew.crewType || crew.crew_type || "";
                           const crewType = CREW_TYPE_MAP[crewTypeKey] || crewTypeKey;
                           const colors = CREW_TYPE_COLORS[crewTypeKey] || { bg: "bg-muted/30", border: "border-border", badge: "" };

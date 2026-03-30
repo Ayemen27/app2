@@ -69,6 +69,7 @@ export class WhatsAppBot {
   private static CACHE_TTL = 60_000;
   private processedMessages: Map<string, number> = new Map();
   private recentContentHashes: Map<string, number> = new Map();
+  private phoneProcessingLock: Map<string, boolean> = new Map();
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
@@ -658,7 +659,21 @@ export class WhatsAppBot {
         }
       }
 
-      if (this.isContentDuplicate(cleanPhone, text || inputId || '', inputType)) {
+      const contentText = text || inputId || '';
+      if (this.isContentDuplicate(cleanPhone, contentText, inputType)) {
+        return;
+      }
+      if (isLid && cleanPhone === rawId) {
+        for (const [key] of this.recentContentHashes.entries()) {
+          if (key.endsWith(`:${inputType}:${contentText.substring(0, 100)}`) && !key.startsWith(rawId)) {
+            console.log(`[WhatsAppBot] LID message already processed via phone JID, skipping`);
+            return;
+          }
+        }
+      }
+
+      if (this.phoneProcessingLock.get(cleanPhone)) {
+        console.log(`[WhatsAppBot] Phone ${cleanPhone} is already processing a message, skipping duplicate`);
         return;
       }
 
@@ -716,6 +731,7 @@ export class WhatsAppBot {
         return;
       }
 
+      this.phoneProcessingLock.set(cleanPhone, true);
       try {
         const whatsappAIService = getWhatsAppAIService();
 
@@ -808,6 +824,8 @@ export class WhatsAppBot {
         });
       } catch (error) {
         console.error('[WhatsAppBot] Error processing message:', error);
+      } finally {
+        this.phoneProcessingLock.delete(cleanPhone);
       }
     });
   }

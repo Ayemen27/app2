@@ -3,7 +3,8 @@ import { eq, and, sql, desc, asc, isNull, inArray } from 'drizzle-orm';
 import {
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
   projects, users, workerAttendance, materialPurchases, transportationExpenses,
-  wellWorkCrews, wellSolarComponents, wellTransportDetails, wellReceptions
+  wellWorkCrews, wellSolarComponents, wellTransportDetails, wellReceptions,
+  workerMiscExpenses
 } from '../../shared/schema';
 import { CentralLogService } from './CentralLogService';
 import { safeParseNum } from '../utils/safe-numbers';
@@ -538,6 +539,10 @@ export class WellService {
       const tasksByWell = new Map<number, any[]>();
       for (const t of allTasks) { const arr = tasksByWell.get(t.well_id) || []; arr.push(t); tasksByWell.set(t.well_id, arr); }
 
+      const operationalCostsByWell = await this.calculateOperationalCostsPerWell(
+        wellsList, allCrews, project_id
+      );
+
       return wellsList.map((well: any) => ({
         ...well,
         crews: crewsByWell.get(well.id) || [],
@@ -545,11 +550,142 @@ export class WellService {
         transport: transportByWell.get(well.id) || [],
         receptions: receptionsByWell.get(well.id) || [],
         tasks: tasksByWell.get(well.id) || [],
+        operationalCosts: operationalCostsByWell.get(well.id) || { transportation: 0, materials: 0, misc: 0, total: 0, details: [] },
       }));
     } catch (error) {
       console.error('[WellService] Error fetching full export data:', error);
       throw error;
     }
+  }
+
+  private static async calculateOperationalCostsPerWell(
+    wellsList: any[],
+    allCrews: any[],
+    project_id?: string
+  ): Promise<Map<number, { transportation: number; materials: number; misc: number; total: number; details: any[] }>> {
+    const result = new Map<number, { transportation: number; materials: number; misc: number; total: number; details: any[] }>();
+    for (const w of wellsList) {
+      result.set(w.id, { transportation: 0, materials: 0, misc: 0, total: 0, details: [] });
+    }
+
+    try {
+      const projectIds = project_id
+        ? [project_id]
+        : [...new Set(wellsList.map((w: any) => w.project_id))];
+
+      if (projectIds.length === 0) return result;
+
+      const wellProjectMap = new Map<number, string>();
+      for (const w of wellsList) wellProjectMap.set(w.id, w.project_id);
+
+      const dateProjectToWellIds = new Map<string, Set<number>>();
+      for (const crew of allCrews) {
+        const d = crew.workDate || crew.work_date;
+        if (!d) continue;
+        const pid = wellProjectMap.get(crew.well_id) || '';
+        const key = `${pid}::${d}`;
+        if (!dateProjectToWellIds.has(key)) dateProjectToWellIds.set(key, new Set());
+        dateProjectToWellIds.get(key)!.add(crew.well_id);
+      }
+
+      const wellsWithWorkByProject = new Map<string, Set<number>>();
+      for (const crew of allCrews) {
+        const pid = wellProjectMap.get(crew.well_id) || '';
+        if (!wellsWithWorkByProject.has(pid)) wellsWithWorkByProject.set(pid, new Set());
+        wellsWithWorkByProject.get(pid)!.add(crew.well_id);
+      }
+
+      const EXCLUDED_TRANSPORT_CATEGORIES = ['نقل حديد ومنصات'];
+
+      const fetchByProject = async (pid: string) => {
+        const [transExpenses, matPurchases, miscExpenses] = await Promise.all([
+          db.select({
+            amount: transportationExpenses.amount,
+            date: transportationExpenses.date,
+            category: transportationExpenses.category,
+          }).from(transportationExpenses).where(eq(transportationExpenses.project_id, pid)),
+          db.select({
+            totalAmount: materialPurchases.totalAmount,
+            purchaseDate: materialPurchases.purchaseDate,
+            purchaseType: materialPurchases.purchaseType,
+          }).from(materialPurchases).where(eq(materialPurchases.project_id, pid)),
+          db.select({
+            amount: workerMiscExpenses.amount,
+            date: workerMiscExpenses.date,
+          }).from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, pid)),
+        ]);
+        return { transExpenses, matPurchases, miscExpenses };
+      };
+
+      const allExpenses = await Promise.all(projectIds.map(fetchByProject));
+
+      const projectWellIds = new Map<string, number[]>();
+      for (const w of wellsList) {
+        if (!projectWellIds.has(w.project_id)) projectWellIds.set(w.project_id, []);
+        projectWellIds.get(w.project_id)!.push(w.id);
+      }
+
+      const distributeExpense = (date: string, amount: number, category: string, projectId: string) => {
+        if (amount <= 0) return;
+
+        let targetWellIds: number[];
+        const key = `${projectId}::${date}`;
+        const wellsOnDate = dateProjectToWellIds.get(key);
+        if (wellsOnDate && wellsOnDate.size > 0) {
+          targetWellIds = [...wellsOnDate];
+        } else {
+          const workedWells = wellsWithWorkByProject.get(projectId);
+          if (workedWells && workedWells.size > 0) {
+            targetWellIds = [...workedWells];
+          } else {
+            targetWellIds = projectWellIds.get(projectId) || [];
+          }
+        }
+
+        if (targetWellIds.length === 0) return;
+        const share = amount / targetWellIds.length;
+
+        for (const wellId of targetWellIds) {
+          const entry = result.get(wellId);
+          if (!entry) continue;
+          if (category === 'transportation') entry.transportation += share;
+          else if (category === 'materials') entry.materials += share;
+          else if (category === 'misc') entry.misc += share;
+          entry.total += share;
+          entry.details.push({ date, category, amount: share, originalAmount: amount, splitCount: targetWellIds.length });
+        }
+      };
+
+      for (let i = 0; i < projectIds.length; i++) {
+        const pid = projectIds[i];
+        const { transExpenses, matPurchases, miscExpenses } = allExpenses[i];
+
+        for (const exp of transExpenses) {
+          if (EXCLUDED_TRANSPORT_CATEGORIES.includes(exp.category || '')) continue;
+          distributeExpense(exp.date, parseFloat(exp.amount || '0'), 'transportation', pid);
+        }
+        for (const mat of matPurchases) {
+          if (mat.purchaseType === 'نقد') {
+            distributeExpense(mat.purchaseDate, parseFloat(mat.totalAmount || '0'), 'materials', pid);
+          }
+        }
+        for (const misc of miscExpenses) {
+          distributeExpense(misc.date, parseFloat(misc.amount || '0'), 'misc', pid);
+        }
+      }
+
+      for (const [, entry] of result) {
+        entry.transportation = Math.round(entry.transportation * 100) / 100;
+        entry.materials = Math.round(entry.materials * 100) / 100;
+        entry.misc = Math.round(entry.misc * 100) / 100;
+        entry.total = Math.round(entry.total * 100) / 100;
+      }
+
+    } catch (error) {
+      console.error('[WellService] Error calculating operational costs:', error);
+    }
+
+    return result;
   }
 
   static async getProjectWellsSummary(project_id: string) {

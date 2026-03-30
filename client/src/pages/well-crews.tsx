@@ -15,17 +15,11 @@ import type { StatsRowConfig, FilterConfig, FilterType, ActionButton } from "@/c
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
-import { formatDate } from "@/lib/utils";
+import { formatDate, fmtNum } from "@/lib/utils";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
   Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown, FileText
 } from "lucide-react";
-
-function fmtNum(v: any): string {
-  const n = Number(v);
-  if (isNaN(n)) return '0';
-  return n % 1 === 0 ? String(Math.round(n)) : String(parseFloat(n.toFixed(4)));
-}
 
 interface CrewWorkerData {
   id: number;
@@ -157,6 +151,13 @@ interface WellFullData {
   status: string;
   crews: any[];
   transport: any[];
+  operationalCosts?: {
+    transportation: number;
+    materials: number;
+    misc: number;
+    total: number;
+    details: any[];
+  };
 }
 
 export default function WellCrewsPage() {
@@ -354,6 +355,8 @@ export default function WellCrewsPage() {
     const totalWorkDays = allCrews.reduce((sum, c) => sum + (Number(c.workDays || c.work_days) || 0), 0);
     const totalWages = allCrews.reduce((sum, c) => sum + (Number(c.totalWages || c.total_wages) || 0), 0);
     const totalTransportCost = allTransport.reduce((sum, t) => sum + (Number(t.transportPrice || t.transport_price) || 0), 0);
+    const totalOperationalCosts = filteredData.reduce((sum, w) => sum + (w.operationalCosts?.total || 0), 0);
+    const totalWellCost = totalWages + totalTransportCost + totalOperationalCosts;
 
     return {
       wellCount: filteredData.length,
@@ -362,6 +365,8 @@ export default function WellCrewsPage() {
       totalWages,
       transportCount: allTransport.length,
       totalTransportCost,
+      totalOperationalCosts,
+      totalWellCost,
     };
   }, [filteredData, getFilteredCrews]);
 
@@ -372,16 +377,24 @@ export default function WellCrewsPage() {
       items: [
         { key: 'wells', label: 'عدد الآبار', value: stats.wellCount, icon: BarChart3, color: 'blue' },
         { key: 'crews', label: 'إجمالي الفرق', value: stats.crewCount, icon: Users, color: 'indigo' },
-        { key: 'workDays', label: 'إجمالي أيام العمل', value: stats.totalWorkDays, icon: Calendar, color: 'green' },
+        { key: 'workDays', label: 'إجمالي أيام العمل', value: fmtNum(stats.totalWorkDays), icon: Calendar, color: 'green' },
       ]
     },
     {
       columns: 3,
       gap: 'sm',
       items: [
-        { key: 'wages', label: 'إجمالي الأجور', value: `${stats.totalWages.toLocaleString()} ريال`, icon: Wrench, color: 'orange' },
+        { key: 'wages', label: 'إجمالي الأجور', value: `${stats.totalWages.toLocaleString()} ر`, icon: Wrench, color: 'orange' },
         { key: 'transport', label: 'رحلات النقل', value: stats.transportCount, icon: Truck, color: 'amber' },
-        { key: 'transportCost', label: 'تكلفة النقل', value: `${stats.totalTransportCost.toLocaleString()} ريال`, icon: Truck, color: 'purple' },
+        { key: 'transportCost', label: 'تكلفة النقل', value: `${stats.totalTransportCost.toLocaleString()} ر`, icon: Truck, color: 'purple' },
+      ]
+    },
+    {
+      columns: 2,
+      gap: 'sm',
+      items: [
+        { key: 'opCosts', label: 'مصاريف تشغيلية', value: `${stats.totalOperationalCosts.toLocaleString()} ر`, icon: Zap, color: 'red' },
+        { key: 'totalCost', label: 'إجمالي تكلفة الآبار', value: `${stats.totalWellCost.toLocaleString()} ر`, icon: BarChart3, color: 'green' },
       ]
     }
   ], [stats]);
@@ -751,9 +764,10 @@ export default function WellCrewsPage() {
   const handleRebuildCrewTotals = useCallback(async () => {
     setIsRebuilding(true);
     try {
-      await apiRequest('/api/wells/crews/rebuild-totals', { method: 'POST' });
+      await apiRequest('/api/wells/crews/rebuild-totals', 'POST');
       toast({ title: 'تم إعادة بناء أجور الفرق بنجاح', variant: 'default' });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.WELLS_FULL_EXPORT] });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
     } catch (err) {
       toast({ title: 'فشل في إعادة بناء أجور الفرق', variant: 'destructive' });
     } finally {
@@ -844,6 +858,8 @@ export default function WellCrewsPage() {
             const transportCount = well.transport?.length || 0;
             const totalCrewWages = visibleCrews.reduce((s: number, c: any) => s + (Number(c.totalWages ?? c.total_wages) || 0), 0);
             const totalTransportCost = (well.transport || []).reduce((s: number, t: any) => s + (Number(t.transportPrice ?? t.transport_price) || 0), 0);
+            const opCosts = well.operationalCosts || { transportation: 0, materials: 0, misc: 0, total: 0 };
+            const wellTotalCost = totalCrewWages + totalTransportCost + opCosts.total;
 
             return (
               <UnifiedCard
@@ -863,6 +879,8 @@ export default function WellCrewsPage() {
                   { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
                   { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
                   { label: "إجمالي الأجور", value: totalCrewWages > 0 ? `${totalCrewWages.toLocaleString()} ر` : "-", icon: Wrench, color: totalCrewWages > 0 ? "warning" as const : "muted" as const },
+                  { label: "مصاريف تشغيلية", value: opCosts.total > 0 ? `${opCosts.total.toLocaleString()} ر` : "-", icon: Zap, color: opCosts.total > 0 ? "danger" as const : "muted" as const },
+                  { label: "إجمالي تكلفة البئر", value: wellTotalCost > 0 ? `${wellTotalCost.toLocaleString()} ر` : "-", icon: BarChart3, color: wellTotalCost > 0 ? "success" as const : "muted" as const, emphasis: true },
                 ]}
                 actions={[
                   {
@@ -1009,7 +1027,31 @@ export default function WellCrewsPage() {
                       </>
                     )}
 
-                    {crewCount === 0 && transportCount === 0 && (
+                    {opCosts.total > 0 && (
+                      <>
+                        <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Zap className="h-3 w-3 text-red-500" /> المصاريف التشغيلية
+                        </div>
+                        <div className="border rounded-md p-2 bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800" data-testid={`section-op-costs-${well.id}`}>
+                          <div className="grid grid-cols-3 gap-x-2 text-[11px]">
+                            {opCosts.transportation > 0 && (
+                              <span>مواصلات: <b className="text-red-600 dark:text-red-400">{opCosts.transportation.toLocaleString()} ر</b></span>
+                            )}
+                            {opCosts.materials > 0 && (
+                              <span>مواد: <b className="text-red-600 dark:text-red-400">{opCosts.materials.toLocaleString()} ر</b></span>
+                            )}
+                            {opCosts.misc > 0 && (
+                              <span>نثريات: <b className="text-red-600 dark:text-red-400">{opCosts.misc.toLocaleString()} ر</b></span>
+                            )}
+                          </div>
+                          <div className="text-[11px] font-semibold mt-1 text-red-700 dark:text-red-300">
+                            الإجمالي: {opCosts.total.toLocaleString()} ر
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {crewCount === 0 && transportCount === 0 && opCosts.total === 0 && (
                       <p className="text-[11px] text-muted-foreground text-center py-1" data-testid={`text-no-data-${well.id}`}>
                         لا توجد بيانات فرق أو نقل مسجلة
                       </p>

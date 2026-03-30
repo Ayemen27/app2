@@ -126,7 +126,12 @@ export const formatDateForApi = (dateInput: string | Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-// دالة جديدة لتنسيق الأرقام بالإنجليزية
+export function fmtNum(v: any): string {
+  const n = Number(v);
+  if (isNaN(n)) return '0';
+  return n % 1 === 0 ? String(Math.round(n)) : String(parseFloat(n.toFixed(4)));
+}
+
 export const formatNumber = (num: number | string | null | undefined): string => {
   if (num === null || num === undefined) return "0";
 

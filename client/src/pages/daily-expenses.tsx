@@ -31,7 +31,7 @@ import ExpenseSummary from "@/components/expense-summary";
 import { OverpaymentSplitDialog, type OverpaymentData } from "@/components/overpayment-split-dialog";
 import { FinancialGuardDialog, type FinancialGuardData } from "@/components/financial-guard-dialog";
 import WorkerMiscExpenses from "./worker-misc-expenses";
-import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
+import { getCurrentDate, formatCurrency, formatDate, cleanNumber, fmtNum } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
@@ -3492,7 +3492,7 @@ function DailyExpensesContent() {
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div className="text-muted-foreground">
                                 <span>الأيام: </span>
-                                <span className="font-medium text-foreground">{cleanNumber(attendance.workDays) || 0}</span>
+                                <span className="font-medium text-foreground">{fmtNum(cleanNumber(attendance.workDays) || 0)}</span>
                               </div>
                               <div className="text-muted-foreground">
                                 <span>الأجر اليومي: </span>

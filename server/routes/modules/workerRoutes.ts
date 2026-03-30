@@ -96,7 +96,17 @@ async function recalcCrewTotalsFromWorkers(crewId: number) {
       .from(wellCrewWorkers)
       .where(eq(wellCrewWorkers.crew_id, crewId));
 
-    if (linkedWorkers.length === 0) return;
+    if (linkedWorkers.length === 0) {
+      await db.update(wellWorkCrews).set({
+        workersCount: '0',
+        mastersCount: '0',
+        totalWages: '0',
+        workDays: '0',
+        updated_at: new Date(),
+      }).where(eq(wellWorkCrews.id, crewId));
+      console.log(`[recalcCrewTotals] Crew ${crewId}: zeroed (no linked workers)`);
+      return;
+    }
 
     let totalWorkers = 0;
     let totalMasters = 0;

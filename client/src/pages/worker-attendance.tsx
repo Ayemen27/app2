@@ -16,7 +16,7 @@ import EnhancedWorkerCard from "@/components/enhanced-worker-card";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { TeamSelector } from "@/components/team-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
-import { getCurrentDate, formatCurrency } from "@/lib/utils";
+import { getCurrentDate, formatCurrency, fmtNum } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -1117,7 +1117,7 @@ export default function WorkerAttendance() {
         {
           key: 'days',
           label: 'إجمالي الأيام',
-          value: stats.totalWorkDays.toFixed(2),
+          value: fmtNum(stats.totalWorkDays),
           icon: Clock,
           color: 'orange',
         },
@@ -1543,7 +1543,7 @@ export default function WorkerAttendance() {
                       },
                       {
                         label: "عدد الأيام",
-                        value: workDays.toString(),
+                        value: fmtNum(workDays),
                         icon: Calendar,
                         color: "warning",
                       },

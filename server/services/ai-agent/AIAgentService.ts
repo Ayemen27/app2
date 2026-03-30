@@ -541,27 +541,29 @@ export class AIAgentService {
 تاريخ اليوم: ${todayDate}. أمس: ${new Date(Date.now() - 86400000).toISOString().split("T")[0]}.
 تذكر: أمر ACTION واحد فقط. لا تذكر ACTION للمستخدم. لا تختلق بيانات.`;
 
-      // الحصول على تاريخ المحادثة من قاعدة البيانات
-      const history = await this.getSessionMessages(sessionId, userId);
-      const messages: ChatMessage[] = history.map((m: any) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-
-      // إرسال للنموذج مع التوجيه المحدث
-      const aiResponse = await this.modelManager.chat(messages, dynamicSystemPrompt);
-      
-      steps[0].status = "completed";
-      steps[1].status = "in_progress";
-
-      let responseContent = aiResponse.content;
-      
-      const currentMsgOnly = (options?.rawCurrentMessage || sanitizedMessage).replace(/## آخر رسائل المحادثة:[\s\S]*?## الرسالة الحالية:\s*/g, '').replace(/## سياق السؤال التوضيحي السابق:[\s\S]*?\n\n/g, '').trim();
+      const currentMsgOnly = (options?.rawCurrentMessage || sanitizedMessage).replace(/^## آخر رسائل المحادثة:[\s\S]*?## الرسالة الحالية:\s*/g, '').replace(/^## سياق السؤال التوضيحي السابق:[\s\S]*?\n\n/g, '').trim();
       const conversationalReply = this.detectConversationalQuery(currentMsgOnly);
+      
+      let responseContent: string;
+      
       if (conversationalReply) {
-        console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون ACTION (input="${currentMsgOnly.substring(0, 50)}")`);
+        console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون API call (input="${currentMsgOnly.substring(0, 50)}")`);
         responseContent = conversationalReply;
+        steps[0].status = "completed";
+        steps[1].status = "in_progress";
       } else {
+        const history = await this.getSessionMessages(sessionId, userId);
+        const messages: ChatMessage[] = history.map((m: any) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+
+        const aiResponse = await this.modelManager.chat(messages, dynamicSystemPrompt);
+        
+        steps[0].status = "completed";
+        steps[1].status = "in_progress";
+
+        responseContent = aiResponse.content;
         responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
         
         const allActions = responseContent.match(/\[ACTION:([^\]]+)\]/g) || [];

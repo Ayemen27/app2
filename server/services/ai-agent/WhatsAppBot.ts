@@ -215,7 +215,7 @@ export class WhatsAppBot {
     this.recentContentHashes.set(contentKey, now);
     if (this.recentContentHashes.size > 500) {
       for (const [key, ts] of this.recentContentHashes.entries()) {
-        if (now - ts > 30000) this.recentContentHashes.delete(key);
+        if (now - ts > 60000) this.recentContentHashes.delete(key);
       }
     }
     return false;
@@ -676,8 +676,12 @@ export class WhatsAppBot {
       }
 
       if (this.phoneProcessingLock.get(cleanPhone)) {
-        console.log(`[WhatsAppBot] Phone ${cleanPhone} is already processing a message, skipping duplicate`);
-        return;
+        console.log(`[WhatsAppBot] Phone ${cleanPhone} is already processing, queuing for 3s`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        if (this.phoneProcessingLock.get(cleanPhone)) {
+          console.log(`[WhatsAppBot] Phone ${cleanPhone} still locked after 3s, skipping`);
+          return;
+        }
       }
       this.phoneProcessingLock.set(cleanPhone, true);
 
@@ -830,7 +834,7 @@ export class WhatsAppBot {
       } finally {
         setTimeout(() => {
           this.phoneProcessingLock.delete(cleanPhone);
-        }, 15000);
+        }, 3000);
       }
     });
   }

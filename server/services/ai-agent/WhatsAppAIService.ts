@@ -433,8 +433,8 @@ export class WhatsAppAIService {
       if (imageContext) {
         const isJustPhoto = !input || input === '📷 صورة';
         enrichedMessage = isJustPhoto
-          ? `المستخدم (${userName}) أرسل صورة. نتائج تحليلها:\n${imageContext}\n\nخاطبه باسمه، لخّص محتوى الصورة، واسأله أسئلة المتابعة (لمن؟ في أي مشروع؟ مقابل ايش؟) حسب تعليمات تحليل الصور.`
-          : `المستخدم (${userName}) أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}\n\nخاطبه باسمه واسأل أسئلة المتابعة إذا كان المستند مالي.`;
+          ? `المستخدم (${userName}) أرسل صورة. نتائج تحليلها:\n${imageContext}\n\nحدد نوع الصورة (مستند مالي أم صورة عادية) وتصرّف حسب تعليمات تحليل الصور.`
+          : `المستخدم (${userName}) أرسل صورة مع رسالة: "${input}"\n\nنتائج تحليل الصورة:\n${imageContext}\n\nحدد نوع الصورة وتصرّف حسب تعليمات تحليل الصور.`;
       }
 
       const projectNames = await this.getUserProjectNames(userProjectIds);

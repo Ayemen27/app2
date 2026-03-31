@@ -1687,12 +1687,14 @@ export class ReportDataService {
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE to_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
+            AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE from_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
+            AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`

@@ -301,11 +301,16 @@ export class ReportDataService {
     const totalMiscExpenses = miscExpenses.reduce((s, e) => s + e.amount, 0);
     const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
-    const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s: number, f: any) => s + safeNum(f.amount), 0);
+    const totalProjectTransfersOut = projectFundTransfersOutData
+      .filter((f: any) => !f.transferReason || (f.transferReason !== 'legacy_worker_rebalance' && f.transferReason !== 'settlement'))
+      .reduce((s: number, f: any) => s + safeNum(f.amount), 0);
     const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
     const totalSupplierPayments = safeParseNum(supplierPaymentsResult.rows[0]?.total);
+    const settlementRebalanceIncoming = projectFundTransfersData
+      .filter((f: any) => f.transferReason === 'legacy_worker_rebalance' || f.transferReason === 'settlement')
+      .reduce((s: number, f: any) => s + safeNum(f.amount), 0);
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPayments;
-    const balance = totalFundTransfers - totalExpenses;
+    const balance = (totalFundTransfers - settlementRebalanceIncoming) - totalExpenses;
 
     const kpis: ReportKPI[] = [
       { label: 'إجمالي أجور العمال', value: totalWorkerWages, format: 'currency' },
@@ -1041,8 +1046,12 @@ export class ReportDataService {
       })),
     ].sort((a, b) => a.date.localeCompare(b.date));
 
-    const totalProjectTransfersOut = projectTransferOutRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
-    const totalProjectTransfersIn = projectTransferInRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
+    const totalProjectTransfersOut = projectTransferOutRows
+      .filter((r: any) => !r.transferReason || (r.transferReason !== 'legacy_worker_rebalance' && r.transferReason !== 'settlement'))
+      .reduce((s: number, r: any) => s + safeNum(r.amount), 0);
+    const totalProjectTransfersIn = projectTransferInRows
+      .filter((r: any) => !r.transferReason || (r.transferReason !== 'legacy_worker_rebalance' && r.transferReason !== 'settlement'))
+      .reduce((s: number, r: any) => s + safeNum(r.amount), 0);
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
     const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date >= $2::date AND payment_date::date <= $3::date`, [projectId, dateFrom, dateTo]);
@@ -1687,14 +1696,14 @@ export class ReportDataService {
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE to_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
-            AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
+            AND (transfer_reason IS NULL OR transfer_reason NOT IN ('legacy_worker_rebalance', 'settlement'))
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) AS total
           FROM project_fund_transfers
           WHERE from_project_id = $1 AND transfer_date::date >= $2::date AND transfer_date::date <= $3::date
-            AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
+            AND (transfer_reason IS NULL OR transfer_reason NOT IN ('legacy_worker_rebalance', 'settlement'))
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`

@@ -396,7 +396,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
     if (idempotencyKey) {
       const existingResult = await pool.query(
         `SELECT id, total_amount, worker_count FROM worker_settlements 
-         WHERE notes LIKE '%' || $1 || '%' AND status = 'completed'
+         WHERE idempotency_key = $1 AND status = 'completed'
          LIMIT 1`,
         [idempotencyKey]
       );
@@ -410,22 +410,17 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       }
     }
 
-    const recentDuplicate = await pool.query(
-      `SELECT id FROM worker_settlements 
-       WHERE settlement_project_id = $1 
-         AND status = 'completed'
-         AND created_at > NOW() - INTERVAL '10 seconds'
-       LIMIT 1`,
-      [settlement_project_id]
-    );
-    if (recentDuplicate.rows.length > 0) {
-      return sendError(res, 'تم إرسال طلب تصفية مشابه مؤخراً، انتظر قليلاً', 409);
-    }
-
     const authUser = getAuthUser(req);
     const userId = authUser?.user_id || null;
 
     const result = await withTransaction(async (client) => {
+      const lockResult = await client.query(
+        `SELECT pg_try_advisory_xact_lock(hashtext('settlement_' || $1))`,
+        [settlement_project_id]
+      );
+      if (!lockResult.rows[0]?.pg_try_advisory_xact_lock) {
+        throw new Error('عملية تصفية أخرى قيد التنفيذ لنفس المشروع — حاول لاحقاً');
+      }
       const preview = await calculatePreviewData(
         worker_ids,
         settlement_project_id,
@@ -480,8 +475,8 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       }, 0);
 
       const settlementResult = await client.query(
-        `INSERT INTO worker_settlements (settlement_date, settlement_project_id, total_amount, worker_count, transfer_count, status, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO worker_settlements (settlement_date, settlement_project_id, total_amount, worker_count, transfer_count, status, notes, created_by, idempotency_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           today,
@@ -490,8 +485,9 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           eligibleWorkers.length,
           0,
           'completed',
-          idempotencyKey ? `${notes || ''}[idem:${idempotencyKey}]` : (notes || null),
+          notes || null,
           userId,
+          idempotencyKey || null,
         ]
       );
       const settlementId = settlementResult.rows[0].id;

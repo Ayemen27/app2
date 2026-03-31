@@ -100,7 +100,9 @@ export function requestLoggingMiddleware() {
           userAgent: req.get('User-Agent') || undefined,
           query: req.query,
         });
-      } catch {}
+      } catch (logErr: any) {
+        console.warn('⚠️ [ErrorTracking] Failed to log HTTP event:', logErr?.message);
+      }
     });
 
     // Mark the function as warm for cold start detection

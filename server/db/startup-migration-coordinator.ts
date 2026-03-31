@@ -116,6 +116,14 @@ export async function runAllStartupMigrations(): Promise<void> {
     }
 
     try {
+      await client.query(`ALTER TABLE worker_settlements ADD COLUMN IF NOT EXISTS idempotency_key TEXT`);
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_worker_settlements_idempotency ON worker_settlements (idempotency_key) WHERE idempotency_key IS NOT NULL AND status = 'completed'`);
+      console.log("✅ [Migration] settlement idempotency_key column + unique index ensured");
+    } catch (e: any) {
+      console.warn("⚠️ [Migration] settlement idempotency migration skipped:", e.message);
+    }
+
+    try {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_extraction_candidates_batch_id ON wa_extraction_candidates (batch_id)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_extraction_candidates_canonical ON wa_extraction_candidates (canonical_transaction_id)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_wa_verification_queue_candidate ON wa_verification_queue (candidate_id)`);

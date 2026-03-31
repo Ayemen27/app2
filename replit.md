@@ -89,4 +89,53 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - **Date Casting Fix:** All SQL date comparisons in `ReportDataService.ts` (18+ locations) now use `::date` casting on both sides (`column::date >= $N::date`) to prevent `operator does not exist: text >= date` errors. Affected tables: worker_attendance, material_purchases, transportation_expenses, worker_misc_expenses, worker_transfers, project_fund_transfers, supplier_payments, inventory_transactions, worker_settlements. Both raw SQL queries and Drizzle ORM filters (getWorkerStatement) were fixed.
 - **Payment Allocation System (ERP):** Multi-project worker payment distribution system following ERP Open Item standards. Key files: `server/services/PaymentAllocationService.ts` (getWorkerOpenBalances, suggestAllocation proportional/FIFO, executeAllocation with atomic transactions + auto project_fund_transfers, reverseBatch), API endpoints in `workerRoutes.ts` (GET /api/workers/:id/open-balances, POST /api/worker-transfers/suggest-allocation, POST /api/worker-transfers/allocate), Frontend allocation UI in `worker-accounts.tsx` (allocation mode toggle, distribution table, proportional/manual allocation buttons). Schema additions: `batch_id` + `allocation_source_project` columns in worker_transfers. Worker stats API returns `isMultiProject` + `projectsCount` for multi-project badge display in `workers.tsx`.
 - **Legacy Worker Rebalance System:** Admin-only tool to fix old worker accounts with negative balance in one project and positive in another. Key files: `server/services/LegacyRebalanceService.ts` (getImbalancedWorkers, generateRebalancePlan, preview with project fund balances before/after, execute with atomic fund_transfers + journal_entries + balance sync, reverseRebalance). API: GET /api/worker-rebalance/imbalanced-workers, GET /api/worker-rebalance/preview/:workerId, POST /api/worker-rebalance/execute, POST /api/worker-rebalance/reverse. Frontend: `client/src/pages/worker-rebalance.tsx` — shows all imbalanced workers, preview dialog with worker balances + project fund balances (before/after), dual confirmation, auto-generated notes. Route: /worker-rebalance. Sidebar: "تسوية الأرصدة" under workers section (admin-only).
-- **DB Performance Hardening (2026-03-31):** Connection pool sizes reduced to prevent overloading the remote PostgreSQL server (93.127.142.144). Main pool: 20→8 max connections, SmartConnectionManager local pool: 10→5, dynamic discovery pools: 5→3. `getAllProjectsStats` changed from unbounded `Promise.all` (all projects in parallel = N×12 concurrent queries) to batched execution (3 projects at a time = max 36 concurrent queries). Startup migrations changed from hard-fail (`process.exit(1)`) to soft-fail with warning — all migrations are idempotent (`IF NOT EXISTS`/`CREATE OR REPLACE`) so skipping is safe. Connection/query timeouts reduced (connectionTimeoutMillis: 30s→15s, query_timeout: 60s→30s) to prevent connection starvation from hung queries.
+- **DB Performance Hardening (2026-03-31):** Connection pool sizes reduced to prevent overloading the remote PostgreSQL server (93.127.142.144). Main pool: 20→8 max connections, SmartConnectionManager local pool: 10→5, dynamic discovery pools: 5→3. `getAllProjectsStats` changed from unbounded `Promise.all` (all projects in parallel = N×12 concurrent queries) to batched execution (3 projects at a time = max 36 concurrent queries). Startup migrations changed from conditional soft-fail (checks `safe_numeric` existence; if present, continues; if missing, exits). Connection/query timeouts reduced (connectionTimeoutMillis: 30s→15s, query_timeout: 60s→30s) to prevent connection starvation from hung queries.
+
+## Enterprise Architecture Audit & Phase 1 Fixes (2026-03-31)
+
+### Completed Phase 1 — Critical Security & Data Integrity Fixes
+
+**1. Emergency Mode Hardening (`server/middleware/auth.ts`):**
+- Emergency users now enforced as **read-only** — all POST/PUT/PATCH/DELETE requests blocked with 403 (except `/api/auth/`)
+- Emergency user role downgraded to `viewer` for write operations
+- `isEmergencyMode` flag added to user context for downstream checks
+- Prevents unauthorized financial mutations during DB outage
+
+**2. Settlement Idempotency at DB Level (`server/routes/modules/settlementRoutes.ts`):**
+- Added `idempotency_key` column to `worker_settlements` table with unique partial index (WHERE status='completed')
+- Settlement execution now acquires `pg_advisory_xact_lock` inside the transaction — prevents concurrent settlement for same project
+- Removed race-prone "recent duplicate" check (10-second window outside TX) — replaced by DB-enforced uniqueness
+- Idempotency key stored as proper column instead of embedded in notes text
+
+**3. Suspicious Activity Tracking Reactivated (`server/middleware/auth.ts`):**
+- Was completely disabled (`next()` passthrough) — now fully functional
+- Tracks failed auth attempts (401/403 responses) per IP
+- Auto-blocks IP after 15 failed attempts in 15 minutes (30-minute block)
+- Block state tracked in memory with automatic expiry
+
+**4. Silent Error Handling Fixed:**
+- `CentralLogService.ts`: 5 empty `catch {}` blocks replaced with `console.warn` logging
+- `error-tracking.ts`: Empty catch in HTTP event logging now logs warning
+- All background flush operations now report failures instead of swallowing them
+
+### Remaining Phases (Planned)
+
+**Phase 2 — Performance (3-5 days):**
+- Consolidate `getAllProjectsStats` 12 queries/project into 2-3 aggregated CTEs
+- Add Redis/memory cache for financial summaries with invalidation from SummaryRebuildService
+- Reduce SmartConnectionManager dynamic DB discovery (9 databases on same server unnecessary)
+- Consider migrating `safe_numeric(text)` columns to proper NUMERIC(15,2) type
+
+**Phase 3 — Architecture (1-2 weeks):**
+- Decompose `deployment-engine.ts` (5354 lines) into bounded contexts (orchestration/steps/monitoring)
+- Decompose `smart-connection-manager.ts` (1105 lines) — separate failover, discovery, health
+- Remove duplicate financial route ownership (`financialRoutes` vs `ledgerRoutes`)
+- Replace `setInterval` scheduling with proper job queue (bull/bullmq)
+- Add API versioning namespace (`/api/v1/`)
+
+**Phase 4 — Long-term Scalability (1 month):**
+- Deploy PgBouncer on remote DB server for connection pooling
+- Implement DB read replica for reporting queries
+- Automated backup restore verification (DR drills)
+- Expand financial correctness test suite (property-based tests for settlement/allocation invariants)
+- TLS certificate validation (`rejectUnauthorized: true`) with proper CA chain

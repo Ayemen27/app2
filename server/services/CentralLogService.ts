@@ -124,11 +124,11 @@ class CentralLogService {
 
   private constructor() {
     this.flushTimer = setInterval(() => {
-      this.flush().catch(() => {});
+      this.flush().catch(err => console.warn('⚠️ [CentralLog] Background flush failed:', err?.message));
     }, FLUSH_INTERVAL_MS);
 
     process.on('beforeExit', () => {
-      this.flush().catch(() => {});
+      this.flush().catch(err => console.warn('⚠️ [CentralLog] Exit flush failed:', err?.message));
     });
   }
 
@@ -186,9 +186,10 @@ class CentralLogService {
       }
       this.queue.push(sanitized);
       if (this.queue.length >= BATCH_SIZE) {
-        this.flush().catch(() => {});
+        this.flush().catch(err => console.warn('⚠️ [CentralLog] Batch flush failed:', err?.message));
       }
-    } catch {
+    } catch (err: any) {
+      console.warn('⚠️ [CentralLog] log() internal error:', err?.message);
     }
   }
 
@@ -326,7 +327,7 @@ class CentralLogService {
     } finally {
       this.flushing = false;
       if (this.queue.length >= BATCH_SIZE) {
-        this.flush().catch(() => {});
+        this.flush().catch(err => console.warn('⚠️ [CentralLog] Post-flush retry failed:', err?.message));
       }
     }
   }

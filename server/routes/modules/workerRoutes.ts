@@ -37,6 +37,7 @@ import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { FinancialIntegrityService } from '../../services/FinancialIntegrityService.js';
 import { PaymentAllocationService } from '../../services/PaymentAllocationService';
+import { invalidateProjectStats } from '../../services/MemoryCacheService';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
@@ -366,6 +367,25 @@ async function recalculateAttendanceAndBalances(
 }
 
 export const workerRouter = express.Router();
+
+// تطبيق المصادقة
+workerRouter.use(requireAuth);
+
+// ♻️ إبطال كاش الإحصائيات تلقائياً بعد أي عملية كتابة ناجحة
+workerRouter.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const originalJson = res.json.bind(res);
+    res.json = (body: any) => {
+      if (res.statusCode < 400) {
+        const projectId = req.body?.project_id || req.body?.projectId
+          || req.params?.project_id || undefined;
+        invalidateProjectStats(projectId ? String(projectId) : undefined);
+      }
+      return originalJson(body);
+    };
+  }
+  next();
+});
 
 function checkProjectAccess(req: Request, projectId: string | null | undefined, allowNullProject: boolean = false): { allowed: boolean; isAdmin: boolean } {
   const accessReq = req as ProjectAccessRequest;

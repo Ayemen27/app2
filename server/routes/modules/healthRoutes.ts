@@ -519,6 +519,17 @@ healthRouter.post('/db/test-connection', requireAuth, requireRole('admin'), asyn
   }
 });
 
+import { appCache } from '../../services/MemoryCacheService';
+
+healthRouter.get('/cache/metrics', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
+  res.json({ success: true, data: appCache.getMetrics() });
+});
+
+healthRouter.delete('/cache/clear', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
+  appCache.clear();
+  res.json({ success: true, message: 'تم مسح الكاش بالكامل' });
+});
+
 console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة وإدارة قواعد البيانات');
 
 export default healthRouter;

@@ -24,42 +24,25 @@ import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } 
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
+import { BatchFinancialStatsService } from '../../services/BatchFinancialStatsService';
+import { appCache, CACHE_TTL, CACHE_TAGS } from '../../services/MemoryCacheService';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
 export const projectRouter = express.Router();
 
-const balanceCache = new Map<string, { value: number; timestamp: number }>();
-const BALANCE_CACHE_TTL = 60_000;
-const BALANCE_CACHE_MAX = 200;
-
-function getCachedBalance(key: string): number | null {
-  const entry = balanceCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > BALANCE_CACHE_TTL) {
-    balanceCache.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-
-function setCachedBalance(key: string, value: number) {
-  if (balanceCache.size >= BALANCE_CACHE_MAX) {
-    const oldest = balanceCache.keys().next().value;
-    if (oldest) balanceCache.delete(oldest);
-  }
-  balanceCache.set(key, { value, timestamp: Date.now() });
-}
-
+/**
+ * Invalidate all project-stats caches (balance + stats).
+ * Called externally from financial/worker mutation routes.
+ */
 export function invalidateBalanceCache(project_id?: string) {
   if (project_id) {
-    for (const key of balanceCache.keys()) {
-      if (key.startsWith(project_id + ':')) {
-        balanceCache.delete(key);
-      }
-    }
+    appCache.invalidateByPrefix(`balance:${project_id}:`);
+    appCache.invalidateByTag(CACHE_TAGS.PROJECT_STATS(project_id));
+    appCache.invalidateByTag(CACHE_TAGS.ALL_STATS);
   } else {
-    balanceCache.clear();
+    appCache.invalidateByTag(CACHE_TAGS.ALL_STATS);
+    appCache.invalidateByPrefix('balance:');
   }
 }
 
@@ -102,107 +85,77 @@ projectRouter.get('/', async (req: Request, res: Response) => {
 /**
  * 📊 جلب المشاريع مع الإحصائيات
  * GET /api/projects/with-stats
- * يستخدم ExpenseLedgerService كمصدر موحد للحقيقة
+ *
+ * Performance: Single CTE query (BatchFinancialStatsService) instead of N×13 queries.
+ * Cache: 3-minute TTL, invalidated on any financial mutation.
  */
-const statsCache = new Map<string, { data: any; timestamp: number }>();
-const STATS_CACHE_TTL = 120_000;
-
-function getStatsFromCache(key: string): any | null {
-  const entry = statsCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > STATS_CACHE_TTL) {
-    statsCache.delete(key);
-    return null;
-  }
-  return entry.data;
-}
-
 projectRouter.get('/with-stats', async (req: Request, res: Response) => {
   try {
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const authUser = getAuthUser(req);
     const userId = authUser?.user_id || 'anon';
-    const cacheKey = isAdminUser ? 'admin' : `user:${userId}`;
+    const cacheKey = isAdminUser ? 'stats:admin' : `stats:user:${userId}`;
 
-    const cached = getStatsFromCache(cacheKey);
+    const cached = appCache.get<any[]>(cacheKey);
     if (cached) {
       return res.json({
         success: true,
         data: cached,
-        message: `تم جلب ${cached.length} مشروع مع الإحصائيات بنجاح (cached)`
+        message: `تم جلب ${cached.length} مشروع مع الإحصائيات بنجاح (cached)`,
+        cached: true
       });
     }
 
-    let projectsList;
-    if (isAdminUser) {
-      projectsList = await db.select().from(projects).orderBy(projects.created_at);
-    } else {
+    let filterIds: string[] | undefined;
+    if (!isAdminUser) {
       const ids = accessReq.accessibleProjectIds ?? [];
       if (ids.length === 0) {
-        projectsList = [];
-      } else {
-        projectsList = await db.select().from(projects)
-          .where(inArray(projects.id, ids))
-          .orderBy(projects.created_at);
+        return res.json({ success: true, data: [], message: 'لا توجد مشاريع متاحة' });
       }
+      filterIds = ids.map(String);
     }
 
-    const BATCH_SIZE = 5;
-    const projectsWithStats: any[] = [];
-    for (let i = 0; i < projectsList.length; i += BATCH_SIZE) {
-      const batch = projectsList.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(batch.map(async (project: any) => {
-        try {
-          const summary = await ExpenseLedgerService.getProjectFinancialSummary(project.id);
-          return {
-            ...project,
-            stats: {
-              totalWorkers: summary.workers.totalWorkers,
-              totalExpenses: summary.expenses.totalCashExpenses,
-              totalExpensesAll: summary.expenses.totalAllExpenses,
-              totalIncome: summary.income.totalIncome,
-              currentBalance: summary.cashBalance,
-              totalBalance: summary.totalBalance,
-              activeWorkers: summary.workers.activeWorkers,
-              completedDays: summary.workers.completedDays,
-              materialPurchases: summary.expenses?.materialExpenses || 0,
-              materialExpensesCredit: summary.expenses?.materialExpensesCredit || 0,
-              totalTransportation: summary.expenses?.transportExpenses || 0,
-              totalMiscExpenses: summary.expenses?.miscExpenses || 0,
-              totalWorkerWages: summary.expenses?.workerWages || 0,
-              totalFundTransfers: summary.income?.fundTransfers || 0,
-              totalWorkerTransfers: summary.expenses?.workerTransfers || 0,
-              lastActivity: project.created_at.toISOString()
-            }
-          };
-        } catch {
-          return {
-            ...project,
-            stats: {
-              totalWorkers: 0, totalExpenses: 0, totalExpensesAll: 0,
-              totalIncome: 0, currentBalance: 0, totalBalance: 0,
-              activeWorkers: 0, completedDays: 0, materialPurchases: 0,
-              materialExpensesCredit: 0, lastActivity: project.created_at.toISOString()
-            }
-          };
-        }
-      }));
-      projectsWithStats.push(...batchResults);
-    }
+    const statsRows = await BatchFinancialStatsService.getAllProjectsStats(filterIds);
 
-    statsCache.set(cacheKey, { data: projectsWithStats, timestamp: Date.now() });
+    const projectsWithStats = statsRows.map(s => ({
+      id: s.id,
+      name: s.name,
+      status: s.status,
+      stats: {
+        totalWorkers:          s.totalWorkers,
+        activeWorkers:         s.activeWorkers,
+        completedDays:         s.completedDays,
+        totalExpenses:         s.totalExpenses,
+        totalExpensesAll:      s.totalExpenses + s.materialCreditTotal,
+        totalIncome:           s.totalIncome,
+        currentBalance:        s.cashBalance,
+        totalBalance:          s.totalBalance,
+        materialPurchases:     s.materialCashTotal,
+        materialExpensesCredit: s.materialCreditTotal,
+        totalTransportation:   s.transportationTotal,
+        totalMiscExpenses:     s.miscExpensesTotal,
+        totalWorkerWages:      s.workerWagesTotal,
+        totalFundTransfers:    s.fundTransfersTotal,
+        totalWorkerTransfers:  s.workerTransfersTotal,
+        supplierPayments:      s.supplierPaymentsTotal,
+      }
+    }));
 
-    res.json({
+    const tags = [CACHE_TAGS.ALL_STATS, ...(filterIds ?? []).map(CACHE_TAGS.PROJECT_STATS)];
+    appCache.set(cacheKey, projectsWithStats, CACHE_TTL.PROJECT_STATS, tags);
+
+    return res.json({
       success: true,
       data: projectsWithStats,
-      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح`
+      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح`,
+      cached: false
     });
   } catch (error: any) {
-    res.status(500).json({
+    console.error('[with-stats] Error:', error?.message);
+    return res.status(500).json({
       success: false,
       data: [],
-      error: error.error,
       message: "فشل في جلب قائمة المشاريع مع الإحصائيات"
     });
   }

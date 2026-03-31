@@ -118,20 +118,39 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - `error-tracking.ts`: Empty catch in HTTP event logging now logs warning
 - All background flush operations now report failures instead of swallowing them
 
+## Phase 2 — Performance (Completed 2026-03-31)
+
+**1. BatchFinancialStatsService (`server/services/BatchFinancialStatsService.ts`) — NEW:**
+- Replaces N×13 individual SQL queries per project with a **single CTE query** for all projects at once
+- For 20 projects: reduced from 260 queries → 1 query per `/api/projects/with-stats` request
+- Covers: material_cash, material_credit, worker_wages, transportation, worker_transfers, misc_expenses, fund_transfers, project_transfers (in/out), workers aggregate, supplier_payments
+- Returns structured `ProjectFinancialStats` objects with pre-computed totals
+
+**2. MemoryCacheService (`server/services/MemoryCacheService.ts`) — NEW:**
+- Unified in-memory cache with TTL expiry, LRU eviction, tag-based invalidation
+- Cache keys grouped by tags (project-stats:{id}, all-project-stats)
+- Hit/miss/eviction metrics accessible via `GET /api/health/cache/metrics` (admin only)
+- Manual cache clear via `DELETE /api/health/cache/clear` (admin only)
+- Replaces scattered `Map<string, ...>` caches throughout projectRoutes.ts
+
+**3. Automatic Cache Invalidation (`financialRoutes.ts`, `workerRoutes.ts`):**
+- Response interceptor middleware on both routers: after any successful POST/PUT/PATCH/DELETE, automatically invalidates stats cache for the affected project
+- No manual cache invalidation code needed in individual handlers
+- `invalidateProjectStats()` exported from MemoryCacheService — no circular dependencies
+
+**4. Trusted IP Whitelist for Suspicious Activity Tracker (`server/middleware/auth.ts`):**
+- CRITICAL BUG FIX: localhost (127.0.0.1, ::1, ::ffff:127.0.0.1) was being blocked after internal health checks triggered 15 failed auth attempts
+- Added `isTrustedIp()` function — private/loopback IPs bypass the suspicious activity tracker entirely
+- Prevents self-DoS during startup health checks
+
 ### Remaining Phases (Planned)
 
-**Phase 2 — Performance (3-5 days):**
-- Consolidate `getAllProjectsStats` 12 queries/project into 2-3 aggregated CTEs
-- Add Redis/memory cache for financial summaries with invalidation from SummaryRebuildService
-- Reduce SmartConnectionManager dynamic DB discovery (9 databases on same server unnecessary)
-- Consider migrating `safe_numeric(text)` columns to proper NUMERIC(15,2) type
-
 **Phase 3 — Architecture (1-2 weeks):**
-- Decompose `deployment-engine.ts` (5354 lines) into bounded contexts (orchestration/steps/monitoring)
+- Decompose `deployment-engine.ts` (5354 lines) into bounded contexts (orchestration/steps/monitoring/analytics)
 - Decompose `smart-connection-manager.ts` (1105 lines) — separate failover, discovery, health
-- Remove duplicate financial route ownership (`financialRoutes` vs `ledgerRoutes`)
+- Resolve duplicate route handlers: `workerRoutes` + `financialRoutes` both define PATCH/DELETE /worker-transfers/:id (documented in workerRoutes.ts line 1-16)
 - Replace `setInterval` scheduling with proper job queue (bull/bullmq)
-- Add API versioning namespace (`/api/v1/`)
+- Migrate `safe_numeric(text)` columns to proper `NUMERIC(15,2)` type
 
 **Phase 4 — Long-term Scalability (1 month):**
 - Deploy PgBouncer on remote DB server for connection pooling

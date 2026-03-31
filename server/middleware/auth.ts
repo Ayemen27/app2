@@ -276,8 +276,22 @@ const SUSPICIOUS_WINDOW_MS = 15 * 60 * 1000;
 const SUSPICIOUS_MAX_ATTEMPTS = 15;
 const SUSPICIOUS_BLOCK_MS = 30 * 60 * 1000;
 
+const TRUSTED_IPS = new Set([
+  '127.0.0.1', '::1', '::ffff:127.0.0.1',
+  '10.0.0.1', '172.16.0.1',
+]);
+
+function isTrustedIp(ip: string): boolean {
+  if (TRUSTED_IPS.has(ip)) return true;
+  if (ip.startsWith('10.') || ip.startsWith('172.16.') || ip.startsWith('192.168.')) return true;
+  return false;
+}
+
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+  if (isTrustedIp(ip)) return next();
+
   const now = Date.now();
 
   const entry = suspiciousActivityTracker.get(ip);

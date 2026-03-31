@@ -40,6 +40,7 @@ import { sanitizeZodErrors } from '../../lib/error-utils';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { FinancialIntegrityService } from '../../services/FinancialIntegrityService';
+import { invalidateProjectStats } from '../../services/MemoryCacheService';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
@@ -48,6 +49,22 @@ export const financialRouter = express.Router();
 // تطبيق المصادقة وتحميل المشاريع المتاحة على جميع المسارات المالية
 financialRouter.use(requireAuth);
 financialRouter.use(attachAccessibleProjects);
+
+// ♻️ إبطال كاش الإحصائيات تلقائياً بعد أي عملية كتابة ناجحة
+financialRouter.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const originalJson = res.json.bind(res);
+    res.json = (body: any) => {
+      if (res.statusCode < 400) {
+        const projectId = req.body?.project_id || req.body?.from_project_id
+          || req.params?.project_id || undefined;
+        invalidateProjectStats(projectId ? String(projectId) : undefined);
+      }
+      return originalJson(body);
+    };
+  }
+  next();
+});
 
 financialRouter.use((req, res, next) => {
   if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {

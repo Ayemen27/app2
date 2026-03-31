@@ -41,26 +41,23 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM fund_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND transfer_date IS NOT NULL AND transfer_date::text != ''
+        AND COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $2
     ),
     day_incoming_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM project_fund_transfers
       WHERE to_project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND transfer_date IS NOT NULL AND transfer_date != ''
+        AND transfer_date = $2
         AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
     ),
     day_outgoing_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM project_fund_transfers
       WHERE from_project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND transfer_date IS NOT NULL AND transfer_date != ''
+        AND transfer_date = $2
         AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
     ),
     day_wages AS (
@@ -91,9 +88,8 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
+        AND transfer_date IS NOT NULL AND transfer_date != ''
+        AND transfer_date = $2
     ),
     day_misc AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -200,12 +196,11 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
 
   const result = await client.query(`
     SELECT DISTINCT sub_date FROM (
-      SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) as sub_date
+      SELECT transfer_date::text as sub_date
       FROM fund_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
+        AND transfer_date IS NOT NULL AND transfer_date::text != ''
+        AND transfer_date::text <= $2
       UNION
       SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance
       WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2
@@ -216,22 +211,20 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
       SELECT date as sub_date FROM transportation_expenses
       WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
       UNION
-      SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) as sub_date
+      SELECT transfer_date as sub_date
       FROM worker_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
+        AND transfer_date IS NOT NULL AND transfer_date != ''
+        AND transfer_date <= $2
       UNION
       SELECT date as sub_date FROM worker_misc_expenses
       WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
       UNION
-      SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) as sub_date
+      SELECT transfer_date as sub_date
       FROM project_fund_transfers
       WHERE (from_project_id = $1 OR to_project_id = $1)
-        AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-        AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-        AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
+        AND transfer_date IS NOT NULL AND transfer_date != ''
+        AND transfer_date <= $2
       UNION
       SELECT payment_date as sub_date FROM supplier_payments
       WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND payment_date <= $2
@@ -307,11 +300,11 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
             SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != ''
             UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != ''
             UNION SELECT date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
-            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
+            UNION SELECT transfer_date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date::text != ''
             UNION SELECT date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
-            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
-            UNION SELECT SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND CAST(payment_date AS TEXT) != ''
+            UNION SELECT transfer_date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date != ''
+            UNION SELECT transfer_date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND transfer_date != ''
+            UNION SELECT payment_date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != ''
           ) all_dates
         `, [projectId]);
         rebuildFromDate = firstActivity.rows[0]?.first_date || targetDate;

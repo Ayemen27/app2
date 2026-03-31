@@ -4114,14 +4114,14 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     const rawProjectsQuery = await pool.query(
       `SELECT DISTINCT sub.project_id FROM (
         SELECT project_id FROM worker_attendance WHERE COALESCE(NULLIF(date,''), attendance_date) = $1 ${scopeCondition}
-        UNION SELECT project_id FROM worker_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+        UNION SELECT project_id FROM worker_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition}
         UNION SELECT project_id FROM transportation_expenses WHERE date = $1 ${scopeCondition}
         UNION SELECT project_id FROM material_purchases WHERE purchase_date = $1 ${scopeCondition}
-        UNION SELECT project_id FROM fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+        UNION SELECT project_id FROM fund_transfers WHERE COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $1 ${scopeCondition}
         UNION SELECT project_id FROM worker_misc_expenses WHERE date = $1 ${scopeCondition}
-        UNION SELECT from_project_id as project_id FROM project_fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'from_project_id') : ''}
-        UNION SELECT to_project_id as project_id FROM project_fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'to_project_id') : ''}
-        UNION SELECT project_id FROM supplier_payments WHERE SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+        UNION SELECT from_project_id as project_id FROM project_fund_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'from_project_id') : ''}
+        UNION SELECT to_project_id as project_id FROM project_fund_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'to_project_id') : ''}
+        UNION SELECT project_id FROM supplier_payments WHERE COALESCE(NULLIF(payment_date, ''), '1970-01-01') = $1 ${scopeCondition}
       ) sub`,
       scopeParamsForRaw
     );

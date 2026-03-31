@@ -143,16 +143,51 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - Added `isTrustedIp()` function — private/loopback IPs bypass the suspicious activity tracker entirely
 - Prevents self-DoS during startup health checks
 
+## Phase 3 — Deep Performance Optimization (Completed 2026-03-31)
+
+**1. PostgreSQL Server Tuning (93.127.142.144 — 3.8GB RAM / 2 vCPU):**
+- `shared_buffers`: 128MB → 1GB
+- `work_mem`: 4MB → 8MB
+- `effective_cache_size`: 4GB → 2.5GB (matches actual RAM)
+- `random_page_cost`: 4 → 1.2 (VPS/SSD optimized)
+- `effective_io_concurrency`: 1 → 200 (SSD optimized)
+- `maintenance_work_mem`: 64MB → 256MB
+- `wal_buffers`: 4MB → 16MB
+- `max_connections`: 100 → 50 (right-sized)
+- `log_min_duration_statement`: disabled → 500ms (slow query logging enabled)
+- `track_io_timing`: on (I/O performance monitoring)
+- Config stored in `/etc/postgresql/16/main/conf.d/performance.conf`
+
+**2. Critical Index Creation (17 new indexes):**
+- `auth_user_sessions`: 4 partial indexes (WHERE is_revoked=false) — fixed 175,438 excess seq scans
+- `worker_transfers`: 3 indexes (project+date, worker+date, date) — fixed 234,867 excess seq scans
+- `material_purchases`, `fund_transfers`, `transportation_expenses`, `worker_misc_expenses`, `well_expenses`: date+project composite indexes
+- `notification_read_states`: user+notification index (was 13,693 seq scans, 1 idx scan)
+- `journal_lines`, `central_event_logs`, `monitoring_data`: proper indexes added
+- Result: queries now use Index Scan (0.14ms) instead of Sequential Scan
+
+**3. Non-Sargable Date Query Elimination:**
+- Replaced all `CAST(col AS TEXT)` + `SUBSTRING()` + regex patterns with direct text comparison
+- Affected files: `projectRoutes.ts`, `financialRoutes.ts`, `SummaryRebuildService.ts`
+- Text date columns (YYYY-MM-DD format) are lexicographically sortable — no casting needed
+- Pattern: `COALESCE(NULLIF(col, ''), '1970-01-01') = $1` for equality, direct `col >= $1 AND col <= $2` for ranges
+
+**4. SmartConnectionManager Lazy Discovery:**
+- Startup: only initializes primary + Supabase connections (2 connections max)
+- Discovery of 14 additional databases deferred 10 seconds after startup (non-blocking)
+- Controlled by `ENABLE_EAGER_DB_DISCOVERY=true` env var for opt-in eager loading
+- Result: startup time reduced from ~33s blocking to immediate readiness
+
 ### Remaining Phases (Planned)
 
-**Phase 3 — Architecture (1-2 weeks):**
+**Phase 4 — Architecture (1-2 weeks):**
 - Decompose `deployment-engine.ts` (5354 lines) into bounded contexts (orchestration/steps/monitoring/analytics)
 - Decompose `smart-connection-manager.ts` (1105 lines) — separate failover, discovery, health
 - Resolve duplicate route handlers: `workerRoutes` + `financialRoutes` both define PATCH/DELETE /worker-transfers/:id (documented in workerRoutes.ts line 1-16)
 - Replace `setInterval` scheduling with proper job queue (bull/bullmq)
 - Migrate `safe_numeric(text)` columns to proper `NUMERIC(15,2)` type
 
-**Phase 4 — Long-term Scalability (1 month):**
+**Phase 5 — Long-term Scalability (1 month):**
 - Deploy PgBouncer on remote DB server for connection pooling
 - Implement DB read replica for reporting queries
 - Automated backup restore verification (DR drills)

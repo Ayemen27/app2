@@ -115,8 +115,21 @@ export class SmartConnectionManager {
     
     await this.initializeLocalConnection();
     await this.initializeSupabaseConnection();
-    await this.discoverAndConnectAllDatabases();
-    await this.discoverDatabasesOnServer();
+    
+    const enableEagerDiscovery = process.env.ENABLE_EAGER_DB_DISCOVERY === 'true';
+    if (enableEagerDiscovery) {
+      await this.discoverAndConnectAllDatabases();
+      await this.discoverDatabasesOnServer();
+    } else {
+      setTimeout(() => {
+        this.discoverAndConnectAllDatabases().catch(err => 
+          console.warn('⚠️ [Smart Connection Manager] Deferred env discovery failed:', err.message?.substring(0, 80))
+        );
+        this.discoverDatabasesOnServer().catch(err => 
+          console.warn('⚠️ [Smart Connection Manager] Deferred server discovery failed:', err.message?.substring(0, 80))
+        );
+      }, 10000);
+    }
 
     if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
       const isAndroid = process.env.PLATFORM === 'android';

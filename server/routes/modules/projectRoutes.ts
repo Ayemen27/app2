@@ -182,11 +182,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     const safeDateFilter = (col: string) => {
       const allowedCols = ['transfer_date', 'date', 'purchase_date'];
       if (!allowedCols.includes(col)) throw new Error('Invalid column name');
-      return sql`(CASE 
-        WHEN ${sql.raw(col)} IS NULL OR CAST(${sql.raw(col)} AS TEXT) = '' OR CAST(${sql.raw(col)} AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' 
-        THEN '1970-01-01' 
-        ELSE SUBSTRING(CAST(${sql.raw(col)} AS TEXT) FROM 1 FOR 10) 
-      END) = ${effectiveDate}`;
+      return sql`COALESCE(NULLIF(${sql.raw(col)}, ''), '1970-01-01') = ${effectiveDate}`;
     };
 
     const [
@@ -198,7 +194,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       miscExpensesResult,
       projectsList
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(sql`CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' THEN '1970-01-01'::text ELSE CAST(transfer_date AS TEXT) END`)),
+      db.select().from(fundTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(fundTransfers.transferDate)),
 
       db.select({
             id: workerAttendance.id,
@@ -229,13 +225,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
               sql`${NUM(workerAttendance.paidAmount)} > 0`
             )
           ))
-          .orderBy(desc(sql`CASE WHEN date IS NULL OR CAST(date AS TEXT) = '' THEN '1970-01-01' ELSE date END`)),
+          .orderBy(desc(workerAttendance.date)),
 
       db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, effectiveDate)).orderBy(desc(materialPurchases.purchaseDate)),
 
       db.select().from(transportationExpenses).where(eq(transportationExpenses.date, effectiveDate)).orderBy(desc(transportationExpenses.date)),
 
-      db.select().from(workerTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(sql`CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' THEN '1970-01-01'::text ELSE CAST(transfer_date AS TEXT) END`)),
+      db.select().from(workerTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(workerTransfers.transferDate)),
 
       db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, effectiveDate)).orderBy(desc(workerMiscExpenses.date)),
 
@@ -408,7 +404,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       ? { rows: [{ total_fund_transfers: 0, total_worker_wages: 0, total_material_costs: 0, total_transportation: 0, total_worker_transfers: 0, total_misc_expenses: 0, total_supplier_payments: 0 }] }
       : await pool.query(`
       SELECT
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $1 ${projectFilter}), 0) as total_fund_transfers,
         COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance WHERE (safe_numeric(work_days::text, 0) > 0 OR safe_numeric(paid_amount::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
@@ -418,7 +414,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           END
         ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${projectFilter}), 0) as total_material_costs,
         COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM transportation_expenses WHERE date = $1 ${projectFilter}), 0) as total_transportation,
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${projectFilter}), 0) as total_worker_transfers,
         COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_misc_expenses WHERE date = $1 ${projectFilter}), 0) as total_misc_expenses,
         COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM supplier_payments WHERE payment_date = $1 ${projectFilter}), 0) as total_supplier_payments
     `, queryParams);
@@ -2801,25 +2797,25 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         SELECT safe_numeric(amount::text, 0) as amount
         FROM fund_transfers 
         WHERE project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND transfer_date IS NOT NULL AND transfer_date::text != ''
+          AND transfer_date::text >= COALESCE($2, '1900-01-01')
+          AND transfer_date::text <= $3
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 
         WHERE to_project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND transfer_date IS NOT NULL AND transfer_date != ''
+          AND transfer_date >= COALESCE($2, '1900-01-01')
+          AND transfer_date <= $3
           AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
       ),
       all_expenses AS (
         SELECT safe_numeric(paid_amount::text, 0) as amount
         FROM worker_attendance 
         WHERE project_id = $1 
-          AND attendance_date IS NOT NULL AND CAST(attendance_date AS TEXT) != ''
-          AND CAST(SUBSTRING(CAST(attendance_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(attendance_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND attendance_date IS NOT NULL AND attendance_date != ''
+          AND attendance_date >= COALESCE($2, '1900-01-01')
+          AND attendance_date <= $3
           AND safe_numeric(paid_amount::text, 0) > 0
         UNION ALL
         SELECT 
@@ -2830,45 +2826,45 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         FROM material_purchases 
         WHERE project_id = $1 
           AND (purchase_type = 'نقد' OR purchase_type = 'نقداً')
-          AND purchase_date IS NOT NULL AND CAST(purchase_date AS TEXT) != ''
-          AND CAST(SUBSTRING(CAST(purchase_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(purchase_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND purchase_date IS NOT NULL AND purchase_date != ''
+          AND purchase_date >= COALESCE($2, '1900-01-01')
+          AND purchase_date <= $3
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM transportation_expenses 
         WHERE project_id = $1 
-          AND date IS NOT NULL AND CAST(date AS TEXT) != ''
-          AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND date IS NOT NULL AND date != ''
+          AND date >= COALESCE($2, '1900-01-01')
+          AND date <= $3
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_transfers 
         WHERE project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND transfer_date IS NOT NULL AND transfer_date != ''
+          AND transfer_date >= COALESCE($2, '1900-01-01')
+          AND transfer_date <= $3
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_misc_expenses 
-        Where project_id = $1 
-          AND date IS NOT NULL AND CAST(date AS TEXT) != ''
-          AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+        WHERE project_id = $1 
+          AND date IS NOT NULL AND date != ''
+          AND date >= COALESCE($2, '1900-01-01')
+          AND date <= $3
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 
         WHERE from_project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND transfer_date IS NOT NULL AND transfer_date != ''
+          AND transfer_date >= COALESCE($2, '1900-01-01')
+          AND transfer_date <= $3
           AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM supplier_payments 
         WHERE project_id = $1 
-          AND payment_date IS NOT NULL AND CAST(payment_date AS TEXT) != ''
-          AND CAST(SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
-          AND CAST(SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+          AND payment_date IS NOT NULL AND payment_date != ''
+          AND payment_date >= COALESCE($2, '1900-01-01')
+          AND payment_date <= $3
       )
       SELECT 
         COALESCE((SELECT SUM(amount) FROM all_income), 0) as total_income,

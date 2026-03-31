@@ -163,15 +163,48 @@ async function calculatePreviewData(
     settledMap.set(`${row.worker_id}:${row.project_id}`, parseFloat(row.total_settled));
   }
 
+  const rebalanceMap = new Map<string, number>();
+  try {
+    const rebalanceResult = await queryFn(
+      `SELECT worker_id, project_id, COALESCE(SUM(delta), 0) AS rebalance_delta FROM (
+        SELECT 
+          SUBSTRING(pft.description FROM '\\[([^\\]]+)\\]') AS worker_id,
+          pft.to_project_id AS project_id,
+          safe_numeric(pft.amount::text, 0) AS delta
+        FROM project_fund_transfers pft
+        WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+          AND pft.description LIKE '%[%]%'
+        UNION ALL
+        SELECT 
+          SUBSTRING(pft.description FROM '\\[([^\\]]+)\\]') AS worker_id,
+          pft.from_project_id AS project_id,
+          -safe_numeric(pft.amount::text, 0) AS delta
+        FROM project_fund_transfers pft
+        WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+          AND pft.description LIKE '%[%]%'
+      ) rd
+      WHERE worker_id IS NOT NULL
+      GROUP BY worker_id, project_id
+      HAVING ABS(SUM(delta)) > 0.01`,
+      []
+    );
+    for (const row of rebalanceResult.rows) {
+      rebalanceMap.set(`${row.worker_id}:${row.project_id}`, parseFloat(row.rebalance_delta));
+    }
+  } catch (e) {
+    console.warn('[Settlement] Failed to compute rebalance deltas:', e);
+  }
+
   const workerMap = new Map<string, WorkerSettlementPreviewFull>();
   const warnings: string[] = [];
 
   for (const row of earnedResult.rows) {
     const transferred = transferMap.get(`${row.worker_id}:${row.project_id}`) || 0;
     const settled = settledMap.get(`${row.worker_id}:${row.project_id}`) || 0;
+    const rebalanceDelta = rebalanceMap.get(`${row.worker_id}:${row.project_id}`) || 0;
     const earned = Math.round(parseFloat(row.total_earned));
     const paid = Math.round(parseFloat(row.total_paid));
-    const balance = Math.round(earned - paid - Math.round(transferred) - Math.round(settled));
+    const balance = Math.round(earned - paid - Math.round(transferred) - Math.round(settled) + Math.round(rebalanceDelta));
 
     if (Math.abs(balance) < 1) continue;
 

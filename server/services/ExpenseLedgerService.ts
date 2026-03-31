@@ -339,10 +339,15 @@ export class ExpenseLedgerService {
     try {
       const projectsList = await pool.query(`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
       
-      // تنفيذ الطلبات بالتوازي بدلاً من التسلسل لتقليل وقت الاستجابة الإجمالي
-      const results = await Promise.all(projectsList.rows.map(project => 
-        this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo)
-      ));
+      const BATCH_SIZE = 3;
+      const results: ProjectFinancialSummary[] = [];
+      for (let i = 0; i < projectsList.rows.length; i += BATCH_SIZE) {
+        const batch = projectsList.rows.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(project => 
+          this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo)
+        ));
+        results.push(...batchResults);
+      }
       
       return results;
     } catch (error) {

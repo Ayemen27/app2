@@ -115,11 +115,11 @@ const smartConnectionManager = SmartConnectionManager.getInstance();
 
 export const pool = new Pool({
   connectionString: finalDbUrl,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000,
-  query_timeout: 60000,
-  statement_timeout: 60000,
+  max: 8,
+  idleTimeoutMillis: 20000,
+  connectionTimeoutMillis: 15000,
+  query_timeout: 30000,
+  statement_timeout: 30000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
   ssl: { rejectUnauthorized: false }

@@ -335,9 +335,9 @@ export class SmartConnectionManager {
         this.localPool = new Pool({
           connectionString: databaseUrl,
           ssl: sslConfig,
-          max: 10,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 30000, // 30 ثانية
+          max: 5,
+          idleTimeoutMillis: 20000,
+          connectionTimeoutMillis: 15000,
           statement_timeout: 30000,
           query_timeout: 30000,
           keepAlive: true,
@@ -758,9 +758,9 @@ export class SmartConnectionManager {
         const newPool = new Pool({
           connectionString: value,
           ssl: sslConfig,
-          max: 5,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 30000,
+          max: 3,
+          idleTimeoutMillis: 20000,
+          connectionTimeoutMillis: 15000,
           keepAlive: true
         });
         

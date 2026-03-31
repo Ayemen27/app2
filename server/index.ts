@@ -753,8 +753,17 @@ const activeIntervals: NodeJS.Timeout[] = [];
       await runAllStartupMigrations();
     } catch (err) {
       console.error("❌ [Startup] Failed to run startup migrations:", err);
-      console.error("🛑 [Startup] Server cannot start without migrations. Exiting.");
-      process.exit(1);
+      try {
+        const check = await pool.query(`SELECT safe_numeric('1', 0) AS v`);
+        if (check.rows[0]?.v == 1) {
+          console.warn("⚠️ [Startup] Migrations failed but safe_numeric exists from previous boot — continuing.");
+        } else {
+          throw new Error("safe_numeric returned unexpected result");
+        }
+      } catch (checkErr) {
+        console.error("🛑 [Startup] Critical DB function safe_numeric missing and migrations failed. Exiting.");
+        process.exit(1);
+      }
     }
 
     getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));

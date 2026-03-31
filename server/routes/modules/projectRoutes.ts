@@ -404,7 +404,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       ? { rows: [{ total_fund_transfers: 0, total_worker_wages: 0, total_material_costs: 0, total_transportation: 0, total_worker_transfers: 0, total_misc_expenses: 0, total_supplier_payments: 0 }] }
       : await pool.query(`
       SELECT
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $1 ${projectFilter}), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE transfer_date::date = $1::date ${projectFilter}), 0) as total_fund_transfers,
         COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance WHERE (safe_numeric(work_days::text, 0) > 0 OR safe_numeric(paid_amount::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
@@ -2797,9 +2797,9 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         SELECT safe_numeric(amount::text, 0) as amount
         FROM fund_transfers 
         WHERE project_id = $1 
-          AND transfer_date IS NOT NULL AND transfer_date::text != ''
-          AND transfer_date::text >= COALESCE($2, '1900-01-01')
-          AND transfer_date::text <= $3
+          AND transfer_date IS NOT NULL
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 

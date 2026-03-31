@@ -178,6 +178,13 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - Controlled by `ENABLE_EAGER_DB_DISCOVERY=true` env var for opt-in eager loading
 - Result: startup time reduced from ~33s blocking to immediate readiness
 
+**5. Architect Review Fixes (Post-Review):**
+- CRITICAL: Fixed `fund_transfers.transfer_date` (TIMESTAMP) queries — was using `::text` (produces `2025-06-03 00:00:00`), now uses `::date` (produces `2025-06-03`) for correct comparison
+- Fixed ALL trigger functions in SummaryRebuildService: replaced `SUBSTRING(CAST(...AS TEXT),1,10)` with `::date::text` for timestamp columns (`fund_transfers`, `project_fund_transfers`), direct column access for text date columns (`worker_transfers`, `supplier_payments`)
+- Removed 6 redundant/duplicate indexes: `idx_fund_transfers_project_date`, `idx_material_purchases_project_purchase_date`, `idx_material_purchases_project_date`, `idx_transportation_expenses_project_date`, `idx_transport_expenses_project_date`, `idx_worker_transfers_project_date`
+- Added expression index `idx_fund_transfers_date` on `(transfer_date::date)` for sargable date queries
+- Reduced `shared_buffers`: 1GB → 768MB, `effective_cache_size`: 2.5GB → 2GB (safer for 3.8GB server with swap pressure)
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

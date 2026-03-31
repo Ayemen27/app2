@@ -41,8 +41,8 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM fund_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND transfer_date::text != ''
-        AND COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $2
+        AND transfer_date IS NOT NULL
+        AND transfer_date::date = $2::date
     ),
     day_incoming_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -196,11 +196,11 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
 
   const result = await client.query(`
     SELECT DISTINCT sub_date FROM (
-      SELECT transfer_date::text as sub_date
+      SELECT transfer_date::date::text as sub_date
       FROM fund_transfers
       WHERE project_id = $1
-        AND transfer_date IS NOT NULL AND transfer_date::text != ''
-        AND transfer_date::text <= $2
+        AND transfer_date IS NOT NULL
+        AND transfer_date::date <= $2::date
       UNION
       SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance
       WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2
@@ -300,7 +300,7 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
             SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != ''
             UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != ''
             UNION SELECT date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
-            UNION SELECT transfer_date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date::text != ''
+            UNION SELECT transfer_date::date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
             UNION SELECT date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
             UNION SELECT transfer_date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date != ''
             UNION SELECT transfer_date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND transfer_date != ''
@@ -411,7 +411,7 @@ async function ensureTriggersExist(): Promise<void> {
       BEGIN
         IF TG_TABLE_NAME = 'project_fund_transfers' THEN
           IF TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
-            v_date := SUBSTRING(CAST(OLD.transfer_date AS TEXT) FROM 1 FOR 10);
+            v_date := OLD.transfer_date::date::text;
             IF OLD.from_project_id IS NOT NULL AND v_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
               INSERT INTO summary_invalidations (id, project_id, invalidated_from, reason, source_table, source_id, created_at)
               VALUES (gen_random_uuid(), OLD.from_project_id, v_date, 'db-trigger', TG_TABLE_NAME, COALESCE(OLD.id::text,''), NOW())
@@ -424,7 +424,7 @@ async function ensureTriggersExist(): Promise<void> {
             END IF;
           END IF;
           IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-            v_date := SUBSTRING(CAST(NEW.transfer_date AS TEXT) FROM 1 FOR 10);
+            v_date := NEW.transfer_date::date::text;
             IF NEW.from_project_id IS NOT NULL AND v_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
               INSERT INTO summary_invalidations (id, project_id, invalidated_from, reason, source_table, source_id, created_at)
               VALUES (gen_random_uuid(), NEW.from_project_id, v_date, 'db-trigger', TG_TABLE_NAME, COALESCE(NEW.id::text,''), NOW())
@@ -464,12 +464,12 @@ async function ensureTriggersExist(): Promise<void> {
         IF TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
           v_pid := OLD.project_id;
           CASE TG_TABLE_NAME
-            WHEN 'fund_transfers' THEN v_date := SUBSTRING(CAST(OLD.transfer_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'fund_transfers' THEN v_date := OLD.transfer_date::date::text;
             WHEN 'material_purchases' THEN v_date := OLD.purchase_date;
             WHEN 'transportation_expenses' THEN v_date := OLD.date;
-            WHEN 'worker_transfers' THEN v_date := SUBSTRING(CAST(OLD.transfer_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'worker_transfers' THEN v_date := OLD.transfer_date;
             WHEN 'worker_misc_expenses' THEN v_date := OLD.date;
-            WHEN 'supplier_payments' THEN v_date := SUBSTRING(CAST(OLD.payment_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'supplier_payments' THEN v_date := OLD.payment_date;
             ELSE v_date := NULL;
           END CASE;
           IF v_pid IS NOT NULL AND v_date IS NOT NULL AND v_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
@@ -482,12 +482,12 @@ async function ensureTriggersExist(): Promise<void> {
         IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
           v_pid := NEW.project_id;
           CASE TG_TABLE_NAME
-            WHEN 'fund_transfers' THEN v_date := SUBSTRING(CAST(NEW.transfer_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'fund_transfers' THEN v_date := NEW.transfer_date::date::text;
             WHEN 'material_purchases' THEN v_date := NEW.purchase_date;
             WHEN 'transportation_expenses' THEN v_date := NEW.date;
-            WHEN 'worker_transfers' THEN v_date := SUBSTRING(CAST(NEW.transfer_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'worker_transfers' THEN v_date := NEW.transfer_date;
             WHEN 'worker_misc_expenses' THEN v_date := NEW.date;
-            WHEN 'supplier_payments' THEN v_date := SUBSTRING(CAST(NEW.payment_date AS TEXT) FROM 1 FOR 10);
+            WHEN 'supplier_payments' THEN v_date := NEW.payment_date;
             ELSE v_date := NULL;
           END CASE;
           IF v_pid IS NOT NULL AND v_date IS NOT NULL AND v_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN

@@ -309,7 +309,7 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
       })
       .from(fundTransfers)
       .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
-      .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`))
+      .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL THEN NULL ELSE transfer_date::date END)`))
       .limit(5000);
 
     const accessReq = req as ProjectAccessRequest;
@@ -4117,7 +4117,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
         UNION SELECT project_id FROM worker_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition}
         UNION SELECT project_id FROM transportation_expenses WHERE date = $1 ${scopeCondition}
         UNION SELECT project_id FROM material_purchases WHERE purchase_date = $1 ${scopeCondition}
-        UNION SELECT project_id FROM fund_transfers WHERE COALESCE(NULLIF(transfer_date::text, ''), '1970-01-01') = $1 ${scopeCondition}
+        UNION SELECT project_id FROM fund_transfers WHERE transfer_date::date = $1::date ${scopeCondition}
         UNION SELECT project_id FROM worker_misc_expenses WHERE date = $1 ${scopeCondition}
         UNION SELECT from_project_id as project_id FROM project_fund_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'from_project_id') : ''}
         UNION SELECT to_project_id as project_id FROM project_fund_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'to_project_id') : ''}
@@ -4281,7 +4281,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
         [cleanDate, projectIds]
       ),
       pool.query(
-        `SELECT ft.project_id, ft.amount, ft.sender_name, ft.transfer_number, p.name as project_name FROM fund_transfers ft JOIN projects p ON p.id = ft.project_id WHERE ft.transfer_date = $1 AND ft.project_id = ANY($2) ORDER BY p.name`,
+        `SELECT ft.project_id, ft.amount, ft.sender_name, ft.transfer_number, p.name as project_name FROM fund_transfers ft JOIN projects p ON p.id = ft.project_id WHERE ft.transfer_date::date = $1::date AND ft.project_id = ANY($2) ORDER BY p.name`,
         [cleanDate, projectIds]
       ),
       pool.query(

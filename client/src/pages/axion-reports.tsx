@@ -2207,6 +2207,8 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                         <th className="p-2 text-right">الأيام</th>
                         <th className="p-2 text-right">المستحق</th>
                         <th className="p-2 text-right">المدفوع</th>
+                        <th className="p-2 text-right">الحوالات</th>
+                        <th className="p-2 text-right">التسويات</th>
                         <th className="p-2 text-right">المتبقي</th>
                       </tr>
                     </thead>
@@ -2221,6 +2223,8 @@ function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[
                           <td className="p-2">{Number(w.totalDays).toFixed(1)}</td>
                           <td className="p-2 text-green-600 font-semibold">{formatCurrency(w.totalEarned)}</td>
                           <td className="p-2 text-red-600">{formatCurrency(w.totalPaid)}</td>
+                          <td className="p-2 text-orange-600">{formatCurrency(w.totalTransfers ?? 0)}</td>
+                          <td className="p-2 text-blue-600">{formatCurrency(w.totalSettled ?? 0)}</td>
                           <td className="p-2 font-bold">{formatCurrency(w.balance)}</td>
                         </tr>
                       ))}

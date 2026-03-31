@@ -552,14 +552,15 @@ export class ReportDataService {
 
     for (const s of settlementResult.rows) {
       const amt = safeParseNum(s.amount);
+      const isFromProject = !projectId || projectId === 'all' || s.from_project_id === projectId;
       rawEntries.push({
         date: s.settlement_date,
         type: 'تصفية',
         description: `تصفية من ${s.from_project_name || '-'} إلى ${s.to_project_name || '-'}`,
         projectName: s.from_project_name || '-',
         workDays: 0,
-        debit: 0,
-        credit: amt,
+        debit: isFromProject ? 0 : amt,
+        credit: isFromProject ? amt : 0,
         reference: 'تصفية حساب',
       });
     }
@@ -1538,7 +1539,7 @@ export class ReportDataService {
             COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text) ELSE safe_numeric(wa.daily_wage::text) * safe_numeric(wa.work_days::text) END), 0) AS total_earned,
             COALESCE(SUM(safe_numeric(wa.paid_amount::text)), 0) AS total_paid,
             COALESCE((SELECT SUM(safe_numeric(wt.amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id = wa.worker_id AND wt.project_id = $1 AND wt.transfer_date::date >= $2::date AND wt.transfer_date::date <= $3::date AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement')), 0) AS total_transfers,
-            COALESCE((SELECT SUM(safe_numeric(wsl.amount::text, 0)) FROM worker_settlement_lines wsl JOIN worker_settlements ws ON ws.id = wsl.settlement_id WHERE wsl.worker_id = wa.worker_id AND ws.status = 'completed' AND (wsl.from_project_id = $1 OR wsl.to_project_id = $1) AND ws.settlement_date::date >= $2::date AND ws.settlement_date::date <= $3::date), 0) AS total_settled,
+            COALESCE((SELECT SUM(CASE WHEN wsl.from_project_id = $1 THEN safe_numeric(wsl.amount::text, 0) ELSE 0 END) FROM worker_settlement_lines wsl JOIN worker_settlements ws ON ws.id = wsl.settlement_id WHERE wsl.worker_id = wa.worker_id AND ws.status = 'completed' AND wsl.from_project_id = $1 AND ws.settlement_date::date <= $3::date), 0) AS total_settled,
             COALESCE((
               SELECT SUM(delta) FROM (
                 SELECT safe_numeric(pft.amount::text, 0) AS delta

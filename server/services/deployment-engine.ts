@@ -713,7 +713,7 @@ export class DeploymentEngine {
         try {
           const { stdout } = await execAsync(
             `${sshCmd} "pm2 jlist 2>/dev/null | head -1"`,
-            { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+            { timeout: 15000, env: this.getSSHExecEnv() }
           );
           const apps = JSON.parse(stdout.trim() || "[]");
           webOk = apps.some((a: any) => a.pm2_env?.status === "online");
@@ -721,7 +721,7 @@ export class DeploymentEngine {
           try {
             const { stdout } = await execAsync(
               `${sshCmd} "test -f ${remoteDir}/dist/index.js && echo WEB_OK || echo WEB_MISSING"`,
-              { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+              { timeout: 10000, env: this.getSSHExecEnv() }
             );
             webOk = stdout.trim().includes("WEB_OK");
           } catch { /* ignore */ }
@@ -743,7 +743,7 @@ export class DeploymentEngine {
             ].join(" ");
             const { stdout } = await execAsync(
               `${sshCmd} "ls -1t ${searchPaths} 2>/dev/null | head -1 || echo NONE"`,
-              { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+              { timeout: 10000, env: this.getSSHExecEnv() }
             );
             const found = stdout.trim();
             androidOk = found !== "NONE" && found !== "";
@@ -758,7 +758,7 @@ export class DeploymentEngine {
         try {
           const { stdout } = await execAsync(
             `${sshCmd} "pgrep -f 'gradle' >/dev/null 2>&1 && echo GRADLE_RUNNING || echo GRADLE_DONE"`,
-            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+            { timeout: 10000, env: this.getSSHExecEnv() }
           );
           if (stdout.trim().includes("GRADLE_RUNNING")) return "still_running";
         } catch { /* ignore */ }
@@ -768,7 +768,7 @@ export class DeploymentEngine {
         try {
           const { stdout } = await execAsync(
             `${sshCmd} "pgrep -f 'node.*dist' >/dev/null 2>&1 || pgrep -f 'npm.*start' >/dev/null 2>&1 && echo BUILD_RUNNING || echo BUILD_DONE"`,
-            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+            { timeout: 10000, env: this.getSSHExecEnv() }
           );
           if (stdout.trim().includes("BUILD_RUNNING")) return "still_running";
         } catch { /* ignore */ }
@@ -1715,6 +1715,10 @@ export class DeploymentEngine {
     return "password";
   }
 
+  private getSSHExecEnv(): NodeJS.ProcessEnv {
+    return { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
+  }
+
   private buildSSHCommand(muxSocket?: string | null): string {
     if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
     if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
@@ -2033,7 +2037,7 @@ export class DeploymentEngine {
       const sshCmd = this.buildSSHCommand();
       const { stdout: remoteDisk } = await execAsync(
         `${sshCmd} "df -BM /home/administrator/app2 | tail -1 | awk '{print \\$4}'"`,
-        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || "" } }
+        { timeout: 15000, env: this.getSSHExecEnv() }
       );
       const remoteAvailMB = parseInt(remoteDisk.replace(/[^0-9]/g, ""));
       if (!Number.isFinite(remoteAvailMB)) {
@@ -2221,7 +2225,7 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "اختبار اتصال SSH...", "info");
     try {
       const sshCmd = this.buildSSHCommand();
-      const { stdout } = await execAsync(`${sshCmd} "echo SSH_OK && hostname && uptime"`, { timeout: 30000 });
+      const { stdout } = await execAsync(`${sshCmd} "echo SSH_OK && hostname && uptime"`, { timeout: 30000, env: this.getSSHExecEnv() });
       await this.addLog(deploymentId, `اتصال SSH ناجح: ${stdout.trim()}`, "success");
     } catch (sshErr: any) {
       const masked = this.maskSecrets(sshErr.message);
@@ -2394,7 +2398,7 @@ export class DeploymentEngine {
         const names = stillRunning.map((p: { name?: string }) => p.name).join(", ");
         await this.addLog(deploymentId, `⚠️ لا تزال موجودة: ${names} — إعادة الحذف...`, "warn");
         for (const p of stillRunning) {
-          await execAsync(`${sshCmd} "pm2 delete '${(p as { name: string }).name}' 2>/dev/null"`, { timeout: 10000 }).catch(() => {});
+          await execAsync(`${sshCmd} "pm2 delete '${(p as { name: string }).name}' 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => {});
         }
       }
       const otherApps = Array.isArray(afterDelete)
@@ -3071,7 +3075,7 @@ export class DeploymentEngine {
           `if [ -f ${gradleExitFile} ]; then EC=\\$(cat ${gradleExitFile}); echo \\"EXIT:\\$EC\\"; tail -5 ${gradleLogFile} 2>/dev/null; ` +
           `elif [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo 'RUNNING'; tail -1 ${gradleLogFile} 2>/dev/null; ` +
           `else echo 'LOST'; tail -5 ${gradleLogFile} 2>/dev/null; fi"`,
-          { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+          { timeout: 15000, env: this.getSSHExecEnv() }
         );
 
         const raw = stdout.trim();
@@ -3643,6 +3647,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       }
 
       const infraFailed = report.routeChecks.filter(r => r.isInfraFailure);
+      const rateLimited = report.routeChecks.filter(r => r.isRateLimited);
       const appFailed = report.routeChecks.filter(r => !r.passed && !r.isInfraFailure);
       const unauthFailed = report.routeChecks.filter(r => r.error?.includes("AUTH_REQUIRED"));
       const failedRoutes = report.routeChecks.filter(r => !r.passed);
@@ -3652,6 +3657,13 @@ echo 'MAINACTIVITY_FIXED'"`,
         await this.addLog(deploymentId, `🔧 ${infraFailed.length} مسار — فشل بنية تحتية (السيرفر لا يستجيب/يعيد التشغيل)`, "warn");
         for (const f of infraFailed.slice(0, 3)) {
           await this.addLog(deploymentId, `  🔧 [${f.method}] ${f.path}: ${f.error}`, "warn");
+        }
+      }
+
+      if (rateLimited.length > 0) {
+        await this.addLog(deploymentId, `⚡ ${rateLimited.length} مسار — rate limited (429) — المسار موجود لكن مقيّد بمعدل الطلبات (ليس فشلاً)`, "warn");
+        for (const rl of rateLimited) {
+          await this.addLog(deploymentId, `  ⚡ [${rl.method}] ${rl.path}: ${rl.error}`, "warn");
         }
       }
 
@@ -3933,7 +3945,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     try {
       const { stdout: diagOut } = await execAsync(
         `${sshCmd} "free -m | awk '/^Mem/{printf \\"RAM: %sMB/%sMB (used: %s%%)\\\\n\\", \\$3, \\$2, int(\\$3/\\$2*100)}'; df -h ${remoteDir} | tail -1 | awk '{printf \\"Disk: %s used of %s (%s)\\\\n\\", \\$3, \\$2, \\$5}'"`,
-        { timeout: 10000 }
+        { timeout: 10000, env: this.getSSHExecEnv() }
       );
       await this.addLog(deploymentId, `📊 موارد السيرفر قبل البناء: ${diagOut.trim()}`, "info");
     } catch { /* non-critical */ }
@@ -3943,7 +3955,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     await execAsync(
       `${sshCmd} "setsid bash -c 'cd ${remoteDir} && export VITE_API_BASE_URL=${this.resolveBaseUrl()} && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
-      { timeout: 30000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+      { timeout: 60000, env: this.getSSHExecEnv() }
     );
 
     await this.addLog(deploymentId, "⏳ بناء التطبيق جارٍ... مراقبة دورية كل 15 ثانية", "info");
@@ -3956,7 +3968,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     while (Date.now() - startTime < maxWaitMs) {
       if (this.isCancelled(deploymentId)) {
         try {
-          await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null; rm -f ${pidFile} ${exitFile}"`, { timeout: 10000 });
+          await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null; rm -f ${pidFile} ${exitFile}"`, { timeout: 10000, env: this.getSSHExecEnv() });
         } catch { /* best-effort */ }
         throw new (class extends Error { constructor() { super("Cancelled by user"); this.name = "CancellationError"; } })();
       }
@@ -3968,7 +3980,7 @@ echo 'MAINACTIVITY_FIXED'"`,
       try {
         const { stdout: status } = await execAsync(
           `${sshCmd} "if [ -f ${exitFile} ]; then echo \\"EXIT:\\$(cat ${exitFile})\\"; elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then WC=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); echo \\"RUNNING:\\$WC\\"; else echo 'LOST'; fi"`,
-          { timeout: 15000 }
+          { timeout: 15000, env: this.getSSHExecEnv() }
         );
 
         const trimmed = status.trim();
@@ -3979,13 +3991,13 @@ echo 'MAINACTIVITY_FIXED'"`,
             await this.addLog(deploymentId, `✅ اكتمل البناء بنجاح (${elapsed}s)`, "success");
             break;
           } else {
-            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }).catch(() => ({ stdout: "" }));
+            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
             const errorLines = errLog.split("\n").filter((l: string) => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
             if (errorLines.length > 0) {
               await this.addLog(deploymentId, `📋 أسطر الخطأ:\n${errorLines.join("\n")}`, "error");
             }
             if (!errLog.trim()) {
-              const { stdout: nohupLog } = await execAsync(`${sshCmd} "tail -20 ${remoteDir}/nohup.out 2>/dev/null"`, { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }).catch(() => ({ stdout: "" }));
+              const { stdout: nohupLog } = await execAsync(`${sshCmd} "tail -20 ${remoteDir}/nohup.out 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
               if (nohupLog.trim()) {
                 await this.addLog(deploymentId, `📋 nohup.out:\n${nohupLog.trim().split("\n").slice(-10).join("\n")}`, "error");
               }
@@ -3999,7 +4011,7 @@ echo 'MAINACTIVITY_FIXED'"`,
             this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s (${lines} سطر)`);
             lastLogLine = lines;
             try {
-              const { stdout: tailOut } = await execAsync(`${sshCmd} "tail -3 ${logFile} 2>/dev/null"`, { timeout: 10000 });
+              const { stdout: tailOut } = await execAsync(`${sshCmd} "tail -3 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
               const lastLine = tailOut.trim().split("\n").pop()?.trim();
               if (lastLine && lastLine.length > 5) {
                 await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.substring(0, 200)}`, "info");
@@ -4009,7 +4021,7 @@ echo 'MAINACTIVITY_FIXED'"`,
             this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s`);
           }
         } else if (trimmed === "LOST") {
-          const { stdout: errLog } = await execAsync(`${sshCmd} "tail -30 ${logFile} 2>/dev/null"`, { timeout: 10000 }).catch(() => ({ stdout: "" }));
+          const { stdout: errLog } = await execAsync(`${sshCmd} "tail -30 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
           await this.addLog(deploymentId, `❌ عملية البناء توقفت بشكل غير متوقع\n${errLog.trim().split("\n").slice(-5).join("\n")}`, "error");
           throw new Error("عملية البناء توقفت — قد يكون السبب نفاد الذاكرة (OOM killed)");
         }
@@ -4024,7 +4036,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     if (Date.now() - startTime >= maxWaitMs) {
       try {
-        await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null"`, { timeout: 10000 });
+        await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       } catch { /* best-effort */ }
       throw new Error(`تجاوز وقت البناء الأقصى (${maxWaitMs / 1000}s)`);
     }
@@ -4044,7 +4056,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, `✅ تم التحقق من مخرجات البناء`, "success");
 
     try {
-      await execAsync(`${sshCmd} "rm -f ${pidFile} ${exitFile}"`, { timeout: 10000 });
+      await execAsync(`${sshCmd} "rm -f ${pidFile} ${exitFile}"`, { timeout: 10000, env: this.getSSHExecEnv() });
     } catch { /* cleanup */ }
   }
 
@@ -4359,7 +4371,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcPm2(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "⚙️ فحص عمليات PM2...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000 });
+      const { stdout } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const processes = JSON.parse(stdout || "[]");
       const pm2Data = processes.map((p: any) => ({
         name: p.name,
@@ -4387,7 +4399,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcDisk(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "💾 فحص مساحة القرص...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "df -BM / /home/administrator 2>/dev/null | tail -n +2"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "df -BM / /home/administrator 2>/dev/null | tail -n +2"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       const disks: any[] = [];
       for (const line of lines) {
@@ -4414,7 +4426,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcMemory(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🧠 فحص الذاكرة...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "free -m | head -3"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "free -m | head -3"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       let totalMB = 0, usedMB = 0, availMB = 0, swapTotalMB = 0, swapUsedMB = 0;
       for (const line of lines) {
@@ -4442,7 +4454,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcCpu(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "⚡ فحص حمل المعالج...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "cat /proc/loadavg && nproc"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "cat /proc/loadavg && nproc"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       const loadParts = (lines[0] || "").split(/\s+/);
       const cores = parseInt(lines[1]) || 1;
@@ -4532,7 +4544,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcRuntime(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔧 فحص بيئة التشغيل...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "node -v && npm -v && uptime -s 2>/dev/null"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "node -v && npm -v && uptime -s 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       const nodeVersion = lines[0]?.trim() || "unknown";
       const npmVersion = lines[1]?.trim() || "unknown";
@@ -4548,7 +4560,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcNginx(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🌍 فحص Nginx...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "systemctl is-active nginx 2>/dev/null && nginx -v 2>&1 | head -1"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "systemctl is-active nginx 2>/dev/null && nginx -v 2>&1 | head -1"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       const isActive = lines[0]?.trim() === "active";
       const version = lines[1]?.trim() || "";
@@ -4563,7 +4575,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcNetwork(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📡 فحص الشبكة و DNS...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "dig +short google.com 2>/dev/null | head -1 && curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://google.com 2>/dev/null"`, { timeout: 15000 });
+      const { stdout } = await execAsync(`${sshCmd} "dig +short google.com 2>/dev/null | head -1 && curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://google.com 2>/dev/null"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const lines = stdout.trim().split("\n");
       const dnsResolve = lines[0]?.trim() || "";
       const externalHttp = lines[1]?.trim()?.replace(/'/g, "") || "";
@@ -4580,7 +4592,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcFd(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📂 فحص واصفات الملفات المفتوحة...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "cat /proc/sys/fs/file-nr 2>/dev/null"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "cat /proc/sys/fs/file-nr 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const parts = stdout.trim().split(/\s+/);
       const openFd = parseInt(parts[0]) || 0;
       const maxFd = parseInt(parts[2]) || 1;
@@ -4598,7 +4610,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcConnections(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔗 فحص الاتصالات النشطة...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "ss -s 2>/dev/null"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "ss -s 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const tcpMatch = stdout.match(/TCP:\s+(\d+)/);
       const estabMatch = stdout.match(/estab\s+(\d+)/);
       const totalTcp = parseInt(tcpMatch?.[1] || "0");
@@ -4637,7 +4649,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepHcLogErrors(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📋 فحص أخطاء السجلات (آخر ساعة)...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "pm2 logs --nostream --lines 500 2>/dev/null | grep -ic 'error\\|exception\\|fatal\\|ECONNREFUSED\\|ENOTFOUND' 2>/dev/null || echo 0"`, { timeout: 15000 });
+      const { stdout } = await execAsync(`${sshCmd} "pm2 logs --nostream --lines 500 2>/dev/null | grep -ic 'error\\|exception\\|fatal\\|ECONNREFUSED\\|ENOTFOUND' 2>/dev/null || echo 0"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const errorCount = parseInt(stdout.trim()) || 0;
       const level = errorCount >= 50 ? "critical" : errorCount >= 10 ? "warning" : "ok";
       this.healthCheckResults.get(deploymentId)!.logErrors = { count: errorCount, period: "1h", level };
@@ -4717,9 +4729,9 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "📱 تنظيف مخلفات بناء Android...", "info");
     const remoteDir = "/home/administrator/app2";
     try {
-      const { stdout } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/android/app/build ${remoteDir}/android/.gradle ${remoteDir}/android/build 2>/dev/null | awk '{s+=\\$1} END{print s}'"`, { timeout: 15000 });
+      const { stdout } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/android/app/build ${remoteDir}/android/.gradle ${remoteDir}/android/build 2>/dev/null | awk '{s+=\\$1} END{print s}'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(stdout.trim()) || 0;
-      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'DONE'"`, { timeout: 30000 });
+      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'DONE'"`, { timeout: 30000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-android", sizeMB, `Android build artifacts (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف مخلفات Android: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4731,9 +4743,9 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClTmp(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🗑️ تنظيف الملفات المؤقتة...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "du -sm /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "du -sm /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(stdout.trim()) || 0;
-      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'DONE'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-tmp", sizeMB, `Temp archives (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف ملفات مؤقتة: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4745,9 +4757,9 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClPm2Logs(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📄 تنظيف سجلات PM2...", "info");
     try {
-      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ~/.pm2/logs/ 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ~/.pm2/logs/ 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(beforeSize.trim()) || 0;
-      await execAsync(`${sshCmd} "cd /home/administrator/app2 && pm2 flush 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "cd /home/administrator/app2 && pm2 flush 2>/dev/null && echo 'DONE'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-pm2-logs", sizeMB, `PM2 logs (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف سجلات PM2: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4760,16 +4772,16 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "📦 تنظيف APK القديمة (الاحتفاظ بآخر 5)...", "info");
     const releasesDir = "/home/administrator/app2/android-releases";
     try {
-      const { stdout: listOut } = await execAsync(`${sshCmd} "ls -1t ${releasesDir}/*.apk 2>/dev/null"`, { timeout: 10000 });
+      const { stdout: listOut } = await execAsync(`${sshCmd} "ls -1t ${releasesDir}/*.apk 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const files = listOut.trim().split("\n").filter(Boolean);
       if (files.length <= 5) {
         await this.addLog(deploymentId, `✅ APK: ${files.length} ملفات فقط — لا حاجة للتنظيف`, "success");
         return;
       }
       const toDelete = files.slice(5);
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ${toDelete.join(" ")} 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ${toDelete.join(" ")} 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(sizeOut.trim()) || 0;
-      await execAsync(`${sshCmd} "rm -f ${toDelete.join(" ")} 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "rm -f ${toDelete.join(" ")} 2>/dev/null && echo 'DONE'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-old-apk", sizeMB, `Old APKs: ${toDelete.length} ملف (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم حذف ${toDelete.length} APK قديمة (${sizeMB}MB) — الاحتفاظ بآخر 5`, "success");
     } catch (err: any) {
@@ -4781,13 +4793,13 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClDocker(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🐳 تنظيف Docker...", "info");
     try {
-      const { stdout: check } = await execAsync(`${sshCmd} "which docker 2>/dev/null && echo 'EXISTS' || echo 'NONE'"`, { timeout: 5000 });
+      const { stdout: check } = await execAsync(`${sshCmd} "which docker 2>/dev/null && echo 'EXISTS' || echo 'NONE'"`, { timeout: 5000, env: this.getSSHExecEnv() });
       if (!check.includes("EXISTS")) {
         await this.addLog(deploymentId, `ℹ️ Docker غير مثبت — تخطي`, "info");
         return;
       }
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "docker system df --format '{{.Reclaimable}}' 2>/dev/null | head -1"`, { timeout: 10000 });
-      await execAsync(`${sshCmd} "docker system prune -f 2>/dev/null"`, { timeout: 30000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "docker system df --format '{{.Reclaimable}}' 2>/dev/null | head -1"`, { timeout: 10000, env: this.getSSHExecEnv() });
+      await execAsync(`${sshCmd} "docker system prune -f 2>/dev/null"`, { timeout: 30000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-docker", 0, `Docker dangling (${sizeOut.trim()})`);
       await this.addLog(deploymentId, `✅ تم تنظيف Docker: ${sizeOut.trim()} قابل للاسترداد`, "success");
     } catch (err: any) {
@@ -4799,9 +4811,9 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClNpmCache(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📦 تنظيف ذاكرة npm...", "info");
     try {
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ~/.npm 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ~/.npm 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(sizeOut.trim()) || 0;
-      await execAsync(`${sshCmd} "npm cache clean --force 2>/dev/null"`, { timeout: 30000 });
+      await execAsync(`${sshCmd} "npm cache clean --force 2>/dev/null"`, { timeout: 30000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-npm-cache", sizeMB, `npm cache (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف ذاكرة npm: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4813,8 +4825,8 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClJournal(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📓 تنظيف سجل النظام (journalctl)...", "info");
     try {
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "journalctl --disk-usage 2>/dev/null | grep -oP '\\d+\\.?\\d*[MGK]' | head -1"`, { timeout: 10000 });
-      await execAsync(`${sshCmd} "sudo journalctl --vacuum-time=3d 2>/dev/null || journalctl --vacuum-time=3d 2>/dev/null"`, { timeout: 20000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "journalctl --disk-usage 2>/dev/null | grep -oP '\\d+\\.?\\d*[MGK]' | head -1"`, { timeout: 10000, env: this.getSSHExecEnv() });
+      await execAsync(`${sshCmd} "sudo journalctl --vacuum-time=3d 2>/dev/null || journalctl --vacuum-time=3d 2>/dev/null"`, { timeout: 20000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-journal", 0, `System journal (was: ${sizeOut.trim() || "unknown"})`);
       await this.addLog(deploymentId, `✅ تم تنظيف سجل النظام (كان: ${sizeOut.trim() || "غير معروف"})`, "success");
     } catch (err: any) {
@@ -4826,15 +4838,15 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClOldLogs(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🗂️ تنظيف ملفات السجلات القديمة (> 7 أيام)...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f 2>/dev/null | head -20"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f 2>/dev/null | head -20"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const files = stdout.trim().split("\n").filter(Boolean);
       if (files.length === 0) {
         await this.addLog(deploymentId, `✅ لا توجد سجلات قديمة`, "success");
         return;
       }
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -exec du -sm {} + 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -exec du -sm {} + 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(sizeOut.trim()) || 0;
-      await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -delete 2>/dev/null; find /var/log -name '*.gz' -mtime +7 -type f -delete 2>/dev/null"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -delete 2>/dev/null; find /var/log -name '*.gz' -mtime +7 -type f -delete 2>/dev/null"`, { timeout: 15000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-old-logs", sizeMB, `Old logs: ${files.length} ملف (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم حذف ${files.length} ملف سجلات قديمة (${sizeMB}MB)`, "success");
     } catch (err: any) {
@@ -4847,10 +4859,10 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🔀 تنظيف Git (garbage collection)...", "info");
     const remoteDir = "/home/administrator/app2";
     try {
-      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const beforeMB = parseInt(beforeSize.trim()) || 0;
-      await execAsync(`${sshCmd} "cd ${remoteDir} && git gc --aggressive --prune=now 2>&1 | tail -3"`, { timeout: 60000 });
-      const { stdout: afterSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      await execAsync(`${sshCmd} "cd ${remoteDir} && git gc --aggressive --prune=now 2>&1 | tail -3"`, { timeout: 60000, env: this.getSSHExecEnv() });
+      const { stdout: afterSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const afterMB = parseInt(afterSize.trim()) || 0;
       const saved = Math.max(0, beforeMB - afterMB);
       this.addCleanupStep(deploymentId, "cl-git-gc", saved, `Git GC (${beforeMB}MB → ${afterMB}MB, saved ${saved}MB)`);
@@ -4864,7 +4876,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClOrphans(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "👻 فحص العمليات اليتيمة...", "info");
     try {
-      const { stdout } = await execAsync(`${sshCmd} "ps aux --sort=-%mem | awk 'NR>1 && \\$3>50{print \\$2,\\$3,\\$4,\\$11}' | head -5"`, { timeout: 10000 });
+      const { stdout } = await execAsync(`${sshCmd} "ps aux --sort=-%mem | awk 'NR>1 && \\$3>50{print \\$2,\\$3,\\$4,\\$11}' | head -5"`, { timeout: 10000, env: this.getSSHExecEnv() });
       if (stdout.trim()) {
         await this.addLog(deploymentId, `⚠️ عمليات عالية الاستهلاك:\n${stdout.trim()}`, "warn");
         this.addCleanupStep(deploymentId, "cl-orphans", 0, "Orphan check (found high-resource processes)");
@@ -4880,9 +4892,9 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepClAptCache(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🗃️ تنظيف ذاكرة APT...", "info");
     try {
-      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm /var/cache/apt/archives 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm /var/cache/apt/archives 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(sizeOut.trim()) || 0;
-      await execAsync(`${sshCmd} "sudo apt-get clean 2>/dev/null || apt-get clean 2>/dev/null"`, { timeout: 30000 });
+      await execAsync(`${sshCmd} "sudo apt-get clean 2>/dev/null || apt-get clean 2>/dev/null"`, { timeout: 30000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-apt-cache", sizeMB, `APT cache (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف ذاكرة APT: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4943,7 +4955,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     }
 
     try {
-      const { stdout: pm2Check } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000 });
+      const { stdout: pm2Check } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const processes = JSON.parse(pm2Check || "[]");
       checks.pm2 = processes.map((p: any) => ({
         name: p.name,
@@ -4958,14 +4970,14 @@ echo 'MAINACTIVITY_FIXED'"`,
     }
 
     try {
-      const { stdout: diskCheck } = await execAsync(`${sshCmd} "df -h /home/administrator | tail -1"`, { timeout: 10000 });
+      const { stdout: diskCheck } = await execAsync(`${sshCmd} "df -h /home/administrator | tail -1"`, { timeout: 10000, env: this.getSSHExecEnv() });
       checks.disk = diskCheck.trim();
     } catch {
       checks.disk = "unavailable";
     }
 
     try {
-      const { stdout: memCheck } = await execAsync(`${sshCmd} "free -h | head -2"`, { timeout: 10000 });
+      const { stdout: memCheck } = await execAsync(`${sshCmd} "free -h | head -2"`, { timeout: 10000, env: this.getSSHExecEnv() });
       checks.memory = memCheck.trim();
     } catch {
       checks.memory = "unavailable";
@@ -5252,17 +5264,17 @@ echo 'MAINACTIVITY_FIXED'"`,
     const remoteDir = "/home/administrator/app2";
 
     try {
-      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'CLEAN_ANDROID'"`, { timeout: 30000 });
+      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'CLEAN_ANDROID'"`, { timeout: 30000, env: this.getSSHExecEnv() });
       cleaned.push("Android build artifacts");
     } catch (e: any) { errors.push(`Android cleanup: ${e.message}`); }
 
     try {
-      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'CLEAN_TMP'"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'CLEAN_TMP'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       cleaned.push("Temporary archives");
     } catch (e: any) { errors.push(`Temp cleanup: ${e.message}`); }
 
     try {
-      await execAsync(`${sshCmd} "cd ${remoteDir} && pm2 flush 2>/dev/null && echo 'CLEAN_LOGS'"`, { timeout: 15000 });
+      await execAsync(`${sshCmd} "cd ${remoteDir} && pm2 flush 2>/dev/null && echo 'CLEAN_LOGS'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       cleaned.push("PM2 logs");
     } catch (e: any) { errors.push(`PM2 logs: ${e.message}`); }
 

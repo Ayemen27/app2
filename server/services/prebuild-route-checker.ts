@@ -13,6 +13,7 @@ export interface CheckResult {
   latencyMs?: number;
   error?: string;
   isInfraFailure?: boolean;
+  isRateLimited?: boolean;
   requiresAuth?: boolean;
   critical?: boolean;
 }
@@ -178,6 +179,10 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
     if (INFRA_CODES.includes(res.status)) {
       result.isInfraFailure = true;
       result.error = `Infrastructure error: HTTP ${res.status} (server unreachable/restarting)`;
+    } else if (res.status === 429) {
+      result.passed = true;
+      result.isRateLimited = true;
+      result.error = `Rate limited (429) — route exists but throttled`;
     } else if (route.requiresAuth && !authToken) {
       result.passed = false;
       result.error = "AUTH_REQUIRED: Cannot test — no auth token obtained (route requires authentication)";

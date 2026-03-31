@@ -1228,11 +1228,16 @@ export class DeploymentEngine {
     } finally {
       this.stopHeartbeat(deploymentId);
       this.cleanupDeploymentState(deploymentId);
+      // إغلاق اتصال SSH الرئيسي بعد انتهاء النشر
+      await this.closeSSHMuxSocket(deploymentId).catch(() => {});
     }
   }
 
   private async executeStep(deploymentId: string, stepName: string, config: DeploymentConfig) {
-    const sshCmd = this.buildSSHCommand();
+    // فتح الاتصال الرئيسي SSH (ControlMaster) مرة واحدة لإعادة استخدامه في جميع الخطوات
+    await this.openSSHMasterConnection(deploymentId);
+    const muxSocket = this.sshMuxSockets.get(deploymentId) ?? null;
+    const sshCmd = this.buildSSHCommand(muxSocket);
 
     switch (stepName) {
       case "validate":
@@ -1444,6 +1449,96 @@ export class DeploymentEngine {
   private sshKeyProvisioned = false;
   private resolvedAuthMethod: "key" | "password" | null = null;
   private knownHostsReady = false;
+  private sshMuxSockets = new Map<string, string>();
+
+  private getSSHMuxSocket(deploymentId: string): string {
+    if (!this.sshMuxSockets.has(deploymentId)) {
+      const buildId = deploymentId.substring(0, 8);
+      this.sshMuxSockets.set(deploymentId, `/tmp/ssh_mux_${buildId}`);
+    }
+    return this.sshMuxSockets.get(deploymentId)!;
+  }
+
+  private establishedMuxSockets = new Set<string>();
+
+  private async openSSHMasterConnection(deploymentId: string): Promise<void> {
+    const socketPath = this.getSSHMuxSocket(deploymentId);
+    // idempotent: تجاهل إذا كان الاتصال الرئيسي مفتوحاً بالفعل لهذا النشر
+    if (this.establishedMuxSockets.has(socketPath)) return;
+
+    const host = process.env.SSH_HOST;
+    const user = process.env.SSH_USER;
+    if (!host || !user) return;
+
+    // تحقق إذا كان socket موجود فعلاً في النظام (مثلاً من إعادة محاولة)
+    try {
+      const { stdout: checkOut } = await execAsync(
+        `ssh -o ControlPath=${socketPath} -O check ${user}@${host} 2>&1`,
+        { timeout: 5000 }
+      );
+      if (checkOut.includes("Master running") || checkOut.includes("master running")) {
+        this.establishedMuxSockets.add(socketPath);
+        console.log(`[SSH Mux] ♻️ اتصال رئيسي موجود مسبقاً: ${socketPath}`);
+        return;
+      }
+    } catch {}
+
+    const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
+    try {
+      const baseCmd = this.buildSSHCommandBase();
+      await execAsync(
+        `${baseCmd} -o ControlMaster=yes -o ControlPath=${socketPath} -o ControlPersist=900 -fN`,
+        { timeout: 25000, env: sshEnv }
+      );
+      this.establishedMuxSockets.add(socketPath);
+      console.log(`[SSH Mux] ✅ اتصال رئيسي SSH تم فتحه: ${socketPath}`);
+    } catch (e: any) {
+      console.warn(`[SSH Mux] ⚠️ فشل فتح الاتصال الرئيسي (${e.message}) — سيُستخدم اتصال منفصل لكل أمر`);
+    }
+  }
+
+  private async closeSSHMuxSocket(deploymentId: string): Promise<void> {
+    const socketPath = this.sshMuxSockets.get(deploymentId);
+    if (!socketPath) return;
+    const host = process.env.SSH_HOST;
+    const user = process.env.SSH_USER;
+    const port = process.env.SSH_PORT || "22";
+    if (!host || !user) {
+      this.sshMuxSockets.delete(deploymentId);
+      this.establishedMuxSockets.delete(socketPath);
+      return;
+    }
+    try {
+      await execAsync(
+        `ssh -o ControlPath=${socketPath} -O exit ${user}@${host} -p ${port} 2>/dev/null`,
+        { timeout: 5000 }
+      );
+    } catch {}
+    this.sshMuxSockets.delete(deploymentId);
+    this.establishedMuxSockets.delete(socketPath);
+    console.log(`[SSH Mux] 🔒 تم إغلاق الاتصال الرئيسي: ${socketPath}`);
+  }
+
+  private buildSSHCommandBase(): string {
+    if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
+    if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
+    const host = this.sanitizeShellArg(process.env.SSH_HOST);
+    const user = this.sanitizeShellArg(process.env.SSH_USER);
+    const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+    this.validateSSHParam(host, 'host');
+    this.validateSSHParam(user, 'user');
+    this.validateSSHParam(port, 'port');
+    const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
+    const authMethod = this.getSSHAuthMethod();
+    if (authMethod === "key") {
+      const keyPath = this.validatePath(process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key", "SSH_KEY_PATH");
+      return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    }
+    if (this.knownHostsReady) {
+      return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    }
+    return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+  }
 
   private async ensureKnownHosts(knownHostsPath?: string): Promise<void> {
     const khPath = knownHostsPath || process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
@@ -1620,7 +1715,7 @@ export class DeploymentEngine {
     return "password";
   }
 
-  private buildSSHCommand(): string {
+  private buildSSHCommand(muxSocket?: string | null): string {
     if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
     if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
     const host = this.sanitizeShellArg(process.env.SSH_HOST);
@@ -1631,17 +1726,22 @@ export class DeploymentEngine {
     this.validateSSHParam(user, 'user');
     this.validateSSHParam(port, 'port');
 
+    // ControlMaster: إذا تم تمرير مسار socket، استخدم الاتصال الرئيسي المشترك
+    const muxOpts = muxSocket
+      ? ` -o ControlMaster=auto -o ControlPath=${muxSocket} -o ControlPersist=900`
+      : "";
+
     const authMethod = this.getSSHAuthMethod();
 
     if (authMethod === "key") {
       const keyPath = this.validatePath(process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key", "SSH_KEY_PATH");
       const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
-      return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+      return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20${muxOpts} -p ${port} ${user}@${host}`;
     }
 
     const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
     if (this.knownHostsReady) {
-      return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+      return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20${muxOpts} -p ${port} ${user}@${host}`;
     }
     const isProduction = process.env.NODE_ENV === "production";
     if (isProduction) {
@@ -1653,10 +1753,10 @@ export class DeploymentEngine {
       );
     }
     console.warn("[DeploymentEngine] ⚠️ استخدام accept-new في بيئة التطوير فقط — ممنوع في الإنتاج");
-    return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=20${muxOpts} -p ${port} ${user}@${host}`;
   }
 
-  private buildSCPCommand(src: string, dest: string): string {
+  private buildSCPCommand(src: string, dest: string, muxSocket?: string | null): string {
     if (!process.env.SSH_HOST) throw new Error("SSH_HOST غير مُعيّن في متغيرات البيئة");
     if (!process.env.SSH_USER) throw new Error("SSH_USER غير مُعيّن في متغيرات البيئة");
     const host = this.sanitizeShellArg(process.env.SSH_HOST);
@@ -1667,17 +1767,22 @@ export class DeploymentEngine {
     this.validateSSHParam(user, 'user');
     this.validateSSHParam(port, 'port');
 
+    // SCP يدعم ControlPath لإعادة استخدام اتصال الـ master
+    const muxOpts = muxSocket
+      ? ` -o ControlMaster=auto -o ControlPath=${muxSocket}`
+      : "";
+
     const authMethod = this.getSSHAuthMethod();
 
     if (authMethod === "key") {
       const keyPath = this.validatePath(process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key", "SSH_KEY_PATH");
       const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
-      return `scp -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
+      return `scp -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15${muxOpts} -P ${port} ${src} ${user}@${host}:${dest}`;
     }
 
     const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
     if (this.knownHostsReady) {
-      return `sshpass -e scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
+      return `sshpass -e scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=15${muxOpts} -P ${port} ${src} ${user}@${host}:${dest}`;
     }
     const isProduction = process.env.NODE_ENV === "production";
     if (isProduction) {
@@ -1689,7 +1794,7 @@ export class DeploymentEngine {
       );
     }
     console.warn("[DeploymentEngine] ⚠️ SCP: استخدام accept-new في بيئة التطوير فقط");
-    return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
+    return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15${muxOpts} -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
   getSSHCommandForDownload(): string {

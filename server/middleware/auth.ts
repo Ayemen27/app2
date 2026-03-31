@@ -376,7 +376,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
             message: `فشل المصادقة - لا يوجد توكن: ${req.method} ${req.originalUrl}`,
             details: { reason: 'no_token', path: req.originalUrl, method: req.method },
           });
-        } catch {}
+        } catch (auditErr: any) {
+          console.warn('[AUTH] فشل تسجيل حدث المصادقة (غير حرج):', auditErr?.message);
+        }
       }
 
       return res.status(401).json({

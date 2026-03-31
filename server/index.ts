@@ -116,9 +116,13 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
 
+  const isProd = process.env.NODE_ENV === 'production';
   const cspConfig = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' https://*.googleapis.com https://*.gstatic.com ${process.env.PRODUCTION_DOMAIN || ''} https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com`,
+    // In development Vite requires unsafe-inline for HMR; production enforces strict mode
+    isProd
+      ? `script-src 'self' https://*.googleapis.com https://*.gstatic.com ${process.env.PRODUCTION_DOMAIN || ''} https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com`
+      : `script-src 'self' 'unsafe-inline' https://*.googleapis.com https://*.gstatic.com ${process.env.PRODUCTION_DOMAIN || ''} https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
     "img-src 'self' data: https: https://*.google-analytics.com https://*.googletagmanager.com",

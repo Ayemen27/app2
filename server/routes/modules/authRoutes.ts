@@ -212,7 +212,9 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
           message: `فشل تسجيل الدخول - كلمة مرور خاطئة: ${email}`,
           details: { email, reason: 'invalid_password' },
         });
-      } catch {}
+      } catch (auditErr: any) {
+        console.warn('[AUTH] فشل تسجيل حدث المصادقة (غير حرج):', auditErr?.message);
+      }
 
       return res.status(401).json({
         success: false,
@@ -298,7 +300,9 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
         message: `تسجيل دخول ناجح: ${user.email}`,
         details: { email: user.email, role: user.role },
       });
-    } catch {}
+    } catch (auditErr: any) {
+      console.warn('[AUTH] فشل تسجيل حدث الدخول الناجح (غير حرج):', auditErr?.message);
+    }
 
   } catch (error: any) {
     console.error('❌ [AUTH] خطأ في تسجيل الدخول:', error);
@@ -494,7 +498,9 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
         message: `تسجيل خروج: ${req.user?.email || userId}`,
         details: { email: req.user?.email },
       });
-    } catch {}
+    } catch (auditErr: any) {
+      console.warn('[AUTH] فشل تسجيل حدث تسجيل الخروج (غير حرج):', auditErr?.message);
+    }
 
     res.json({
       success: true,

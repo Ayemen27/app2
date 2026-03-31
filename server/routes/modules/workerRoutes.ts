@@ -368,9 +368,6 @@ async function recalculateAttendanceAndBalances(
 
 export const workerRouter = express.Router();
 
-// تطبيق المصادقة
-workerRouter.use(requireAuth);
-
 // ♻️ إبطال كاش الإحصائيات تلقائياً بعد أي عملية كتابة ناجحة
 workerRouter.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {

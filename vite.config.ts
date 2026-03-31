@@ -15,6 +15,7 @@ export default defineConfig({
     '__APP_VERSION__': JSON.stringify(pkg.version),
   },
   root: 'client',
+  envDir: path.resolve(__dirname),
   server: {
     allowedHosts: true,
     watch: {

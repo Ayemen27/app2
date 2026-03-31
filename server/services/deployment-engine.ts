@@ -3954,7 +3954,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🚀 بدء البناء في الخلفية على السيرفر (SSH-resilient)...", "info");
 
     await execAsync(
-      `${sshCmd} "setsid bash -c 'cd ${remoteDir} && export VITE_API_BASE_URL=${this.resolveBaseUrl()} && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
+      `${sshCmd} "setsid bash -c 'cd ${remoteDir} && source .env 2>/dev/null; export VITE_API_BASE_URL=${this.resolveBaseUrl()} && export VITE_PRODUCTION_DOMAIN=\\\${VITE_PRODUCTION_DOMAIN:-${this.resolveBaseUrl()}} && export VITE_PRODUCTION_HOSTS=\\\${VITE_PRODUCTION_HOSTS:-} && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${pidFile}; echo \\$PID"`,
       { timeout: 60000, env: this.getSSHExecEnv() }
     );
 

@@ -770,7 +770,12 @@ const activeIntervals: NodeJS.Timeout[] = [];
       }
     }
 
-    getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
+    const botEnabled = process.env.WHATSAPP_BOT_ENABLED !== 'false';
+    if (botEnabled) {
+      getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
+    } else {
+      console.log('⏸️ [WhatsAppBot] البوت معطل بواسطة WHATSAPP_BOT_ENABLED=false');
+    }
 
     startNonceCleanup();
 

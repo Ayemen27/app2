@@ -220,6 +220,22 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 - **Duplicate /stats route:** Verified — no actual conflict (6 independent /stats under different prefixes)
 - **Audit report:** `.local/comprehensive-audit-report.md`
 
+### Session Fixes (2026-04-01 — Continuation)
+**Previous Agent work:**
+- Added `credentials: 'include'` to 3 fetch calls: `use-monitoring.ts`, `main.tsx`, `input.tsx`
+- Fixed route ordering in `notificationRoutes.ts`: `DELETE /bulk-delete-suspicious` registered before `DELETE /:id` (was causing Express to treat `bulk-delete-suspicious` as an ID)
+- Fixed error response code in `notificationRoutes.ts`: 500 error block was returning `success: true` → corrected to `success: false`
+
+**Current Agent work:**
+- **Production console.log leak fixed (4 lib files):** Added `import.meta.env.DEV` guards to unprotected `console.log` statements that would run in production:
+  - `queryClient.ts`: 1 instance (API request logging)
+  - `api-client.ts`: 5 instances (request/response logging, token refresh logging)
+  - `token-utils.ts`: 3 instances (also fixed security issue — was printing raw token values in logs; replaced with generic message)
+  - `webauthn.ts`: 4 instances (biometric availability check logging)
+- **Memory leak verification:** Confirmed all 15 `setInterval` usages and all event listeners have proper cleanup/`clearInterval` in React `useEffect` return functions — no leaks found
+- **Auth verification:** Confirmed `requireAuth` middleware applied at router level in `workerRoutes.ts` (line 421) and `financialRoutes.ts` — all protected routes enforced correctly
+- **Financial transaction integrity:** Verified all financial write operations use `withTransaction` wrapper — no unprotected financial mutations found
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

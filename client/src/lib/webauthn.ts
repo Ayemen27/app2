@@ -41,9 +41,9 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
 export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
     try {
-      console.log('[Biometric] Checking native biometric availability...');
+      if (import.meta.env.DEV) console.log('[Biometric] Checking native biometric availability...');
       const result = await NativeBiometric.isAvailable();
-      console.log('[Biometric] isAvailable result:', JSON.stringify(result));
+      if (import.meta.env.DEV) console.log('[Biometric] isAvailable result:', JSON.stringify(result));
       return result.isAvailable;
     } catch (err: any) {
       console.error('[Biometric] Native isAvailable error:', err?.message || err, err?.code);
@@ -52,12 +52,12 @@ export async function isBiometricAvailable(): Promise<boolean> {
   }
 
   if (!window.PublicKeyCredential) {
-    console.log('[Biometric] PublicKeyCredential not available');
+    if (import.meta.env.DEV) console.log('[Biometric] PublicKeyCredential not available');
     return false;
   }
   try {
     const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    console.log('[Biometric] WebAuthn platform authenticator available:', available);
+    if (import.meta.env.DEV) console.log('[Biometric] WebAuthn platform authenticator available:', available);
     return available;
   } catch (err: any) {
     console.error('[Biometric] WebAuthn check error:', err?.message || err);

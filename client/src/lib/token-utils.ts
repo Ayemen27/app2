@@ -58,7 +58,7 @@ export function getValidToken(key: 'accessToken' | 'refreshToken'): string | nul
   const token = key === 'accessToken' ? getAccessToken() : getRefreshToken();
   if (!token || !isValidJwt(token)) return null;
   if (isTokenExpired(token)) {
-    console.log(`[TokenUtils] ${key} expired or expiring soon`);
+    if (import.meta.env.DEV) console.log(`[TokenUtils] ${key} expired or expiring soon`);
     return null;
   }
   return token;
@@ -72,10 +72,10 @@ export function clearInvalidTokens(): void {
   const hasInvalid = (accessToken && !isValidJwt(accessToken)) || (refreshToken && !isValidJwt(refreshToken));
   if (hasInvalid) {
     if (accessToken && !isValidJwt(accessToken)) {
-      console.log(`[TokenUtils] clearing invalid accessToken: "${accessToken}"`);
+      if (import.meta.env.DEV) console.log(`[TokenUtils] clearing invalid accessToken`);
     }
     if (refreshToken && !isValidJwt(refreshToken)) {
-      console.log(`[TokenUtils] clearing invalid refreshToken: "${refreshToken}"`);
+      if (import.meta.env.DEV) console.log(`[TokenUtils] clearing invalid refreshToken`);
     }
     clearTokens();
   }
@@ -84,7 +84,7 @@ export function clearInvalidTokens(): void {
 export function setAuthMode(mode: AuthMode): void {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   localStorage.setItem(AUTH_MODE_KEY, mode);
-  console.log(`🔐 [TokenUtils] وضع المصادقة: ${mode}`);
+  if (import.meta.env.DEV) console.log(`🔐 [TokenUtils] وضع المصادقة: ${mode}`);
 }
 
 export function getAuthMode(): AuthMode {

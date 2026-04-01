@@ -28,7 +28,7 @@ class ApiClient {
       const refreshToken = getRefreshToken();
       if (refreshToken && isValidJwt(refreshToken) && !isTokenExpired(refreshToken)) {
         try {
-          console.log('[ApiClient] Access token expired, attempting proactive refresh...');
+          if (import.meta.env.DEV) console.log('[ApiClient] Access token expired, attempting proactive refresh...');
           const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
             refreshToken
           });
@@ -57,7 +57,7 @@ class ApiClient {
 
     try {
       const url = `${this.baseURL}${endpoint}`;
-      console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, options.body || '');
+      if (import.meta.env.DEV) console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, options.body || '');
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ class ApiClient {
       if (response.status === 401) {
         const errorData = await response.clone().json().catch(() => ({}));
         if (errorData.code === 'TOKEN_EXPIRED' && endpoint !== '/auth/refresh') {
-          console.log('🔄 [API] Token expired, attempting refresh...');
+          if (import.meta.env.DEV) console.log('🔄 [API] Token expired, attempting refresh...');
           try {
             const currentRefreshToken = getRefreshToken();
             const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
@@ -119,11 +119,11 @@ class ApiClient {
       
       if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        console.log(`✅ API Response: ${options.method || 'GET'} ${endpoint}`, data);
+        if (import.meta.env.DEV) console.log(`✅ API Response: ${options.method || 'GET'} ${endpoint}`, data);
         return data;
       } else {
         const text = await response.text();
-        console.log(`✅ API Response (non-JSON): ${options.method || 'GET'} ${endpoint}`);
+        if (import.meta.env.DEV) console.log(`✅ API Response (non-JSON): ${options.method || 'GET'} ${endpoint}`);
         return text as unknown as T;
       }
     } catch (error) {
@@ -178,7 +178,7 @@ export async function apiRequest(
       const refreshTokenVal = getRefreshToken();
       if (refreshTokenVal && isValidJwt(refreshTokenVal) && !isTokenExpired(refreshTokenVal)) {
         try {
-          console.log('[apiRequest] Access token expired, attempting proactive refresh...');
+          if (import.meta.env.DEV) console.log('[apiRequest] Access token expired, attempting proactive refresh...');
           const refreshUrl = `${baseURL}/api/auth/refresh`;
           const refreshRes = await fetch(refreshUrl, {
             method: 'POST',

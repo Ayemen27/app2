@@ -179,7 +179,7 @@ export async function apiRequest(
       }
     }
 
-    console.log(`[apiRequest] ${method} ${endpoint}`);
+    if (import.meta.env.DEV) console.log(`[apiRequest] ${method} ${endpoint}`);
 
     const response = await fetch(url, config);
 

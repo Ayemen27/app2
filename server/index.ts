@@ -86,6 +86,26 @@ app.get(['/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'], (req: Reque
   res.status(204).end();
 });
 
+app.get('/robots.txt', (req: Request, res: Response): void => {
+  const robotsPath = path.resolve(process.cwd(), 'client', 'public', 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(robotsPath);
+  }
+  res.status(204).end();
+});
+
+app.get('/sitemap.xml', (req: Request, res: Response): void => {
+  const sitemapPath = path.resolve(process.cwd(), 'client', 'public', 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(sitemapPath);
+  }
+  res.status(204).end();
+});
+
 app.get('/manifest.json', (req: Request, res: Response): void => {
   const manifestPath = path.resolve(process.cwd(), 'client', 'public', 'manifest.json');
   if (fs.existsSync(manifestPath)) {
@@ -98,7 +118,7 @@ app.get('/manifest.json', (req: Request, res: Response): void => {
 
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req: Request, res: Response, next: NextFunction): void => {
-  res.removeHeader('X-Frame-Options');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');

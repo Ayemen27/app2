@@ -1,7 +1,7 @@
 {
-  "name": "إدارة المشاريع الإنشائية",
-  "short_name": "مشروعي",
-  "description": "نظام احترافي لإدارة وتحليل المشاريع الإنشائية",
+  "name": "AXION — إدارة المشاريع الإنشائية",
+  "short_name": "AXION",
+  "description": "منصة احترافية لإدارة المشاريع الإنشائية وتتبع الآبار والعمال والتحويلات المالية. مدعومة بالذكاء الاصطناعي.",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "minimal-ui"],
@@ -13,6 +13,7 @@
   "scope": "/",
   "lang": "ar",
   "dir": "rtl",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",

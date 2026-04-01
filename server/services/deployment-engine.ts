@@ -788,7 +788,7 @@ export class DeploymentEngine {
     await this.ensureSSHKeyProvisioned();
 
     const bt = config.buildTarget || "server";
-    const steps: StepEntry[] = getPipelineSteps(config.pipeline, bt).map(name => ({
+    const steps: StepEntry[] = getPipelineSteps(config.pipeline as Pipeline, bt).map(name => ({
       name,
       status: "pending" as const,
     }));
@@ -895,7 +895,7 @@ export class DeploymentEngine {
       switch (status) {
         case "started": {
           const bt = config.buildTarget || "server";
-          const pipelineSteps = getPipelineSteps(config.pipeline, bt);
+          const pipelineSteps = getPipelineSteps(config.pipeline as Pipeline, bt);
           let commitHash: string | undefined;
           try {
             const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
@@ -965,7 +965,7 @@ export class DeploymentEngine {
 
   private async runPipeline(deploymentId: string, config: DeploymentConfig, startFromIdx: number = 0, resumed: boolean = false) {
     const bt = config.buildTarget || "server";
-    const pipelineSteps = getPipelineSteps(config.pipeline, bt);
+    const pipelineSteps = getPipelineSteps(config.pipeline as Pipeline, bt);
     const startTime = Date.now();
     const logger = resumed ? null : this.getLogger(deploymentId);
 
@@ -980,7 +980,7 @@ export class DeploymentEngine {
           steps: pipelineSteps,
         });
 
-        const validation = validatePipeline(config.pipeline, bt as BuildTarget);
+        const validation = validatePipeline(config.pipeline as Pipeline, bt as BuildTarget);
         if (!validation.valid) {
           const errMsg = `Pipeline validation failed: ${validation.errors.join(", ")}`;
           logger!.error("pipeline", errMsg);

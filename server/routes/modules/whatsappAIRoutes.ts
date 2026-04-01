@@ -642,7 +642,7 @@ router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Resp
     .leftJoin(users, eq(whatsappAllowedNumbers.addedBy, users.id))
     .orderBy(whatsappAllowedNumbers.createdAt);
 
-    const enriched = await Promise.all(numbers.map(async (num) => {
+    const enriched = await Promise.all(numbers.map(async (num: any) => {
       let linkInfo = null;
       let linkedUserName = null;
       let linkedUserRole = null;
@@ -723,7 +723,7 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
     const hashedPw = await hashPassword(randomPassword);
     const displayName = label || `واتساب ${canonical}`;
 
-    const result = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx: any) => {
       const existingUser = await tx.select({ id: users.id, role: users.role })
         .from(users)
         .where(eq(users.email, syntheticEmail))

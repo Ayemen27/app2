@@ -1748,7 +1748,7 @@ export default function WhatsAppSetupPage() {
                                       )}
                                     </div>
                                     <Select
-                                      onValueChange={(projectId) => {
+                                      onValueChange={(projectId: string) => {
                                         const currentIds = (num.projectPermissions || []).map((p: any) => p.projectId);
                                         if (!currentIds.includes(projectId)) {
                                           updatePermsMutation.mutate({

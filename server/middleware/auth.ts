@@ -341,7 +341,7 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
         suspiciousActivityTracker.set(ip, { attempts: 1, lastAttempt: Date.now(), blockedUntil: 0 });
       }
     }
-    return originalEnd.apply(res, args);
+    return originalEnd.apply(res, args as Parameters<typeof originalEnd>);
   } as any;
 
   next();

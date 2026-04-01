@@ -194,28 +194,28 @@ export default function WorkerRebalancePage() {
           label: 'عمال متضاربون',
           value: workers.length,
           icon: Users,
-          color: workers.length > 0 ? 'warning' : 'success',
+          color: workers.length > 0 ? 'amber' : 'green',
         },
         {
           key: 'positive-projects',
           label: 'أرصدة موجبة',
           value: totalPositive,
           icon: TrendingUp,
-          color: 'success',
+          color: 'green',
         },
         {
           key: 'negative-projects',
           label: 'أرصدة سالبة',
           value: totalNegative,
           icon: TrendingDown,
-          color: 'danger',
+          color: 'red',
         },
         {
           key: 'completed',
           label: 'تمت تسويتهم',
           value: completedWorkers.size,
           icon: CheckCircle2,
-          color: 'info',
+          color: 'blue',
         },
       ],
       columns: 4,
@@ -233,10 +233,9 @@ export default function WorkerRebalancePage() {
         onRefresh={() => refetch()}
         isRefreshing={isRefetching}
         resultsSummary={workers.length > 0 ? {
-          count: filteredWorkers.length,
-          label: 'عامل بأرصدة متضاربة',
-          icon: AlertTriangle,
-          color: 'warning',
+          totalCount: workers.length,
+          filteredCount: filteredWorkers.length,
+          filteredLabel: 'عامل بأرصدة متضاربة',
         } : undefined}
       />
 

@@ -2779,6 +2779,20 @@ projectRouter.get('/:project_id/previous-balance/:date', requireProjectAccess('v
   }
 });
 
+const _balanceCacheMap = new Map<string, { value: number; expiresAt: number }>();
+const BALANCE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getCachedBalance(key: string): number | null {
+  const entry = _balanceCacheMap.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _balanceCacheMap.delete(key); return null; }
+  return entry.value;
+}
+
+function setCachedBalance(key: string, value: number): void {
+  _balanceCacheMap.set(key, { value, expiresAt: Date.now() + BALANCE_CACHE_TTL_MS });
+}
+
 /**
  * 💰 دالة مساعدة لحساب الرصيد التراكمي
  * Helper function for calculating cumulative balance

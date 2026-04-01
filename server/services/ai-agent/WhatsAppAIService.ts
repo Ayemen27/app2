@@ -390,7 +390,8 @@ export class WhatsAppAIService {
 
     if (isPdf && documentBase64) {
       try {
-        const pdfParse = (await import('pdf-parse')).default;
+        const pdfParseModule = await import('pdf-parse') as any;
+        const pdfParse = pdfParseModule.default || pdfParseModule;
         const buffer = Buffer.from(documentBase64, 'base64');
         const pdfData = await pdfParse(buffer);
         const extractedText = pdfData?.text?.trim() || '';
@@ -820,7 +821,7 @@ export class WhatsAppAIService {
           .limit(5);
 
         if (recentWorkers.length > 0) {
-          return recentWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
+          return recentWorkers.map((w: any, i: number) => `*${i + 1}.* ${w.name}`).join('\n');
         }
       } catch (e) {
         console.warn('[WhatsAppAI] Failed to fetch workers for quick replies:', e);
@@ -836,7 +837,7 @@ export class WhatsAppAIService {
           .limit(5);
 
         if (activeProjects.length > 0) {
-          return activeProjects.map((p, i) => `*${i + 1}.* ${p.name}`).join('\n');
+          return activeProjects.map((p: any, i: number) => `*${i + 1}.* ${p.name}`).join('\n');
         }
       } catch (e) {
         console.warn('[WhatsAppAI] Failed to fetch projects for quick replies:', e);

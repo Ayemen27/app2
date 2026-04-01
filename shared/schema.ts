@@ -1138,6 +1138,7 @@ export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData)
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, created_at: true }).extend({
   date: dateStringSchema,
   amount: z.coerce.string().transform(v => v === '' ? '0' : v),
+  team_name: z.string().nullable().optional(),
 });
 
 // 🔐 **User Project Permissions Schema**

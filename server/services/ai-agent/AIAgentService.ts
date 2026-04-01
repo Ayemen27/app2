@@ -547,7 +547,7 @@ export class AIAgentService {
       const conversationalReply = this.detectConversationalQuery(currentMsgOnly);
       
       let responseContent: string;
-      let aiResponse: ModelResponse = { content: '', model: 'local', provider: 'local', tokensUsed: 0 };
+      let aiResponse: ModelResponse = { content: '', model: 'local', provider: 'openai' as any, tokensUsed: 0 };
       
       if (conversationalReply) {
         console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون API call (input="${currentMsgOnly.substring(0, 50)}")`);

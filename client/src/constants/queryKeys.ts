@@ -198,4 +198,6 @@ export const QUERY_KEYS = {
   workerSettlements: ["/api/worker-settlements"] as const,
   workerSettlementDetail: (id: string) =>
     ["/api/worker-settlements", id] as const,
+
+  WELLS_FULL_EXPORT: "wells-full-data" as const,
 } as const;

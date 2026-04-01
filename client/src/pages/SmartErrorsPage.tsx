@@ -86,7 +86,7 @@ const SmartErrorsPage: React.FC = () => {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(ENV.getApiUrl('/api/smart-errors/statistics'));
+      const response = await fetch(ENV.getApiUrl('/api/smart-errors/statistics'), { credentials: 'include' });
       const data = await response.json();
       
       if (data.success) {
@@ -114,6 +114,7 @@ const SmartErrorsPage: React.FC = () => {
     try {
       const response = await fetch(ENV.getApiUrl('/api/smart-errors/test'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-request-nonce': crypto.randomUUID(),

@@ -39,6 +39,7 @@ import settlementRouter from './settlementRoutes.js';
 import inventoryRouter from './inventoryRoutes.js';
 import centralLogRouter from './centralLogRoutes.js';
 import waImportRouter from './waImportRoutes.js';
+import smartErrorRouter from './smartErrorRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -103,6 +104,10 @@ export function registerOrganizedRoutes(app: Express) {
   // 📦 مسارات استيراد محادثات واتساب
   app.use('/api/wa-import', waImportRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات استيراد واتساب: /api/wa-import');
+
+  // 🔍 مسارات نظام كشف الأخطاء الذكي
+  app.use('/api/smart-errors', smartErrorRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الأخطاء الذكية: /api/smart-errors');
 
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
   app.use('/api/workers', workerRouter);

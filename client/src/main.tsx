@@ -60,6 +60,7 @@ const startApp = async () => {
     window.onerror = (message, source, lineno, colno, error) => {
       fetch(ENV.getApiUrl('/api/crashes'), {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify({
           exceptionType: 'GlobalUncaughtError',

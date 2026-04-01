@@ -112,33 +112,6 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /**
- * 🗑️ حذف إشعار محدد
- * DELETE /api/notifications/:id
- */
-notificationRouter.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const user_id = getAuthUser(req)?.user_id || "unknown";
-    if (!user_id || user_id === "unknown") return res.status(401).json({ success: false, message: "غير مخول" });
-
-    const { NotificationService } = await import('../../services/NotificationService');
-    const notificationService = new NotificationService();
-
-    const isAdmin = await notificationService.isAdmin(user_id);
-    if (!isAdmin) {
-      return res.status(403).json({ success: false, message: "حذف الإشعارات متاح للمسؤولين فقط" });
-    }
-
-    const notificationId = req.params.id;
-    await notificationService.deleteNotification(notificationId, user_id);
-
-    res.json({ success: true, message: "تم حذف الإشعار بنجاح" });
-  } catch (error: unknown) {
-    console.error('❌ [API] خطأ في حذف الإشعار:', error);
-    res.status(500).json({ success: false, message: "فشل في حذف الإشعار" });
-  }
-});
-
-/**
  * 🗑️ حذف جماعي للإشعارات "الغريبة" أو المشبوهة
  * DELETE /api/notifications/bulk-delete-suspicious
  */
@@ -168,7 +141,34 @@ notificationRouter.delete('/bulk-delete-suspicious', async (req: Request, res: R
     res.json({ success: true, message: "تم تنظيف الإشعارات المشبوهة بنجاح" });
   } catch (error: unknown) {
     console.error('❌ [API] خطأ في الحذف الجماعي المشبوه:', error);
-    res.status(500).json({ success: true, message: "فشل في عملية الحذف" });
+    res.status(500).json({ success: false, message: "فشل في عملية الحذف" });
+  }
+});
+
+/**
+ * 🗑️ حذف إشعار محدد
+ * DELETE /api/notifications/:id
+ */
+notificationRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const user_id = getAuthUser(req)?.user_id || "unknown";
+    if (!user_id || user_id === "unknown") return res.status(401).json({ success: false, message: "غير مخول" });
+
+    const { NotificationService } = await import('../../services/NotificationService');
+    const notificationService = new NotificationService();
+
+    const isAdmin = await notificationService.isAdmin(user_id);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: "حذف الإشعارات متاح للمسؤولين فقط" });
+    }
+
+    const notificationId = req.params.id;
+    await notificationService.deleteNotification(notificationId, user_id);
+
+    res.json({ success: true, message: "تم حذف الإشعار بنجاح" });
+  } catch (error: unknown) {
+    console.error('❌ [API] خطأ في حذف الإشعار:', error);
+    res.status(500).json({ success: false, message: "فشل في حذف الإشعار" });
   }
 });
 

@@ -330,7 +330,8 @@ export default function SystemCheckPage() {
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           const response = await fetch(ENV.getApiUrl('/api/sync/latest-backup'), { 
             signal: controller.signal,
-            cache: 'no-store'
+            cache: 'no-store',
+            credentials: 'include'
           });
           clearTimeout(timeoutId);
           

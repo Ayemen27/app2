@@ -64,7 +64,7 @@ export default function MultiProjectExpenses() {
 
   const { data, isLoading } = useQuery<{ data: ApiData }>({
     queryKey: ["/api/multi-project-expenses", selectedDate],
-    queryFn: async () => { const r = await fetch(`/api/multi-project-expenses?date=${selectedDate}`); if (!r.ok) throw new Error("fail"); return r.json(); },
+    queryFn: async () => { const r = await fetch(`/api/multi-project-expenses?date=${selectedDate}`, { credentials: 'include' }); if (!r.ok) throw new Error("fail"); return r.json(); },
   });
 
   const apiData = data?.data;

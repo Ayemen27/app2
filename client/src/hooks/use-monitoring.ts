@@ -56,14 +56,14 @@ export function useMonitoring() {
 
   // Mutations
   const updateMetricsMutation = useMutation({
-    mutationFn: () => fetch(ENV.getApiUrl('/api/metrics/update'), { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
+    mutationFn: () => fetch(ENV.getApiUrl('/api/metrics/update'), { method: 'POST', credentials: 'include', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.metrics });
     },
   });
 
   const runDiagnosticsMutation = useMutation({
-    mutationFn: () => fetch(ENV.getApiUrl('/api/diagnostics/run'), { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
+    mutationFn: () => fetch(ENV.getApiUrl('/api/diagnostics/run'), { method: 'POST', credentials: 'include', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.diagnostics });
     },

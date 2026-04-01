@@ -90,6 +90,7 @@ const useInteractiveValidation = (
         try {
           const response = await fetch(ENV.getApiUrl('/api/auth/validate-field'), {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'x-request-nonce': crypto.randomUUID(),

@@ -790,11 +790,15 @@ const activeIntervals: NodeJS.Timeout[] = [];
       }
     }
 
-    const botEnabled = process.env.WHATSAPP_BOT_ENABLED !== 'false';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const botExplicitlyEnabled = process.env.WHATSAPP_BOT_ENABLED === 'true';
+    const botExplicitlyDisabled = process.env.WHATSAPP_BOT_ENABLED === 'false';
+    const botEnabled = botExplicitlyEnabled || (isProduction && !botExplicitlyDisabled);
     if (botEnabled) {
+      console.log(`🤖 [WhatsAppBot] بدء التشغيل (env=${process.env.NODE_ENV}, WHATSAPP_BOT_ENABLED=${process.env.WHATSAPP_BOT_ENABLED || 'unset'})`);
       getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
     } else {
-      console.log('⏸️ [WhatsAppBot] البوت معطل بواسطة WHATSAPP_BOT_ENABLED=false');
+      console.log(`⏸️ [WhatsAppBot] البوت معطل (env=${process.env.NODE_ENV}, WHATSAPP_BOT_ENABLED=${process.env.WHATSAPP_BOT_ENABLED || 'unset'}) — يعمل فقط في production أو عند WHATSAPP_BOT_ENABLED=true`);
     }
 
     startNonceCleanup();

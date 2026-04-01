@@ -1,9 +1,15 @@
 User-agent: *
 Allow: /
+Allow: /login
+Allow: /register
 Disallow: /api/
+Disallow: /admin/
 Disallow: /dashboard
 Disallow: /projects
 Disallow: /workers
+Disallow: /worker-accounts
+Disallow: /worker-settlements
+Disallow: /worker-attendance
 Disallow: /financial
 Disallow: /reports
 Disallow: /settings
@@ -15,5 +21,8 @@ Disallow: /ledger
 Disallow: /deployment
 Disallow: /ai-chat
 Disallow: /notifications
+Disallow: /suppliers-pro
+Disallow: /customers
+Disallow: /local-db
 
 Sitemap: https://app2.binarjoinanalytic.info/sitemap.xml

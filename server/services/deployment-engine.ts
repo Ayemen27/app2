@@ -2491,16 +2491,30 @@ export class DeploymentEngine {
 
   private async syncBotTInventory(deploymentId: string, sshCmd: string, pm2Name: string) {
     const inventoryPath = "/opt/Bot-T/apps_inventory.yaml";
-    try {
-      await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}"...`, "info");
-      const sedCmd = `sed -i '/^  axion:/,/^  [a-z]/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
-      await execAsync(
-        `${sshCmd} "${sedCmd} && grep pm2_name ${inventoryPath} | grep -i axion"`,
-        { timeout: 10000, env: this.getSSHExecEnv() }
-      );
-      await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}"`, "success");
-    } catch (err: any) {
-      await this.addLog(deploymentId, `⚠️ تعذر تحديث Bot-T inventory: ${err.message}`, "warn");
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}" (محاولة ${attempt}/${maxRetries})...`, "info");
+        const sedCmd = `sed -i '/^  axion:/,/^  [a-z]/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
+        const verifyCmd = `awk '/^  axion:/,/^  [a-z]/{if(/pm2_name:/) print}' ${inventoryPath}`;
+        const { stdout } = await execAsync(
+          `${sshCmd} "${sedCmd} && ${verifyCmd}"`,
+          { timeout: 10000, env: this.getSSHExecEnv() }
+        );
+        const verified = stdout.trim().includes(`"${pm2Name}"`);
+        if (verified) {
+          await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}"`, "success");
+          return;
+        }
+        throw new Error(`التحقق فشل — القيمة الفعلية: ${stdout.trim()}`);
+      } catch (err: any) {
+        if (attempt < maxRetries) {
+          await this.addLog(deploymentId, `⚠️ محاولة ${attempt} فشلت: ${err.message} — إعادة المحاولة...`, "warn");
+          await new Promise(r => setTimeout(r, 2000));
+        } else {
+          await this.addLog(deploymentId, `❌ فشل تحديث Bot-T inventory بعد ${maxRetries} محاولات: ${err.message}. يجب التحديث يدوياً: pm2_name="${pm2Name}" في ${inventoryPath}`, "error");
+        }
+      }
     }
   }
 

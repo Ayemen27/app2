@@ -50,7 +50,7 @@ export const performanceHeaders = (req: Request, res: Response, next: NextFuncti
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   
   next();
 };

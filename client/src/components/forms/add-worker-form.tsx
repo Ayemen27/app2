@@ -305,7 +305,7 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
             inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="966XXXXXXXXX+"
+            placeholder="+966XXXXXXXXX"
             className="text-left ltr"
             dir="ltr"
           />

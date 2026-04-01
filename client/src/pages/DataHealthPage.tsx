@@ -40,7 +40,7 @@ export default function DataHealthPage() {
     }, 2000);
 
     // إجراء مقارنة حقيقية عند التحميل
-    verifySyncStatus().then(setComparison);
+    verifySyncStatus().then(setComparison).catch(() => {});
 
     return () => clearInterval(interval);
   }, []);

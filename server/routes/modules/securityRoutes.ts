@@ -13,7 +13,7 @@ router.get("/policies", async (req: Request, res: Response) => {
     const policies = await db.select().from(securityPolicies).orderBy(desc(securityPolicies.created_at));
     res.json({ success: true, data: policies });
   } catch (error) {
-    res.json({ success: true, data: [] });
+    res.status(500).json({ success: false, data: [], error: 'فشل في جلب السياسات' });
   }
 });
 
@@ -22,7 +22,7 @@ router.get("/suggestions", async (req: Request, res: Response) => {
     const suggestions = await db.select().from(securityPolicySuggestions).orderBy(desc(securityPolicySuggestions.created_at));
     res.json({ success: true, data: suggestions });
   } catch (error) {
-    res.json({ success: true, data: [] });
+    res.status(500).json({ success: false, data: [], error: 'فشل في جلب الاقتراحات' });
   }
 });
 
@@ -42,7 +42,7 @@ router.get("/violations", async (req: Request, res: Response) => {
       .orderBy(desc(securityPolicyViolations.created_at));
     res.json({ success: true, data: rows });
   } catch (error) {
-    res.json({ success: true, data: [] });
+    res.status(500).json({ success: false, data: [], error: 'فشل في جلب المخالفات' });
   }
 });
 

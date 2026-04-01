@@ -153,7 +153,7 @@ export function EquipmentManagement() {
     queryFn: () => {
       const params = new URLSearchParams();
       if (projectId) params.set('projectId', projectId);
-      return fetch(ENV.getApiUrl(`/api/inventory/stats?${params}`)).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/stats?${params}`), { credentials: 'include' }).then(r => r.json());
     },
   });
 
@@ -164,7 +164,7 @@ export function EquipmentManagement() {
       if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter);
       if (searchTerm) params.set('search', searchTerm);
       if (projectId) params.set('projectId', projectId);
-      return fetch(ENV.getApiUrl(`/api/inventory/stock?${params}`)).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/stock?${params}`), { credentials: 'include' }).then(r => r.json());
     },
   });
 
@@ -174,7 +174,7 @@ export function EquipmentManagement() {
       const params = new URLSearchParams();
       if (txTypeFilter && txTypeFilter !== 'all') params.set('type', txTypeFilter);
       if (projectId) params.set('projectId', projectId);
-      return fetch(ENV.getApiUrl(`/api/inventory/transactions?${params}`)).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/transactions?${params}`), { credentials: 'include' }).then(r => r.json());
     },
     enabled: activeTab === 'incoming' || activeTab === 'outgoing' || activeTab === 'returns' || activeTab === 'transactions',
   });
@@ -188,7 +188,7 @@ export function EquipmentManagement() {
     queryFn: () => {
       const params = new URLSearchParams({ groupBy: reportGroupBy });
       if (projectId) params.set('projectId', projectId);
-      return fetch(ENV.getApiUrl(`/api/inventory/reports?${params}`)).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/reports?${params}`), { credentials: 'include' }).then(r => r.json());
     },
     enabled: activeTab === 'reports',
   });
@@ -218,7 +218,7 @@ export function EquipmentManagement() {
 
   const { data: statusesData } = useQuery<{ success: boolean; data: string[] }>({
     queryKey: ['/api/equipment/statuses'],
-    queryFn: () => fetch(ENV.getApiUrl('/api/equipment/statuses')).then(r => r.json()),
+    queryFn: () => fetch(ENV.getApiUrl('/api/equipment/statuses'), { credentials: 'include' }).then(r => r.json()),
   });
   const defaultStatusLabels: Record<string, string> = { available: 'متاح', assigned: 'مخصص', maintenance: 'صيانة', lost: 'مفقود', consumed: 'مستهلك', active: 'نشط' };
   const equipmentStatuses: string[] = statusesData?.data || Object.keys(defaultStatusLabels);

@@ -8,17 +8,20 @@ export const getClientPlatformHeader = _getClientPlatformHeader;
 
 export function storeTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  if (!_isNativePlatform()) return;
   localStorage.setItem('accessToken', accessToken);
   localStorage.setItem('refreshToken', refreshToken);
 }
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  if (!_isNativePlatform()) return null;
   return localStorage.getItem('accessToken');
 }
 
 export function getRefreshToken(): string | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  if (!_isNativePlatform()) return null;
   return localStorage.getItem('refreshToken');
 }
 
@@ -29,6 +32,7 @@ export function clearTokens(): void {
 }
 
 export function getAuthHeaders(): Record<string, string> {
+  if (!_shouldUseBearerAuth()) return {};
   const token = getAccessToken();
   if (!token) return {};
   return { 'Authorization': `Bearer ${token}` };
@@ -40,21 +44,28 @@ async function tryRefreshToken(): Promise<boolean> {
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = (async () => {
     try {
-      const refreshTokenValue = getRefreshToken();
-      if (!refreshTokenValue) return false;
       const { ENV: env } = await import('./env');
+      const isNative = _isNativePlatform();
+      const refreshTokenValue = isNative ? getRefreshToken() : null;
+
+      if (isNative && !refreshTokenValue) return false;
+
+      const body = refreshTokenValue
+        ? JSON.stringify({ refreshToken: refreshTokenValue })
+        : undefined;
+
       const res = await fetch(env.getApiUrl('/api/auth/refresh'), {
         method: 'POST',
         credentials: _getFetchCredentials(),
         headers: { 'Content-Type': 'application/json', ..._getClientPlatformHeader() },
-        body: JSON.stringify({ refreshToken: refreshTokenValue })
+        ...(body ? { body } : {}),
       });
       if (!res.ok) return false;
       const data = await res.json();
       const newAccess = data.data?.accessToken || data.accessToken;
       const newRefresh = data.data?.refreshToken || data.refreshToken;
       if (newAccess) {
-        storeTokens(newAccess, newRefresh || refreshTokenValue);
+        if (isNative) storeTokens(newAccess, newRefresh || refreshTokenValue || '');
         return true;
       }
       return false;

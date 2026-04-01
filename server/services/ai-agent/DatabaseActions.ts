@@ -60,6 +60,10 @@ export class DatabaseActions {
     'webauthn_credentials',
     'whatsapp_user_links',
     'whatsapp_allowed_numbers',
+    'whatsapp_security_events',
+    'whatsapp_bot_settings',
+    'whatsapp_messages',
+    'ai_chat_messages',
     'refresh_tokens',
   ];
 
@@ -1350,7 +1354,7 @@ export class DatabaseActions {
         }
       }
 
-      const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? trimmed : `${trimmed} LIMIT 500`;
+      const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? normalized : `${normalized} LIMIT 500`;
       const client = await pool.connect();
       try {
         await client.query('SET statement_timeout = 10000');
@@ -1416,7 +1420,7 @@ export class DatabaseActions {
       }
     }
 
-    const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? query.trim() : `${query.trim()} LIMIT 500`;
+    const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? normalized : `${normalized} LIMIT 500`;
     const client = await pool.connect();
     try {
       await client.query('SET statement_timeout = 10000');

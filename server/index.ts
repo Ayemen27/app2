@@ -26,6 +26,7 @@ import { Server } from 'socket.io';
 import compression from "compression"; 
 import { smartConnectionManager } from './services/smart-connection-manager';
 import { startNonceCleanup } from './middleware/replay-protection';
+import { setupAdvancedErrorTracking } from './middleware/error-tracking';
 import { healthMonitor } from './services/HealthMonitor';
 import { FcmService } from "./services/FcmService";
 
@@ -267,6 +268,7 @@ app.use(performanceHeaders);
 app.use(generalRateLimit);
 app.use(trackSuspiciousActivity);
 app.use(securityHeaders);
+app.use(setupAdvancedErrorTracking());
 
 import { idempotencyMiddleware, startIdempotencyCleanup } from "./middleware/idempotency";
 app.use('/api', idempotencyMiddleware);
@@ -704,18 +706,29 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction): any => {
   const status = err.status || err.statusCode || 500;
   const isProduction = process.env.NODE_ENV === 'production';
   const genericMessage = 'حدث خطأ داخلي في الخادم';
+  const errorMessage = err instanceof Error ? err.message : String(err);
 
   console.error(`❌ [Global Error] ${req.method} ${req.path}:`, err);
+
+  try {
+    const errorObj = err instanceof Error ? err : new Error(errorMessage || genericMessage);
+    CentralLogService.getInstance().logError(errorObj, {
+      source: 'api',
+      action: `${req.method} ${req.path}`,
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent'),
+    });
+  } catch (_logErr) {}
 
   if (req.path.startsWith('/api/')) {
     return res.status(status).json({ 
       success: false, 
-      message: isProduction ? genericMessage : (err.message || genericMessage),
+      message: isProduction ? genericMessage : (errorMessage || genericMessage),
       data: null
     });
   }
   
-  res.status(status).send(isProduction ? genericMessage : (err.message || genericMessage));
+  res.status(status).send(isProduction ? genericMessage : (errorMessage || genericMessage));
 });
 
 // ✅ **404 Handler for API**

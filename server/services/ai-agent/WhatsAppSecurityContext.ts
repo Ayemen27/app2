@@ -3,6 +3,11 @@ import { whatsappUserLinks, whatsappLinkProjects, whatsappAllowedNumbers, users,
 import { eq, and, inArray } from "drizzle-orm";
 import { projectAccessService, type ProjectPermissionInfo } from "../ProjectAccessService";
 
+function maskPhone(phone: string): string {
+  if (phone.length <= 6) return '***';
+  return phone.slice(0, 3) + '***' + phone.slice(-3);
+}
+
 export class WhatsAppSecurityContext {
   userId: string | null;
   role: string;
@@ -44,7 +49,7 @@ export class WhatsAppSecurityContext {
 
   static async fromPhone(phone: string): Promise<WhatsAppSecurityContext> {
     const cleanPhone = phone.replace(/\D/g, "");
-    console.log(`[WhatsAppSecurityContext] fromPhone: بحث عن الرقم ${cleanPhone}`);
+    console.log(`[WhatsAppSecurityContext] fromPhone: بحث عن الرقم ${maskPhone(cleanPhone)}`);
 
     let link = await db
       .select()
@@ -71,17 +76,17 @@ export class WhatsAppSecurityContext {
 
       if (allowedCheck.length > 0) {
         if (!allowedCheck[0].linkedUserId) {
-          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} في allowed_numbers لكن بدون linkedUserId (سجل قديم) — رفض أي ربط legacy لمنع تصعيد الصلاحيات`);
+          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${maskPhone(cleanPhone)} في allowed_numbers لكن بدون linkedUserId (سجل قديم) — رفض أي ربط legacy لمنع تصعيد الصلاحيات`);
           link = [];
         } else if (allowedCheck[0].linkedUserId !== link[0].user_id) {
-          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} مربوط بمستخدم ${link[0].user_id} لكن allowed_numbers يحدد المستخدم المستقل ${allowedCheck[0].linkedUserId} — رفض الربط القديم`);
+          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${maskPhone(cleanPhone)} مربوط بمستخدم ${link[0].user_id} لكن allowed_numbers يحدد المستخدم المستقل ${allowedCheck[0].linkedUserId} — رفض الربط القديم`);
           link = [];
         }
       }
     }
 
     if (link.length === 0) {
-      console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في user_links — البحث في allowed_numbers...`);
+      console.log(`[WhatsAppSecurityContext] الرقم ${maskPhone(cleanPhone)} غير موجود في user_links — البحث في allowed_numbers...`);
 
       const allowedEntry = await db
         .select()
@@ -117,15 +122,15 @@ export class WhatsAppSecurityContext {
             return new WhatsAppSecurityContext(cleanPhone, null, "allowed_no_link", [], allowedEntry[0].label || "");
           }
         } else {
-          console.log(`[WhatsAppSecurityContext] ⚠️ الرقم ${cleanPhone} مسموح لكن بدون مستخدم مستقل — يحتاج تهيئة من لوحة التحكم`);
+          console.log(`[WhatsAppSecurityContext] ⚠️ الرقم ${maskPhone(cleanPhone)} مسموح لكن بدون مستخدم مستقل — يحتاج تهيئة من لوحة التحكم`);
           return new WhatsAppSecurityContext(cleanPhone, null, "allowed_no_user", [], allowedEntry[0].label || "", false, false, false, false, "custom");
         }
       } else {
-        console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في allowed_numbers`);
+        console.log(`[WhatsAppSecurityContext] الرقم ${maskPhone(cleanPhone)} غير موجود في allowed_numbers`);
       }
 
       if (link.length === 0) {
-        console.log(`[WhatsAppSecurityContext] ❌ الرقم ${cleanPhone} غير مصرح — userId=null`);
+        console.log(`[WhatsAppSecurityContext] ❌ الرقم ${maskPhone(cleanPhone)} غير مصرح — userId=null`);
         return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
       }
     }

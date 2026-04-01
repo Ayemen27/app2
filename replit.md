@@ -199,6 +199,12 @@ Comprehensive audit performed: 34 dead/orphan files removed:
 
 **Preserved (verified used):** CircuitBreaker.ts, ModelManager.ts, ArabicNormalizer.ts, InteractiveMenu.ts, backup/* (ddl-generator, integrity-checker, restore-engine, streaming-restorer), routes.ts (initializes Telegram/GoogleDrive), unified-print-styles.css (imported in worker-accounts.tsx)
 
+### WhatsApp Bot Startup Logic (Hardened)
+Bot now runs **only** in production by default. Logic: `botEnabled = botExplicitlyEnabled || (isProduction && !botExplicitlyDisabled)`.
+- Production (NODE_ENV=production): starts automatically unless WHATSAPP_BOT_ENABLED=false
+- Development: never starts unless WHATSAPP_BOT_ENABLED=true explicitly
+- Log message includes both env and WHATSAPP_BOT_ENABLED value for debugging
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

@@ -1228,4 +1228,101 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * 🕒 آخر نسخة احتياطية متاحة
+ * GET /api/sync/latest-backup
+ */
+syncRouter.get('/latest-backup', async (req: Request, res: Response) => {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const backupsDir = path.resolve('./backups');
+
+    if (!fs.existsSync(backupsDir)) {
+      return res.status(404).json({ success: false, message: 'لا توجد نسخ احتياطية' });
+    }
+
+    const files = fs.readdirSync(backupsDir)
+      .filter((f: string) => f.endsWith('.json.gz') && !f.endsWith('.meta'))
+      .sort()
+      .reverse();
+
+    if (files.length === 0) {
+      return res.status(404).json({ success: false, message: 'لا توجد نسخ احتياطية' });
+    }
+
+    const latestFile = files[0];
+    const stat = fs.statSync(path.join(backupsDir, latestFile));
+
+    return res.json({
+      success: true,
+      filename: latestFile,
+      timestamp: stat.mtime.toISOString(),
+      size: stat.size,
+    });
+  } catch (error: unknown) {
+    console.error('❌ [Sync/latest-backup] خطأ:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * 📊 مقارنة المزامنة - إحصائيات مفصّلة لكل جدول
+ * GET /api/sync/compare
+ */
+syncRouter.get('/compare', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+  try {
+    const stats: Record<string, number> = {};
+    const tableDetails: Record<string, { columns: string[] }> = {};
+    let totalRecords = 0;
+
+    for (const table of ALL_DATABASE_TABLES) {
+      try {
+        const countResult = await pool.query(`SELECT COUNT(*) as count FROM "${table}"`);
+        const count = Number(countResult.rows[0]?.count || 0);
+        stats[table] = count;
+        totalRecords += count;
+      } catch {
+        stats[table] = 0;
+      }
+
+      try {
+        const colResult = await pool.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
+          [table]
+        );
+        tableDetails[table] = { columns: colResult.rows.map((r: any) => r.column_name) };
+      } catch {
+        tableDetails[table] = { columns: [] };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        stats,
+        tableDetails,
+        tables: ALL_DATABASE_TABLES as string[],
+        summary: {
+          totalTables: ALL_DATABASE_TABLES.length,
+          totalRecords,
+          timestamp: Date.now(),
+        },
+      },
+    });
+  } catch (error: unknown) {
+    console.error('❌ [Sync/compare] خطأ:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 export default syncRouter;

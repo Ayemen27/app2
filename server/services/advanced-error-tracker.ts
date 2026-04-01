@@ -4,13 +4,65 @@
  */
 
 import type { ErrorLog, InsertErrorLog } from "@shared/schema";
-import { storage } from "../storage";
+import { db } from "../db";
+import { sql } from "drizzle-orm";
 
-interface ErrorTrackingStorage {
-  createErrorLog(data: InsertErrorLog): Promise<ErrorLog>;
-  getErrorLogs(limit: number, timeRange?: string): Promise<ErrorLog[]>;
+const NETLIFY_LOGS_TABLE = 'netlify_error_logs';
+
+async function ensureNetlifyLogsTable() {
+  try {
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS ${NETLIFY_LOGS_TABLE} (
+        id SERIAL PRIMARY KEY,
+        timestamp TEXT NOT NULL,
+        type TEXT NOT NULL,
+        path TEXT NOT NULL,
+        error TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        "statusCode" INTEGER NOT NULL DEFAULT 0,
+        "userAgent" TEXT,
+        ip TEXT,
+        stack TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `));
+  } catch (_e) {
+    // ignore if table already exists
+  }
 }
-const storageAny = storage as unknown as ErrorTrackingStorage;
+
+async function createErrorLog(data: InsertErrorLog): Promise<ErrorLog> {
+  try {
+    await ensureNetlifyLogsTable();
+    const result = await db.execute(
+      sql`INSERT INTO netlify_error_logs (timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack)
+          VALUES (${data.timestamp}, ${data.type}, ${data.path}, ${data.error}, ${data.status}, ${data.statusCode}, ${data.userAgent ?? null}, ${data.ip ?? null}, ${data.stack ?? null})
+          RETURNING id, timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack`
+    );
+    return ((result as unknown as { rows?: unknown[] }).rows?.[0] ?? { ...data, id: 0 }) as unknown as ErrorLog;
+  } catch (_e) {
+    return { ...data, id: 0 } as unknown as ErrorLog;
+  }
+}
+
+async function getErrorLogs(limit: number, timeRange?: string): Promise<ErrorLog[]> {
+  try {
+    await ensureNetlifyLogsTable();
+    let result;
+    if (timeRange === '24h') {
+      result = await db.execute(sql`SELECT id, timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack FROM netlify_error_logs WHERE created_at >= NOW() - INTERVAL '24 hours' ORDER BY created_at DESC LIMIT ${limit}`);
+    } else if (timeRange === '7d') {
+      result = await db.execute(sql`SELECT id, timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack FROM netlify_error_logs WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC LIMIT ${limit}`);
+    } else if (timeRange === '30d') {
+      result = await db.execute(sql`SELECT id, timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack FROM netlify_error_logs WHERE created_at >= NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT ${limit}`);
+    } else {
+      result = await db.execute(sql`SELECT id, timestamp, type, path, error, status, "statusCode", "userAgent", ip, stack FROM netlify_error_logs ORDER BY created_at DESC LIMIT ${limit}`);
+    }
+    return ((result as unknown as { rows?: unknown[] }).rows ?? []) as unknown as ErrorLog[];
+  } catch (_e) {
+    return [];
+  }
+}
 
 export interface NetlifyErrorContext {
   deploymentId?: string;
@@ -153,7 +205,7 @@ export class AdvancedErrorTracker {
     };
 
     // حفظ الخطأ في قاعدة البيانات
-    const savedError = await storageAny.createErrorLog(errorLogData);
+    const savedError = await createErrorLog(errorLogData);
 
     // تسجيل تفصيلي في الكونسول
     this.logDetailedError(savedError, analysis, context);
@@ -256,7 +308,7 @@ export class AdvancedErrorTracker {
    * الحصول على إحصائيات الأخطاء
    */
   async getErrorStatistics(timeRange: string = '24h') {
-    const errorLogs: ErrorLog[] = await storageAny.getErrorLogs(1000, timeRange);
+    const errorLogs: ErrorLog[] = await getErrorLogs(1000, timeRange);
     
     const stats = {
       totalErrors: errorLogs.length,
@@ -282,7 +334,7 @@ export class AdvancedErrorTracker {
   }
 
   async generateTrendAnalysis(timeRange: string = '24h') {
-    const errorLogs: ErrorLog[] = await storageAny.getErrorLogs(1000, timeRange);
+    const errorLogs: ErrorLog[] = await getErrorLogs(1000, timeRange);
     
     const hourlyDistribution = new Array(24).fill(0);
     errorLogs.forEach((log: ErrorLog) => {

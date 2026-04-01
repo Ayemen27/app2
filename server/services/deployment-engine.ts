@@ -2349,7 +2349,7 @@ export class DeploymentEngine {
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     const version = deployment?.version || config?.version || "unknown";
     const buildNumber = deployment?.buildNumber || 0;
-    const appName = `${appBase}-v${version}`;
+    const appName = appBase;
 
     const isOurProcess = (name: string) =>
       name.startsWith(appBase) || legacyNames.includes(name);
@@ -2484,6 +2484,23 @@ export class DeploymentEngine {
     } catch (err: any) {
       if (err.message?.includes("404")) throw err;
       await this.addLog(deploymentId, `⚠️ تعذر التحقق من مسار المصادقة: ${err.message}`, "warn");
+    }
+
+    await this.syncBotTInventory(deploymentId, sshCmd, appName);
+  }
+
+  private async syncBotTInventory(deploymentId: string, sshCmd: string, pm2Name: string) {
+    const inventoryPath = "/opt/Bot-T/apps_inventory.yaml";
+    try {
+      await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}"...`, "info");
+      const sedCmd = `sed -i '/^  axion:/,/^  [a-z]/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
+      await execAsync(
+        `${sshCmd} "${sedCmd} && grep pm2_name ${inventoryPath} | grep -i axion"`,
+        { timeout: 10000, env: this.getSSHExecEnv() }
+      );
+      await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}"`, "success");
+    } catch (err: any) {
+      await this.addLog(deploymentId, `⚠️ تعذر تحديث Bot-T inventory: ${err.message}`, "warn");
     }
   }
 
@@ -5090,8 +5107,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
-      const rollbackVersion = targetDeployment?.version || "rollback";
-      const rollbackAppName = `AXION-v${rollbackVersion}`;
+      const rollbackAppName = `AXION`;
       const rollbackEcosystem = `module.exports = {
   apps: [{
     name: '${rollbackAppName}',

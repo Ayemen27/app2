@@ -14,6 +14,7 @@ import { whatsappAllowedNumbers, whatsappSecurityEvents } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
 import { BotReply } from './whatsapp/InteractiveMenu';
 import { botSettingsService } from './whatsapp/BotSettingsService';
 import { NotificationService } from '../NotificationService';
@@ -205,7 +206,8 @@ export class WhatsAppBot {
   }
 
   private isContentDuplicate(phone: string, text: string, inputType: string): boolean {
-    const contentKey = `${phone}:${inputType}:${text.substring(0, 100)}`;
+    const msgHash = createHash('sha256').update(text).digest('hex').slice(0, 16);
+    const contentKey = `${phone}:${inputType}:${msgHash}`;
     const now = Date.now();
     const lastTime = this.recentContentHashes.get(contentKey);
     if (lastTime && now - lastTime < 60000) {
@@ -669,8 +671,9 @@ export class WhatsAppBot {
       }
       if (isLid && cleanPhone === rawId) {
         let lidAlreadyProcessed = false;
+        const lidMsgHash = createHash('sha256').update(contentText).digest('hex').slice(0, 16);
         for (const [key] of this.recentContentHashes.entries()) {
-          if (key.endsWith(`:${inputType}:${contentText.substring(0, 100)}`) && !key.startsWith(rawId)) {
+          if (key.endsWith(`:${inputType}:${lidMsgHash}`) && !key.startsWith(rawId)) {
             console.log(`[WhatsAppBot] LID message already processed via phone JID, skipping`);
             lidAlreadyProcessed = true;
             break;
@@ -760,7 +763,13 @@ export class WhatsAppBot {
             const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
             const buffer = await downloadMediaMessage(msg, 'buffer', {});
             if (buffer) {
-              msgMetadata.imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+              const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+              if (buffer.length > MAX_IMAGE_BYTES) {
+                console.warn(`[WhatsAppBot] Image too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB > 5MB), skipping OCR`);
+                msgMetadata.imageSkipped = true;
+              } else {
+                msgMetadata.imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+              }
             }
           } catch (dlErr) {
             console.warn('[WhatsAppBot] Failed to download image:', dlErr);
@@ -1082,7 +1091,7 @@ export class WhatsAppBot {
     const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
     await new Promise(resolve => setTimeout(resolve, delay));
     
-    const scKey = `${jid}:${(content?.text || '').substring(0, 100)}`;
+    const scKey = `${jid}:${createHash('sha256').update(content?.text || '').digest('hex').slice(0, 16)}`;
     const scNow = Date.now();
     const scLast = this.sentContentGuard.get(scKey);
     if (scLast && scNow - scLast < 30000) {

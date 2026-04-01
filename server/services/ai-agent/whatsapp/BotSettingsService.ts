@@ -58,6 +58,8 @@ const DEFAULT_SETTINGS: Omit<WhatsappBotSettings, "id" | "updatedAt" | "updatedB
 class BotSettingsService {
   private static instance: BotSettingsService;
   private cache: WhatsappBotSettings | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000;
 
   private constructor() {}
 
@@ -69,7 +71,7 @@ class BotSettingsService {
   }
 
   async getSettings(): Promise<WhatsappBotSettings> {
-    if (this.cache) {
+    if (this.cache && (Date.now() - this.cacheTimestamp) < this.CACHE_TTL_MS) {
       return this.cache;
     }
 
@@ -78,6 +80,7 @@ class BotSettingsService {
 
       if (rows.length > 0) {
         this.cache = rows[0];
+        this.cacheTimestamp = Date.now();
         return this.cache!;
       }
 
@@ -87,6 +90,7 @@ class BotSettingsService {
       }).returning();
 
       this.cache = inserted;
+      this.cacheTimestamp = Date.now();
       return this.cache!;
     } catch (error: any) {
       console.error("[BotSettingsService] Error getting settings:", error?.message);
@@ -114,6 +118,7 @@ class BotSettingsService {
       .returning();
 
     this.cache = updated;
+    this.cacheTimestamp = Date.now();
     return this.cache!;
   }
 
@@ -130,6 +135,7 @@ class BotSettingsService {
       .returning();
 
     this.cache = updated;
+    this.cacheTimestamp = Date.now();
     return this.cache!;
   }
 

@@ -52,6 +52,8 @@ export interface WhatsAppContext {
     | 'awaiting_worker_selection' | 'balance_offer_export';
   userId: string;
   userName: string;
+  role?: string;
+  isAdmin?: boolean;
   menuStack: string[];
   currentMenu: string;
   ambiguityCount?: number;
@@ -248,16 +250,20 @@ export class WhatsAppAIService {
       step: 'idle' as const,
       userId,
       userName,
+      role,
+      isAdmin,
       menuStack: [],
       currentMenu: 'main',
       ambiguityCount: 0,
       data: {},
     };
 
-    if (context.userId !== userId) {
-      context = { step: 'idle', userId, userName, menuStack: [], currentMenu: 'main', ambiguityCount: 0, data: {} };
+    if (context.userId !== userId || context.role !== role || context.isAdmin !== isAdmin) {
+      context = { step: 'idle', userId, userName, role, isAdmin, menuStack: [], currentMenu: 'main', ambiguityCount: 0, data: {} };
     }
     context.userName = userName;
+    context.role = role;
+    context.isAdmin = isAdmin;
 
     if (!this.sessions.has(senderPhone)) {
       this.sessions.set(senderPhone, context);

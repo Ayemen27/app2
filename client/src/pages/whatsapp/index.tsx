@@ -43,7 +43,7 @@ import {
   ChevronDown, ChevronUp, Eye, EyeOff, Power, RotateCcw,
   CheckCircle, XCircle, Info, Gauge, TrendingUp, Users,
   LinkIcon, Unlink, UserCheck, Trash2, Settings, FolderOpen,
-  Paperclip, Image, X
+  Paperclip, Image, X, ChevronRight, Edit, Plus, BookOpen
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -701,7 +701,7 @@ export default function WhatsAppSetupPage() {
 
   const { data: allProjects = [] } = useQuery({
     queryKey: ["/api/projects"],
-    enabled: isAdmin && (!!permissionsDialogLink || activeTab === "permissions"),
+    enabled: isAdmin && (!!permissionsDialogLink || activeTab === "permissions" || activeTab === "allowed"),
   });
 
   const { data: linkPermissions, isLoading: isLoadingPermissions } = useQuery({
@@ -963,6 +963,21 @@ export default function WhatsAppSetupPage() {
       toast({ title: "تم الحذف", description: "تم حذف الرقم من القائمة" });
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/allowed-numbers"] });
     },
+  });
+
+  const [expandedAllowedId, setExpandedAllowedId] = useState<number | null>(null);
+
+  const updatePermsMutation = useMutation({
+    mutationFn: async ({ id, ...perms }: { id: number; canRead?: boolean; canAdd?: boolean; canEdit?: boolean; canDelete?: boolean; scopeAllProjects?: boolean; projectIds?: string[] }) => {
+      return await apiRequest(`/api/whatsapp-ai/allowed-numbers/${id}/permissions`, "PATCH", perms);
+    },
+    onSuccess: () => {
+      toast({ title: "تم التحديث", description: "تم تحديث الصلاحيات بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/allowed-numbers"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث الصلاحيات"), variant: "destructive" });
+    }
   });
 
   const [selectedConvPhone, setSelectedConvPhone] = useState<string | null>(null);
@@ -1589,12 +1604,16 @@ export default function WhatsAppSetupPage() {
                     </div>
                   ) : Array.isArray(allowedNumbers) && allowedNumbers.length > 0 ? (
                     <div className="space-y-3">
-                      {allowedNumbers.map((num: any) => (
+                      {allowedNumbers.map((num: any) => {
+                        const isExpanded = expandedAllowedId === num.id;
+                        const link = num.linkInfo;
+                        return (
                         <div
                           key={num.id}
                           data-testid={`row-allowed-${num.id}`}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+                          className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 overflow-hidden transition-colors"
                         >
+                          <div className="p-3">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -1602,13 +1621,47 @@ export default function WhatsAppSetupPage() {
                                 {num.label && (
                                   <Badge variant="outline" className="text-[10px] font-semibold shrink-0">{num.label}</Badge>
                                 )}
+                                {num.linkedUserId ? (
+                                  <Badge className="text-[9px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                                    <UserCheck className="h-2.5 w-2.5 ml-0.5" />
+                                    {num.linkedUserName || "مستخدم مستقل"}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                                    <AlertTriangle className="h-2.5 w-2.5 ml-0.5" />
+                                    بدون مستخدم
+                                  </Badge>
+                                )}
+                                {link && (
+                                  <div className="flex gap-1">
+                                    {link.canRead && <Badge className="text-[8px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border-0 px-1.5">قراءة</Badge>}
+                                    {link.canAdd && <Badge className="text-[8px] bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 border-0 px-1.5">إضافة</Badge>}
+                                    {link.canEdit && <Badge className="text-[8px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border-0 px-1.5">تعديل</Badge>}
+                                    {link.canDelete && <Badge className="text-[8px] bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border-0 px-1.5">حذف</Badge>}
+                                    {link.scopeAllProjects && <Badge className="text-[8px] bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 border-0 px-1.5">كل المشاريع</Badge>}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
-                                {num.addedByName && <span>{num.addedByName}</span>}
+                                {num.addedByName && <span>أضافه: {num.addedByName}</span>}
                                 {num.createdAt && <span>{formatDate(num.createdAt)}</span>}
+                                {num.projectPermissions?.length > 0 && !link?.scopeAllProjects && (
+                                  <span className="text-blue-500">{num.projectPermissions.length} مشروع</span>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {num.linkedUserId && (
+                                <Button
+                                  data-testid={`btn-perms-${num.id}`}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30 rounded-lg h-8 w-8 p-0"
+                                  onClick={() => setExpandedAllowedId(isExpanded ? null : num.id)}
+                                >
+                                  <Settings2 className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                </Button>
+                              )}
                               <Switch
                                 data-testid={`switch-allowed-${num.id}`}
                                 checked={num.isActive}
@@ -1629,8 +1682,105 @@ export default function WhatsAppSetupPage() {
                               </Button>
                             </div>
                           </div>
+                          </div>
+
+                          {isExpanded && link && (
+                            <div className="border-t border-slate-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-900/50 space-y-4">
+                              <div className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                                <Shield className="h-3.5 w-3.5 text-orange-500" />
+                                صلاحيات الواتساب
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {([
+                                  { key: "canRead", label: "قراءة", icon: BookOpen, color: "blue" },
+                                  { key: "canAdd", label: "إضافة", icon: Plus, color: "green" },
+                                  { key: "canEdit", label: "تعديل", icon: Edit, color: "orange" },
+                                  { key: "canDelete", label: "حذف", icon: Trash2, color: "red" },
+                                ] as const).map(({ key, label, icon: Icon, color }) => (
+                                  <button
+                                    key={key}
+                                    data-testid={`perm-${key}-${num.id}`}
+                                    className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all text-xs font-semibold ${
+                                      link[key]
+                                        ? `border-${color}-300 bg-${color}-50 text-${color}-700 dark:border-${color}-700 dark:bg-${color}-950/30 dark:text-${color}-400`
+                                        : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/50'
+                                    }`}
+                                    onClick={() => updatePermsMutation.mutate({ id: num.id, [key]: !link[key] })}
+                                    disabled={updatePermsMutation.isPending}
+                                  >
+                                    <Icon className="h-3.5 w-3.5" />
+                                    {label}
+                                    {link[key] ? <CheckCircle className="h-3 w-3 mr-auto" /> : <XCircle className="h-3 w-3 mr-auto opacity-30" />}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <Separator />
+
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                                    <FolderOpen className="h-3.5 w-3.5 text-purple-500" />
+                                    نطاق المشاريع
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-[10px] text-slate-500">كل المشاريع</Label>
+                                    <Switch
+                                      data-testid={`switch-scope-${num.id}`}
+                                      checked={link.scopeAllProjects}
+                                      onCheckedChange={(checked) => updatePermsMutation.mutate({ id: num.id, scopeAllProjects: checked })}
+                                      disabled={updatePermsMutation.isPending}
+                                    />
+                                  </div>
+                                </div>
+
+                                {!link.scopeAllProjects && (
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {num.projectPermissions?.map((pp: any) => (
+                                        <Badge key={pp.projectId} className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-0 gap-1">
+                                          <FolderOpen className="h-2.5 w-2.5" />
+                                          {pp.projectName || pp.projectId}
+                                        </Badge>
+                                      ))}
+                                      {(!num.projectPermissions || num.projectPermissions.length === 0) && (
+                                        <span className="text-[10px] text-slate-400">لا توجد مشاريع محددة</span>
+                                      )}
+                                    </div>
+                                    <Select
+                                      onValueChange={(projectId) => {
+                                        const currentIds = (num.projectPermissions || []).map((p: any) => p.projectId);
+                                        if (!currentIds.includes(projectId)) {
+                                          updatePermsMutation.mutate({
+                                            id: num.id,
+                                            projectIds: [...currentIds, projectId],
+                                            canRead: link.canRead,
+                                            canAdd: link.canAdd,
+                                            canEdit: link.canEdit,
+                                            canDelete: link.canDelete,
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs rounded-lg" data-testid={`select-project-${num.id}`}>
+                                        <SelectValue placeholder="إضافة مشروع..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {(allProjects as any[]).filter((p: any) =>
+                                          !(num.projectPermissions || []).some((pp: any) => pp.projectId === p.id)
+                                        ).map((p: any) => (
+                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-16">

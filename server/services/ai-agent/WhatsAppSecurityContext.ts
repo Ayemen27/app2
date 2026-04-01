@@ -46,7 +46,7 @@ export class WhatsAppSecurityContext {
     const cleanPhone = phone.replace(/\D/g, "");
     console.log(`[WhatsAppSecurityContext] fromPhone: بحث عن الرقم ${cleanPhone}`);
 
-    const link = await db
+    let link = await db
       .select()
       .from(whatsappUserLinks)
       .where(
@@ -56,6 +56,24 @@ export class WhatsAppSecurityContext {
         )
       )
       .limit(1);
+
+    if (link.length > 0) {
+      const allowedCheck = await db
+        .select({ linkedUserId: whatsappAllowedNumbers.linkedUserId })
+        .from(whatsappAllowedNumbers)
+        .where(
+          and(
+            eq(whatsappAllowedNumbers.isActive, true),
+            eq(whatsappAllowedNumbers.phoneNumber, cleanPhone)
+          )
+        )
+        .limit(1);
+
+      if (allowedCheck.length > 0 && allowedCheck[0].linkedUserId && allowedCheck[0].linkedUserId !== link[0].user_id) {
+        console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} مربوط بمستخدم ${link[0].user_id} لكن allowed_numbers يحدد المستخدم المستقل ${allowedCheck[0].linkedUserId} — رفض الربط القديم`);
+        link = [];
+      }
+    }
 
     if (link.length === 0) {
       console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في user_links — البحث في allowed_numbers...`);
@@ -71,57 +89,38 @@ export class WhatsAppSecurityContext {
         )
         .limit(1);
 
-      if (allowedEntry.length > 0 && allowedEntry[0].addedBy) {
-        const ownerId = allowedEntry[0].addedBy;
-        console.log(`[WhatsAppSecurityContext] وُجد في allowed_numbers (addedBy: ${ownerId}) — محاولة ربط تلقائي...`);
-        try {
+      if (allowedEntry.length > 0) {
+        const linkedUserId = allowedEntry[0].linkedUserId;
+        if (linkedUserId) {
+          console.log(`[WhatsAppSecurityContext] وُجد في allowed_numbers مع مستخدم مستقل (linkedUserId: ${linkedUserId})`);
           const existingLink = await db
-            .select()
-            .from(whatsappUserLinks)
-            .where(eq(whatsappUserLinks.user_id, ownerId))
-            .limit(1);
-
-          if (existingLink.length > 0) {
-            console.log(`[WhatsAppSecurityContext] المستخدم ${ownerId} لديه ربط سابق بالرقم ${existingLink[0].phoneNumber} — تحديث الرقم إلى ${cleanPhone}`);
-            await db.update(whatsappUserLinks)
-              .set({
-                phoneNumber: cleanPhone,
-                isActive: true,
-              })
-              .where(eq(whatsappUserLinks.user_id, ownerId));
-          } else {
-            console.log(`[WhatsAppSecurityContext] إنشاء ربط جديد للمستخدم ${ownerId} بالرقم ${cleanPhone}`);
-            await db.insert(whatsappUserLinks).values({
-              user_id: ownerId,
-              phoneNumber: cleanPhone,
-              isActive: true,
-            });
-          }
-
-          const autoLink = await db
             .select()
             .from(whatsappUserLinks)
             .where(
               and(
-                eq(whatsappUserLinks.isActive, true),
+                eq(whatsappUserLinks.user_id, linkedUserId),
                 eq(whatsappUserLinks.phoneNumber, cleanPhone)
               )
             )
             .limit(1);
-          if (autoLink.length > 0) {
-            link.push(autoLink[0]);
-            console.log(`[WhatsAppSecurityContext] ✅ ربط تلقائي نجح للمستخدم ${ownerId}`);
+
+          if (existingLink.length > 0) {
+            link.push(existingLink[0]);
+            console.log(`[WhatsAppSecurityContext] ✅ ربط موجود بالمستخدم المستقل ${linkedUserId}`);
+          } else {
+            console.log(`[WhatsAppSecurityContext] ⚠️ linkedUserId موجود لكن لا يوجد whatsapp_user_link — الرقم يحتاج إعادة تهيئة`);
+            return new WhatsAppSecurityContext(cleanPhone, null, "allowed_no_link", [], allowedEntry[0].label || "");
           }
-        } catch (autoLinkErr: any) {
-          console.error(`[WhatsAppSecurityContext] ❌ فشل الربط التلقائي للرقم ${cleanPhone}:`, autoLinkErr?.message || autoLinkErr);
-          return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
+        } else {
+          console.log(`[WhatsAppSecurityContext] ⚠️ الرقم ${cleanPhone} مسموح لكن بدون مستخدم مستقل — يحتاج تهيئة من لوحة التحكم`);
+          return new WhatsAppSecurityContext(cleanPhone, null, "allowed_no_user", [], allowedEntry[0].label || "", false, false, false, false, "custom");
         }
       } else {
-        console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في allowed_numbers أو addedBy فارغ (addedBy: ${allowedEntry[0]?.addedBy || 'null'})`);
+        console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في allowed_numbers`);
       }
 
       if (link.length === 0) {
-        console.log(`[WhatsAppSecurityContext] ❌ فشل نهائي: الرقم ${cleanPhone} لا يوجد له ربط — userId=null`);
+        console.log(`[WhatsAppSecurityContext] ❌ الرقم ${cleanPhone} غير مصرح — userId=null`);
         return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
       }
     }

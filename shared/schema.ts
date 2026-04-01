@@ -2297,11 +2297,12 @@ export const whatsappAllowedNumbers = pgTable("whatsapp_allowed_numbers", {
   label: varchar("label", { length: 100 }),
   isActive: boolean("is_active").default(true).notNull(),
   addedBy: varchar("added_by"),
+  linkedUserId: varchar("linked_user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueAllowedPhone: uniqueIndex("whatsapp_allowed_numbers_phone_number_key").on(table.phoneNumber),
-    whatsapp_allowed_numbers_added_by_fkey: foreignKey({ name: "whatsapp_allowed_numbers_added_by_fkey", columns: [table.addedBy], foreignColumns: [users.id] }).onDelete("set null")
-  
+    whatsapp_allowed_numbers_added_by_fkey: foreignKey({ name: "whatsapp_allowed_numbers_added_by_fkey", columns: [table.addedBy], foreignColumns: [users.id] }).onDelete("set null"),
+    whatsapp_allowed_numbers_linked_user_fkey: foreignKey({ name: "whatsapp_allowed_numbers_linked_user_fkey", columns: [table.linkedUserId], foreignColumns: [users.id] }).onDelete("set null")
   }));
 
 export const insertWhatsappAllowedNumberSchema = createInsertSchema(whatsappAllowedNumbers).omit({ id: true, createdAt: true });

@@ -3,7 +3,7 @@ import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService"
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, whatsappLinkProjects, users, projects } from "@shared/schema";
+import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, whatsappLinkProjects, users, projects, userProjectPermissions } from "@shared/schema";
 import { eq, and, sql, ne, desc, inArray, or } from "drizzle-orm";
 import { authenticate } from "../../middleware/auth";
 import { z } from "zod";
@@ -11,6 +11,8 @@ import { projectAccessService } from "../../services/ProjectAccessService";
 import { botSettingsService } from "../../services/ai-agent/whatsapp/BotSettingsService";
 import { safeErrorMessage } from '../../middleware/api-response';
 import { toBuffer as qrToBuffer } from 'qrcode';
+import { hashPassword } from '../../auth/crypto-utils.js';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -619,19 +621,82 @@ router.post("/conversations/:phoneNumber/send-image", requireAdminCheck, async (
 
 router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Response) => {
   try {
+    const adminUsers = db.$with('admin_users').as(
+      db.select({ id: users.id, full_name: users.full_name }).from(users)
+    );
+    const linkedUsers = db.$with('linked_users').as(
+      db.select({ id: users.id, full_name: users.full_name, role: users.role }).from(users)
+    );
+
     const numbers = await db.select({
       id: whatsappAllowedNumbers.id,
       phoneNumber: whatsappAllowedNumbers.phoneNumber,
       label: whatsappAllowedNumbers.label,
       isActive: whatsappAllowedNumbers.isActive,
       addedBy: whatsappAllowedNumbers.addedBy,
+      linkedUserId: whatsappAllowedNumbers.linkedUserId,
       createdAt: whatsappAllowedNumbers.createdAt,
       addedByName: users.full_name,
     })
     .from(whatsappAllowedNumbers)
     .leftJoin(users, eq(whatsappAllowedNumbers.addedBy, users.id))
     .orderBy(whatsappAllowedNumbers.createdAt);
-    res.json(numbers);
+
+    const enriched = await Promise.all(numbers.map(async (num) => {
+      let linkInfo = null;
+      let linkedUserName = null;
+      let linkedUserRole = null;
+      let projectPermissions: any[] = [];
+
+      if (num.linkedUserId) {
+        const [linkedUser] = await db.select({ full_name: users.full_name, role: users.role })
+          .from(users).where(eq(users.id, num.linkedUserId)).limit(1);
+        if (linkedUser) {
+          linkedUserName = linkedUser.full_name;
+          linkedUserRole = linkedUser.role;
+        }
+
+        const link = await db.select()
+          .from(whatsappUserLinks)
+          .where(eq(whatsappUserLinks.user_id, num.linkedUserId))
+          .limit(1);
+        if (link.length > 0) {
+          linkInfo = {
+            id: link[0].id,
+            permissionsMode: link[0].permissionsMode,
+            canRead: link[0].canRead,
+            canAdd: link[0].canAdd,
+            canEdit: link[0].canEdit,
+            canDelete: link[0].canDelete,
+            scopeAllProjects: link[0].scopeAllProjects,
+          };
+
+          if (!link[0].scopeAllProjects) {
+            const linkProjects = await db.select({
+              projectId: whatsappLinkProjects.project_id,
+              projectName: projects.name,
+            })
+            .from(whatsappLinkProjects)
+            .leftJoin(projects, eq(whatsappLinkProjects.project_id, projects.id))
+            .where(and(
+              eq(whatsappLinkProjects.linkId, link[0].id),
+              eq(whatsappLinkProjects.isActive, true)
+            ));
+            projectPermissions = linkProjects;
+          }
+        }
+      }
+
+      return {
+        ...num,
+        linkedUserName,
+        linkedUserRole,
+        linkInfo,
+        projectPermissions,
+      };
+    }));
+
+    res.json(enriched);
   } catch (error: any) {
     res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
@@ -652,30 +717,148 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
     if (existing.length > 0) {
       return res.status(409).json({ error: "هذا الرقم مضاف بالفعل" });
     }
+
+    const syntheticEmail = `wa_${canonical}@whatsapp.local`;
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const hashedPw = await hashPassword(randomPassword);
+    const displayName = label || `واتساب ${canonical}`;
+
+    const existingUser = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, syntheticEmail))
+      .limit(1);
+
+    let newUserId: string;
+
+    if (existingUser.length > 0) {
+      newUserId = existingUser[0].id;
+    } else {
+      const [newUser] = await db.insert(users).values({
+        email: syntheticEmail,
+        password: hashedPw,
+        password_algo: "argon2id",
+        full_name: displayName,
+        phone: canonical,
+        role: "user",
+        is_active: true,
+      }).returning({ id: users.id });
+      newUserId = newUser.id;
+    }
+
     const [inserted] = await db.insert(whatsappAllowedNumbers).values({
       phoneNumber: canonical,
       label: label || null,
       isActive: true,
       addedBy: req.user!.user_id,
+      linkedUserId: newUserId,
     }).returning();
 
     const existingLink = await db.select()
       .from(whatsappUserLinks)
       .where(eq(whatsappUserLinks.phoneNumber, canonical))
       .limit(1);
-    if (existingLink.length === 0) {
+    if (existingLink.length > 0) {
+      if (existingLink[0].user_id !== newUserId) {
+        await db.update(whatsappUserLinks)
+          .set({ user_id: newUserId, isActive: true, permissionsMode: "custom", canRead: true, canAdd: false, canEdit: false, canDelete: false, scopeAllProjects: false })
+          .where(eq(whatsappUserLinks.id, existingLink[0].id));
+        console.log(`[allowed-numbers] ⚠️ إعادة ربط الرقم ${canonical} من المستخدم ${existingLink[0].user_id} إلى المستخدم المستقل ${newUserId}`);
+      }
+    } else {
       try {
         await db.insert(whatsappUserLinks).values({
-          user_id: req.user!.user_id as string,
+          user_id: newUserId,
           phoneNumber: canonical,
           isActive: true,
+          permissionsMode: "custom",
+          canRead: true,
+          canAdd: false,
+          canEdit: false,
+          canDelete: false,
+          scopeAllProjects: false,
         });
-      } catch (_e) {}
+      } catch (_e) {
+        console.warn(`[allowed-numbers] تعذر إنشاء whatsapp_user_link للمستخدم ${newUserId}:`, _e);
+      }
     }
 
-    res.json({ success: true, number: inserted });
+    res.json({ success: true, number: inserted, linkedUserId: newUserId });
   } catch (error: any) {
     res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
+  }
+});
+
+router.patch("/allowed-numbers/:id/permissions", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
+
+    const { canRead, canAdd, canEdit, canDelete, scopeAllProjects, projectIds } = req.body;
+
+    const [allowedNum] = await db.select()
+      .from(whatsappAllowedNumbers)
+      .where(eq(whatsappAllowedNumbers.id, id))
+      .limit(1);
+
+    if (!allowedNum || !allowedNum.linkedUserId) {
+      return res.status(404).json({ error: "الرقم غير موجود أو لا يوجد مستخدم مرتبط" });
+    }
+
+    const link = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.user_id, allowedNum.linkedUserId))
+      .limit(1);
+
+    if (link.length === 0) {
+      return res.status(404).json({ error: "لا يوجد ربط واتساب لهذا المستخدم" });
+    }
+
+    const linkId = link[0].id;
+    const permUpdates: any = { permissionsMode: "custom" };
+    if (typeof canRead === 'boolean') permUpdates.canRead = canRead;
+    if (typeof canAdd === 'boolean') permUpdates.canAdd = canAdd;
+    if (typeof canEdit === 'boolean') permUpdates.canEdit = canEdit;
+    if (typeof canDelete === 'boolean') permUpdates.canDelete = canDelete;
+    if (typeof scopeAllProjects === 'boolean') permUpdates.scopeAllProjects = scopeAllProjects;
+
+    await db.update(whatsappUserLinks)
+      .set(permUpdates)
+      .where(eq(whatsappUserLinks.id, linkId));
+
+    if (Array.isArray(projectIds) && !scopeAllProjects) {
+      await db.delete(whatsappLinkProjects)
+        .where(eq(whatsappLinkProjects.linkId, linkId));
+
+      if (projectIds.length > 0) {
+        await db.insert(whatsappLinkProjects)
+          .values(projectIds.map((pid: string) => ({
+            linkId,
+            project_id: pid,
+            isActive: true,
+          })));
+      }
+
+      await db.delete(userProjectPermissions)
+        .where(eq(userProjectPermissions.user_id, allowedNum.linkedUserId!));
+
+      if (projectIds.length > 0) {
+        await db.insert(userProjectPermissions)
+          .values(projectIds.map((pid: string) => ({
+            user_id: allowedNum.linkedUserId!,
+            project_id: pid,
+            canView: canRead !== false,
+            canAdd: canAdd === true,
+            canEdit: canEdit === true,
+            canDelete: canDelete === true,
+            assignedBy: req.user!.user_id as string,
+          })))
+          .onConflictDoNothing();
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ في تحديث الصلاحيات') });
   }
 });
 
@@ -689,6 +872,17 @@ router.patch("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res
     await db.update(whatsappAllowedNumbers)
       .set(updates)
       .where(eq(whatsappAllowedNumbers.id, id));
+
+    if (typeof isActive === 'boolean') {
+      const [entry] = await db.select({ phoneNumber: whatsappAllowedNumbers.phoneNumber, linkedUserId: whatsappAllowedNumbers.linkedUserId })
+        .from(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id)).limit(1);
+      if (entry?.linkedUserId) {
+        await db.update(whatsappUserLinks)
+          .set({ isActive })
+          .where(and(eq(whatsappUserLinks.user_id, entry.linkedUserId), eq(whatsappUserLinks.phoneNumber, entry.phoneNumber)));
+        console.log(`[allowed-numbers] ${isActive ? '✅ تفعيل' : '⛔ تعطيل'} whatsapp_user_link للرقم ${entry.phoneNumber}`);
+      }
+    }
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
@@ -698,6 +892,16 @@ router.patch("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res
 router.delete("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
+    const [entry] = await db.select({ phoneNumber: whatsappAllowedNumbers.phoneNumber, linkedUserId: whatsappAllowedNumbers.linkedUserId })
+      .from(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id)).limit(1);
+
+    if (entry?.linkedUserId) {
+      await db.update(whatsappUserLinks)
+        .set({ isActive: false })
+        .where(and(eq(whatsappUserLinks.user_id, entry.linkedUserId), eq(whatsappUserLinks.phoneNumber, entry.phoneNumber)));
+      console.log(`[allowed-numbers] ⛔ تعطيل whatsapp_user_link للرقم ${entry.phoneNumber} عند الحذف`);
+    }
+
     await db.delete(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id));
     res.json({ success: true });
   } catch (error: any) {

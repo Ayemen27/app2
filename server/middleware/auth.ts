@@ -77,6 +77,23 @@ export const authRateLimit = rateLimit({
   skipSuccessfulRequests: true,
 });
 
+export const refreshRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const email = (req.body?.email || '').toLowerCase().trim();
+    return email ? `${ip}:${email}` : ip;
+  },
+  message: {
+    success: false,
+    message: 'تم تجاوز الحد المسموح من طلبات التجديد، يرجى المحاولة بعد 15 دقيقة',
+    retryAfter: 15 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Rate Limiting للعمليات الحساسة (إنشاء/حذف/استعادة)
 export const sensitiveOperationsRateLimit = rateLimit({
   windowMs: 5 * 60 * 1000,

@@ -22,7 +22,7 @@ import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE_OPTIONS } from '
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
-import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest, authRateLimit, refreshRateLimit } from '../../middleware/auth.js';
 import { requireFreshRequest } from '../../middleware/replay-protection.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
@@ -522,7 +522,7 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
  * 🔄 تجديد Access Token
  * POST /api/auth/refresh
  */
-authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) => {
+authRouter.post('/refresh', refreshRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب تجديد Access Token');
 
@@ -734,7 +734,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
  * 📧 تحقق من البريد الإلكتروني - POST (من الـ frontend form)
  * POST /api/auth/verify-email
  */
-authRouter.post('/verify-email', authRateLimit, async (req: Request, res: Response) => {
+authRouter.post('/verify-email', refreshRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] POST طلب تحقق من البريد الإلكتروني');
 
@@ -793,7 +793,7 @@ authRouter.post('/verify-email', authRateLimit, async (req: Request, res: Respon
  * 🔄 إعادة إرسال رمز التحقق
  * POST /api/auth/resend-verification
  */
-authRouter.post('/resend-verification', authRateLimit, async (req: Request, res: Response) => {
+authRouter.post('/resend-verification', refreshRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
 

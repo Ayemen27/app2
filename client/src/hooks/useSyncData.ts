@@ -35,7 +35,6 @@ export function useSyncData() {
       setSyncHistory(history);
       setOfflineStats(stats);
     } catch (e) {
-      console.warn('⚠️ [useSyncData] فشل تحديث البيانات:', e);
     }
   }, []);
 
@@ -47,7 +46,7 @@ export function useSyncData() {
 
     const handleOnline = () => {
       setIsOnline(true);
-      syncOfflineData().catch(console.error);
+      syncOfflineData().catch(() => {});
     };
     const handleOffline = () => setIsOnline(false);
 

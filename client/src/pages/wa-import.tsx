@@ -387,7 +387,6 @@ export default function WAImportDashboard() {
           mediaResult = mediaJob;
         }
       } catch (mediaErr: any) {
-        console.warn("[Pipeline] Media processing error (non-blocking):", mediaErr?.message);
         try {
           const fallback = await fetch(`/api/wa-import/batch/${batchId}/media-summary`, { credentials: 'include' });
           if (fallback.ok) mediaResult = await fallback.json();

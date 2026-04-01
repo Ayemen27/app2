@@ -69,7 +69,7 @@ function AsyncSelectFilter({
       setLoading(true);
       config.asyncOptions()
         .then(setOptions)
-        .catch(console.error)
+        .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [config.asyncOptions]);

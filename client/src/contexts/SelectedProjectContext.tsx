@@ -114,7 +114,6 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   const isLoading = !isInitialized || isProjectsLoading;
 
   const instantRefreshAllData = useCallback(async (project_id?: string) => {
-    console.log("⚡ [SelectedProjectContext] تحديث فوري لجميع البيانات...", project_id);
     
     const startTime = Date.now();
     
@@ -148,11 +147,9 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     });
     
     const duration = Date.now() - startTime;
-    console.log(`✅ [SelectedProjectContext] تم إبطال الكاش في ${duration}ms`);
   }, [queryClient]);
 
   const selectProject = useCallback(async (project_id: string, projectName?: string) => {
-    console.log("📁 [SelectedProjectContext] تحديد المشروع الفوري:", { project_id, projectName });
     
     setSelectedProjectId(project_id);
     
@@ -176,7 +173,6 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
         setSelectedProjectName("");
       }
     } catch (error) {
-      console.error("❌ [SelectedProjectContext] خطأ في حفظ المشروع:", error);
     }
 
     await instantRefreshAllData(project_id);
@@ -187,7 +183,6 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   }, [selectProject]);
 
   const clearProject = useCallback(() => {
-    console.log("🗑️ [SelectedProjectContext] مسح تحديد المشروع");
     selectProject(ALL_PROJECTS_ID, ALL_PROJECTS_NAME);
   }, [selectProject]);
 

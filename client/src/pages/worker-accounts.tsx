@@ -143,7 +143,6 @@ export default function WorkerAccountsPage() {
         usageCount: 1
       });
     } catch (error) {
-      console.error(`خطأ في حفظ قيمة الإكمال التلقائي ${field}:`, error);
     }
   };
 

@@ -66,7 +66,6 @@ async function requestNotificationPermission(): Promise<boolean> {
 
     return false;
   } catch (err) {
-    console.error('[NotificationPermission] Error:', err);
     return false;
   }
 }
@@ -90,7 +89,6 @@ async function registerPush() {
       pushListenersRegistered = true;
 
       await PushNotifications.addListener('registration', async (token) => {
-        console.log('[NativePush] Token:', token.value);
         try {
           await authFetch(ENV.getApiUrl('/api/push/token'), {
             method: 'POST',
@@ -105,15 +103,12 @@ async function registerPush() {
       });
 
       await PushNotifications.addListener('registrationError', (err) => {
-        console.error('[NativePush] Registration error:', err);
       });
 
       await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        console.log('[NativePush] Received:', notification.title);
       });
 
       await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-        console.log('[NativePush] Action:', action.actionId);
       });
     }
 
@@ -122,7 +117,6 @@ async function registerPush() {
       await PushNotifications.register();
     }
   } catch (err) {
-    console.error('[NativePush] Register error:', err);
   }
 }
 
@@ -141,7 +135,6 @@ async function registerResumeListener() {
       if (status.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
         await registerPush();
-        console.log('[NotificationPermission] Permission granted after return from settings');
       }
     } catch {}
   });

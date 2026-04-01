@@ -1117,7 +1117,6 @@ function TableRowDetail({ table, source, expanded, onToggle, onMaintenance, isMa
       const data = await fetchWithAuth(`/api/db/tables/${table.name}${sourceParam}`);
       setDetails(data?.data);
     } catch (error) {
-      console.error("Error loading table details:", error);
     }
     setDetailsLoading(false);
     onToggle();

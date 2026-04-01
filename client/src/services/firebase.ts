@@ -26,7 +26,6 @@ let messagingInstance: Messaging | null = null;
 export const initializeFirebase = (): void => {
   try {
     if (!isFirebaseConfigValid()) {
-      console.warn('[Firebase] Invalid or missing Firebase configuration in environment variables');
       return;
     }
 
@@ -38,7 +37,6 @@ export const initializeFirebase = (): void => {
       messagingInstance = getMessaging(app);
     }
   } catch (error) {
-    console.error('[Firebase] Failed to initialize Firebase:', error);
   }
 };
 
@@ -65,45 +63,36 @@ export const getFirebaseToken = async (retryCount = 0): Promise<string | null> =
   try {
     const messaging = getFirebaseMessaging();
     if (!messaging) {
-      console.warn('[Firebase] Firebase Messaging not initialized - skipping token request');
       return null;
     }
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     if (!vapidKey) {
-      console.warn('[Firebase] VAPID key not configured - push notifications disabled');
       return null;
     }
 
     try {
       const token = await getToken(messaging, { vapidKey });
       if (token) {
-        console.log('[Firebase] Successfully obtained FCM token');
         return token;
       }
       return null;
     } catch (error: any) {
       // Check if this is a recoverable error
       if (error?.code === 'messaging/failed-service-worker-registration' && retryCount < MAX_RETRIES) {
-        console.warn(`[Firebase] Service Worker registration failed, retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
         return getFirebaseToken(retryCount + 1);
       }
       
       // Log specific errors
       if (error?.code === 'messaging/unsupported-browser') {
-        console.warn('[Firebase] Push notifications not supported in this browser');
       } else if (error?.code === 'messaging/permission-blocked') {
-        console.warn('[Firebase] Push notification permission has been blocked');
       } else if (error?.code === 'messaging/service-worker-registration-failed') {
-        console.warn('[Firebase] Service Worker registration failed');
       } else {
-        console.error('[Firebase] Failed to get FCM token:', error?.message || error);
       }
       return null;
     }
   } catch (error) {
-    console.error('[Firebase] Unexpected error in getFirebaseToken:', error);
     return null;
   }
 };
@@ -127,7 +116,6 @@ export const setupMessageListener = (
 
     return unsubscribe;
   } catch (error) {
-    console.error('[Firebase] Failed to set up message listener:', error);
     return null;
   }
 };

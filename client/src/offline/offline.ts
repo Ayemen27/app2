@@ -106,12 +106,10 @@ export async function queueForSync(
   );
 
   if (duplicate) {
-    console.log(`⚠️ [Queue] عملية مكررة تم تجاهلها: ${idempotencyKey}`);
     if (action === 'update') {
       duplicate.payload = { ...duplicate.payload, ...payload };
       duplicate.lastModifiedAt = Date.now();
       await smartPut('syncQueue', duplicate);
-      console.log(`🔄 [Queue] تم تحديث payload العملية المكررة: ${duplicate.id}`);
     }
     return duplicate.id;
   }
@@ -149,7 +147,6 @@ export async function recoverStaleInFlightItems(): Promise<number> {
     }
   }
   if (recovered > 0) {
-    console.log(`🔧 [Queue] تم استعادة ${recovered} عمليات عالقة (in-flight)`);
   }
   return recovered;
 }
@@ -280,7 +277,6 @@ export async function logSyncResult(entry: Omit<SyncLogEntry, 'id' | 'timestamp'
       }
     }
   } catch (e) {
-    console.warn('⚠️ [SyncLog] فشل تسجيل السجل:', e);
   }
 }
 

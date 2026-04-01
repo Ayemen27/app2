@@ -76,7 +76,6 @@ export async function smartPut(tableName: string, record: any): Promise<void> {
   } else {
     const db = await getIDB();
     if (!db.objectStoreNames.contains(tableName)) {
-      console.warn(`[smartPut] Store "${tableName}" not found in IDB, skipping`);
       return;
     }
     try {
@@ -154,7 +153,6 @@ export async function smartClear(tableName: string): Promise<void> {
         await handleStorageError(e);
         return;
       }
-      console.warn(`[smartClear] Failed to clear ${tableName}:`, e);
     }
   }
 }
@@ -188,7 +186,6 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
   } else {
     const db = await getIDB();
     if (!db.objectStoreNames.contains(tableName)) {
-      console.warn(`[smartSave] Store "${tableName}" not found in IDB, skipping ${records.length} records`);
       return 0;
     }
     let count = 0;
@@ -201,7 +198,6 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
             store.put(record);
             count++;
           } catch (e) {
-            console.warn(`[smartSave] Failed to put record in ${tableName}:`, e);
           }
         }
       }
@@ -228,14 +224,12 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
           return retryCount;
         }
       }
-      console.warn(`[smartSave] Transaction failed for ${tableName}, falling back to individual puts:`, e);
       for (const record of records) {
         if (record && (record.id || record.key)) {
           try {
             await db.put(tableName as any, record);
             count++;
           } catch (putErr) {
-            console.warn(`[smartSave] Fallback put failed in ${tableName}:`, putErr);
           }
         }
       }

@@ -59,9 +59,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
         value: value.trim(),
         usageCount: 1
       });
-      console.log(`✅ تم حفظ قيمة الإكمال التلقائي: ${field} = ${value.trim()}`);
     } catch (error) {
-      console.warn(`Failed to save autocomplete value for ${field}:`, error);
     }
   };
 
@@ -95,7 +93,6 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
         }
         return Array.isArray(response) ? response as WorkerMiscExpense[] : [];
       } catch (error) {
-        console.error("Error fetching worker misc expenses:", error);
         return [];
       }
     },
@@ -129,7 +126,6 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء إضافة النثريات";
-      console.error("Error creating misc expense:", error);
       toast({
         title: "خطأ في إضافة النثريات",
         description: errorMessage,
@@ -159,7 +155,6 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء تحديث النثريات";
-      console.error("Error updating misc expense:", error);
       toast({
         title: "خطأ في تحديث النثريات",
         description: errorMessage,
@@ -179,7 +174,6 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء حذف النثريات";
-      console.error("Error deleting misc expense:", error);
       toast({
         title: "خطأ في حذف النثريات",
         description: errorMessage,

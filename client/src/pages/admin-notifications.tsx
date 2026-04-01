@@ -51,7 +51,6 @@ export default function AdminNotificationsPage() {
   useEffect(() => {
     // دالة فتح النموذج - نتأكد من أنها تستخدم أحدث حالة
     const handleAdd = () => {
-      console.log("Floating action triggered");
       setIsCreateDialogOpen(true);
     };
     

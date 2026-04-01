@@ -87,12 +87,10 @@ async function clearStore(storeName: string): Promise<number> {
       const count = await db.count(storeName);
       if (count > 0) {
         await db.clear(storeName);
-        console.log(`[StorageRecovery] Cleared ${count} records from ${storeName}`);
         return count;
       }
     }
   } catch (e) {
-    console.warn(`[StorageRecovery] Failed to clear ${storeName}:`, e);
   }
   return 0;
 }
@@ -127,10 +125,8 @@ async function trimOldestRecords(storeName: string, keepCount: number): Promise<
       }
     }
     await tx.done;
-    console.log(`[StorageRecovery] Trimmed ${removed} oldest records from ${storeName}`);
     return removed;
   } catch (e) {
-    console.warn(`[StorageRecovery] Failed to trim ${storeName}:`, e);
     return 0;
   }
 }
@@ -139,7 +135,6 @@ export async function handleQuotaExceeded(): Promise<boolean> {
   if (_recoveryInProgress) return false;
   _recoveryInProgress = true;
 
-  console.warn('[StorageRecovery] QuotaExceededError detected, starting staged cleanup...');
   notifyUser('مساحة التخزين ممتلئة. جاري تنظيف البيانات القديمة...');
 
   try {
@@ -149,10 +144,8 @@ export async function handleQuotaExceeded(): Promise<boolean> {
       const freed = await clearStore(store);
       freedTotal += freed;
       if (freed > 0) {
-        console.log(`[StorageRecovery] Stage 1: Cleared ${freed} from ${store}`);
         const canWrite = await testWrite();
         if (canWrite) {
-          console.log('[StorageRecovery] Recovery succeeded after clearing', store);
           notifyUser('تم تنظيف التخزين بنجاح. يمكنك متابعة العمل.', 'default');
           return true;
         }
@@ -165,7 +158,6 @@ export async function handleQuotaExceeded(): Promise<boolean> {
       if (freed > 0) {
         const canWrite = await testWrite();
         if (canWrite) {
-          console.log('[StorageRecovery] Recovery succeeded after clearing secondary store', store);
           notifyUser('تم تنظيف التخزين بنجاح. يمكنك متابعة العمل.', 'default');
           return true;
         }
@@ -179,18 +171,15 @@ export async function handleQuotaExceeded(): Promise<boolean> {
       if (freed > 0) {
         const canWrite = await testWrite();
         if (canWrite) {
-          console.log('[StorageRecovery] Recovery succeeded after trimming', store);
           notifyUser('تم تنظيف التخزين بنجاح. يمكنك متابعة العمل.', 'default');
           return true;
         }
       }
     }
 
-    console.error('[StorageRecovery] All cleanup stages exhausted, still over quota');
     notifyUser('فشل تنظيف التخزين. قد تحتاج لمسح بيانات المتصفح يدوياً.');
     return false;
   } catch (e) {
-    console.error('[StorageRecovery] Recovery process failed:', e);
     return false;
   } finally {
     _recoveryInProgress = false;
@@ -220,7 +209,6 @@ export async function handleCorruption(): Promise<boolean> {
   if (_recoveryInProgress) return false;
   _recoveryInProgress = true;
 
-  console.error('[StorageRecovery] IDB corruption detected, attempting recovery...');
   notifyUser('تم اكتشاف خلل في قاعدة البيانات المحلية. جاري الإصلاح...');
 
   try {
@@ -230,15 +218,12 @@ export async function handleCorruption(): Promise<boolean> {
 
     try {
       await deleteDB();
-      console.log('[StorageRecovery] Deleted corrupted database');
     } catch (e) {
-      console.warn('[StorageRecovery] Failed to delete DB, trying native delete:', e);
       await new Promise<void>((resolve, reject) => {
         const req = indexedDB.deleteDatabase('binarjoin-db');
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
         req.onblocked = () => {
-          console.warn('[StorageRecovery] Delete blocked, resolving anyway');
           resolve();
         };
       });
@@ -247,11 +232,9 @@ export async function handleCorruption(): Promise<boolean> {
     await initializeDB();
     const { resetInitState } = await import('./storage-factory');
     resetInitState();
-    console.log('[StorageRecovery] Database reinitialized successfully');
     notifyUser('تم إصلاح قاعدة البيانات المحلية. سيتم إعادة مزامنة البيانات.', 'default');
     return true;
   } catch (e) {
-    console.error('[StorageRecovery] Corruption recovery failed:', e);
     notifyUser('فشل إصلاح قاعدة البيانات. يرجى مسح بيانات المتصفح وإعادة تسجيل الدخول.');
     return false;
   } finally {

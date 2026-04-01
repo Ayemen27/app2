@@ -210,8 +210,6 @@ export default function ProjectsPage() {
     });
   }, [toast]);
 
-
-
   // تعيين إجراء الزر العائم لإضافة مشروع جديد
   useEffect(() => {
     const handleAddProject = () => setIsCreateDialogOpen(true);
@@ -227,7 +225,6 @@ export default function ProjectsPage() {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       try {
-        console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');
         // استخدام apiRequest مباشرة بدلاً من تمرير headers يدوياً لأن apiRequest يتعامل مع التوثيق داخلياً
         const response = await apiRequest("/api/projects/with-stats", "GET");
         
@@ -245,7 +242,6 @@ export default function ProjectsPage() {
         }
         return fetchedData as ProjectWithStats[];
       } catch (error) {
-        console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
         return [] as ProjectWithStats[];
       }
     },
@@ -333,7 +329,6 @@ export default function ProjectsPage() {
         const response = await apiRequest("/api/users/list", "GET");
         return response || { users: [] };
       } catch (error) {
-        console.error('❌ [Projects] خطأ في جلب المستخدمين:', error);
         return { users: [] };
       }
     },
@@ -355,7 +350,6 @@ export default function ProjectsPage() {
         }
         return [];
       } catch (error) {
-        console.error('❌ [Projects] خطأ في جلب أنواع المشاريع:', error);
         return [];
       }
     },
@@ -412,10 +406,8 @@ export default function ProjectsPage() {
       });
     } catch (error) {
       // تجاهل الأخطاء لأن هذه عملية مساعدة
-      console.log(`Failed to save autocomplete value for ${category}:`, error);
     }
   };
-
 
   const handleImageCapture = (useCamera: boolean) => {
     if (fileInputRef.current) {
@@ -436,7 +428,6 @@ export default function ProjectsPage() {
       fileInputRef.current.value = '';
     }
   };
-
 
   const handleEditImageCapture = (useCamera: boolean) => {
     if (editFileInputRef.current) {
@@ -629,11 +620,6 @@ export default function ProjectsPage() {
       return;
     }
     
-    console.log('🔄 [Projects] تحديث المشروع:', {
-      id: editingProject.id,
-      name: editingProject.name,
-      newData: data
-    });
     
     updateProjectMutation.mutate({ id: editingProject.id, data });
   };
@@ -899,7 +885,6 @@ export default function ProjectsPage() {
     return baseFilters;
   }, [usersData, isAdmin]);
 
-
   // معالجة حالة التحميل - عرض هيكل تحميل جمالي
   if (isLoading) {
     return <ProjectsPageSkeleton />;
@@ -907,7 +892,6 @@ export default function ProjectsPage() {
 
   // معالجة الأخطاء
   if (error) {
-    console.error('❌ [Projects] خطأ في تحميل المشاريع:', error);
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-1">

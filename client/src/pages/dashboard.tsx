@@ -54,7 +54,6 @@ export default function Dashboard() {
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
 
-
   const {
     searchValue,
     filterValues,
@@ -83,7 +82,6 @@ export default function Dashboard() {
     queryKey: QUERY_KEYS.projectsWithStats,
     queryFn: async () => {
       try {
-        console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
         
         let projects = [];
@@ -103,17 +101,13 @@ export default function Dashboard() {
           projects = [];
         }
 
-        console.log(`✅ [Dashboard] تم جلب ${projects.length} مشروع مع الإحصائيات`);
         return projects as ProjectWithStats[];
       } catch (error) {
-        console.error("❌ [Dashboard] خطأ في جلب المشاريع:", error);
         return [] as ProjectWithStats[];
       }
     },
     ...queryOptions
   });
-
-
 
   const { data: todaySummary } = useQuery<DailyExpenseSummary>({
     queryKey: QUERY_KEYS.dailySummary(selectedProjectId, new Date().toISOString().split('T')[0]),
@@ -130,7 +124,6 @@ export default function Dashboard() {
         const response = await apiRequest(`/api/recent-activities${projectFilter}`, "GET");
         return response?.data || [];
       } catch (error) {
-        console.error("خطأ في جلب آخر الإجراءات:", error);
         return [];
       }
     },
@@ -159,7 +152,6 @@ export default function Dashboard() {
           uptime: statsData.uptime || 0
         };
       } catch (error) {
-        console.error("❌ [Dashboard] خطأ في جلب إحصائيات المراقبة:", error);
         return null;
       }
     },
@@ -219,7 +211,6 @@ export default function Dashboard() {
       maximumFractionDigits: 0,
     }).format(Math.round(amount)) + ' ر.ي';
   };
-
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {

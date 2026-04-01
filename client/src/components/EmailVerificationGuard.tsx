@@ -41,7 +41,6 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
 
   // إذا لم يتم التحقق من البريد الإلكتروني، توجيه لصفحة التحقق
   if (!isEmailVerified) {
-    console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق');
     return (
       <Redirect 
         to={`/verify-email?user_id=${user.id}&email=${encodeURIComponent(user.email)}`} 

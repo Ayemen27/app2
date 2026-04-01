@@ -19,14 +19,11 @@ export interface ConflictData {
  * حل تضارع باستخدام Last-Write-Wins
  */
 export function resolveConflictLWW(conflict: ConflictData): any {
-  console.log(`⚖️ [ConflictResolver] حل باستخدام Last-Write-Wins`);
   
   // النسخة الأحدث تفوز
   if (conflict.clientTimestamp > conflict.serverTimestamp) {
-    console.log(`✅ [ConflictResolver] اختيار النسخة المحلية (أحدث)`);
     return conflict.clientVersion;
   } else {
-    console.log(`✅ [ConflictResolver] اختيار النسخة على الخادم (أحدث)`);
     return conflict.serverVersion;
   }
 }
@@ -35,7 +32,6 @@ export function resolveConflictLWW(conflict: ConflictData): any {
  * حل تضارع بتفضيل الخادم
  */
 export function resolveConflictServerWins(conflict: ConflictData): any {
-  console.log(`⚖️ [ConflictResolver] حل بتفضيل الخادم`);
   return conflict.serverVersion;
 }
 
@@ -43,7 +39,6 @@ export function resolveConflictServerWins(conflict: ConflictData): any {
  * حل تضارع بتفضيل العميل
  */
 export function resolveConflictClientWins(conflict: ConflictData): any {
-  console.log(`⚖️ [ConflictResolver] حل بتفضيل العميل`);
   return conflict.clientVersion;
 }
 
@@ -56,7 +51,6 @@ export function resolveConflictMerge(
   clientTimestamp: number,
   serverTimestamp: number
 ): any {
-  console.log(`⚖️ [ConflictResolver] دمج التغييرات...`);
   
   const merged: any = { ...serverData };
   const newer = clientTimestamp > serverTimestamp ? 'client' : 'server';
@@ -66,7 +60,6 @@ export function resolveConflictMerge(
     if (!(key in serverData)) {
       // حقل جديد في العميل، أضفه
       merged[key] = clientData[key];
-      console.log(`✅ [ConflictResolver] إضافة حقل جديد: ${key}`);
     } else if (clientData[key] === serverData[key]) {
       // نفس القيمة، لا تضارع
       continue;
@@ -74,10 +67,8 @@ export function resolveConflictMerge(
       // تضارع في الحقل، اختر الأحدث
       if (newer === 'client') {
         merged[key] = clientData[key];
-        console.log(`✅ [ConflictResolver] اختيار قيمة العميل لـ ${key}`);
       } else {
         merged[key] = serverData[key];
-        console.log(`✅ [ConflictResolver] اختيار قيمة الخادم لـ ${key}`);
       }
     }
   }
@@ -95,7 +86,6 @@ export function detectConflict(clientData: any, serverData: any): boolean {
   
   for (const key of allKeys) {
     if (JSON.stringify(clientData?.[key]) !== JSON.stringify(serverData?.[key])) {
-      console.log(`🚨 [ConflictResolver] تضارع في: ${key}`);
       return true;
     }
   }
@@ -131,7 +121,6 @@ export function resolveConflict(
   try {
     // سيناريو: بيانات تالفة أو مفقودة
     if (!conflict.clientVersion && !conflict.serverVersion) {
-      console.error('❌ [ConflictResolver] لا توجد بيانات للحل');
       return null;
     }
     
@@ -153,7 +142,6 @@ export function resolveConflict(
           conflict.serverTimestamp || 0
         );
       default:
-        console.warn('⚠️ [ConflictResolver] استراتيجية غير معروفة، استخدام الدمج الذكي');
         return resolveConflictMerge(
           conflict.clientVersion,
           conflict.serverVersion,
@@ -162,7 +150,6 @@ export function resolveConflict(
         );
     }
   } catch (error) {
-    console.error('❌ [ConflictResolver] خطأ غير متوقع في حل التضارع:', error);
     return conflict.serverVersion; // الأمان: العودة لنسخة الخادم في حال الفشل الذريع
   }
 }
@@ -201,7 +188,6 @@ export async function logConflict(
     serverTimestamp: conflictData.serverTimestamp
   };
 
-  console.log(`📋 [ConflictResolver] تسجيل التضارع:`, log);
   
   // يمكن إرسال البيانات إلى خادم logging
   // await fetch('/api/logs/conflicts', { method: 'POST', body: JSON.stringify(log) });

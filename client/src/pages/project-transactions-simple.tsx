@@ -37,7 +37,6 @@ import { exportTransactionsToExcel } from "@/components/ui/export-transactions-e
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
-
 interface Transaction {
   id: string;
   date: string;
@@ -170,7 +169,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.projectFundTransfersFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -182,18 +180,14 @@ export default function ProjectTransactionsSimple() {
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
               allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
-              console.error(`❌ خطأ في جلب تحويلات عهدة المشروع ${project.id}:`, e);
             }
           }));
-          console.log(`✅ تم جلب ${allRecords.length} تحويل عهدة من جميع المشاريع`);
           return allRecords;
         } else {
           const data = await apiRequest(`/api/projects/${selectedProject}/fund-transfers`);
-          console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
           return Array.isArray(data?.data) ? data.data : [];
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب تحويلات العهدة:', error);
         return [];
       }
     },
@@ -207,7 +201,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.projectFundTransfersIncoming(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects 
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/incoming/${selectedProject}`;
@@ -216,28 +209,18 @@ export default function ProjectTransactionsSimple() {
         });
         if (!response.ok) {
           if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
             return [];
           }
-          console.error(`❌ خطأ في جلب التحويلات الواردة: ${response.status}`);
           return [];
         }
         const data = await response.json();
         const transfers = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${transfers.length} تحويل وارد فعلي`);
 
         if (transfers.length > 0) {
-          console.log('🔍 التحويلات الواردة:', transfers.map((t: any) => ({
-            من: t.fromProjectName,
-            إلى: t.toProjectName,
-            المبلغ: t.amount,
-            التاريخ: t.transferDate
-          })));
         }
 
         return transfers;
       } catch (error) {
-        console.error('❌ خطأ في جلب التحويلات الواردة:', error);
         return [];
       }
     },
@@ -251,7 +234,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.projectFundTransfersOutgoing(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects 
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/outgoing/${selectedProject}`;
@@ -260,28 +242,18 @@ export default function ProjectTransactionsSimple() {
         });
         if (!response.ok) {
           if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
             return [];
           }
-          console.error(`❌ خطأ في جلب التحويلات الصادرة: ${response.status}`);
           return [];
         }
         const data = await response.json();
         const transfers = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${transfers.length} تحويل صادر فعلي`);
 
         if (transfers.length > 0) {
-          console.log('🔍 التحويلات الصادرة:', transfers.map((t: any) => ({
-            من: t.fromProjectName,
-            إلى: t.toProjectName,
-            المبلغ: t.amount,
-            التاريخ: t.transferDate
-          })));
         }
 
         return transfers;
       } catch (error) {
-        console.error('❌ خطأ في جلب التحويلات الصادرة:', error);
         return [];
       }
     },
@@ -295,7 +267,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.projectWorkerAttendanceFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -306,19 +277,15 @@ export default function ProjectTransactionsSimple() {
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
               allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
-              console.error(`❌ خطأ في جلب حضور المشروع ${project.id}:`, e);
             }
           }
-          console.log(`✅ تم جلب ${allRecords.length} سجل حضور من جميع المشاريع`);
           return allRecords;
         } else {
           const data = await apiRequest(`/api/projects/${selectedProject}/worker-attendance`);
           const attendanceData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-          console.log(`✅ تم جلب ${attendanceData.length} سجل حضور عمال`);
           return attendanceData;
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب حضور العمال:', error);
         return [];
       }
     },
@@ -332,7 +299,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.projectMaterialPurchasesFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -348,10 +314,8 @@ export default function ProjectTransactionsSimple() {
                 allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
               }
             } catch (e) {
-              console.error(`❌ خطأ في جلب مشتريات المشروع ${project.id}:`, e);
             }
           }
-          console.log(`✅ تم جلب ${allRecords.length} مشترية مواد من جميع المشاريع`);
           return allRecords;
         } else {
           const response = await authFetch(ENV.getApiUrl(`/api/projects/${selectedProject}/material-purchases`), {
@@ -359,19 +323,15 @@ export default function ProjectTransactionsSimple() {
           });
           if (!response.ok) {
             if (response.status === 401) {
-              console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
               return [];
             }
-            console.error(`❌ خطأ في جلب مشتريات المواد: ${response.status}`);
             return [];
           }
           const data = await response.json();
           const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-          console.log(`✅ تم جلب ${records.length} مشترية مواد`);
           return records;
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب مشتريات المواد:', error);
         return [];
       }
     },
@@ -385,7 +345,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.transportationExpensesFiltered(isAllProjects, selectedProject),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب مصاريف النقل - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -396,10 +355,8 @@ export default function ProjectTransactionsSimple() {
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
               allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
-              console.error(`❌ خطأ في جلب مصاريف نقل المشروع ${project.id}:`, e);
             }
           }
-          console.log(`✅ تم جلب ${allRecords.length} مصروف نقل من جميع المشاريع`);
           return allRecords;
         } else {
           let endpoint = '/api/transportation-expenses';
@@ -408,11 +365,9 @@ export default function ProjectTransactionsSimple() {
           }
           const data = await apiRequest(endpoint);
           const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-          console.log(`✅ تم جلب ${expensesData.length} مصروف نقل`);
           return expensesData;
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب مصاريف النقل:', error);
         return [];
       }
     },
@@ -426,7 +381,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.workerMiscExpensesFiltered(isAllProjects as any, selectedProject),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب المصاريف المتنوعة - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -437,10 +391,8 @@ export default function ProjectTransactionsSimple() {
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
               allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
-              console.error(`❌ خطأ في جلب مصاريف المشروع ${project.id}:`, e);
             }
           }
-          console.log(`✅ تم جلب ${allRecords.length} مصروف متنوع من جميع المشاريع`);
           return allRecords;
         } else {
           let endpoint = '/api/worker-misc-expenses';
@@ -449,11 +401,9 @@ export default function ProjectTransactionsSimple() {
           }
           const data = await apiRequest(endpoint);
           const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-          console.log(`✅ تم جلب ${expensesData.length} مصروف متنوع`);
           return expensesData;
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب المصاريف المتنوعة:', error);
         return [];
       }
     },
@@ -467,7 +417,6 @@ export default function ProjectTransactionsSimple() {
     queryKey: QUERY_KEYS.workerTransfersFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
-        console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         
         if (isAllProjects) {
           // جلب من جميع المشاريع
@@ -478,10 +427,8 @@ export default function ProjectTransactionsSimple() {
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
               allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: r.projectName || project.name })));
             } catch (e) {
-              console.error(`❌ خطأ في جلب حوالات المشروع ${project.id}:`, e);
             }
           }
-          console.log(`✅ تم جلب ${allRecords.length} حوالة عمال من جميع المشاريع`);
           return allRecords;
         } else {
           const endpoint = !selectedProject
@@ -489,11 +436,9 @@ export default function ProjectTransactionsSimple() {
             : `/api/worker-transfers?project_id=${selectedProject}`;
           const data = await apiRequest(endpoint);
           const transfersData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-          console.log(`✅ تم جلب ${transfersData.length} حوالة عمال`);
           return transfersData;
         }
       } catch (error) {
-        console.error('❌ خطأ في جلب حوالات العمال:', error);
         return [];
       }
     },
@@ -531,18 +476,6 @@ export default function ProjectTransactionsSimple() {
     const workerTransfersArray = Array.isArray(workerTransfers) ? workerTransfers : [];
     const workersArray = Array.isArray(workers) ? workers : [];
 
-    console.log(`🎯 بدء معالجة البيانات للمشروع ${selectedProject}`);
-    console.log('📊 البيانات المتاحة:', {
-      fundTransfers: fundTransfersArray?.length || 0,
-      incomingProjectTransfers: incomingProjectTransfersArray?.length || 0,
-      outgoingProjectTransfers: outgoingProjectTransfersArray?.length || 0,
-      workerAttendance: workerAttendanceArray?.length || 0,
-      materialPurchases: materialPurchasesArray?.length || 0,
-      transportExpenses: transportExpensesArray?.length || 0,
-      miscExpenses: miscExpensesArray?.length || 0,
-      workerTransfers: workerTransfersArray?.length || 0
-    });
-
     // Helper function to get project name by id
     const getProjectName = (project_id: string | number | undefined): string => {
       if (!project_id) return 'غير محدد';
@@ -551,7 +484,6 @@ export default function ProjectTransactionsSimple() {
     };
 
     // ✅ إضافة تحويلات العهدة العادية (دخل)
-    console.log('💰 إضافة تحويلات العهدة:', fundTransfersArray.length);
     fundTransfersArray.forEach((transfer: any) => {
       const date = transfer.transferDate;
       const amount = parseFloat(transfer.amount);
@@ -572,13 +504,11 @@ export default function ProjectTransactionsSimple() {
 
     // إضافة التحويلات الواردة من مشاريع أخرى (دخل) - مع تحديد واضح
     if (incomingProjectTransfersArray.length > 0) {
-      console.log(`📥 معالجة ${incomingProjectTransfersArray.length} تحويل وارد`);
       incomingProjectTransfersArray.forEach((transfer: any) => {
         const date = transfer.transferDate;
         const amount = parseFloat(transfer.amount);
 
         if (date && !isNaN(amount) && amount > 0) {
-          console.log(`💰 إضافة تحويل وارد: ${amount} من ${transfer.fromProjectName}`);
           allTransactions.push({
             id: `project-in-${transfer.id}`,
             date: date,
@@ -592,18 +522,15 @@ export default function ProjectTransactionsSimple() {
         }
       });
     } else {
-      console.log(`📥 لا توجد تحويلات واردة للمشروع ${selectedProject}`);
     }
 
     // إضافة التحويلات الصادرة إلى مشاريع أخرى (مصروف) - مع تحديد واضح
     if (outgoingProjectTransfersArray.length > 0) {
-      console.log(`📤 معالجة ${outgoingProjectTransfersArray.length} تحويل صادر`);
       outgoingProjectTransfersArray.forEach((transfer: any) => {
         const date = transfer.transferDate;
         const amount = parseFloat(transfer.amount);
 
         if (date && !isNaN(amount) && amount > 0) {
-          console.log(`💸 إضافة تحويل صادر: ${amount} إلى ${transfer.toProjectName}`);
           allTransactions.push({
             id: `project-out-${transfer.id}`,
             date: date,
@@ -617,11 +544,9 @@ export default function ProjectTransactionsSimple() {
         }
       });
     } else {
-      console.log(`📤 لا توجد تحويلات صادرة للمشروع ${selectedProject}`);
     }
 
     // ✅ إضافة أجور العمال (مصروف) - شاملة المدفوعة وغير المدفوعة
-    console.log('👷 إضافة أجور العمال:', workerAttendanceArray.length);
 
     workerAttendanceArray.forEach((attendance: any, index: number) => {
       const date = attendance.date || attendance.attendanceDate || attendance.created_at;
@@ -680,7 +605,6 @@ export default function ProjectTransactionsSimple() {
 
     // ✅ إضافة مشتريات المواد (مصروف أو آجل)
     const filteredMaterialPurchases = materialPurchasesArray.filter(filterByProject);
-    console.log('🛒 إضافة مشتريات المواد:', filteredMaterialPurchases.length);
     filteredMaterialPurchases.forEach((purchase: any) => {
       const date = purchase.purchaseDate || purchase.date;
       let amount = 0;
@@ -717,7 +641,6 @@ export default function ProjectTransactionsSimple() {
 
     // ✅ إضافة مصاريف النقل (مصروف)
     const filteredTransportExpenses = transportExpensesArray.filter(filterByProject);
-    console.log('🚚 إضافة مصاريف النقل:', filteredTransportExpenses.length);
     filteredTransportExpenses.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
@@ -738,7 +661,6 @@ export default function ProjectTransactionsSimple() {
 
     // ✅ إضافة المصاريف المتنوعة (مصروف)
     const filteredMiscExpenses = miscExpensesArray.filter(filterByProject);
-    console.log('💸 إضافة المصاريف المتنوعة:', filteredMiscExpenses.length);
     filteredMiscExpenses.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
@@ -758,7 +680,6 @@ export default function ProjectTransactionsSimple() {
     });
 
     // ✅ إضافة حوالات العمال (مصروف)
-    console.log('💵 إضافة حوالات العمال:', workerTransfersArray.length);
     workerTransfersArray.forEach((transfer: any) => {
       const date = transfer.transferDate || transfer.date;
       const amount = parseFloat(transfer.amount);
@@ -791,20 +712,6 @@ export default function ProjectTransactionsSimple() {
     const finalTransactions = allTransactions
       .filter(t => t.date && !isNaN(new Date(t.date).getTime()))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    console.log(`✅ معاملات نهائية: ${finalTransactions.length} من أصل ${allTransactions.length}`);
-    console.log('📊 تفاصيل المعاملات النهائية:', {
-      تحويلات_عهدة: finalTransactions.filter(t => t.category === 'تحويل عهدة').length,
-      ترحيلات_واردة: finalTransactions.filter(t => t.type === 'transfer_from_project').length,
-      ترحيلات_صادرة: finalTransactions.filter(t => t.category === '🔄 ترحيل صادر إلى مشروع').length,
-      أجور_عمال: finalTransactions.filter(t => t.category === 'أجور العمال').length,
-      حوالات_عمال: finalTransactions.filter(t => t.category === 'حوالات العمال').length,
-      مشتريات_مواد: finalTransactions.filter(t => t.category === 'مشتريات المواد').length,
-      مشتريات_آجلة: finalTransactions.filter(t => t.type === 'deferred').length,
-      مواصلات: finalTransactions.filter(t => t.category === 'مواصلات').length,
-      نثريات: finalTransactions.filter(t => t.category === 'نثريات').length,
-      إجمالي: finalTransactions.length
-    });
 
     return finalTransactions;
   }, [selectedProject, isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers, projects]);
@@ -859,18 +766,6 @@ export default function ProjectTransactionsSimple() {
     const totalIncome = income + transferFromProject;
     const totalExpenses = expenses + deferredExpenses;
 
-    console.log('💰 تفاصيل الحسابات:', {
-      income,
-      transferFromProject,
-      expenses,
-      deferredExpenses,
-      otherExpenses,
-      transferToProjectExpenses,
-      totalIncome,
-      totalExpenses,
-      balance: totalIncome - totalExpenses
-    });
-
     return { 
       income,
       transferFromProject,
@@ -915,7 +810,6 @@ export default function ProjectTransactionsSimple() {
         toast({ title: 'تعذر التنزيل', description: 'تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.', variant: 'destructive' });
       }
     } catch (error) {
-      console.error('خطأ في التصدير:', error);
       toast({
         title: 'خطأ في التصدير',
         description: 'حدث خطأ أثناء تصدير البيانات',

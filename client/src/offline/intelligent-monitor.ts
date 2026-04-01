@@ -28,7 +28,6 @@ class IntelligentMonitor {
    * تهيئة نظام المراقبة
    */
   async initialize() {
-    console.log("🚀 [IntelligentMonitor] Initializing...");
     // Catch-all for unhandled rejections in native environment
     window.addEventListener('unhandledrejection', (event) => {
       const reason = event.reason;
@@ -57,7 +56,6 @@ class IntelligentMonitor {
         reasonStr.includes('prefetch') ||
         reasonStr.includes('backup')
       ) {
-        console.warn('[IntelligentMonitor] Suppressed non-critical rejection:', reasonStr.substring(0, 100));
         return;
       }
       this.logEvent({
@@ -81,7 +79,6 @@ class IntelligentMonitor {
     };
 
     this.events.push(newEvent);
-    console.log(`🔍 [IntelligentMonitor] [${event.severity.toUpperCase()}] ${event.message}`, event.metadata);
 
     // تنبيه المستخدم إذا كانت الخطورة عالية
     if (event.severity === 'high' || event.severity === 'critical') {
@@ -119,7 +116,6 @@ class IntelligentMonitor {
   private async attemptSelfHealing(event: AppEvent) {
     if (event.resolved) return;
 
-    console.log(`🛠️ [Self-Healing] محاولة معالجة الحدث: ${event.id}`);
     
     // منطق المعالجة التلقائية بناءً على نوع الخطأ
     let actionTaken = '';
@@ -130,7 +126,6 @@ class IntelligentMonitor {
         const { triggerSync } = await import('./sync');
         setTimeout(() => triggerSync(), 5000); // محاولة بعد 5 ثوانٍ
       } catch (err) {
-        console.error('❌ [Self-Healing] فشل تحفيز المزامنة:', err);
       }
     } else if (event.message.includes('storage') || event.message.includes('quota')) {
       actionTaken = 'تحليل سعة التخزين المحلية وجدولة تنظيف تلقائي';
@@ -149,7 +144,6 @@ class IntelligentMonitor {
           timestamp: Date.now()
         }]);
       } catch (err) {
-        console.error('❌ [IntelligentMonitor] فشل توثيق الحدث في DB:', err);
       }
     }
   }
@@ -159,7 +153,6 @@ class IntelligentMonitor {
     if (event) {
       event.resolved = resolved;
       event.actionTaken = action;
-      console.log(`✅ [IntelligentMonitor] تم معالجة الحدث: ${id} عبر ${action}`);
     }
   }
 

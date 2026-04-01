@@ -176,7 +176,7 @@ export default function WellsPage() {
   const addOwnerNameMutation = useMutation({
     mutationFn: async (value: string) => apiRequest('/api/autocomplete', 'POST', { category: 'ownerNames', value }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteOwnerNamesPrefix }); },
-    onError: (error: any) => { console.error('خطأ في إضافة اسم المالك:', error); }
+    onError: (error: any) => {}
   });
 
   const handleOwnerNameChange = (value: string) => {

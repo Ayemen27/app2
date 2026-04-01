@@ -10,16 +10,13 @@ export async function getSmartStorage() {
   
   if (platform === 'android' || platform === 'ios') {
     try {
-      console.log('📱 [DB] محاولة تهيئة محرك SQLite للأندرويد...');
       const waitPromise = nativeStorage.waitForReady();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('SQLite Initialization Timeout')), 5000)
       );
       await Promise.race([waitPromise, timeoutPromise]);
-      console.log('✅ [DB] تم تهيئة محرك SQLite بنجاح');
       return nativeStorage;
     } catch (e) {
-      console.error("🔴 SQLite Engine Critical Failure, falling back to IDB:", e);
       if (!dbInstance) {
         dbInstance = await initializeDB();
       }
@@ -187,7 +184,6 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   try {
     dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 16, {
       upgrade(db, oldVersion, newVersion) {
-        console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         
         for (const storeName of ALL_STORES) {
           if (!db.objectStoreNames.contains(storeName)) {
@@ -246,7 +242,6 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
       }
     });
   } catch (error) {
-    console.error("[DB] Critical initialization error:", error);
     throw error;
   }
 

@@ -57,7 +57,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { TransportationExpense, Worker } from "@shared/schema";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
-
 export default function TransportManagement() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, isAllProjects, getProjectIdForApi, isWellsProject } = useSelectedProject();
@@ -331,7 +330,6 @@ export default function TransportManagement() {
         toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
       }
     } catch (error) {
-      console.error("Export error:", error);
       toast({ title: "خطأ في التصدير", variant: "destructive" });
     }
   };

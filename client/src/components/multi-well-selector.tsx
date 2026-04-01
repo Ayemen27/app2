@@ -42,7 +42,6 @@ export function MultiWellSelector({
         }
         return Array.isArray(response) ? response : (response.data || []);
       } catch (error) {
-        console.error('Error fetching wells:', error);
         return [];
       }
     },

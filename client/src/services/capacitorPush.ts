@@ -8,36 +8,27 @@ export const requestAllPermissions = async () => {
 
   try {
     const pushPerm = await PushNotifications.requestPermissions();
-    console.log('[Permissions] Push status:', pushPerm.receive);
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       const localPerm = await LocalNotifications.requestPermissions();
-      console.log('[Permissions] LocalNotifications status:', localPerm.display);
 
       try {
         const exactSetting = await LocalNotifications.checkExactNotificationSetting();
-        console.log('[Permissions] ExactAlarm status:', exactSetting.exact_alarm);
         if (exactSetting.exact_alarm !== 'granted') {
-          console.log('[Permissions] ExactAlarm not granted, prompting user...');
           await LocalNotifications.changeExactNotificationSetting();
         }
       } catch (exactErr) {
-        console.log('[Permissions] ExactAlarm check not supported on this API level');
       }
     } catch (localErr) {
-      console.error('[Permissions] LocalNotifications error:', localErr);
     }
 
     try {
       const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
       const bioResult = await NativeBiometric.isAvailable();
-      console.log('[Permissions] Biometric available:', bioResult.isAvailable, 'type:', bioResult.biometryType);
     } catch (bioErr) {
-      console.log('[Permissions] Biometric check skipped:', bioErr);
     }
   } catch (err) {
-    console.error('[Permissions] Error requesting permissions:', err);
   }
 };
 
@@ -47,7 +38,6 @@ export const requestAllPermissions = async () => {
  */
 export const initializeNativePush = async (_user_id: string) => {
   if (!Capacitor.isNativePlatform()) {
-    console.log('[NativePush] Not a native platform, skipping initialization');
     return;
   }
 
@@ -59,7 +49,6 @@ export const initializeNativePush = async (_user_id: string) => {
     }
 
     if (permStatus.receive !== 'granted') {
-      console.warn('⚠️ [NativePush] User denied permissions, skipping registration');
       return; // لا ترفع خطأ يسبب انهيار التطبيق، فقط توقف عن التسجيل
     }
 
@@ -67,7 +56,6 @@ export const initializeNativePush = async (_user_id: string) => {
 
     // Listeners
     await PushNotifications.addListener('registration', async (token: Token) => {
-      console.log('[NativePush] Registration token:', token.value);
       
       // Save token to backend
       try {
@@ -77,23 +65,18 @@ export const initializeNativePush = async (_user_id: string) => {
           body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
         });
       } catch (err) {
-        console.error('[NativePush] Failed to send token to backend:', err);
       }
     });
 
     await PushNotifications.addListener('registrationError', (err: any) => {
-      console.error('[NativePush] Registration error:', err.error);
     });
 
     await PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
-      console.log('[NativePush] Notification received:', notification);
     });
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (notification: any) => {
-      console.log('[NativePush] Action performed:', notification.actionId);
     });
 
   } catch (error) {
-    console.error('[NativePush] Error during initialization:', error);
   }
 };

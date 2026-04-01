@@ -99,7 +99,6 @@ const AppLogo = () => (
 );
 
 export default function LoginPage() {
-  trackLog('LOGIN_PAGE_RENDER', { timestamp: Date.now() });
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { login, loginWithBiometric: authBiometricLogin } = useAuth();
@@ -119,6 +118,7 @@ export default function LoginPage() {
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
 
   useEffect(() => {
+    trackLog('LOGIN_PAGE_RENDER', { timestamp: Date.now() });
     setStatusBarForPage('login');
     const checkBiometric = async () => {
       const { isBiometricAvailable } = await import("../lib/webauthn");
@@ -882,7 +882,6 @@ export default function LoginPage() {
                 await navigator.clipboard.writeText(fullUrl);
               }
             } catch (err) {
-              console.warn("[LoginPage] فشل نسخ الرابط:", err);
             }
           }}
         />,

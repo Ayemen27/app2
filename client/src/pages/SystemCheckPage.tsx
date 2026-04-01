@@ -263,7 +263,6 @@ export default function SystemCheckPage() {
       }
       return 'granted';
     } catch (error) {
-      console.error('[DB Check] فشل:', error);
       return 'denied';
     }
   };
@@ -507,7 +506,6 @@ export default function SystemCheckPage() {
       
       return allTablesExist ? 'granted' : 'warning';
     } catch (error) {
-      console.error('[Tables Check] Error:', error);
       return 'denied';
     }
   };
@@ -639,7 +637,6 @@ export default function SystemCheckPage() {
             try {
               await smartPut(tableName, record);
             } catch (e) {
-              console.warn(`[Import] تخطي سجل في ${tableName}:`, e);
             }
           }
         }
@@ -672,7 +669,6 @@ export default function SystemCheckPage() {
           const dbInstance = await getDB();
           await (dbInstance as any).put(tableName, record);
         } catch (e) {
-          console.warn(`[SQL Import] تخطي:`, e);
         }
       }
     }
@@ -700,7 +696,6 @@ export default function SystemCheckPage() {
       setImportStatus('تم الاستيراد بنجاح!');
       setTimeout(() => setImportStatus(''), 3000);
     } catch (error: any) {
-      console.error('[Import] خطأ:', error);
       setImportStatus(`فشل: ${error.message}`);
       setTimeout(() => setImportStatus(''), 5000);
     }
@@ -771,7 +766,6 @@ export default function SystemCheckPage() {
       const result = await step.fn();
       updateCheck(step.id, { status: result, details: getStatusText(result) });
     }
-
 
     setPhase('system');
 
@@ -844,7 +838,6 @@ export default function SystemCheckPage() {
         const result = await step.fn();
         updateCheck(step.id, { status: result });
       } catch (error) {
-        console.error(`[Refresh] Error checking ${step.id}:`, error);
         updateCheck(step.id, { status: 'warning' });
       }
     }

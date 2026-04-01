@@ -20,9 +20,7 @@ export async function setStatusBarColor(hexColor: string, darkIcons = true) {
   try {
     await StatusBarPlugin.setBackgroundColor({ color: hexColor });
     await StatusBarPlugin.setStyle({ style: darkIcons ? StyleEnum.Light : StyleEnum.Dark });
-    console.log(`[StatusBar] color=${hexColor}, darkIcons=${darkIcons}`);
   } catch (e) {
-    console.warn('[StatusBar] setStatusBarColor failed:', e);
   }
 }
 
@@ -60,9 +58,7 @@ export async function setStatusBarForPage(page: 'login' | 'app' | 'dark') {
         break;
     }
     await StatusBarPlugin.setOverlaysWebView({ overlay: false });
-    console.log(`[StatusBar] page=${page}, dark=${dark}`);
   } catch (e) {
-    console.warn('[StatusBar] setStatusBarForPage failed:', e);
   }
 }
 
@@ -72,6 +68,5 @@ export async function initStatusBar() {
     await StatusBarPlugin.setOverlaysWebView({ overlay: false });
     await StatusBarPlugin.show();
   } catch (e) {
-    console.warn('[StatusBar] initStatusBar failed:', e);
   }
 }

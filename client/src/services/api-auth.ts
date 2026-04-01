@@ -6,15 +6,12 @@ export class AuthService {
 
   static saveToken(token: string): void {
     if (!token) {
-      console.warn('⚠️ محاولة حفظ توكن فارغ');
       return;
     }
     try {
       const refresh = getRefreshToken() || '';
       storeTokens(token, refresh);
-      console.log('✅ [AuthService] تم حفظ التوكن بنجاح');
     } catch (error) {
-      console.error('❌ [AuthService] خطأ في حفظ التوكن:', error);
     }
   }
 
@@ -22,11 +19,9 @@ export class AuthService {
     try {
       const token = getAccessToken();
       if (!token) {
-        console.warn('⚠️ [AuthService] لا يوجد توكن محفوظ');
       }
       return token;
     } catch (error) {
-      console.error('❌ [AuthService] خطأ في جلب التوكن:', error);
       return null;
     }
   }
@@ -36,9 +31,7 @@ export class AuthService {
     try {
       const access = getAccessToken() || '';
       storeTokens(access, token);
-      console.log('✅ [AuthService] تم حفظ Refresh Token');
     } catch (error) {
-      console.error('❌ [AuthService] خطأ في حفظ Refresh Token:', error);
     }
   }
 
@@ -46,7 +39,6 @@ export class AuthService {
     try {
       return getRefreshToken();
     } catch (error) {
-      console.error('❌ [AuthService] خطأ في جلب Refresh Token:', error);
       return null;
     }
   }
@@ -54,9 +46,7 @@ export class AuthService {
   static clearTokens(): void {
     try {
       clearStoredTokens();
-      console.log('✅ [AuthService] تم مسح التوكنات');
     } catch (error) {
-      console.error('❌ [AuthService] خطأ في مسح التوكنات:', error);
     }
   }
 
@@ -73,9 +63,7 @@ export class AuthService {
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔐 [AuthService] تم إضافة التوكن لـ headers');
     } else {
-      console.warn('⚠️ [AuthService] لا يوجد توكن للإضافة');
     }
 
     return headers;

@@ -79,7 +79,6 @@ export const usePush = (): UsePushReturn => {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to initialize push notifications';
         setError(errorMessage);
-        console.error('[usePush] Initialization error:', err);
       } finally {
         setIsInitializing(false);
       }
@@ -99,7 +98,6 @@ export const usePush = (): UsePushReturn => {
     if (!isPushSupported) {
       const msg = 'المتصفح الحالي لا يدعم الإشعارات';
       setError(msg);
-      console.warn('[usePush]', msg);
       return false;
     }
 
@@ -147,7 +145,6 @@ export const usePush = (): UsePushReturn => {
             localStorage.setItem('fcm_token', token);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to register push token';
-            console.error('[usePush] Token registration error:', err);
             setError(errorMessage);
             return false;
           }
@@ -167,7 +164,6 @@ export const usePush = (): UsePushReturn => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to request push permission';
       setError(errorMessage);
-      console.error('[usePush] Permission request error:', err);
       return false;
     } finally {
       setIsInitializing(false);

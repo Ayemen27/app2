@@ -175,7 +175,6 @@ export const RecentActivitiesStrip = memo(({
     try {
       await exportActivitiesToExcel(activities, formatCurrency);
     } catch (error) {
-      console.error('خطأ في التصدير:', error);
     } finally {
       setIsExporting(false);
     }

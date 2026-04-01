@@ -62,7 +62,6 @@ export async function generatePDF(options: PDFGenerationOptions): Promise<boolea
 
     return await downloadFile(pdfBlob, fileName, 'application/pdf');
   } catch (error) {
-    console.error('[PDF] Generation error:', error);
     return false;
   }
 }

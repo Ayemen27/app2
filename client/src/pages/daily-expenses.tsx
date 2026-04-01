@@ -247,9 +247,7 @@ function DailyExpensesContent() {
         value: value.trim(),
         usageCount: 1
       });
-      console.log(`✅ تم حفظ قيمة الإكمال التلقائي: ${field} = ${value.trim()}`);
     } catch (error) {
-      console.warn(`Failed to save autocomplete value for ${field}:`, error);
     }
   };
 
@@ -518,7 +516,6 @@ function DailyExpensesContent() {
       paymentType: paidAmountNum > 0 ? (paidAmountNum >= actualWage && actualWage > 0 ? "full" : "partial") : "credit",
     };
 
-    console.log('📝 [DailyExpenses] إرسال بيانات الحضور:', attendanceData);
     addWorkerAttendanceMutation.mutate(attendanceData);
   };
 
@@ -533,7 +530,6 @@ function DailyExpensesContent() {
         }
         return [];
       } catch (error) {
-        console.warn('⚠️ لم يتمكن من جلب المواد:', error);
         return [];
       }
     },
@@ -553,7 +549,6 @@ function DailyExpensesContent() {
         if (response && response.data && Array.isArray(response.data)) return response.data;
         return [];
       } catch (error) {
-        console.warn('⚠️ لم يتمكن من جلب الموردين:', error);
         return [];
       }
     },
@@ -573,7 +568,6 @@ function DailyExpensesContent() {
       try {
         const project_id = isAllProjects ? "all" : selectedProjectId;
         const response = await apiRequest(`/api/daily-project-transfers?project_id=${project_id}&date=${selectedDate || ""}`, "GET");
-        console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
         let transferData = [];
         if (response && response.data && Array.isArray(response.data)) {
@@ -584,11 +578,9 @@ function DailyExpensesContent() {
 
         if (!Array.isArray(transferData)) return [];
 
-        console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate} في الصفحة اليومية`);
         
         return transferData;
       } catch (error) {
-        console.error("Error fetching daily project transfers:", error);
         return [];
       }
     },
@@ -721,7 +713,6 @@ function DailyExpensesContent() {
 
         return null;
       } catch (error) {
-        console.error("خطأ في جلب المصروفات:", error);
         throw error;
       }
     },
@@ -932,7 +923,6 @@ function DailyExpensesContent() {
         }
         return response?.balance || "0";
       } catch (error) {
-        console.error("Error fetching previous balance:", error);
         return "0";
       }
     },
@@ -947,7 +937,6 @@ function DailyExpensesContent() {
   // تحديث المبلغ المرحل تلقائياً عند جلب الرصيد السابق
   useEffect(() => {
     if (previousBalance !== null && previousBalance !== undefined) {
-      console.log('🔄 تحديث carriedForward:', { previousBalance, type: typeof previousBalance });
       setCarriedForward(previousBalance);
     }
   }, [previousBalance]);
@@ -973,7 +962,6 @@ function DailyExpensesContent() {
           await saveAutocompleteValue('transferTypes', type);
         } catch (error) {
           // تجاهل الأخطاء بهدوء
-          console.log(`Type ${type} initialization skipped:`, error);
         }
       }
     };
@@ -1010,8 +998,6 @@ function DailyExpensesContent() {
 
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-
-      console.error("خطأ في إضافة الحولة:", error);
 
       let errorMessage = "حدث خطأ أثناء إضافة الحولة";
 
@@ -1154,7 +1140,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في حذف الحولة:", error);
       let errorMessage = "حدث خطأ أثناء حذف الحولة";
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -1188,7 +1173,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في حذف مصروف المواصلات:", error);
 
       let errorMessage = "حدث خطأ أثناء حذف مصروف المواصلات";
 
@@ -1250,7 +1234,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في حذف شراء المواد:", error);
 
       let errorMessage = "حدث خطأ أثناء حذف شراء المواد";
 
@@ -1686,7 +1669,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في حذف حضور العامل:", error);
 
       let errorMessage = "حدث خطأ أثناء حذف حضور العامل";
 
@@ -1745,7 +1727,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في حذف حوالة العامل:", error);
 
       let errorMessage = "حدث خطأ أثناء حذف حوالة العامل";
 
@@ -2006,7 +1987,6 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
-      console.error("خطأ في تحديث الحولة:", error);
 
       let errorMessage = "حدث خطأ أثناء تحديث الحولة";
 
@@ -2186,7 +2166,6 @@ function DailyExpensesContent() {
     }
   };
 
-
   const handleSaveSummary = () => {
     if (!selectedProjectId) {
       toast({
@@ -2211,7 +2190,6 @@ function DailyExpensesContent() {
       remainingBalance: (totalsValue.remainingBalance || totalsValue.totalBalance || 0).toString(),
     });
   };
-
 
   // تكوين صفوف الإحصائيات الموحدة (3x3)
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
@@ -2376,14 +2354,6 @@ function DailyExpensesContent() {
       // تحويل البيانات المفلترة إلى شكل Transaction
       const transactions: any[] = [];
       
-      console.log('📊 [Excel Export] بدء التصدير:', {
-        fundTransfers: filteredFundTransfers.length,
-        attendance: filteredAttendance.length,
-        transportation: filteredTransportation.length,
-        materials: filteredMaterialPurchases.length,
-        workerTransfers: filteredWorkerTransfers.length,
-        miscExpenses: filteredMiscExpenses.length
-      });
       
       // إضافة الرصيد المتبقي السابق (دخل)
       const carriedAmount = cleanNumber(carriedForward);
@@ -2565,7 +2535,6 @@ function DailyExpensesContent() {
         toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
       }
     } catch (error) {
-      console.error('خطأ في التصدير:', error);
       toast({
         title: "فشل التصدير",
         description: "حدث خطأ أثناء تصدير البيانات",
@@ -2679,7 +2648,6 @@ function DailyExpensesContent() {
           </Button>
         </div>
       )}
-
 
       {/* بطاقات ملخص المصروفات - عرض بطاقة لكل تاريخ (سواء اختيار جميع المشاريع أو مشروع محدد) */}
       {dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (
@@ -3432,7 +3400,6 @@ function DailyExpensesContent() {
                 </Button>
               )}
             </div>
-
 
             {/* أجور العمال - عرض البطاقات */}
             {safeAttendance.length > 0 && (

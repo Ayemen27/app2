@@ -212,6 +212,14 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 - **Upgraded:** nodemailer, firebase-admin, @rollup/plugin-terser, @capacitor/cli, @capgo/capacitor-native-biometric, axios, jspdf, express-rate-limit chain
 - **Remaining 8 low:** All from firebase-admin internal dependency chain (google-gax → protobufjs, @tootallnate/once, teeny-request) — no fix without breaking downgrade
 
+### Comprehensive Audit & Fixes (Completed)
+**Audit Date:** 2026-04-01 — Full system audit with 37 checks across 6 categories.
+- **Domain typo fixed:** `binarjoinanelytic` → `binarjoinanalytic` in .env, .env.example, 4 test files, instrumentation.ts, 2 backup files
+- **React warning fixed:** DebugOverlay setState-during-render in LoginPage — moved trackLog to useEffect
+- **Console.log cleanup:** Removed 588+ debug console statements from 67 client files (kept [TRACK] telemetry + ErrorBoundary)
+- **Duplicate /stats route:** Verified — no actual conflict (6 independent /stats under different prefixes)
+- **Audit report:** `.local/comprehensive-audit-report.md`
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

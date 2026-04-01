@@ -163,7 +163,6 @@ export default function RegisterPage() {
         else if (timezone.includes('Khartoum')) setSelectedCountry(countries.find(c => c.code === '+249') || countries[0]);
         else if (timezone.includes('Istanbul')) setSelectedCountry(countries.find(c => c.code === '+90') || countries[0]);
       } catch (e) {
-        console.error("Failed to detect country:", e);
       }
     };
     detectCountry();

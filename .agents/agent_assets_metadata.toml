@@ -72,3 +72,9 @@ id = "Mr-cjuvCi7emt1zG0o-KX"
 uri = "file://تقرير_المقارنة.xlsx"
 type = "table"
 title = "تقرير المقارنة النهائي - الإكسل مقابل النظام"
+
+[[outputs]]
+id = "LTTV-RyHuRK_2VUIhHn6u"
+uri = "file://.local/comprehensive-audit-report.md"
+type = "text"
+title = "AXION v1.0.5 - تقرير الفحص الشامل وخطة الإصلاح"

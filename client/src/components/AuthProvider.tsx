@@ -81,7 +81,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return base ? `${base}/api` : '/api';
   };
 
-
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
@@ -99,7 +98,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const savedUser = localStorage.getItem('user');
 
         if (isWebCookieMode()) {
-          if (import.meta.env.DEV) console.log('[AuthProvider] Web cookie mode - checking session via /api/auth/me');
           try {
             const res = await fetch(`${getApiBaseUrl()}/auth/me`, {
               credentials: getFetchCredentials(),
@@ -132,7 +130,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 setAuthMode('online');
               }
             } else if (savedUser) {
-              if (import.meta.env.DEV) console.log('[AuthProvider] Cookie session invalid, clearing user');
               setUser(null);
               localStorage.removeItem('user');
               clearTokens();
@@ -144,10 +141,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const parsedUser = JSON.parse(savedUser);
                 if (isOfflineMode()) {
                   setUser(parsedUser);
-                  if (import.meta.env.DEV) console.log('[AuthProvider] Web offline fallback - using saved user');
                 }
               } catch {
-                if (import.meta.env.DEV) console.log('[AuthProvider] Failed to parse saved user in offline fallback');
               }
             }
           }
@@ -156,13 +151,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         if (!savedUser) {
-          if (import.meta.env.DEV) console.log('[AuthProvider] No saved user data');
           setIsLoading(false);
           return;
         }
 
         if (!accessToken && !isOfflineMode()) {
-          if (import.meta.env.DEV) console.log('[AuthProvider] No valid token and not in offline mode');
           setIsLoading(false);
           return;
         }
@@ -178,12 +171,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const verifiedRole = emergencyUser.role || parsedUser.role;
                 const trustedUser = { ...parsedUser, role: verifiedRole };
                 setUser(trustedUser);
-                if (import.meta.env.DEV) console.log('[AuthProvider] Offline mode - pre-verified credentials');
               } else {
-                if (import.meta.env.DEV) console.log('[AuthProvider] No verified offline credentials');
               }
             } catch {
-              if (import.meta.env.DEV) console.log('[AuthProvider] Failed to check offline data');
             }
             setIsLoading(false);
             return;
@@ -193,11 +183,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setIsLoading(false);
           
           if (!accessToken) {
-            if (import.meta.env.DEV) console.log('[AuthProvider] Offline mode - skipping server verification');
             return;
           }
 
-          if (import.meta.env.DEV) console.log('[AuthProvider] Silent session verification...');
           fetch(`${getApiBaseUrl()}/auth/me`, {
             credentials: getFetchCredentials(),
             headers: { ...getAuthHeaders(), ...getClientPlatformHeader() }
@@ -231,7 +219,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
               }
             } else if (res.status === 401) {
-              if (import.meta.env.DEV) console.warn('[AuthProvider] Silent verification failed (401)');
               setUser(null);
               localStorage.removeItem('user');
               clearTokens();
@@ -240,11 +227,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }).catch(() => {});
 
         } catch (e) {
-          if (import.meta.env.DEV) console.error('[AuthProvider] Error reading user data:', e);
           await logout();
         }
       } catch (error) {
-        if (import.meta.env.DEV) console.error('[AuthProvider] General error:', error);
       } finally {
         setIsLoading(false);
       }
@@ -256,7 +241,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'accessToken' && !e.newValue) {
-        if (import.meta.env.DEV) console.log('[AuthProvider] Token cleared externally');
         setUser(null);
       }
     };
@@ -304,7 +288,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setAuthMode('online');
           }
         } else if (res.status === 401) {
-          if (import.meta.env.DEV) console.warn('[AuthProvider] Session invalid on revalidation, logging out');
           await logout();
         }
       } catch {
@@ -334,7 +317,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       protocol: window.location?.protocol,
     };
     trackLog('LOGIN_FN_START', platformInfo);
-    console.log('[AUTH-DIAG] === LOGIN START ===', JSON.stringify(platformInfo));
 
     let result: any = null;
     let response: Response | null = null;
@@ -586,29 +568,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           name: userToSave.name,
           role: userToSave.role
         });
-        if (import.meta.env.DEV) console.log('[AuthProvider] Offline credentials saved successfully');
       } catch (offlineHashErr) {
-        if (import.meta.env.DEV) console.warn('[AuthProvider] Failed to save offline credentials:', offlineHashErr);
       }
     }
 
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية وبحماية شاملة)
     const performInitialDataPull = async () => {
       try {
-        if (import.meta.env.DEV) console.log('[AuthProvider] Starting sync...');
         const syncModule = await import('../offline/sync');
         const startSync = (syncModule as any).startSync || (syncModule as any).default?.startSync;
         if (typeof startSync === 'function') {
           await startSync();
         }
       } catch (err) {
-        if (import.meta.env.DEV) console.warn('[AuthProvider] Initial sync failed, continuing:', err);
       }
     };
 
     // تشغيل المزامنة في الخلفية
     performInitialDataPull().then(() => {
-      if (import.meta.env.DEV) console.log('[AuthProvider] Sync attempt completed');
       const coreKeys = [
         ["/api/projects"], ["/api/projects/with-stats"],
         ["/api/workers"], ["/api/materials"],
@@ -620,9 +597,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }).catch(() => {});
 
     await new Promise(resolve => setTimeout(resolve, 50));
-    prefetchCoreData().catch(console.warn);
-
-    if (import.meta.env.DEV) console.log('[AuthProvider.login] Login completed successfully');
+    prefetchCoreData().catch(() => {});
 
     promptBiometricRegistration();
 
@@ -630,7 +605,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const promptBiometricRegistration = async () => {
-    if (import.meta.env.DEV) console.log('[AuthProvider] Biometric available in Settings > Security');
   };
 
   const loginWithBiometric = async (email?: string) => {
@@ -663,7 +637,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('user', JSON.stringify(userToSave));
     setUser(userToSave);
 
-    prefetchCoreData().catch(console.warn);
+    prefetchCoreData().catch(() => {});
   };
 
   // تسجيل الخروج
@@ -702,7 +676,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if ('caches' in window) {
           try { await caches.delete('api-data-v2'); } catch {}
         }
-        if (import.meta.env.DEV) console.log('[AuthProvider] Offline data cleaned on logout');
       } catch {}
     }
   };
@@ -720,10 +693,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const refreshToken = async (forceRetry: boolean = false): Promise<boolean> => {
-    if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Starting token refresh...');
 
     if (refreshPromiseRef.current && !forceRetry) {
-      if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh already in progress, awaiting existing promise...');
       return refreshPromiseRef.current;
     }
 
@@ -734,7 +705,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const refreshTokenValue = storeGetRefreshToken();
       if (!refreshTokenValue) {
-        if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] No refresh token');
         return false;
       }
 
@@ -743,14 +713,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const attemptStartTime = Date.now();
-        if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Attempt ${attempt + 1}/${maxAttempts}...`);
 
         try {
           // إنشاء AbortController للتحكم في timeout
           const controller = new AbortController();
           const timeoutId = setTimeout(() => {
             controller.abort();
-            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Timeout for attempt ${attempt + 1}`);
           }, 10000); // 10 ثواني timeout
 
           const response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
@@ -769,7 +737,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // ✅ فحص استباقي لنوع المحتوى قبل المعالجة
           const contentType = response.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
-            if (import.meta.env.DEV) console.error('[AuthProvider.refreshToken] Invalid server response (not JSON):', contentType);
             // محاولة انتظار قصيرة في حالة وجود ضغط على السيرفر
             await sleep(2000);
             continue; 
@@ -777,12 +744,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           clearTimeout(timeoutId);
           const attemptDuration = Date.now() - attemptStartTime;
-          if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Attempt ${attempt + 1} took ${attemptDuration}ms`);
 
           const data = await response.json();
 
           if (response.ok && data.success && data.tokens) {
-            if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Successful response');
 
             storeTokens(data.tokens.accessToken, data.tokens.refreshToken);
 
@@ -790,17 +755,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setRefreshAttempts(0);
 
             const totalDuration = Date.now() - startTime;
-            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Refresh succeeded in ${totalDuration}ms after ${attempt + 1} attempts`);
 
             return true;
           } else {
             // فشل HTTP أو بيانات غير صحيحة
-            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Failed ${response.status}:`, data.message || 'unknown error');
           }
 
           // إذا كان 401 أو 403، فالـ refresh token منتهي الصلاحية
           if (response.status === 401 || response.status === 403) {
-            if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh token expired - no point retrying');
             break; // خروج من حلقة المحاولات
           }
 
@@ -810,20 +772,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (error instanceof Error) {
             if (import.meta.env.DEV) {
               if (error.name === 'AbortError') {
-                console.log(`[AuthProvider.refreshToken] Timeout in attempt ${attempt + 1} after ${attemptDuration}ms`);
               } else {
-                console.log(`[AuthProvider.refreshToken] Network error in attempt ${attempt + 1}:`, error.message);
               }
             }
           } else {
-            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Unknown error in attempt ${attempt + 1}:`, error);
           }
         }
 
         // إذا لم تكن هذه المحاولة الأخيرة، انتظر قبل المحاولة التالية
         if (attempt < maxAttempts - 1) {
           const delay = calculateBackoffDelay(attempt);
-          if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Waiting ${delay}ms before next attempt...`);
           await sleep(delay);
         }
       }
@@ -831,12 +789,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // فشل جميع المحاولات
       setRefreshAttempts(prev => prev + 1);
       const totalDuration = Date.now() - startTime;
-      if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Refresh failed after ${totalDuration}ms and ${maxAttempts} attempts`);
 
       // ✅ تعديل: عدم تسجيل الخروج القسري للسماح بالعمل في وضع Offline أو المحاولة لاحقاً
       // فقط نقوم بتمكين وضع الأوفلاين في حالة وجود بيانات مستخدم محفوظة
       if (localStorage.getItem('user')) {
-        if (import.meta.env.DEV) console.warn('[AuthProvider] Refresh failed, but keeping local session for offline support');
         return false;
       }
 
@@ -848,7 +804,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     } catch (error) {
       const totalDuration = Date.now() - startTime;
-      if (import.meta.env.DEV) console.error(`[AuthProvider.refreshToken] General error after ${totalDuration}ms:`, error);
       setRefreshAttempts(prev => prev + 1);
       return false;
     }

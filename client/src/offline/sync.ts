@@ -90,10 +90,8 @@ export async function forceSyncTable(tableName: string, data: any[]) {
   try {
     await smartClear(tableName);
     await smartSave(tableName, data);
-    console.log(`✅ [ForceSync] Table ${tableName} synced with ${data.length} records`);
     return true;
   } catch (error) {
-    console.error(`❌ [ForceSync] Failed to sync ${tableName}:`, error);
     return false;
   }
 }
@@ -101,7 +99,6 @@ export async function forceSyncTable(tableName: string, data: any[]) {
 export function getSyncState(): SyncState {
   return { ...currentSyncState };
 }
-
 
 /**
  * حساب وقت الانتظار (Exponential Backoff)
@@ -117,43 +114,34 @@ export async function performInitialDataPull(): Promise<boolean> {
   if (!isWebCookieMode()) {
     const accessToken = getAccessToken();
     if (!accessToken) {
-      console.warn('🔑 [Sync] لا يمكن السحب الأولي بدون توكن');
       return false;
     }
   }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    console.warn('📡 [Sync] لا يمكن السحب الأولي بدون إنترنت');
     return false;
   }
 
   if (!isCurrentTabLeader()) {
-    console.log('🔄 [Sync] هذا التبويب ليس القائد، تخطي السحب الأولي');
     return false;
   }
 
   if (isSyncing) {
-    console.log('🔄 [Sync] المزامنة جارية بالفعل، تخطي الطلب الجديد');
     return false;
   }
 
   try {
-    console.log('📥 [Sync] بدء سحب البيانات الكاملة من الخادم...');
     updateSyncState({ isSyncing: true });
 
     // محاولة جلب البيانات مع مهلة زمنية (Timeout) للتعامل مع ضعف الإنترنت
     // ترقية: استخدام نقطة النهاية المخصصة للمزامنة الكاملة بدلاً من المسار القديم
-    console.log('📡 [Sync] إرسال طلب apiRequest إلى /api/sync/full-backup');
     const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
-    console.log('📡 [Sync] نتيجة الطلب:', result ? 'نجح' : 'فشل');
     
     if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN')) {
-      console.error('❌ [Sync] فشل المصادقة أو انتهت المهلة، يجب تسجيل الدخول مرة أخرى');
       return false;
     }
     
     if (!result.success || !result.data) {
-      console.error('❌ [Sync] فشل جلب البيانات من السيرفر:', result?.error || 'بيانات غير صالحة', result);
       return false;
     }
 
@@ -223,12 +211,10 @@ export async function performInitialDataPull(): Promise<boolean> {
       lastSyncTime: Date.now()
     });
 
-    console.log('🎉 [Sync] اكتملت المزامنة والاستيراد بنجاح!');
     updateSyncState({ isSyncing: false, lastSync: Date.now(), progress: undefined });
     return true;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ [Sync] خطأ في المزامنة الأولية:', errorMsg);
     
     updateSyncState({ 
       isSyncing: false, 
@@ -237,7 +223,6 @@ export async function performInitialDataPull(): Promise<boolean> {
 
     // معالجة سيناريو "انقطاع الإنترنت المفاجئ أثناء الاستيراد"
     if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('📡 [Sync] تم إلغاء المزامنة بسبب بطء الاتصال، سيتم المحاولة لاحقاً');
     }
     
     return false;
@@ -283,7 +268,6 @@ async function checkLWWConflict(item: { action: string; endpoint: string; payloa
     const serverRecord = extractServerRecord(rawResponse);
 
     if (!serverRecord || serverRecord.error) {
-      console.log(`[Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
       return 'proceed';
     }
 
@@ -305,16 +289,13 @@ async function checkLWWConflict(item: { action: string; endpoint: string; payloa
     const resolved = resolveConflictLWW(conflictData);
 
     if (resolved === conflictData.serverVersion) {
-      console.log(`[Sync-LWW] Server version is newer for ${recordId} (server: ${serverTimestamp}, client: ${clientTimestamp}), skipping update`);
       await logConflict('update', String(recordId), conflictData, 'server-wins');
       return 'skip';
     }
 
-    console.log(`[Sync-LWW] Client version is newer for ${recordId} (client: ${clientTimestamp}, server: ${serverTimestamp}), proceeding`);
     await logConflict('update', String(recordId), conflictData, 'client-wins');
     return 'proceed';
   } catch (error) {
-    console.warn(`[Sync-LWW] Error checking server version for ${recordId}, proceeding with update:`, error);
     return 'proceed';
   }
 }
@@ -341,14 +322,12 @@ export async function syncOfflineData(): Promise<void> {
       return;
     }
 
-    console.log(`🔄 [Sync] جاري مزامنة ${pending.length} عملية...`);
     
     let successCount = 0;
     let failedCount = 0;
 
     for (const item of pending) {
       if (item.retries >= MAX_RETRIES) {
-        console.warn(`⚠️ [Sync] العملية ${item.id} تجاوزت الحد الأقصى - تبقى في failed`);
         await markItemFailed(item.id, `تجاوز الحد الأقصى للمحاولات (${MAX_RETRIES})`, 'max_retries');
         failedCount++;
         continue;
@@ -370,7 +349,6 @@ export async function syncOfflineData(): Promise<void> {
             retryCount: item.retries,
           });
           successCount++;
-          console.log(`[Sync] Skipped update for ${item.id} - server version is newer (LWW)`);
           continue;
         }
 
@@ -393,14 +371,12 @@ export async function syncOfflineData(): Promise<void> {
           const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
           if (statusCode === 409) {
-            console.log(`🔁 [Sync] عملية مكررة (409): ${item.id}`);
             await markItemDuplicateResolved(item.id, errorMsg);
             successCount++;
             continue;
           }
 
           if (statusCode === 400 || statusCode === 422) {
-            console.error(`❌ [Sync] خطأ تحقق (${statusCode}): ${item.id}`);
             await markItemFailed(item.id, errorMsg, 'validation');
             await logSyncResult({
               queueItemId: item.id,
@@ -450,7 +426,6 @@ export async function syncOfflineData(): Promise<void> {
                 await smartSave(tableName, [record]);
               }
             } catch (updateError) {
-              console.warn(`⚠️ [Sync] فشل تحديث الحالة المحلية لـ ${tableName}:`, updateError);
             }
           }
           
@@ -491,7 +466,6 @@ export async function syncOfflineData(): Promise<void> {
       failedCount
     });
   } catch (error) {
-    console.error('❌ [Sync] خطأ في المزامنة:', error);
     updateSyncState({ isSyncing: false });
     
     intelligentMonitor.logEvent({
@@ -513,8 +487,8 @@ export function initSyncListener(): void {
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
     if (isCurrentTabLeader()) {
-      performInitialDataPull().catch(err => console.warn('[Sync] Online pull failed:', err));
-      syncOfflineData().catch(err => console.warn('[Sync] Online sync failed:', err));
+      performInitialDataPull().catch(() => {});
+      syncOfflineData().catch(() => {});
     }
   });
 
@@ -524,23 +498,21 @@ export function initSyncListener(): void {
 
   onLeaderChange((leader) => {
     if (leader && navigator.onLine) {
-      console.log('[Sync] This tab became leader, starting sync...');
-      performInitialDataPull().catch(err => console.warn('[Sync] Leader pull failed:', err));
-      syncOfflineData().catch(err => console.warn('[Sync] Leader sync failed:', err));
+      performInitialDataPull().catch(() => {});
+      syncOfflineData().catch(() => {});
     }
   });
 
   if (isCurrentTabLeader()) {
     const runSync = async () => {
-      console.log('[Sync] Leader tab starting initial sync...');
       await performInitialDataPull();
       await syncOfflineData();
     };
-    runSync().catch(err => console.warn('[Sync] Initial sync failed:', err));
+    runSync().catch(() => {});
   }
 
   syncInterval = setInterval(() => {
-    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData().catch(err => console.warn('[Sync] Interval sync failed:', err));
+    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData().catch(() => {});
   }, 30000);
 }
 
@@ -550,12 +522,11 @@ export function stopSyncListener(): void {
 
 export function triggerSync() {
   if (!isCurrentTabLeader()) return;
-  syncOfflineData().catch(err => console.error('❌ [Sync] خطأ في المزامنة الفورية:', err));
+  syncOfflineData().catch(() => {});
 }
 
 export async function loadFullBackup(): Promise<{ recordCount: number }> {
   try {
-    console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
     const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
     
     if (!result || !result.success || !result.data) {
@@ -583,7 +554,6 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     
     return { recordCount: totalSaved };
   } catch (error: any) {
-    console.error('❌ [Sync] خطأ في تحميل النسخة الاحتياطية:', error);
     throw error;
   }
 }
@@ -592,7 +562,6 @@ export function startBackgroundSync(): void {
   if (isSyncing) return;
   if (!isCurrentTabLeader()) return;
   syncOfflineData().catch(err => {
-    console.error('❌ [Sync] فشل المزامنة الخلفية:', err);
   });
 }
 
@@ -609,7 +578,6 @@ export async function performInstantSync(tables?: string[], lastSyncTime?: numbe
     return { success: false, totalRecords: 0, duration: 0 };
   }
   try {
-    console.log('⚡ [Sync] بدء المزامنة الفورية...');
     const startTime = Date.now();
     
     const result = await apiRequest('/api/sync/instant-sync', 'POST', {
@@ -633,7 +601,6 @@ export async function performInstantSync(tables?: string[], lastSyncTime?: numbe
     }
     
     const duration = Date.now() - startTime;
-    console.log(`⚡ [Sync] المزامنة الفورية اكتملت: ${totalSaved} سجل في ${duration}ms`);
     
     updateSyncState({ lastSync: Date.now() });
     
@@ -643,7 +610,6 @@ export async function performInstantSync(tables?: string[], lastSyncTime?: numbe
       duration
     };
   } catch (error) {
-    console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
     return {
       success: false,
       totalRecords: 0,
@@ -662,7 +628,6 @@ export async function verifySyncStatus(): Promise<{
   summary: { totalServerRecords: number; totalClientRecords: number; matchedTables: number; mismatchedTables: number };
 }> {
   try {
-    console.log('✅ [Sync] بدء التحقق من التطابق...');
     
     const clientCounts: Record<string, number> = {};
     
@@ -681,7 +646,6 @@ export async function verifySyncStatus(): Promise<{
       throw new Error('Verify sync failed');
     }
     
-    console.log(`✅ [Sync] التحقق اكتمل: ${result.isMatched ? 'متطابق ✓' : `${result.differences?.length || 0} اختلاف`}`);
     
     return {
       isMatched: result.isMatched,
@@ -694,7 +658,6 @@ export async function verifySyncStatus(): Promise<{
       }
     };
   } catch (error) {
-    console.error('❌ [Sync] خطأ في التحقق:', error);
     return {
       isMatched: false,
       differences: [],
@@ -727,7 +690,6 @@ export async function getSyncStats(): Promise<{
       totalRecords: result.summary?.totalRecords || 0
     };
   } catch (error) {
-    console.error('❌ [Sync] خطأ في جلب الإحصائيات:', error);
     return { stats: {}, totalRecords: 0 };
   }
 }

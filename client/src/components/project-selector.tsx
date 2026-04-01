@@ -27,38 +27,29 @@ export default function ProjectSelector({
     queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       try {
-        console.log('🔄 [ProjectSelector] جلب قائمة المشاريع...');
         const data = await apiRequest('/api/projects', 'GET');
-        console.log('📊 [ProjectSelector] استجابة المشاريع:', data);
         
         let projects = [];
         if (data && typeof data === 'object') {
           if (data.success !== undefined && data.data !== undefined) {
             projects = Array.isArray(data.data) ? data.data : [];
-            console.log('✅ [ProjectSelector] استخراج البيانات من data.data');
           }
           else if (Array.isArray(data)) {
             projects = data;
-            console.log('✅ [ProjectSelector] استخدام المصفوفة مباشرة');
           }
           else if (data.id) {
             projects = [data];
-            console.log('✅ [ProjectSelector] تحويل كائن واحد لمصفوفة');
           }
           else {
-            console.warn('⚠️ [ProjectSelector] هيكل غير متوقع:', data);
           }
         }
         
         if (!Array.isArray(projects)) {
-          console.warn('⚠️ [ProjectSelector] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
         }
         
-        console.log(`✅ [ProjectSelector] تم جلب ${projects.length} مشروع بنجاح`);
         return projects as Project[];
       } catch (error) {
-        console.error('❌ [ProjectSelector] خطأ في جلب المشاريع:', error);
         return [] as Project[];
       }
     },

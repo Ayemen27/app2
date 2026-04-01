@@ -137,7 +137,6 @@ export default function DailyExpensesBulkExport() {
         setExportProgress({ current, total });
         
       } catch (error) {
-        console.error(`خطأ في جلب بيانات ${dateStr}:`, error);
       }
     }
     
@@ -172,8 +171,6 @@ export default function DailyExpensesBulkExport() {
     };
     worksheet.getRow(1).height = 24;
 
-
-
     // رأس التقرير مطابق للصور المرجعية
     worksheet.mergeCells('A2:E2');
     const headerCell = worksheet.getCell('A2');
@@ -207,7 +204,6 @@ export default function DailyExpensesBulkExport() {
     // حساب الرصيد الجاري - البداية بصفر أو بالرصيد المرحل
     let currentBalance = 0;
     
-
 
     
     // صف المبلغ المرحل من سابق (فقط إذا كان هناك رصيد مرحل حقيقي وأكبر من صفر)
@@ -658,13 +654,6 @@ export default function DailyExpensesBulkExport() {
 
       // عرض جميع المشتريات مع نوع الدفع وتنسيق أفضل للكميات والأرقام
       dayData.materialPurchases.forEach((purchase: any, index: number) => {
-        console.log(`🔍 فحص مشترى رقم ${index + 1}:`, {
-          quantity: purchase.quantity,
-          totalAmount: purchase.totalAmount,
-          totalCost: purchase.totalCost,
-          materialName: purchase.materialName,
-          paymentType: purchase.paymentType || purchase.purchaseType
-        });
         
         const quantity = formatNumber(purchase.quantity || 1); // تنسيق الكمية لإزالة الأصفار الزائدة
         const amount = formatNumber(purchase.totalAmount || purchase.totalCost || 0);
@@ -780,10 +769,8 @@ export default function DailyExpensesBulkExport() {
       const blob = await response.blob();
       await downloadFile(blob, fileName, 'image/png');
 
-
       
     } catch (error) {
-      console.error('❌ خطأ في تحميل الصورة:', error);
       alert('❌ حدث خطأ أثناء تحميل صورة المعاينة. يرجى المحاولة مرة أخرى.');
     }
   };
@@ -835,8 +822,6 @@ export default function DailyExpensesBulkExport() {
         return;
       }
 
-
-
       // إنشاء ملف Excel
       const ExcelJS = (await import('exceljs')).default;
       const workbook = new ExcelJS.Workbook();
@@ -864,10 +849,7 @@ export default function DailyExpensesBulkExport() {
         toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
       }
 
-
-
     } catch (error) {
-      console.error('❌ خطأ في التصدير:', error);
       toast({
         title: "خطأ في التصدير",
         description: "حدث خطأ أثناء تصدير المصروفات اليومية",

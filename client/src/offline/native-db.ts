@@ -10,7 +10,7 @@ class SQLiteStorage {
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    this._initPromise = this.initialize().catch(err => console.error("[SQLite] Auto-Init Failed:", err));
+    this._initPromise = this.initialize().catch(() => {});
   }
 
   async initialize() {
@@ -26,7 +26,6 @@ class SQLiteStorage {
       try {
         isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
       } catch (connErr) {
-        console.warn('[SQLite] Connection check failed, assuming false:', connErr);
         isConn = false;
       }
 
@@ -48,7 +47,6 @@ class SQLiteStorage {
       await this.createTables();
       this._initialized = true;
     } catch (err) {
-      console.error('[SQLite] Critical Init Error:', err);
       this.db = null;
       throw err;
     }
@@ -107,7 +105,6 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT data FROM ${table} WHERE id = ?`, [id]);
       return res.values && res.values.length > 0 ? JSON.parse(res.values[0].data) : null;
     } catch (e) {
-      console.warn(`[SQLite] get ${table}/${id}:`, e);
       return null;
     }
   }
@@ -121,7 +118,6 @@ class SQLiteStorage {
         [id.toString(), JSON.stringify(data)]
       );
     } catch (e) {
-      console.warn(`[SQLite] set ${table}/${id}:`, e);
     }
   }
 
@@ -132,7 +128,6 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT data FROM ${table}`);
       return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
     } catch (e) {
-      console.warn(`[SQLite] getAll ${table}:`, e);
       return [];
     }
   }
@@ -143,7 +138,6 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id]);
     } catch (e) {
-      console.warn(`[SQLite] delete ${table}/${id}:`, e);
     }
   }
 
@@ -153,7 +147,6 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table}`, []);
     } catch (e) {
-      console.warn(`[SQLite] clearTable ${table}:`, e);
     }
   }
 
@@ -164,7 +157,6 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT COUNT(*) as cnt FROM ${table}`);
       return res.values && res.values.length > 0 ? (res.values[0].cnt || 0) : 0;
     } catch (e) {
-      console.warn(`[SQLite] count ${table}:`, e);
       return 0;
     }
   }

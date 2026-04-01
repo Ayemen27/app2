@@ -120,7 +120,6 @@ const useInteractiveValidation = (
             });
           }
         } catch (error) {
-          console.error('خطأ في التحقق:', error);
           setValidation({
             isValid: false,
             message: 'حدث خطأ في التحقق',

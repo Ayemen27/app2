@@ -115,7 +115,6 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
         }
         return null;
       } catch (error) {
-        console.error("❌ [useFinancialSummary] خطأ في جلب الملخص المالي:", error);
         throw error;
       }
     },

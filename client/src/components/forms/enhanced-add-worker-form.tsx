@@ -67,7 +67,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
 
   const addWorkerMutation = useMutation({
     mutationFn: async (data: InsertWorker) => {
-      console.log('🔧 [AddWorker] بدء إضافة عامل:', data);
       
       try {
         if (!isWebCookieMode()) {
@@ -78,20 +77,15 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
         }
         
         // حفظ القيم في autocomplete_data قبل العملية الأساسية
-        console.log('💾 [AddWorker] حفظ في autocomplete...');
         await Promise.all([
           saveAutocompleteValue('workerNames', data.name),
           saveAutocompleteValue('workerTypes', data.type)
         ]);
-        console.log('✅ [AddWorker] تم حفظ autocomplete');
         
-        console.log('📤 [AddWorker] إرسال طلب إضافة العامل...');
         const result = await apiRequest("/api/workers", "POST", data);
-        console.log('✅ [AddWorker] نجح إضافة العامل:', result);
         
         return result;
       } catch (error) {
-        console.error('❌ [AddWorker] خطأ في إضافة العامل:', error);
         throw error;
       }
     },

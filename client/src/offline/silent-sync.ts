@@ -40,7 +40,6 @@ export async function runSilentSync() {
   try {
     await _executeSilentSync();
   } catch (err) {
-    console.warn('[Silent-Sync] خطأ في المزامنة الصامتة:', err instanceof Error ? err.message : err);
   } finally {
     _isSyncing = false;
   }
@@ -102,7 +101,6 @@ async function checkLWWConflict(item: SyncQueueItem): Promise<'proceed' | 'skip'
     const serverRecord = extractServerRecord(rawResponse);
 
     if (!serverRecord || serverRecord.error) {
-      console.log(`[Silent-Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
       return 'proceed';
     }
 
@@ -124,23 +122,19 @@ async function checkLWWConflict(item: SyncQueueItem): Promise<'proceed' | 'skip'
     const resolved = resolveConflictLWW(conflictData);
 
     if (resolved === conflictData.serverVersion) {
-      console.log(`[Silent-Sync-LWW] Server version is newer for ${recordId} (server: ${serverTimestamp}, client: ${clientTimestamp}), skipping`);
       await logConflict('update', String(recordId), conflictData, 'server-wins');
       return 'skip';
     }
 
-    console.log(`[Silent-Sync-LWW] Client version is newer for ${recordId} (client: ${clientTimestamp}, server: ${serverTimestamp}), proceeding`);
     await logConflict('update', String(recordId), conflictData, 'client-wins');
     return 'proceed';
   } catch (error) {
-    console.warn(`[Silent-Sync-LWW] Error checking server version for ${recordId}, proceeding:`, error);
     return 'proceed';
   }
 }
 
 async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<void> {
   const startTime = Date.now();
-  console.log(`[Silent-Sync] معالجة دفعة ${batchId} (${items.length} عملية)...`);
 
   for (const item of items) {
     await markItemInFlight(item.id);
@@ -161,14 +155,12 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
         payloadSummary: getPayloadSummary(item.payload),
         retryCount: item.retries,
       });
-      console.log(`[Silent-Sync] Skipped ${item.id} in batch - server version is newer (LWW)`);
     } else {
       itemsToSend.push(item);
     }
   }
 
   if (itemsToSend.length === 0) {
-    console.log(`[Silent-Sync] All items in batch ${batchId} skipped by LWW`);
     return;
   }
 
@@ -202,7 +194,6 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
           retryCount: item.retries,
         });
       }
-      console.log(`[Silent-Sync] دفعة ${batchId} نجحت (${Date.now() - startTime}ms)`);
     } else {
       const errMsg = response?.message || response?.error || 'فشل الدفعة';
       throw new Error(errMsg);
@@ -210,7 +201,6 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
   } catch (error: any) {
     const statusCode = extractStatusCode(error);
     const errorMsg = error?.message || String(error);
-    console.error(`[Silent-Sync] فشل الدفعة ${batchId}:`, errorMsg);
 
     for (const item of itemsToSend) {
       if (!isRetryableError(statusCode) && statusCode > 0) {
@@ -269,8 +259,6 @@ async function _executeSilentSync() {
     }
   }
 
-  console.log(`[Silent-Sync] بدء معالجة ${readyItems.length} عملية (${batches.size} دفعات، ${unbatched.length} منفردة) من أصل ${queue.length}...`);
-
   for (const [batchId, batchItems] of batches) {
     await processBatch(batchId, batchItems);
   }
@@ -278,7 +266,6 @@ async function _executeSilentSync() {
   for (const item of unbatched) {
     try {
       if (item.retries >= SYNC_CONFIG.maxRetries) {
-        console.warn(`[Silent-Sync] نقل ${item.id} إلى DLQ بعد ${item.retries} محاولة`);
         await moveToDLQ(item);
         continue;
       }
@@ -298,7 +285,6 @@ async function _executeSilentSync() {
           payloadSummary: getPayloadSummary(item.payload),
           retryCount: item.retries,
         });
-        console.log(`[Silent-Sync] Skipped ${item.id} - server version is newer (LWW)`);
         continue;
       }
 
@@ -330,14 +316,12 @@ async function _executeSilentSync() {
         const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
         if (statusCode === 409) {
-          console.log(`[Silent-Sync] عملية مكررة (409): ${item.id}`);
           await markItemDuplicateResolved(item.id, errorMsg);
           await updateLocalItemSyncStatus(item, true);
           continue;
         }
 
         if (!isRetryableError(statusCode)) {
-          console.error(`[Silent-Sync] خطأ غير قابل للإعادة (${statusCode}): ${item.id}`);
           await moveToDLQ({
             ...item,
             retries: item.retries + 1,
@@ -397,7 +381,6 @@ async function _executeSilentSync() {
           retryCount: item.retries,
         });
 
-        console.log(`[Silent-Sync] نجحت: ${item.id} (${duration}ms)`);
       } else {
         const errMsg = response?.message || response?.error || 'استجابة غير ناجحة';
         const nextRetryAt = Date.now() + calculateBackoffDelay(item.retries + 1);
@@ -421,7 +404,6 @@ async function _executeSilentSync() {
         });
       }
     } catch (error: any) {
-      console.error(`[Silent-Sync] خطأ غير متوقع ${item.id}:`, error);
       await markItemFailed(item.id, error.message || String(error), 'unknown');
     }
   }
@@ -452,18 +434,18 @@ export function initSilentSyncObserver(intervalMs = 30000) {
   }
 
   if (isCurrentTabLeader()) {
-    runSilentSync().catch(err => console.warn('[Silent-Sync] Observer init error:', err));
+    runSilentSync().catch(() => {});
   }
 
   _intervalId = setInterval(() => {
     if (navigator.onLine && isCurrentTabLeader()) {
-      runSilentSync().catch(err => console.warn('[Silent-Sync] Interval error:', err));
+      runSilentSync().catch(() => {});
     }
   }, intervalMs);
 
   _onlineHandler = () => {
     if (isCurrentTabLeader()) {
-      runSilentSync().catch(err => console.warn('[Silent-Sync] Online event error:', err));
+      runSilentSync().catch(() => {});
     }
   };
   window.addEventListener('online', _onlineHandler);

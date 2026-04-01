@@ -17,7 +17,6 @@ import { showSuccessToast, showErrorToast } from "@/utils/enhanced-toast";
 import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode, authFetch } from '@/lib/auth-token-store';
 import { useAuth } from '@/components/AuthProvider';
 
-
 interface Notification {
   id: string;
   type: 'safety' | 'task' | 'payroll' | 'announcement' | 'system';
@@ -85,7 +84,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 [NotificationCenter] استجابة API:', data);
 
         // التعامل مع الشكل الجديد للاستجابة { success, data, unreadCount }
         const notificationsData = Array.isArray(data.data) ? data.data : (Array.isArray(data.notifications) ? data.notifications : (Array.isArray(data) ? data : []));
@@ -109,10 +107,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
           setNotifications(transformedNotifications);
           setUnreadCount(unreadCount);
-          console.log('✅ [NotificationCenter] تم تحويل وحفظ الإشعارات:', transformedNotifications.length);
         }
       } else {
-        console.error('فشل في جلب الإشعارات');
         // استخدام بيانات تجريبية في حالة الفشل
         setNotifications([
           {
@@ -128,7 +124,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         setUnreadCount(1);
       }
     } catch (error) {
-      console.error('خطأ في جلب الإشعارات:', error);
     } finally {
       setLoading(false);
     }
@@ -163,7 +158,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         showErrorToast("فشل في تحديد الإشعار كمقروء.");
       }
     } catch (error) {
-      console.error('خطأ في تعليم الإشعار كمقروء:', error);
       showErrorToast("حدث خطأ أثناء تحديد الإشعار كمقروء.");
     }
   };
@@ -189,7 +183,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         showErrorToast("فشل في عملية الحذف الجماعي.");
       }
     } catch (error) {
-      console.error('خطأ في الحذف الجماعي:', error);
       showErrorToast("حدث خطأ أثناء الحذف.");
     }
   };
@@ -219,7 +212,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         showErrorToast("فشل في تحديد جميع الإشعارات كمقروءة.");
       }
     } catch (error) {
-      console.error('خطأ في تعليم جميع الإشعارات كمقروءة:', error);
       showErrorToast("حدث خطأ أثناء تحديد جميع الإشعارات كمقروءة.");
     }
   };

@@ -106,7 +106,6 @@ export default function SettingsPage() {
         }
       }
     } catch (err) {
-      console.warn('Failed to load preferences:', err);
     } finally {
       setPrefsLoading(false);
     }

@@ -49,7 +49,6 @@ export async function offlineApiInterceptor(
   const storeName = resolveStoreName(endpoint);
   
   if (!storeName) {
-    console.warn(`[Offline] لا يمكن معالجة ${endpoint} بدون اتصال`);
     return {
       success: false,
       data: { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال' },
@@ -69,7 +68,6 @@ export async function offlineApiInterceptor(
       return await handleOfflineRead(endpoint, storeName);
     }
   } catch (err) {
-    console.error(`[Offline] خطأ أثناء معالجة ${method} ${endpoint}:`, err);
     return {
       success: false,
       data: { success: false, data: null, message: 'حدث خطأ أثناء الحفظ المحلي' },
@@ -104,9 +102,7 @@ async function handleOfflineCreate(
   await smartPut(storeName, record);
   await queueForSync('create', endpoint, record);
 
-  recordAuditEntry('create', storeName, id, record).catch(err =>
-    console.warn('[Audit] فشل التسجيل:', err)
-  );
+  recordAuditEntry('create', storeName, id, record).catch(() => {});
 
   return {
     success: true,
@@ -140,9 +136,7 @@ async function handleOfflineUpdate(
   await smartPut(storeName, updated);
   await queueForSync('update', endpoint, updated);
 
-  recordAuditEntry('update', storeName, id, updated).catch(err =>
-    console.warn('[Audit] فشل التسجيل:', err)
-  );
+  recordAuditEntry('update', storeName, id, updated).catch(() => {});
 
   return {
     success: true,
@@ -165,9 +159,7 @@ async function handleOfflineDelete(
   await smartDelete(storeName, id);
   await queueForSync('delete', endpoint, { id });
 
-  recordAuditEntry('delete', storeName, id, { id }).catch(err =>
-    console.warn('[Audit] فشل التسجيل:', err)
-  );
+  recordAuditEntry('delete', storeName, id, { id }).catch(() => {});
 
   return {
     success: true,
@@ -208,9 +200,7 @@ export function isOfflineSupportedEndpoint(endpoint: string): boolean {
 
 export function triggerBackgroundSync(): void {
   if (navigator.onLine) {
-    runSilentSync().catch(err => 
-      console.warn('⚠️ [OfflineInterceptor] فشل تشغيل المزامنة في الخلفية:', err)
-    );
+    runSilentSync().catch(() => {});
   }
 }
 

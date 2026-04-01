@@ -17,7 +17,6 @@ export async function getLocalRecord<T>(
     if (!storeName) return null;
     return await smartGet(storeName, id);
   } catch (error) {
-    console.error(`[OfflineQueries] Failed to get record:`, error);
     return null;
   }
 }
@@ -32,7 +31,6 @@ export async function saveLocalRecord(
     await smartPut(storeName, record);
     return true;
   } catch (error) {
-    console.error(`[OfflineQueries] Failed to save record:`, error);
     return false;
   }
 }
@@ -47,7 +45,6 @@ export async function deleteLocalRecord(
     await smartDelete(storeName, id);
     return true;
   } catch (error) {
-    console.error(`[OfflineQueries] Failed to delete record:`, error);
     return false;
   }
 }
@@ -105,6 +102,5 @@ export async function cleanupOldLocalData(maxAge: number = 30 * 24 * 60 * 60 * 1
       }
     }
   } catch (error) {
-    console.error(`[OfflineQueries] Cleanup failed:`, error);
   }
 }

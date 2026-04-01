@@ -16,17 +16,8 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  console.log('🛡️ [ProtectedRoute] فحص الحماية:', {
-    isLoading,
-    isAuthenticated,
-    hasUser: !!user,
-    userEmail: user?.email || 'غير موجود',
-    timestamp: new Date().toISOString()
-  });
-
   // ✅ الحالة 1: جاري التحميل - إظهار شاشة التحميل
   if (isLoading) {
-    console.log('⏳ [ProtectedRoute] جاري التحميل...');
     
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -51,15 +42,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const excludedPaths = ['/check', '/permissions', '/setup', '/login', '/verify-email', '/reset-password'];
     
     if (excludedPaths.includes(window.location.pathname)) {
-      console.log('🏁 [ProtectedRoute] مسار مستثنى، السماح بالمرور');
       return <>{children}</>;
     }
 
-    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /login');
     return <Redirect to="/login" />;
   }
 
   // ✅ الحالة 3: مسجل دخول - إظهار المحتوى
-  console.log('✅ [ProtectedRoute] مصادق عليه، إظهار المحتوى للمستخدم:', user.email);
   return <>{children}</>;
 }

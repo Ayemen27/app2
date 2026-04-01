@@ -52,7 +52,6 @@ interface AttendanceData {
   };
 }
 
-
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects, projects, isWellsProject } = useSelectedProject();
@@ -156,7 +155,6 @@ export default function WorkerAttendance() {
       });
     } catch (error) {
       // تجاهل الأخطاء لأن هذه عملية مساعدة
-      console.log(`Failed to save autocomplete value for ${category}:`, error);
     }
   };
 
@@ -179,7 +177,6 @@ export default function WorkerAttendance() {
                 allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
               }
             } catch (e) {
-              console.error(`Error fetching attendance for project ${project.id}:`, e);
             }
           }
           return allRecords;
@@ -195,7 +192,6 @@ export default function WorkerAttendance() {
         }
         return Array.isArray(response) ? response : [];
       } catch (error) {
-        console.error("Error fetching attendance records:", error);
         return [];
       }
     },
@@ -217,7 +213,6 @@ export default function WorkerAttendance() {
         }
         return Array.isArray(response) ? response : [];
       } catch (error) {
-        console.error("Error fetching all attendance records:", error);
         return [];
       }
     },
@@ -239,7 +234,6 @@ export default function WorkerAttendance() {
         }
         return response || null;
       } catch (error) {
-        console.error("Error fetching attendance record for editing:", error);
         return null;
       }
     },
@@ -322,7 +316,6 @@ export default function WorkerAttendance() {
       if (context?.previousDateData && context?.dateKey) {
         queryClient.setQueryData(context.dateKey, context.previousDateData);
       }
-      console.error('❌ [DeleteAttendance] خطأ في الحذف:', error);
       const errorMessage = error.message || "حدث خطأ أثناء حذف سجل الحضور";
       toast({
         title: "خطأ",
@@ -372,7 +365,6 @@ export default function WorkerAttendance() {
 
   const saveAttendanceMutation = useMutation({
     onMutate: async (attendanceRecords: InsertWorkerAttendance[]) => {
-      console.log("💾 بدء حفظ سجلات الحضور للعمال (Optimistic):", attendanceRecords.length);
       // التحقق من صحة البيانات: يجب إدخال إما أيام عمل أو مبلغ مالي
       for (const record of attendanceRecords) {
         const days = parseFloat(record.workDays?.toString() || "0");
@@ -388,7 +380,6 @@ export default function WorkerAttendance() {
       // ... باقي الكود
     },
     mutationFn: async (attendanceRecords: InsertWorkerAttendance[]) => {
-      console.log("💾 بدء حفظ سجلات الحضور للعمال:", attendanceRecords.length);
 
       // حفظ قيم الإكمال التلقائي قبل العملية الأساسية
       const autocompletePromises = attendanceRecords.flatMap(record => [
@@ -415,8 +406,6 @@ export default function WorkerAttendance() {
             record.attendanceDate = selectedDate || getCurrentDate();
           }
 
-          console.log(`🔄 محاولة حفظ حضور العامل: ${record.worker_id} في التاريخ: ${record.attendanceDate}`);
-
           // التحقق من صحة البيانات: يجب إدخال إما أيام عمل أو مبلغ مالي
           const daysNum = parseFloat(record.workDays?.toString() || "0");
           const amountNum = parseFloat(record.paidAmount?.toString() || "0");
@@ -429,7 +418,6 @@ export default function WorkerAttendance() {
           // إذا كان نوع السجل = سحب (advance)، فرض workDays = 0
           if ((record as any).recordType === "advance") {
             record.workDays = "0";
-            console.log(`💳 سحب مقدم - فرض workDays = 0`);
           } else if (record.workDays !== undefined) {
             // تحويل workDays إلى string لتجنب خطأ الـ validation في السيرفر
             record.workDays = record.workDays!.toString();
@@ -437,7 +425,6 @@ export default function WorkerAttendance() {
 
           // إذا كان هناك recordId (من التعديل)، قم بالتعديل مباشرة
           if ((record as any).recordId) {
-            console.log(`📝 تحديث سجل موجود للعامل: ${record.worker_id} برقم: ${(record as any).recordId}`);
             const recordToUpdate = { ...record };
             delete (recordToUpdate as any).recordId; // حذف recordId من البيانات المُرسلة
             const updatedRecord = await apiRequest(
@@ -460,7 +447,6 @@ export default function WorkerAttendance() {
                 : null;
 
               if (existingRecord) {
-                console.log(`📝 سجل موجود بالفعل للعامل: ${record.worker_id} في هذا اليوم - يجب التعديل وليس الإنشاء`);
                 // منع إنشاء سجل جديد - يجب تعديل السجل الموجود
                 const updatedRecord = await apiRequest(
                   `/api/worker-attendance/${existingRecord.id}`, 
@@ -469,12 +455,10 @@ export default function WorkerAttendance() {
                 );
                 results.push(updatedRecord);
               } else {
-                console.log(`➕ إنشاء سجل جديد للعامل: ${record.worker_id}`);
                 const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
                 results.push(newRecord);
               }
             } catch (checkError) {
-              console.log(`❌ خطأ في البحث عن السجل الموجود - محاولة الإنشاء:`, checkError);
               // إذا فشل التحقق، نحاول إنشاء سجل جديد
               try {
                 const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
@@ -482,7 +466,6 @@ export default function WorkerAttendance() {
               } catch (createError: any) {
                 // إذا فشل الإنشاء (خطأ UNIQUE)، قد يكون هناك سجل موجود
                 if (createError.message && createError.message.includes("unique") || createError.message.includes("UNIQUE")) {
-                  console.log(`⚠️ هناك سجل موجود بالفعل للعامل ${record.worker_id} في هذا اليوم`);
                   // لا نتابع - السجل موجود ولم نتمكن من الوصول إليه
                   throw new Error(`سجل موجود بالفعل للعامل في هذا اليوم. يرجى تحديث الصفحة وتعديل السجل الموجود.`);
                 }
@@ -492,7 +475,6 @@ export default function WorkerAttendance() {
           }
 
         } catch (error: any) {
-          console.error(`❌ فشل في حفظ حضور العامل ${record.worker_id}:`, error);
           const worker = workers.find(w => w.id === record.worker_id);
           const workerName = worker?.name || 'عامل غير معروف';
 
@@ -539,9 +521,7 @@ export default function WorkerAttendance() {
         }
       }
 
-      console.log(`✅ تم حفظ ${results.length} سجل حضور بنجاح`);
       if (errors.length > 0) {
-        console.warn(`⚠️ فشل في حفظ ${errors.length} سجل حضور:`, errors);
       }
 
       return { 
@@ -577,7 +557,6 @@ export default function WorkerAttendance() {
           description: `نجح: ${successful.length} عامل\nفشل: ${realFailed.length} عامل\n\n${failedDetails}`,
           variant: "default",
         });
-        console.error("تفاصيل الأخطاء:", realFailed);
       } else if (realFailed.length > 0) {
         const failedDetails = realFailed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
         toast({
@@ -614,7 +593,6 @@ export default function WorkerAttendance() {
         queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       }
 
-      console.error("Error saving attendance:", error);
       let errorMessage = "حدث خطأ أثناء حفظ الحضور";
 
       // التحقق من رسالة الخطأ المحددة
@@ -634,7 +612,6 @@ export default function WorkerAttendance() {
       });
     },
   });
-
 
   const handleAttendanceChange = (worker_id: string, attendance: AttendanceData[string]) => {
     const worker = workers.find(w => w.id === worker_id);
@@ -960,7 +937,6 @@ export default function WorkerAttendance() {
         return newData;
       });
     } catch (err: any) {
-      console.error('❌ فشل حفظ التقسيم:', err);
       toast({
         title: "❌ فشل الحفظ",
         description: err?.responseData?.message || err?.message || 'حدث خطأ أثناء حفظ التقسيم',
@@ -1239,7 +1215,6 @@ export default function WorkerAttendance() {
           ]}
         />
       )}
-
 
       {/* نموذج الإدخال القابل للطي */}
       {workers.length > 0 && (

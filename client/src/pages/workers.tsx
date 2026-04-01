@@ -692,7 +692,6 @@ export default function WorkersPage() {
         
         return workersData as Worker[];
       } catch (error) {
-        console.error("Error fetching workers:", error);
         return [] as Worker[];
       }
     },
@@ -990,7 +989,6 @@ export default function WorkersPage() {
         }
       }
     } catch (error) {
-      console.error("Error exporting statement:", error);
       toast({ title: "خطأ في التصدير", description: "فشل في تجهيز كشف الحساب", variant: "destructive" });
     } finally {
       setTimeout(() => {

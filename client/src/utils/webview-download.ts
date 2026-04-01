@@ -109,7 +109,6 @@ export function enableDownloadDebug(enable: boolean = true) {
 
 function debugLog(method: string, status: string, detail?: string) {
   const msg = `[DL] ${method}: ${status}${detail ? ' - ' + detail : ''}`;
-  console.log(msg);
   if (_debugMode) {
     try { alert(msg); } catch {}
   }
@@ -293,7 +292,6 @@ function downloadForBrowser(blob: Blob, fileName: string): boolean {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return true;
   } catch (error) {
-    console.error('[DL] Browser failed:', error);
     return false;
   }
 }
@@ -308,18 +306,7 @@ export async function downloadFile(
   const onCapacitor = isCapacitorNative();
   const onMobileDevice = isMobileDevice();
 
-  console.log('[DL] === START ===', {
-    fileName,
-    type,
-    size: blob.size,
-    capacitor: onCapacitor,
-    mobileWebView: onMobile,
-    mobileDevice: onMobileDevice,
-    ua: navigator.userAgent.substring(0, 120),
-  });
-
   if (blob.size === 0) {
-    console.error('[DL] === FAIL: Empty blob ===');
     throw new Error('الملف فارغ - لم يتم إنشاء التقرير بشكل صحيح');
   }
 
@@ -330,22 +317,18 @@ export async function downloadFile(
     try {
       const r = await tryFileSharer(blob, fileName, type);
       if (r) {
-        console.log('[DL] === SUCCESS via FileSharer ===');
         return true;
       }
     } catch (e: any) {
-      console.error('[DL] FileSharer threw:', e?.message || e);
     }
 
     tried.push('CapFS+Share');
     try {
       const r = await tryCapacitorFsShare(blob, fileName, type);
       if (r) {
-        console.log('[DL] === SUCCESS via CapFS+Share ===');
         return true;
       }
     } catch (e: any) {
-      console.error('[DL] CapFS+Share threw:', e?.message || e);
     }
   }
 
@@ -353,10 +336,10 @@ export async function downloadFile(
     tried.push('AndroidBridge');
     try {
       const base64 = await blobToBase64(blob);
-      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
-      if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
-      if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); console.log('[DL] === SUCCESS via AndroidBridge ==='); return true; }
-    } catch (e) { console.error('[DL] AndroidBridge:', e); }
+      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); return true; }
+      if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); return true; }
+      if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); return true; }
+    } catch (e) {}
   }
 
   if (hasIOSBridge()) {
@@ -364,9 +347,8 @@ export async function downloadFile(
     try {
       const base64 = await blobToBase64(blob);
       window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType: type });
-      console.log('[DL] === SUCCESS via iOSBridge ===');
       return true;
-    } catch (e) { console.error('[DL] iOSBridge:', e); }
+    } catch (e) {}
   }
 
   if (onMobile || onMobileDevice) {
@@ -374,11 +356,9 @@ export async function downloadFile(
     try {
       const r = await tryWebShareAPI(blob, fileName, type);
       if (r) {
-        console.log('[DL] === SUCCESS via WebShare ===');
         return true;
       }
     } catch (e: any) {
-      console.error('[DL] WebShare threw:', e?.message || e);
     }
   }
 
@@ -387,23 +367,18 @@ export async function downloadFile(
     try {
       const r = await tryServerProxyDownload(blob, fileName, type);
       if (r) {
-        console.log('[DL] === SUCCESS via ServerProxy ===');
         return true;
       }
     } catch (e: any) {
-      console.error('[DL] ServerProxy threw:', e?.message || e);
     }
   }
 
   tried.push('BrowserDownload');
-  console.log('[DL] Trying standard browser download (universal fallback)');
   const browserResult = downloadForBrowser(blob, fileName);
   if (browserResult) {
-    console.log('[DL] === SUCCESS via BrowserDownload ===');
     return true;
   }
 
-  console.error('[DL] === ALL METHODS FAILED ===', tried);
   throw new Error('فشل تحميل الملف - جرّب متصفح آخر أو تحقق من إعدادات التحميل');
 }
 

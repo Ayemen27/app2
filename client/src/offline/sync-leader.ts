@@ -51,7 +51,6 @@ function becomeLeader() {
   lastLeaderHeartbeat = Date.now();
   broadcast({ type: 'claim', tabId, timestamp: Date.now() });
   startHeartbeat();
-  console.log(`[SyncLeader] Tab ${tabId} became leader`);
   leaderChangeCallbacks.forEach(cb => cb(true));
 }
 
@@ -60,7 +59,6 @@ function resignLeadership() {
   isLeader = false;
   stopHeartbeat();
   broadcast({ type: 'release', tabId });
-  console.log(`[SyncLeader] Tab ${tabId} resigned leadership`);
   leaderChangeCallbacks.forEach(cb => cb(false));
 }
 
@@ -118,7 +116,6 @@ function startWatchdog() {
   watchdogTimer = setInterval(() => {
     if (isLeader) return;
     if (!currentLeaderId || (Date.now() - lastLeaderHeartbeat) > HEARTBEAT_TIMEOUT) {
-      console.log(`[SyncLeader] Leader timeout detected, attempting election`);
       tryClaimLeadership();
     }
   }, HEARTBEAT_TIMEOUT);

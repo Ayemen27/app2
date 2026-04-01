@@ -86,7 +86,6 @@ export default function EmailVerificationPage() {
 
     // إذا كان هناك token في URL، تحقق تلقائي مع تمرير user_id مباشرة
     if (token && user_id) {
-      console.log('🔄 [EmailVerification] التحقق التلقائي من الرابط:', { token, user_id });
       verifyMutation.mutate({ code: token, user_id: user_id });
     }
   }, []);
@@ -111,10 +110,6 @@ export default function EmailVerificationPage() {
   // طفرة التحقق من الرمز
   const verifyMutation = useMutation({
     mutationFn: async (data: VerificationFormData & { user_id?: string }) => {
-      console.log('🔍 [EmailVerification] بدء التحقق من الرمز:', {
-        code: data.code,
-        user_id: data.user_id || userInfo.id
-      });
 
       const user_id = data.user_id || userInfo.id;
       if (!user_id) {
@@ -143,7 +138,6 @@ export default function EmailVerificationPage() {
       return result as VerificationResponse;
     },
     onSuccess: (data) => {
-      console.log('✅ [EmailVerification] تم التحقق بنجاح:', data);
       
       if (data.success) {
         // نجح التحقق! تحديث حالة المستخدم محلياً فوراً لمنع إعادة التوجيه
@@ -177,7 +171,6 @@ export default function EmailVerificationPage() {
       }
     },
     onError: (error) => {
-      console.error('❌ [EmailVerification] خطأ في التحقق:', error);
       setStep('error');
       
       toast({
@@ -191,7 +184,6 @@ export default function EmailVerificationPage() {
   // طفرة إعادة الإرسال
   const resendMutation = useMutation({
     mutationFn: async () => {
-      console.log('📧 [EmailVerification] إعادة إرسال رمز التحقق');
 
       if (!userInfo.id || !userInfo.email) {
         throw new Error('بيانات المستخدم مطلوبة');
@@ -219,7 +211,6 @@ export default function EmailVerificationPage() {
       return result as VerificationResponse;
     },
     onSuccess: (data) => {
-      console.log('✅ [EmailVerification] تم إعادة الإرسال بنجاح:', data);
       
       toast({
         title: "تم إعادة الإرسال",
@@ -230,7 +221,6 @@ export default function EmailVerificationPage() {
       form.reset(); // إعادة تعيين النموذج
     },
     onError: (error) => {
-      console.error('❌ [EmailVerification] خطأ في إعادة الإرسال:', error);
       
       toast({
         title: "فشل إعادة الإرسال",

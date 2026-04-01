@@ -12,12 +12,10 @@ export function useWebSocketSync() {
   useEffect(() => {
     const connectSocket = () => {
       try {
-        console.log('🔌 [Socket.IO] محاولة الاتصال...');
         
         const useBearer = shouldUseBearerAuth();
         const token = getAccessToken();
         if (useBearer && !token) {
-          console.log('🔌 [Socket.IO] No auth token available, skipping connection');
           return;
         }
 
@@ -33,15 +31,12 @@ export function useWebSocketSync() {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-          console.log('✅ [Socket.IO] تم الاتصال بنجاح!', socket.id);
         });
 
         socket.on('disconnect', (reason: string) => {
-          console.log('🔌 [Socket.IO] تم قطع الاتصال:', reason);
         });
 
         socket.on('connect_error', (error: any) => {
-          console.warn('🔌 [Socket.IO] Auth error, updating token:', error.message);
           if (shouldUseBearerAuth()) {
             const freshToken = getAccessToken();
             if (freshToken) {
@@ -51,16 +46,13 @@ export function useWebSocketSync() {
         });
 
         socket.on('error', (error: any) => {
-          console.error('❌ [Socket.IO] خطأ:', error);
         });
 
         socket.on('message', (message: any) => {
           try {
-            console.log('📨 [Socket.IO] رسالة مستلمة:', message);
 
             if (message.type === 'INVALIDATE') {
               const queryKey = [message.entity, message.id].filter(Boolean);
-              console.log('🔄 [Socket.IO] تحديث الـ cache:', queryKey);
               queryClient.invalidateQueries({ queryKey });
             } else if (message.type === 'UPDATE_ALL') {
               queryClient.invalidateQueries({ 
@@ -69,12 +61,10 @@ export function useWebSocketSync() {
               });
             }
           } catch (error) {
-            console.error('❌ [Socket.IO] خطأ في معالجة الرسالة:', error);
           }
         });
 
         socket.on('notification:new', (data: any) => {
-          console.log('🔔 [Socket.IO] إشعار جديد:', data);
           queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
           toast({
             title: data.title || 'إشعار جديد',
@@ -89,7 +79,6 @@ export function useWebSocketSync() {
         });
 
       } catch (error) {
-        console.error('❌ [Socket.IO] خطأ في الاتصال:', error);
       }
     };
 

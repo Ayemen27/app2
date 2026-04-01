@@ -63,7 +63,6 @@ export function AutocompleteInput({
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteCategory(category) });
     },
     onError: (error) => {
-      console.error('Error saving autocomplete data:', error);
     }
   });
 

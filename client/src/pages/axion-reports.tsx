@@ -85,7 +85,6 @@ function safeFormatDate(dateStr: string | null | undefined, fmt: string, options
   }
 }
 
-
 function buildExportUrl(type: string, fmt: string, params: Record<string, string>): string {
   const searchParams = new URLSearchParams({ format: fmt, ...params });
   return `/api/reports/v2/export/${type}?${searchParams.toString()}`;
@@ -161,7 +160,6 @@ async function secureDownloadExport(type: string, fmt: string, params: Record<st
     const { downloadFile } = await import('@/utils/webview-download');
     await downloadFile(blob, fileName);
   } catch (error: any) {
-    console.error(`[Export] Failed at phase="${phase}":`, error?.message || error);
     const defaultMessages: Record<string, string> = {
       fetch: 'فشل الاتصال بالخادم - تحقق من الإنترنت',
       server: 'فشل إنشاء التقرير في الخادم',

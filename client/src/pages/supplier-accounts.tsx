@@ -61,7 +61,6 @@ export default function SupplierAccountsPage() {
         }
         return Array.isArray(response) ? response as Project[] : [];
       } catch (error) {
-        console.error("Error fetching projects:", error);
         return [];
       }
     },
@@ -77,7 +76,6 @@ export default function SupplierAccountsPage() {
         }
         return Array.isArray(response) ? response as Supplier[] : [];
       } catch (error) {
-        console.error("Error fetching suppliers:", error);
         return [];
       }
     },
@@ -133,7 +131,6 @@ export default function SupplierAccountsPage() {
         
         return filteredData;
       } catch (error) {
-        console.error('خطأ في جلب المشتريات:', error);
         return [];
       }
     },

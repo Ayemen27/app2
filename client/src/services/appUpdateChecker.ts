@@ -39,16 +39,13 @@ async function waitForCapacitorBridge(maxWaitMs = 5000): Promise<boolean> {
   while (Date.now() - start < maxWaitMs) {
     const cap = (window as any).Capacitor;
     if (cap && cap.PluginHeaders && cap.PluginHeaders.length > 0) {
-      console.log(`[waitForBridge] Bridge ready in ${Date.now() - start}ms, plugins: ${cap.PluginHeaders.length}`);
       return true;
     }
     if (cap && cap.Plugins && cap.Plugins.App) {
-      console.log(`[waitForBridge] Plugins.App found in ${Date.now() - start}ms`);
       return true;
     }
     await new Promise(r => setTimeout(r, 100));
   }
-  console.warn(`[waitForBridge] Timeout after ${maxWaitMs}ms`);
   return false;
 }
 
@@ -369,7 +366,6 @@ async function showUpdateNotification(info: UpdateInfo) {
     if (permResult.display !== 'granted') {
       const reqResult = await LocalNotifications.requestPermissions();
       if (reqResult.display !== 'granted') {
-        console.warn('[updateNotification] إذن الإشعارات مرفوض');
         return;
       }
     }
@@ -395,9 +391,7 @@ async function showUpdateNotification(info: UpdateInfo) {
     });
 
     localStorage.setItem(NOTIFIED_VERSION_KEY, String(info.latest.versionCode));
-    console.log(`[updateNotification] إشعار تحديث v${info.latest.versionName} تم إرساله`);
   } catch (err) {
-    console.warn('[updateNotification] فشل إرسال الإشعار المحلي:', err);
   }
 }
 
@@ -414,9 +408,7 @@ async function createUpdateNotificationChannel() {
       sound: 'default',
       vibration: true,
     });
-    console.log('[updateNotification] قناة الإشعارات أُنشئت');
   } catch (err) {
-    console.warn('[updateNotification] فشل إنشاء قناة الإشعارات:', err);
   }
 }
 

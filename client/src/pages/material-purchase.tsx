@@ -151,7 +151,6 @@ export default function MaterialPurchase() {
       });
     } catch (error) {
       // تجاهل الأخطاء لأن هذه عملية مساعدة
-      console.log(`Failed to save autocomplete value for ${category}:`, error);
     }
   };
 
@@ -238,7 +237,6 @@ export default function MaterialPurchase() {
         }
         return Array.isArray(response) ? response as Material[] : [];
       } catch (error) {
-        console.error("Error fetching materials:", error);
         return [];
       }
     },
@@ -260,7 +258,6 @@ export default function MaterialPurchase() {
         }
         return Array.isArray(response) ? response as Supplier[] : [];
       } catch (error) {
-        console.error("Error fetching suppliers:", error);
         return [];
       }
     },
@@ -277,10 +274,7 @@ export default function MaterialPurchase() {
       if (!editId) return null;
 
       try {
-        console.log(`🔄 جلب بيانات المشترية للتعديل: ${editId}`);
         const response = await apiRequest(`/api/material-purchases/${editId}`, "GET");
-
-        console.log('📊 استجابة جلب بيانات التعديل:', response);
 
         // معالجة الهيكل المتداخل للاستجابة
         let purchaseData = null;
@@ -289,14 +283,11 @@ export default function MaterialPurchase() {
         } else if (response && response.id) {
           purchaseData = response;
         } else {
-          console.warn('⚠️ لا توجد بيانات في الاستجابة');
           return null;
         }
 
-        console.log('✅ تم جلب بيانات المشترية للتعديل:', purchaseData);
         return purchaseData;
       } catch (error) {
-        console.error("❌ خطأ في جلب بيانات المشترية للتعديل:", error);
         return null;
       }
     },
@@ -308,33 +299,13 @@ export default function MaterialPurchase() {
   // Effect to populate form when editing
   useEffect(() => {
     if (purchaseToEdit && editId) {
-      console.log('🔄 ملء النموذج ببيانات التعديل:', purchaseToEdit);
 
       // تشخيص مفصل لحقول المادة
-      console.log('🔍 تحليل البيانات المسترجعة:', {
-        purchaseToEdit: {
-          materialName: purchaseToEdit.materialName,
-          materialCategory: purchaseToEdit.materialCategory,
-          materialUnit: purchaseToEdit.materialUnit,
-          unit: purchaseToEdit.unit
-        },
-        material: purchaseToEdit.material ? {
-          name: purchaseToEdit.material.name,
-          category: purchaseToEdit.material.category,
-          unit: purchaseToEdit.material.unit
-        } : 'لا توجد بيانات مادة مرتبطة'
-      });
 
       // استخدام البيانات المحفوظة في الجدول أولاً، ثم البيانات المرتبطة
       const materialName = purchaseToEdit.materialName || purchaseToEdit.material?.name || "";
       const materialCategory = purchaseToEdit.materialCategory || purchaseToEdit.material?.category || "";
       const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.unit || purchaseToEdit.material?.unit || "";
-
-      console.log('📝 القيم النهائية التي سيتم ملؤها:', {
-        materialName,
-        materialCategory,
-        materialUnit
-      });
 
       setMaterialName(materialName);
       setMaterialCategory(materialCategory);
@@ -357,14 +328,6 @@ export default function MaterialPurchase() {
       const crewTypes = purchaseToEdit.crew_type ? (purchaseToEdit.crew_type.startsWith('[') ? JSON.parse(purchaseToEdit.crew_type) : [purchaseToEdit.crew_type]) : [];
       setSelectedCrewTypes(crewTypes);
 
-      console.log('✅ تم ملء النموذج بالبيانات:', {
-        materialName,
-        materialCategory,
-        materialUnit,
-        quantity: purchaseToEdit.quantity,
-        unitPrice: purchaseToEdit.unitPrice,
-        purchaseType: purchaseToEdit.purchaseType
-      });
     }
   }, [purchaseToEdit, editId]);
 
@@ -374,7 +337,6 @@ export default function MaterialPurchase() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materials });
     },
     onError: (error: any) => {
-      console.error("Material creation error:", error);
       let errorMessage = "حدث خطأ أثناء إضافة المادة";
 
       if (error?.response?.data?.message) {
@@ -512,7 +474,6 @@ export default function MaterialPurchase() {
         return;
       }
 
-      console.error("Material purchase error:", error);
       let errorMessage = "حدث خطأ أثناء حفظ شراء المواد";
       let errorDetails: string[] = [];
 
@@ -566,7 +527,6 @@ export default function MaterialPurchase() {
   // Update Material Purchase Mutation
   const updateMaterialPurchaseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      console.log('🔄 [PATCH] بدء تحديث المشترية:', { id, data });
 
       // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
@@ -579,7 +539,6 @@ export default function MaterialPurchase() {
       ]);
 
       const response = await apiRequest(`/api/material-purchases/${id}`, "PATCH", data);
-      console.log('✅ [PATCH] استجابة تحديث المشترية:', response);
       return response;
     },
     onSuccess: async (response: any) => {
@@ -612,7 +571,6 @@ export default function MaterialPurchase() {
 
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
-      console.error("Material purchase update error:", error);
       let errorMessage = "حدث خطأ أثناء تحديث شراء المواد";
       let errorDetails: string[] = [];
 
@@ -672,7 +630,6 @@ export default function MaterialPurchase() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
     onError: (error: any) => {
-      console.error("Material purchase delete error:", error);
       let errorMessage = "حدث خطأ أثناء حذف شراء المواد";
       let errorDetails: string[] = [];
 
@@ -718,7 +675,6 @@ export default function MaterialPurchase() {
     }
   };
 
-
   const handleSave = (saveAndAddAnother = false) => {
     // التحقق من البيانات المطلوبة - نسمح بسعر 0 في حالة "مخزن"
     const isPriceRequired = paymentType !== "مخزن";
@@ -760,8 +716,6 @@ export default function MaterialPurchase() {
       status: 'completed'
     };
 
-    console.log('💾 بيانات المشترية قبل الحفظ:', purchaseData);
-
     if (editingPurchaseId) {
       updateMaterialPurchaseMutation.mutate({
         id: editingPurchaseId,
@@ -797,7 +751,6 @@ export default function MaterialPurchase() {
       const queryString = queryParams.toString();
       const endpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
       
-      console.log(`📡 [Fetching] ${endpoint}`);
       const response = await apiRequest(endpoint, "GET");
       
       // توحيد شكل البيانات المسترجعة
@@ -866,7 +819,6 @@ export default function MaterialPurchase() {
     });
   }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
-
   // Calculate stats
   const stats = useMemo(() => ({
     total: allMaterialPurchases.length,
@@ -878,7 +830,6 @@ export default function MaterialPurchase() {
       ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
       : 0,
   }), [allMaterialPurchases]);
-
 
   // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ
   // THIS IS THE LINE THAT WAS REMOVED: const materialPurchases = filteredPurchases;
@@ -935,7 +886,6 @@ export default function MaterialPurchase() {
         day: '2-digit',
       });
     } catch (error) {
-      console.error("Error formatting date:", dateString, error);
       return dateString; // Fallback to original string if parsing fails
     }
   };
@@ -1073,7 +1023,6 @@ export default function MaterialPurchase() {
         toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
       }
     } catch (error) {
-      console.error("Export error:", error);
       toast({
         title: "خطأ في التصدير",
         description: "حدث خطأ أثناء محاولة تصدير البيانات",

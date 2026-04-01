@@ -97,7 +97,6 @@ export function SyncProgressTracker() {
         setProgress(0);
       }, 2500);
     } catch (error) {
-      console.error('[SyncTracker] فشل المزامنة:', error);
       setStatus('online');
       setProgress(0);
       checkPendingQueue();

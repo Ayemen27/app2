@@ -34,7 +34,6 @@ export async function importLocalData(jsonData: string): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('[Backup] Import failed:', error);
     throw new Error('فشل استيراد البيانات: تنسيق غير صالح');
   }
 }

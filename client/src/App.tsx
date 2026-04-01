@@ -98,7 +98,6 @@ const MultiProjectExpenses = lazy(() => import("./pages/multi-project-expenses")
 const PermissionManagementPage = lazy(() => import("./pages/permission-management"));
 const CentralLogsPage = lazy(() => import("./pages/central-logs"));
 
-
 function PageLoader() {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md gap-4">
@@ -117,9 +116,9 @@ import { initializeStorage } from './offline/storage-factory';
 // import { startPerformanceMonitoring } from './offline/performance-monitor';
 
 // تهيئة قاعدة البيانات ونظام المراقبة عند بدء التطبيق
-initializeStorage().catch(console.error);
+initializeStorage().catch(() => {});
 import { intelligentMonitor } from './offline/intelligent-monitor';
-intelligentMonitor.initialize().catch(console.error);
+intelligentMonitor.initialize().catch(() => {});
 // startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
@@ -176,25 +175,20 @@ function Router() {
     const initSync = async () => {
       try {
         await initializeDB();
-        console.log('✅ تم تهيئة قاعدة البيانات المحلية');
 
         if (Capacitor.isNativePlatform()) {
           try {
             const { initStatusBar, setStatusBarForPage } = await import('./services/statusBarManager');
             await initStatusBar();
             await setStatusBarForPage('app');
-            console.log('✅ تم تهيئة شريط الحالة');
           } catch (e) {
-            console.error('❌ خطأ في تهيئة شريط الحالة:', e);
           }
 
           try {
             const { requestNotificationPermission, registerResumeListener } = await import('./services/notificationPermission');
             await requestNotificationPermission();
             registerResumeListener();
-            console.log('✅ تم تفعيل نظام صلاحيات الإشعارات');
           } catch (e) {
-            console.error('❌ خطأ في طلب الصلاحيات:', e);
           }
 
           try {
@@ -211,27 +205,21 @@ function Router() {
                   openDownloadUrl(extra.downloadUrl);
                 }
               });
-              console.log('✅ تم تسجيل مستمع الإشعارات المحلية');
             } catch (notifErr) {
-              console.warn('[LocalNotifications] listener registration skipped:', notifErr);
             }
 
-            console.log('✅ تم تفعيل فاحص التحديثات');
           } catch (e) {
-            console.error('❌ خطأ في فاحص التحديثات:', e);
           }
         }
 
         initSyncListener();
         initSilentSyncObserver(30000);
-        initAuditLog().catch(err => console.warn('[AuditLog] Init failed:', err));
-        console.log('✅ تم تفعيل نظام المزامنة الذكي مع المزامنة الصامتة');
+        initAuditLog().catch(() => {});
 
         // الاستماع لتغييرات حالة المزامنة
         const unsubscribe = subscribeSyncState((state) => {
           if (!state.isSyncing && state.lastSync > 0 && state.pendingCount === 0) {
             // عندما تنتهي المزامنة بنجاح، أعد تحميل البيانات
-            console.log('🔄 [Sync] انتهت المزامنة بنجاح - إعادة تحميل البيانات...');
             requestAnimationFrame(() => {
               try {
                 const coreKeys = [
@@ -246,7 +234,6 @@ function Router() {
                   queryClient.invalidateQueries({ queryKey: key, refetchType: 'active', exact: false })
                 );
               } catch (err) {
-                console.error('❌ خطأ في تحديث البيانات:', err);
               }
             });
           }
@@ -254,7 +241,6 @@ function Router() {
 
         return () => unsubscribe();
       } catch (error) {
-        console.error('❌ خطأ في تهيئة نظام المزامنة:', error);
       }
     };
     
@@ -281,7 +267,6 @@ function Router() {
                 await navigator.clipboard.writeText(fullUrl);
               }
             } catch (err) {
-              console.warn("[App] فشل نسخ الرابط:", err);
             }
           }}
         />

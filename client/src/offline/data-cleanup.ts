@@ -22,7 +22,6 @@ export async function deleteOldRecords(
 
     return deleted;
   } catch (error) {
-    console.error('[Cleanup] Error deleting old records:', error);
     return 0;
   }
 }
@@ -44,7 +43,6 @@ export async function deleteSoftDeletedRecords(
 
     return deleted;
   } catch (error) {
-    console.error('[Cleanup] Error deleting soft-deleted records:', error);
     return 0;
   }
 }
@@ -63,7 +61,6 @@ export async function clearAllLocalData(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('[Cleanup] Error clearing all data:', error);
     return false;
   }
 }
@@ -79,7 +76,6 @@ export async function secureDelete(
     }
     return true;
   } catch (error) {
-    console.error('[Cleanup] Secure delete error:', error);
     return false;
   }
 }
@@ -91,7 +87,6 @@ export async function clearPendingSyncData(): Promise<number> {
     await smartClear('syncQueue');
     return count;
   } catch (error) {
-    console.error('[Cleanup] Error clearing pending sync:', error);
     return 0;
   }
 }
@@ -118,7 +113,6 @@ export async function runCleanupPolicy(): Promise<{
 
     return { totalDeleted, deletedByType };
   } catch (error) {
-    console.error('[Cleanup] Cleanup policy error:', error);
     return { totalDeleted: 0, deletedByType: {} };
   }
 }

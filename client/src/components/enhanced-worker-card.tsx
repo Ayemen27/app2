@@ -17,7 +17,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { Worker } from "@shared/schema";
 
-
 interface AttendanceData {
   isPresent: boolean;
   startTime?: string;
@@ -72,7 +71,6 @@ export default function EnhancedWorkerCard({
         }
         return response || { totalWorkDays: 0, totalProjects: 0, totalEarnings: 0 };
       } catch (error) {
-        console.error("Error fetching worker stats:", error);
         return { totalWorkDays: 0, totalProjects: 0, totalEarnings: 0 };
       }
     },

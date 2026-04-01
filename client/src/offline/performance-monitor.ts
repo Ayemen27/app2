@@ -154,34 +154,6 @@ export async function printPerformanceReport(): Promise<void> {
   const metric = await collectMetrics();
   const stats = getPerformanceStats();
 
-  console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                   📊 تقرير الأداء                          ║
-╠════════════════════════════════════════════════════════════╣
-║ حالة المزامنة:
-║   - جاري المزامنة: ${metric.syncStatus.isSyncing ? 'نعم' : 'لا'}
-║   - آخر مزامنة: ${new Date(metric.syncStatus.lastSync).toLocaleTimeString('ar-SA')}
-║   - عمليات معلقة: ${metric.syncStatus.pendingCount}
-║   - الاتصال: ${metric.syncStatus.isOnline ? '✅ متصل' : '❌ غير متصل'}
-║
-║ التخزين:
-║   - الحجم المستخدم: ${(metric.storage.used / 1024 / 1024).toFixed(2)}MB
-║   - النسبة المستخدمة: ${metric.storage.usagePercentage}%
-║
-║ العمليات:
-║   - الإنشاء: ${metric.operations.creates}
-║   - التحديث: ${metric.operations.updates}
-║   - الحذف: ${metric.operations.deletes}
-║   - فاشلة: ${metric.operations.failedOps}
-║
-${stats ? `║ الإحصائيات:
-║   - متوسط الاستخدام: ${stats.avgStorageUsage}%
-║   - أقصى استخدام: ${stats.maxStorageUsage}%
-║   - وقت التشغيل: ${stats.uptime}%
-║   - المدة المراقبة: ${Math.round(stats.periodMs / 1000)}s
-` : ''}║
-╚════════════════════════════════════════════════════════════╝
-  `);
 }
 
 /**
@@ -191,7 +163,6 @@ let monitorInterval: NodeJS.Timeout | null = null;
 
 export function startPerformanceMonitoring(intervalMs: number = 60000): void {
   if (monitorInterval) {
-    console.warn('⚠️ [PerformanceMonitor] المراقبة جارية بالفعل');
     return;
   }
 
@@ -199,21 +170,17 @@ export function startPerformanceMonitoring(intervalMs: number = 60000): void {
     const metric = await collectMetrics();
     
     if (metric.storage.usagePercentage > 80) {
-      console.warn(`⚠️ [PerformanceMonitor] استخدام التخزين عالي: ${metric.storage.usagePercentage}%`);
     }
 
     if (metric.operations.failedOps > 5) {
-      console.warn(`⚠️ [PerformanceMonitor] عمليات فاشلة: ${metric.operations.failedOps}`);
     }
   }, intervalMs);
 
-  console.log('✅ [PerformanceMonitor] بدء المراقبة الدورية');
 }
 
 export function stopPerformanceMonitoring(): void {
   if (monitorInterval) {
     clearInterval(monitorInterval);
     monitorInterval = null;
-    console.log('🛑 [PerformanceMonitor] توقف المراقبة');
   }
 }

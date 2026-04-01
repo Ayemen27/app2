@@ -99,7 +99,6 @@ const SmartErrorsPage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('خطأ في جلب الإحصائيات:', error);
       toast({
         title: "خطأ في الشبكة",
         description: "لا يمكن جلب إحصائيات الأخطاء حالياً",
@@ -142,7 +141,6 @@ const SmartErrorsPage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('خطأ في اختبار النظام:', error);
       toast({
         title: "خطأ في الاختبار",
         description: "حدث خطأ أثناء اختبار النظام الذكي",

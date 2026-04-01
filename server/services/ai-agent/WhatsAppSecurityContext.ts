@@ -69,9 +69,14 @@ export class WhatsAppSecurityContext {
         )
         .limit(1);
 
-      if (allowedCheck.length > 0 && allowedCheck[0].linkedUserId && allowedCheck[0].linkedUserId !== link[0].user_id) {
-        console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} مربوط بمستخدم ${link[0].user_id} لكن allowed_numbers يحدد المستخدم المستقل ${allowedCheck[0].linkedUserId} — رفض الربط القديم`);
-        link = [];
+      if (allowedCheck.length > 0) {
+        if (!allowedCheck[0].linkedUserId) {
+          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} في allowed_numbers لكن بدون linkedUserId (سجل قديم) — رفض أي ربط legacy لمنع تصعيد الصلاحيات`);
+          link = [];
+        } else if (allowedCheck[0].linkedUserId !== link[0].user_id) {
+          console.log(`[WhatsAppSecurityContext] ⛔ الرقم ${cleanPhone} مربوط بمستخدم ${link[0].user_id} لكن allowed_numbers يحدد المستخدم المستقل ${allowedCheck[0].linkedUserId} — رفض الربط القديم`);
+          link = [];
+        }
       }
     }
 

@@ -723,50 +723,54 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
     const hashedPw = await hashPassword(randomPassword);
     const displayName = label || `واتساب ${canonical}`;
 
-    const existingUser = await db.select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, syntheticEmail))
-      .limit(1);
+    const result = await db.transaction(async (tx) => {
+      const existingUser = await tx.select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.email, syntheticEmail))
+        .limit(1);
 
-    let newUserId: string;
+      let newUserId: string;
 
-    if (existingUser.length > 0) {
-      newUserId = existingUser[0].id;
-    } else {
-      const [newUser] = await db.insert(users).values({
-        email: syntheticEmail,
-        password: hashedPw,
-        password_algo: "argon2id",
-        full_name: displayName,
-        phone: canonical,
-        role: "user",
-        is_active: true,
-      }).returning({ id: users.id });
-      newUserId = newUser.id;
-    }
-
-    const [inserted] = await db.insert(whatsappAllowedNumbers).values({
-      phoneNumber: canonical,
-      label: label || null,
-      isActive: true,
-      addedBy: req.user!.user_id,
-      linkedUserId: newUserId,
-    }).returning();
-
-    const existingLink = await db.select()
-      .from(whatsappUserLinks)
-      .where(eq(whatsappUserLinks.phoneNumber, canonical))
-      .limit(1);
-    if (existingLink.length > 0) {
-      if (existingLink[0].user_id !== newUserId) {
-        await db.update(whatsappUserLinks)
-          .set({ user_id: newUserId, isActive: true, permissionsMode: "custom", canRead: true, canAdd: false, canEdit: false, canDelete: false, scopeAllProjects: false })
-          .where(eq(whatsappUserLinks.id, existingLink[0].id));
-        console.log(`[allowed-numbers] ⚠️ إعادة ربط الرقم ${canonical} من المستخدم ${existingLink[0].user_id} إلى المستخدم المستقل ${newUserId}`);
+      if (existingUser.length > 0) {
+        newUserId = existingUser[0].id;
+        if (existingUser[0].role !== "user") {
+          await tx.update(users).set({ role: "user" }).where(eq(users.id, newUserId));
+          console.log(`[allowed-numbers] ⚠️ فرض role=user على المستخدم المعاد استخدامه ${newUserId}`);
+        }
+      } else {
+        const [newUser] = await tx.insert(users).values({
+          email: syntheticEmail,
+          password: hashedPw,
+          password_algo: "argon2id",
+          full_name: displayName,
+          phone: canonical,
+          role: "user",
+          is_active: true,
+        }).returning({ id: users.id });
+        newUserId = newUser.id;
       }
-    } else {
-      try {
-        await db.insert(whatsappUserLinks).values({
+
+      const [inserted] = await tx.insert(whatsappAllowedNumbers).values({
+        phoneNumber: canonical,
+        label: label || null,
+        isActive: true,
+        addedBy: req.user!.user_id,
+        linkedUserId: newUserId,
+      }).returning();
+
+      const existingLink = await tx.select()
+        .from(whatsappUserLinks)
+        .where(eq(whatsappUserLinks.phoneNumber, canonical))
+        .limit(1);
+      if (existingLink.length > 0) {
+        if (existingLink[0].user_id !== newUserId) {
+          await tx.update(whatsappUserLinks)
+            .set({ user_id: newUserId, isActive: true, permissionsMode: "custom", canRead: true, canAdd: false, canEdit: false, canDelete: false, scopeAllProjects: false })
+            .where(eq(whatsappUserLinks.id, existingLink[0].id));
+          console.log(`[allowed-numbers] ⚠️ إعادة ربط الرقم ${canonical} من المستخدم ${existingLink[0].user_id} إلى المستخدم المستقل ${newUserId}`);
+        }
+      } else {
+        await tx.insert(whatsappUserLinks).values({
           user_id: newUserId,
           phoneNumber: canonical,
           isActive: true,
@@ -777,12 +781,12 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
           canDelete: false,
           scopeAllProjects: false,
         });
-      } catch (_e) {
-        console.warn(`[allowed-numbers] تعذر إنشاء whatsapp_user_link للمستخدم ${newUserId}:`, _e);
       }
-    }
 
-    res.json({ success: true, number: inserted, linkedUserId: newUserId });
+      return { inserted, newUserId };
+    });
+
+    res.json({ success: true, number: result.inserted, linkedUserId: result.newUserId });
   } catch (error: any) {
     res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }

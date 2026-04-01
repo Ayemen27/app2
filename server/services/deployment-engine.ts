@@ -17,67 +17,19 @@ import {
   resolvePipeline, validatePipeline, isPipelineSupported, listAvailablePipelines,
   PIPELINE_ALIASES
 } from "../config/pipeline-definitions.js";
+import type { LogEntry, StepEntry, DeploymentConfig } from "./deployment-engine/types.js";
+import { CancellationError } from "./deployment-engine/types.js";
+import {
+  activeSSEClients,
+  broadcastToClients,
+  broadcastGlobalEvent,
+  registerGlobalSSEClient,
+} from "./deployment-engine/sse.js";
 
 const execAsync = promisify(exec);
 
-type LogEntry = { timestamp: string; message: string; type: "info" | "error" | "success" | "warn" | "step" };
-type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed" | "cancelled"; duration?: number; startedAt?: string; subProgress?: number; subMessage?: string };
-
-class CancellationError extends Error {
-  constructor(message = "تم إلغاء النشر بواسطة المستخدم") {
-    super(message);
-    this.name = "CancellationError";
-  }
-}
-
-interface DeploymentConfig {
-  pipeline: Pipeline;
-  appType: "web" | "android";
-  environment: "production" | "staging";
-  branch?: string;
-  commitMessage?: string;
-  triggeredBy?: string;
-  version?: string;
-  buildTarget?: "server" | "local";
-  originalPipeline?: string;
-  deployerToken?: string;
-  releaseNotes?: string;
-}
-
 export { Pipeline, BuildTarget, isPipelineSupported, listAvailablePipelines };
-
-const activeSSEClients = new Map<string, Response[]>();
-const globalSSEClients = new Set<Response>();
-
-function broadcastToClients(deploymentId: string, data: any) {
-  const clients = activeSSEClients.get(deploymentId) || [];
-  const dead: number[] = [];
-  clients.forEach((res, idx) => {
-    try {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    } catch {
-      dead.push(idx);
-    }
-  });
-  dead.reverse().forEach(i => clients.splice(i, 1));
-}
-
-function broadcastGlobalEvent(event: { type: string; deploymentId: string; data: any }) {
-  const dead: Response[] = [];
-  globalSSEClients.forEach(res => {
-    try {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-    } catch {
-      dead.push(res);
-    }
-  });
-  dead.forEach(r => globalSSEClients.delete(r));
-}
-
-function registerGlobalSSEClient(res: Response) {
-  globalSSEClients.add(res);
-  res.on("close", () => globalSSEClients.delete(res));
-}
+export { registerGlobalSSEClient };
 
 
 export class DeploymentEngine {
@@ -5499,4 +5451,3 @@ echo 'MAINACTIVITY_FIXED'"`,
 }
 
 export const deploymentEngine = new DeploymentEngine();
-export { registerGlobalSSEClient };

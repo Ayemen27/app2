@@ -2349,7 +2349,7 @@ export class DeploymentEngine {
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     const version = deployment?.version || config?.version || "unknown";
     const buildNumber = deployment?.buildNumber || 0;
-    const appName = appBase;
+    const appName = `${appBase}-v${version}`;
 
     const isOurProcess = (name: string) =>
       name.startsWith(appBase) || legacyNames.includes(name);
@@ -5107,7 +5107,8 @@ echo 'MAINACTIVITY_FIXED'"`,
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
-      const rollbackAppName = `AXION`;
+      const rollbackVersion = targetDeployment?.version || "rollback";
+      const rollbackAppName = `AXION-v${rollbackVersion}`;
       const rollbackEcosystem = `module.exports = {
   apps: [{
     name: '${rollbackAppName}',
@@ -5138,6 +5139,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 };`;
       await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const legacy=['construction-app'];d.filter(p=>p.name&&(p.name.startsWith('AXION')||legacy.includes(p.name))).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && cat > ecosystem.config.cjs << 'EOFECO'\n${rollbackEcosystem}\nEOFECO\npm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
       await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);
+      await this.syncBotTInventory(rollbackId, sshCmd, rollbackAppName);
 
       await this.updateStepStatus(rollbackId, "verify", "running");
       await this.updateDeployment(rollbackId, { currentStep: "verify", progress: 85 });

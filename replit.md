@@ -187,6 +187,18 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 - Added expression index `idx_fund_transfers_date` on `(transfer_date::date)` for sargable date queries
 - Reduced `shared_buffers`: 1GB → 768MB, `effective_cache_size`: 2.5GB → 2GB (safer for 3.8GB server with swap pressure)
 
+### Dead Code Cleanup (Completed)
+Comprehensive audit performed: 34 dead/orphan files removed:
+- **Pages:** Tasks.tsx (unrouted), dashboard/index.tsx (duplicate of dashboard.tsx)
+- **Components:** EnhancedErrorDisplay, form-error-handler, SyncStatus.tsx + SyncStatusHeader.tsx (duplicate of sync-status.tsx), admin-notifications/index.ts (empty barrel)
+- **UI (unused shadcn):** accordion, aspect-ratio, auto-width-input, breadcrumb, carousel, chart, context-menu, drawer, hover-card, input-otp, menubar, navigation-menu, resizable
+- **CSS:** worker-account-print.css, excel-print-styles.css, axion-reports.print.css (all unimported)
+- **Hooks:** useWorkersSettlementValidation.ts + use-workers-settlement-validation.ts (duplicates, both unused)
+- **Server:** systemRoutes.ts (imported but never registered with app.use()), removed from REGISTERED_ROUTE_FILES
+- **Misc:** t6 txt, apk.sh.bak, diag_helper.js, logo_header_light3.png (duplicate), firebase-test-results/ directory
+
+**Preserved (verified used):** CircuitBreaker.ts, ModelManager.ts, ArabicNormalizer.ts, InteractiveMenu.ts, backup/* (ddl-generator, integrity-checker, restore-engine, streaming-restorer), routes.ts (initializes Telegram/GoogleDrive), unified-print-styles.css (imported in worker-accounts.tsx)
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

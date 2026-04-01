@@ -229,7 +229,6 @@ const REGISTERED_ROUTE_FILES = new Set([
   'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
   'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'inventoryRoutes', 'syncAuditRoutes', 'index',
   'authRoutes',
-  'systemRoutes',
   'webauthnRoutes',
   'preferencesRoutes',
   'permissionRoutes',

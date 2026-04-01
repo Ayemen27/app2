@@ -1,5 +1,11 @@
 import './config/env';
 
+if (process.env.NODE_ENV === 'production') {
+  const _noop = () => {};
+  console.log = _noop;
+  console.debug = _noop;
+  console.info = _noop;
+}
 
 import "./lib/telemetry";
 

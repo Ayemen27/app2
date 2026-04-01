@@ -205,6 +205,13 @@ Bot now runs **only** in production by default. Logic: `botEnabled = botExplicit
 - Development: never starts unless WHATSAPP_BOT_ENABLED=true explicitly
 - Log message includes both env and WHATSAPP_BOT_ENABLED value for debugging
 
+### Security Vulnerabilities Fix (Completed)
+Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low** only:
+- **Removed:** `scp2` (unused, carried ssh2 critical + lodash critical), `path-to-regexp` (unused direct dep), `xlsx` (prototype pollution + ReDoS, no fix available)
+- **Replaced:** `xlsx` → `exceljs` in server/services/whatsapp-import/MediaProcessingService.ts (Excel text extraction) and removed unused import from transport-management.tsx
+- **Upgraded:** nodemailer, firebase-admin, @rollup/plugin-terser, @capacitor/cli, @capgo/capacitor-native-biometric, axios, jspdf, express-rate-limit chain
+- **Remaining 8 low:** All from firebase-admin internal dependency chain (google-gax → protobufjs, @tootallnate/once, teeny-request) — no fix without breaking downgrade
+
 ### Remaining Phases (Planned)
 
 **Phase 4 — Architecture (1-2 weeks):**

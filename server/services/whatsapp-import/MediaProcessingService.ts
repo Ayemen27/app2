@@ -39,18 +39,21 @@ async function extractPdfText(filePath: string): Promise<string> {
 }
 
 async function extractExcelText(filePath: string): Promise<string> {
-  const XLSX = (await import('xlsx')).default;
-  const buffer = fs.readFileSync(filePath);
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
   const lines: string[] = [];
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    const csv = XLSX.utils.sheet_to_csv(sheet);
-    if (csv.trim()) {
-      lines.push(`[${sheetName}]`);
-      lines.push(csv.trim());
+  workbook.eachSheet((sheet) => {
+    const rows: string[] = [];
+    sheet.eachRow((row) => {
+      const values = (row.values as any[]).slice(1).map(v => v != null ? String(v) : '');
+      rows.push(values.join(','));
+    });
+    if (rows.length > 0) {
+      lines.push(`[${sheet.name}]`);
+      lines.push(rows.join('\n'));
     }
-  }
+  });
   return lines.join('\n');
 }
 

@@ -56,7 +56,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import * as XLSX from 'xlsx';
+
 
 export default function TransportManagement() {
   const [, setLocation] = useLocation();

@@ -9,6 +9,7 @@ import { emergencyUsers } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { hashPassword, verifyPassword } from '../auth/crypto-utils';
 import { generateTokenPair } from '../auth/jwt-utils';
+import { timingSafeEqual } from 'crypto';
 
 const EMERGENCY_ACCESS_LIMIT = 5; // محاولات تسجيل دخول محدودة في وضع الطوارئ
 const EMERGENCY_LOCK_DURATION = 15 * 60 * 1000; // قفل لمدة 15 دقيقة
@@ -174,7 +175,12 @@ export class EmergencyAuthService {
     if (!adminCreds || adminCreds.email.toLowerCase() !== email.toLowerCase()) {
       return { matched: false, credentialsValid: false, adminCreds };
     }
-    return { matched: true, credentialsValid: adminCreds.password === password, adminCreds };
+    const storedBuf = Buffer.from(adminCreds.password);
+    const inputBuf = Buffer.from(password);
+    const credentialsValid =
+      storedBuf.length === inputBuf.length &&
+      timingSafeEqual(storedBuf, inputBuf);
+    return { matched: true, credentialsValid, adminCreds };
   }
 
   private static async buildEnvAdminResponse(adminCreds: { email: string; password: string }): Promise<{

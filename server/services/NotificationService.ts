@@ -595,53 +595,14 @@ export class NotificationService {
    * تعليم جميع الإشعارات كمقروءة
    */
   async markAllAsRead(user_id: string, project_id?: string): Promise<void> {
-    console.log(`✅ تعليم جميع الإشعارات كمقروءة للمستخدم: ${user_id}`);
-
-    // جلب جميع الإشعارات أولاً للفحص
-    const allNotifications = await db
-      .select({ 
-        id: notifications.id, 
-        recipients: notifications.recipients, 
-        type: notifications.type,
-        title: notifications.title 
-      })
+    const rows = await db
+      .select({ id: notifications.id })
       .from(notifications)
-      .limit(10);
+      .where(project_id ? eq(notifications.project_id, project_id) : undefined);
 
-    console.log(`📊 إجمالي الإشعارات في قاعدة البيانات: ${allNotifications.length}`);
-    console.log(`📋 عينة من الإشعارات:`, allNotifications.map((n: any) => ({
-      id: n.id,
-      recipients: n.recipients,
-      type: n.type,
-      title: n.title
-    })));
+    if (rows.length === 0) return;
 
-    // شروط البحث المحسنة - جلب جميع الإشعارات للمستخدم
-    const conditions = [];
-    
-    // إضافة شروط متعددة للتأكد من جلب جميع الإشعارات المناسبة
-    if (project_id) {
-      conditions.push(eq(notifications.project_id, project_id));
-    }
-
-    // إصلاح الاستعلام لتجنب مشاكل النوع
-    const userNotifications = conditions.length > 0 
-      ? await db
-          .select({ id: notifications.id })
-          .from(notifications)
-          .where(and(...conditions))
-      : await db
-          .select({ id: notifications.id })
-          .from(notifications);
-
-    console.log(`🎯 عدد الإشعارات المُفلترة: ${userNotifications.length}`);
-
-    if (userNotifications.length === 0) {
-      console.log(`✅ لا توجد إشعارات لتعليمها كمقروءة`);
-      return;
-    }
-
-    const notificationIds = userNotifications.map((n: { id: number }) => n.id);
+    const notificationIds = rows.map((n: { id: string }) => n.id);
 
     try {
       await db.delete(notificationReadStates)
@@ -654,17 +615,15 @@ export class NotificationService {
 
       await db.insert(notificationReadStates)
         .values(
-          notificationIds.map((notificationId: number) => ({
+          notificationIds.map((notificationId: string) => ({
             user_id,
             notificationId,
             isRead: true,
             readAt: new Date(),
           }))
         );
-
-      console.log(`✅ تم تعليم ${notificationIds.length} إشعار كمقروء`);
     } catch (error) {
-      console.error(`❌ خطأ في تعليم الإشعارات كمقروءة:`, error);
+      console.error(`❌ [Notifications] markAllAsRead failed for user ${user_id}:`, error);
     }
   }
 

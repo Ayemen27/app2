@@ -907,7 +907,7 @@ export class SmartConnectionManager {
           const latency = Date.now() - startTime;
 
           const labelMap: Record<string, string> = {
-            'app2': 'تطبيق الأندرويد (app2)',
+            'app2': 'AXION - التطبيق الرئيسي',
             'app2_backup': 'نسخة احتياطية (app2_backup)',
             'app2_plus': 'تطبيق متقدم (app2_plus)',
             'ai_agents_db': 'وكلاء الذكاء الاصطناعي',

@@ -15,7 +15,7 @@ const simulateApkEnvironment = () => {
 const simulateWebEnvironment = () => {
   (global as any).window = {
     location: {
-      origin: 'https://app2.binarjoinanalytic.info',
+      origin: 'https://axion.binarjoinanalytic.info',
     }
   };
   (global as any).Capacitor = {
@@ -27,7 +27,7 @@ const simulateWebEnvironment = () => {
 const getApiBaseUrl = () => {
   const origin = (global as any).window?.location?.origin;
   if (!origin || origin.startsWith('http://localhost') || origin === 'null' || origin === 'file://') {
-    return 'https://app2.binarjoinanalytic.info/api';
+    return 'https://axion.binarjoinanalytic.info/api';
   }
   return '/api';
 };
@@ -40,7 +40,7 @@ describe('APK Environment & Connection Tests', () => {
 
   it('Android: يجب أن يتم تحديد رابط API خارجي لبيئة الأندرويد', () => {
     simulateApkEnvironment();
-    expect(getApiBaseUrl()).toBe('https://app2.binarjoinanalytic.info/api');
+    expect(getApiBaseUrl()).toBe('https://axion.binarjoinanalytic.info/api');
   });
 
   it('Web: يجب أن يتم تحديد رابط API نسبي لبيئة الويب', () => {
@@ -50,11 +50,11 @@ describe('APK Environment & Connection Tests', () => {
 
   it('Null origin: يجب التعامل مع file:// protocol', () => {
     (global as any).window = { location: { origin: 'file://' } };
-    expect(getApiBaseUrl()).toBe('https://app2.binarjoinanalytic.info/api');
+    expect(getApiBaseUrl()).toBe('https://axion.binarjoinanalytic.info/api');
   });
 
   it('No window: يجب التعامل مع بيئة بدون window', () => {
-    expect(getApiBaseUrl()).toBe('https://app2.binarjoinanalytic.info/api');
+    expect(getApiBaseUrl()).toBe('https://axion.binarjoinanalytic.info/api');
   });
 });
 

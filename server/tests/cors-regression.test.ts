@@ -19,7 +19,7 @@ function isAllowedDomain(origin: string, allowedHost: string): boolean {
 }
 
 const STATIC_ALLOWED_ORIGINS = new Set([
-  'https://app2.binarjoinanalytic.info',
+  'https://axion.binarjoinanalytic.info',
   'https://binarjoinanalytic.info',
 ]);
 
@@ -53,7 +53,7 @@ function isOriginAllowed(origin: string, isDev: boolean): boolean {
 describe('CORS Origin Validation - Regression Tests', () => {
   describe('Allowed origins (should pass)', () => {
     it('allows exact production domain', () => {
-      expect(isOriginAllowed('https://app2.binarjoinanalytic.info', false)).toBe(true);
+      expect(isOriginAllowed('https://axion.binarjoinanalytic.info', false)).toBe(true);
     });
 
     it('allows exact base domain', () => {

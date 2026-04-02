@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
-const API_BASE = process.env.VITE_API_BASE || 'https://app2.binarjoinanalytic.info';
+const API_BASE = process.env.VITE_API_BASE || 'https://axion.binarjoinanalytic.info';
 let authToken: string = '';
 
 async function apiRequest(method: string, path: string, body?: any, token?: string) {

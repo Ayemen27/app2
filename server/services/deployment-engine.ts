@@ -528,7 +528,7 @@ export class DeploymentEngine {
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
       const buildId = deploymentId.substring(0, 8);
-      const remoteDir = "/home/administrator/app2";
+      const remoteDir = "/home/administrator/AXION";
       const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
 
       const buildPidFile = `/tmp/axion_build_${buildId}.pid`;
@@ -644,7 +644,7 @@ export class DeploymentEngine {
     try {
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
-      const remoteDir = "/home/administrator/app2";
+      const remoteDir = "/home/administrator/AXION";
       const version = deployment.version || deployment.versionName || "";
       const buildNum = deployment.buildNumber || deployment.build_number || 0;
       const pipelineType = deployment.pipeline || deployment.pipelineType || "";
@@ -1812,7 +1812,7 @@ export class DeploymentEngine {
             }
             const remoteKillTargets = ["gradlew", "gradle", "npm", "npx", "cap", "node dist/index.js"].filter(t => command.includes(t));
             if (remoteKillTargets.length === 0) { /* no known targets — skip remote cleanup to avoid killing unrelated processes */ }
-            const remoteProjectDir = "/home/administrator/app2";
+            const remoteProjectDir = "/home/administrator/AXION";
             const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${remoteProjectDir}.*${t}' 2>/dev/null`).join("; ") : "echo NO_REMOTE_KILL_TARGET";
             exec(`${killCmd} "${killPattern}; echo REMOTE_CLEANUP_DONE"`, { timeout: 10000, env: cleanupEnv }, () => {});
           } catch {}
@@ -1988,7 +1988,7 @@ export class DeploymentEngine {
     try {
       const sshCmd = this.buildSSHCommand();
       const { stdout: remoteDisk } = await execAsync(
-        `${sshCmd} "df -BM /home/administrator/app2 | tail -1 | awk '{print \\$4}'"`,
+        `${sshCmd} "df -BM /home/administrator/AXION | tail -1 | awk '{print \\$4}'"`,
         { timeout: 15000, env: this.getSSHExecEnv() }
       );
       const remoteAvailMB = parseInt(remoteDisk.replace(/[^0-9]/g, ""));
@@ -2269,7 +2269,7 @@ export class DeploymentEngine {
 
   private async stepDeployServer(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "جاري النشر على السيرفر...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     await this.execWithLog(
       deploymentId,
@@ -2294,7 +2294,7 @@ export class DeploymentEngine {
   }
 
   private async stepRestartPM2(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     const appBase = "AXION";
     const legacyNames = ["construction-app"];
 
@@ -2489,7 +2489,7 @@ export class DeploymentEngine {
 
   private async stepSyncCapacitor(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "مزامنة Capacitor للأندرويد...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     await this.cleanupOldBackups(deploymentId, sshCmd, remoteDir);
 
@@ -2805,7 +2805,7 @@ export class DeploymentEngine {
 
   private async stepGenerateIcons(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "توليد أيقونات التطبيق (Adaptive Icons) [v2-base64]...", "info");
-    const R = "/home/administrator/app2";
+    const R = "/home/administrator/AXION";
     const D = `${R}/android/app/src/main/res`;
     const iconSource = `${R}/client/public/assets/app_icon_light.png`;
     const fallbackSource = `${R}/client/src/assets/images/app_icon_light.png`;
@@ -2871,7 +2871,7 @@ export class DeploymentEngine {
   private async stepGradleBuild(deploymentId: string, sshCmd: string, config: DeploymentConfig) {
     await this.addLog(deploymentId, "بدء بناء Gradle (قد يستغرق 2-3 دقائق)...", "info");
     this.updateStepProgress(deploymentId, "gradle-build", 5, "فحص Gradle Wrapper...");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     let gradlewCheck = "";
     for (let gwAttempt = 0; gwAttempt < 3; gwAttempt++) {
@@ -3102,7 +3102,7 @@ export class DeploymentEngine {
   // NOTE: هذه الخطوة تنسخ APK من مخرجات Gradle إلى مجلد releases — التوقيع الفعلي يتم عبر Gradle signing config
   private async stepSignAPK(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "البحث عن APK وتجهيزه...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) throw new Error("Deployment not found");
@@ -3137,7 +3137,7 @@ export class DeploymentEngine {
 
   private async stepApkIntegrity(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔐 فحص سلامة APK — التحقق من checksum والتوقيع...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) throw new Error("Deployment not found");
@@ -3220,7 +3220,7 @@ export class DeploymentEngine {
 
   private async stepRetrieveArtifact(deploymentId: string) {
     await this.addLog(deploymentId, "تسجيل مسار APK على السيرفر...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     const sshCmd = this.buildSSHCommand();
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
@@ -3275,7 +3275,7 @@ export class DeploymentEngine {
 
   private async stepFirebaseTest(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🧪 بدء اختبار Firebase Test Lab...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     const setupResult = await this.execWithLog(
       deploymentId,
@@ -3344,7 +3344,7 @@ export class DeploymentEngine {
 
   private async stepAndroidReadiness(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔧 فحص جاهزية بيئة Android على السيرفر (مع إصلاح تلقائي)...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     const errors: string[] = [];
     const autoFixes: string[] = [];
 
@@ -3398,7 +3398,7 @@ export class DeploymentEngine {
         try {
           const fixKs = await this.execWithLog(
             deploymentId,
-            `${sshCmd} "for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore /home/administrator/app2/administrator/.axion-keystore/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_AUTO_FIXED' && break; fi; done; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS_NOW' || echo 'KEYSTORE_STILL_MISSING'"`,
+            `${sshCmd} "for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore /home/administrator/AXION/administrator/.axion-keystore/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_AUTO_FIXED' && break; fi; done; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS_NOW' || echo 'KEYSTORE_STILL_MISSING'"`,
             "Auto-fix Keystore",
             15000
           );
@@ -3865,7 +3865,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && ${sensitiveResets} && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && ${sensitiveResets} && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/AXION.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );
@@ -3885,7 +3885,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepPullServer(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
     const branch = this.sanitizeShellArg(config?.branch || "main");
     await this.addLog(deploymentId, `جاري سحب آخر التحديثات من GitHub على السيرفر (الفرع: ${branch})...`, "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     await this.execWithLog(
       deploymentId,
@@ -3898,7 +3898,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepInstallDeps(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "جاري تثبيت المكتبات على السيرفر...", "info");
     this.updateStepProgress(deploymentId, "install-deps", 10, "تثبيت الحزم على السيرفر...");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     await this.execWithLog(
       deploymentId,
@@ -3912,7 +3912,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async stepBuildServer(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "تنظيف مخرجات البناء السابقة...", "info");
     this.updateStepProgress(deploymentId, "build-server", 5, "تنظيف المخرجات السابقة...");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     const buildId = deploymentId.substring(0, 8);
     const pidFile = `/tmp/axion_build_${buildId}.pid`;
     const exitFile = `/tmp/axion_build_${buildId}.exit`;
@@ -4045,7 +4045,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   private async stepDbMigrate(deploymentId: string, sshCmd: string) {
     const autoMigrate = process.env.AUTO_DB_MIGRATE === "true";
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     if (!autoMigrate) {
       await this.addLog(deploymentId, "⚠️ ترحيل قاعدة البيانات التلقائي معطّل (AUTO_DB_MIGRATE !== true)", "warn");
@@ -4121,7 +4121,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     const scpCmd = this.buildSCPCommand(
       "/home/runner/workspace/dist/",
-      "/home/administrator/app2/dist/"
+      "/home/administrator/AXION/dist/"
     );
     await this.execWithLog(
       deploymentId,
@@ -4710,7 +4710,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   private async stepClAndroid(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📱 تنظيف مخلفات بناء Android...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     try {
       const { stdout } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/android/app/build ${remoteDir}/android/.gradle ${remoteDir}/android/build 2>/dev/null | awk '{s+=\\$1} END{print s}'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(stdout.trim()) || 0;
@@ -4742,7 +4742,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     try {
       const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ~/.pm2/logs/ 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const sizeMB = parseInt(beforeSize.trim()) || 0;
-      await execAsync(`${sshCmd} "cd /home/administrator/app2 && pm2 flush 2>/dev/null && echo 'DONE'"`, { timeout: 15000, env: this.getSSHExecEnv() });
+      await execAsync(`${sshCmd} "cd /home/administrator/AXION && pm2 flush 2>/dev/null && echo 'DONE'"`, { timeout: 15000, env: this.getSSHExecEnv() });
       this.addCleanupStep(deploymentId, "cl-pm2-logs", sizeMB, `PM2 logs (${sizeMB}MB)`);
       await this.addLog(deploymentId, `✅ تم تنظيف سجلات PM2: ${sizeMB}MB`, "success");
     } catch (err: any) {
@@ -4753,7 +4753,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   private async stepClOldApk(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "📦 تنظيف APK القديمة (الاحتفاظ بآخر 5)...", "info");
-    const releasesDir = "/home/administrator/app2/android-releases";
+    const releasesDir = "/home/administrator/AXION/android-releases";
     try {
       const { stdout: listOut } = await execAsync(`${sshCmd} "ls -1t ${releasesDir}/*.apk 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const files = listOut.trim().split("\n").filter(Boolean);
@@ -4840,7 +4840,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   private async stepClGitGc(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔀 تنظيف Git (garbage collection)...", "info");
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     try {
       const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000, env: this.getSSHExecEnv() });
       const beforeMB = parseInt(beforeSize.trim()) || 0;
@@ -5052,7 +5052,7 @@ echo 'MAINACTIVITY_FIXED'"`,
   private async executeRollback(rollbackId: string, targetDeployment: any) {
     const sshCmd = this.buildSSHCommand();
     const startTime = Date.now();
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
     const targetCommit = targetDeployment.commitHash;
 
     try {
@@ -5245,7 +5245,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     const sshCmd = this.buildSSHCommand();
     const cleaned: string[] = [];
     const errors: string[] = [];
-    const remoteDir = "/home/administrator/app2";
+    const remoteDir = "/home/administrator/AXION";
 
     try {
       await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'CLEAN_ANDROID'"`, { timeout: 30000, env: this.getSSHExecEnv() });

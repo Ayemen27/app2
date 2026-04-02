@@ -305,6 +305,10 @@ function isTrustedIp(ip: string): boolean {
 }
 
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
+  // استثناء health check دائماً — حتى لو كان الـ IP محظوراً
+  const requestPath = req.originalUrl?.split('?')[0] || req.path;
+  if (requestPath === '/api/health' || requestPath === '/health') return next();
+
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
   if (isTrustedIp(ip)) return next();

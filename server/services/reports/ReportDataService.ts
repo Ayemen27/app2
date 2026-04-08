@@ -677,6 +677,25 @@ export class ReportDataService {
       projectMap.set(key, existing);
     }
 
+    // إضافة مبالغ التسويات لملخص المشاريع لضمان تطابق الرصيد مع البيان التفصيلي
+    for (const s of settlementResult.rows) {
+      const amt = safeParseNum(s.amount);
+      if (!projectId || projectId === 'all') {
+        // عرض كل المشاريع: يُضاف المبلغ للمشروع المصدر كمدفوع
+        const fromKey = s.from_project_id || (s.from_project_name || '-');
+        const existing = projectMap.get(fromKey) || { projectName: s.from_project_name || '-', totalDays: 0, totalEarned: 0, totalPaid: 0 };
+        existing.totalPaid += amt;
+        projectMap.set(fromKey, existing);
+      } else if (s.from_project_id === projectId) {
+        // عرض المشروع المصدر: يُضاف كمدفوع (المشروع سدّد الرصيد)
+        const fromKey = s.from_project_id;
+        const existing = projectMap.get(fromKey) || { projectName: s.from_project_name || '-', totalDays: 0, totalEarned: 0, totalPaid: 0 };
+        existing.totalPaid += amt;
+        projectMap.set(fromKey, existing);
+      }
+      // عرض المشروع الوجهة: لا تعديل على ملخصه لأن أرقامه مكتملة من الحضور والحوالات
+    }
+
     const projectSummary = Array.from(projectMap.values()).map((p) => ({
       projectName: p.projectName,
       totalDays: p.totalDays,

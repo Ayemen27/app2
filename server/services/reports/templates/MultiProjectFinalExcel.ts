@@ -145,18 +145,20 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   // ─── جدول ملخص العمالة المجمع ───
   // الشكل: صف لكل مشروع، مع دمج خلايا (#، اسم العامل، إجمالي المتبقي) عبر صفوف نفس العامل
   // الأعمدة: # | اسم العامل | المشروع | النوع | الأيام | المستحق | المدفوع | الحوالات | إجمالي المدفوع | المتبقي | إجمالي المتبقي
-  const WORKER_COL_COUNT = 13;
+  const hasRebalance = data.combinedSections.attendance.byWorker.some(w => ((w as any).rebalanceDelta ?? 0) !== 0);
+  const WORKER_COL_COUNT = hasRebalance ? 13 : 12;
 
   if (!ws.getColumn(11).width) ws.getColumn(11).width = 14;
   if (!ws.getColumn(12).width) ws.getColumn(12).width = 16;
-  if (!ws.getColumn(13).width) ws.getColumn(13).width = 16;
+  if (hasRebalance && !ws.getColumn(13).width) ws.getColumn(13).width = 16;
 
   row = xlSectionHeader(ws, row, 'ملخص العمالة المجمع', WORKER_COL_COUNT);
 
-  // رأس الجدول
   {
     const hdr = ws.getRow(row);
-    const headers = ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التصفية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
+    const headers = hasRebalance
+      ? ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التصفية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي']
+      : ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
     headers.forEach((h, i) => {
       const cell = hdr.getCell(i + 1);
       cell.value = h;
@@ -177,8 +179,10 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
       totalDays: number; totalEarned: number;
       totalDirectPaid: number; totalTransfers: number;
       totalPaid: number; balance: number;
+      rebalanceDelta: number; adjustedBalance: number;
     }>;
     totalBalance: number;
+    totalAdjustedBalance?: number;
   };
 
   const workerGroupMap = new Map<string, WorkerRows>();
@@ -221,9 +225,9 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
         formatNum(pRow.totalTransfers),
         formatNum(pRow.totalPaid),
         formatNum(pRow.balance),
-        formatNum(pRow.rebalanceDelta),
+        ...(hasRebalance ? [formatNum(pRow.rebalanceDelta)] : []),
         formatNum(pRow.adjustedBalance),
-        formatNum((wg as any).totalAdjustedBalance ?? wg.totalBalance),
+        formatNum(wg.totalAdjustedBalance ?? wg.totalBalance),
       ];
       vals.forEach((v, ci) => {
         const cell = r.getCell(ci + 1);
@@ -249,23 +253,21 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
       row++;
     });
 
-    // دمج خلايا # واسم العامل وإجمالي المتبقي عبر صفوف المشاريع
+    const lastCol = WORKER_COL_COUNT;
     if (rowCount > 1) {
       ws.mergeCells(startRow, 1, row - 1, 1);
       ws.mergeCells(startRow, 2, row - 1, 2);
-      ws.mergeCells(startRow, 13, row - 1, 13);
-      // إعادة تطبيق التنسيق على الخلية المدموجة
-      [1, 2, 13].forEach(ci => {
+      ws.mergeCells(startRow, lastCol, row - 1, lastCol);
+      [1, 2, lastCol].forEach(ci => {
         const cell = ws.getCell(startRow, ci);
         cell.alignment = { horizontal: ci === 2 ? 'right' : 'center', vertical: 'middle', wrapText: true };
-        cell.font = { size: 10, name: 'Calibri', bold: ci === 13 };
+        cell.font = { size: 10, name: 'Calibri', bold: ci === lastCol };
         cell.border = BORDER;
         if (bgColor) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
       });
     }
   }
 
-  // صف الإجمالي العام
   {
     const r = ws.getRow(row);
     ws.mergeCells(row, 1, row, 4);
@@ -274,7 +276,8 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
       undefined, undefined, undefined, undefined,
       grandDays, formatNum(grandEarned), formatNum(grandPaid - grandTransfers),
       formatNum(grandTransfers), formatNum(grandPaid), formatNum(grandBal),
-      formatNum(grandRebalance), formatNum(grandAdjusted), formatNum(grandAdjusted),
+      ...(hasRebalance ? [formatNum(grandRebalance)] : []),
+      formatNum(grandAdjusted), formatNum(grandAdjusted),
     ];
     totVals.forEach((v, i) => {
       const cell = r.getCell(i + 1);
@@ -352,17 +355,17 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
 
   row = xlSectionHeader(ws, row, 'الملخص المالي الشامل المجمع', COL_COUNT);
   const grandSummary = [
-    ['إجمالي العهدة (التحويلات المالية)', formatNum(data.combinedTotals.totalFundTransfers)],
-    ['ترحيل وارد من مشاريع أخرى', formatNum(data.combinedTotals.totalProjectTransfersIn)],
-    ['إجمالي الإيرادات', formatNum(data.combinedTotals.totalIncome)],
-    ['إجمالي الأجور', formatNum(data.combinedTotals.totalWages)],
-    ['إجمالي المواد', formatNum(data.combinedTotals.totalMaterials)],
-    ['إجمالي النقل', formatNum(data.combinedTotals.totalTransport)],
-    ['إجمالي النثريات', formatNum(data.combinedTotals.totalMisc)],
-    ['حوالات العمال', formatNum(data.combinedTotals.totalWorkerTransfers)],
-    ['ترحيل صادر لمشاريع أخرى', formatNum(data.combinedTotals.totalProjectTransfersOut)],
-    ['تحويلات بين المشاريع المحددة', formatNum(data.combinedTotals.totalInterProjectTransfers)],
-  ];
+    ['إجمالي العهدة (التحويلات المالية)', data.combinedTotals.totalFundTransfers],
+    ['ترحيل وارد من مشاريع أخرى', data.combinedTotals.totalProjectTransfersIn],
+    ['إجمالي الإيرادات', data.combinedTotals.totalIncome],
+    ['إجمالي الأجور', data.combinedTotals.totalWages],
+    ['إجمالي المواد', data.combinedTotals.totalMaterials],
+    ['إجمالي النقل', data.combinedTotals.totalTransport],
+    ['إجمالي النثريات', data.combinedTotals.totalMisc],
+    ['حوالات العمال', data.combinedTotals.totalWorkerTransfers],
+    ['ترحيل صادر لمشاريع أخرى', data.combinedTotals.totalProjectTransfersOut],
+    ['تحويلات بين المشاريع المحددة', data.combinedTotals.totalInterProjectTransfers],
+  ].filter(([, val]) => (val as number) > 0) as [string, number][];
   grandSummary.forEach(([label, val], idx) => {
     const r = ws.getRow(row);
     ws.mergeCells(row, 1, row, 8);

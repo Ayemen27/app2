@@ -118,8 +118,11 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   }
 
   if (data.workforce.topWorkers.length > 0) {
+    const hasSettlements = data.workforce.topWorkers.some(w => (w.totalSettled || 0) !== 0);
+    const hasRebalance = data.workforce.topWorkers.some(w => (w.rebalanceDelta || 0) !== 0);
     row = xlInfoRow(ws, row, 'أعلى 20 عامل من حيث الأجور', COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'التسويات', 'التصفية البينية', 'المتبقي الصافي']);
+    const workerHeaders = ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', ...(hasSettlements ? ['التسويات'] : []), ...(hasRebalance ? ['التصفية البينية'] : []), 'المتبقي الصافي'];
+    row = xlTableHeader(ws, row, workerHeaders);
     let xlTopDays = 0, xlTopEarned = 0, xlTopPaid = 0, xlTopTransfers = 0, xlTopSettled = 0, xlTopRebalance = 0, xlTopBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
       xlTopDays += w.totalDays;
@@ -129,9 +132,11 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
       xlTopSettled += (w.totalSettled || 0);
       xlTopRebalance += (w.rebalanceDelta || 0);
       xlTopBalance += w.balance;
-      row = xlDataRow(ws, row, [i + 1, w.name, w.type, formatNum(w.totalDays), formatNum(w.totalEarned), formatNum(w.totalPaid), formatNum(w.totalTransfers || 0), formatNum(w.totalSettled || 0), formatNum(w.rebalanceDelta || 0), formatNum(w.balance)], i % 2 === 1);
+      const rowData = [i + 1, w.name, w.type, formatNum(w.totalDays), formatNum(w.totalEarned), formatNum(w.totalPaid), formatNum(w.totalTransfers || 0), ...(hasSettlements ? [formatNum(w.totalSettled || 0)] : []), ...(hasRebalance ? [formatNum(w.rebalanceDelta || 0)] : []), formatNum(w.balance)];
+      row = xlDataRow(ws, row, rowData, i % 2 === 1);
     });
-    row = xlGrandTotalRow(ws, row, ['', 'الإجمالي', '', formatNum(xlTopDays), formatNum(xlTopEarned), formatNum(xlTopPaid), formatNum(xlTopTransfers), formatNum(xlTopSettled), formatNum(xlTopRebalance), formatNum(xlTopBalance)]);
+    const totalRow = ['', 'الإجمالي', '', formatNum(xlTopDays), formatNum(xlTopEarned), formatNum(xlTopPaid), formatNum(xlTopTransfers), ...(hasSettlements ? [formatNum(xlTopSettled)] : []), ...(hasRebalance ? [formatNum(xlTopRebalance)] : []), formatNum(xlTopBalance)];
+    row = xlGrandTotalRow(ws, row, totalRow);
     row++;
   }
 
@@ -158,7 +163,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
     { label: 'تحويلات لمشاريع أخرى', amount: data.totals.totalProjectTransfersOut || 0 },
     { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
-  ];
+  ].filter(item => item.amount > 0);
   expenseItems.forEach((item, i) => {
     const pct = data.totals.totalExpenses > 0 ? (item.amount / data.totals.totalExpenses * 100).toFixed(1) + '%' : '0%';
     row = xlDataRow(ws, row, [item.label, formatNum(item.amount), pct, '', '', '', '', '', ''], i % 2 === 1);

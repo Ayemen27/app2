@@ -114,9 +114,11 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
   }
 
   if (data.workforce.topWorkers.length > 0) {
+    const hasSettlements = data.workforce.topWorkers.some(w => (w.totalSettled || 0) !== 0);
+    const hasRebalance = data.workforce.topWorkers.some(w => (w.rebalanceDelta || 0) !== 0);
     body += `<div style="font-size:9px;font-weight:700;color:${PDF_COLORS.navy};margin:6px 0 3px;">أعلى 20 عامل من حيث الأجور</div>`;
     body += `<table><thead><tr>
-      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th><th>التسويات</th><th>التصفية البينية</th><th>المتبقي الصافي</th>
+      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th>${hasSettlements ? '<th>التسويات</th>' : ''}${hasRebalance ? '<th>التصفية البينية</th>' : ''}<th>المتبقي الصافي</th>
     </tr></thead><tbody>`;
     let topTotalDays = 0, topTotalEarned = 0, topTotalPaid = 0, topTotalTransfers = 0, topTotalSettled = 0, topTotalRebalance = 0, topTotalBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
@@ -135,12 +137,13 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td class="debit-cell">${formatNum(w.totalEarned)}</td>
         <td class="credit-cell">${formatNum(w.totalPaid)}</td>
         <td class="credit-cell">${formatNum(w.totalTransfers || 0)}</td>
-        <td class="credit-cell">${formatNum(w.totalSettled || 0)}</td>
-        <td style="color:#7C3AED;font-weight:600;">${formatNum(w.rebalanceDelta || 0)}</td>
+        ${hasSettlements ? `<td class="credit-cell">${formatNum(w.totalSettled || 0)}</td>` : ''}
+        ${hasRebalance ? `<td style="color:#7C3AED;font-weight:600;">${formatNum(w.rebalanceDelta || 0)}</td>` : ''}
         <td class="balance-cell" style="color:${w.balance >= 0 ? '#16a34a' : '#C0392B'};">${formatNum(w.balance)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', 'الإجمالي', '', formatNum(topTotalDays), formatNum(topTotalEarned), formatNum(topTotalPaid), formatNum(topTotalTransfers), formatNum(topTotalSettled), formatNum(topTotalRebalance), formatNum(topTotalBalance)]);
+    const grandCols = ['', 'الإجمالي', '', formatNum(topTotalDays), formatNum(topTotalEarned), formatNum(topTotalPaid), formatNum(topTotalTransfers), ...(hasSettlements ? [formatNum(topTotalSettled)] : []), ...(hasRebalance ? [formatNum(topTotalRebalance)] : []), formatNum(topTotalBalance)];
+    body += pdfGrandTotalRow(grandCols);
     body += `</tbody></table>`;
   }
 
@@ -202,7 +205,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
     { label: 'تحويلات لمشاريع أخرى', amount: data.totals.totalProjectTransfersOut || 0 },
     { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
-  ];
+  ].filter(item => item.amount > 0);
   expenseItems.forEach(item => {
     const pct = data.totals.totalExpenses > 0 ? (item.amount / data.totals.totalExpenses * 100) : 0;
     body += `<tr>
@@ -241,8 +244,8 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
   body += pdfSectionTitle('🏦 الصندوق والأمانات');
   const custodyIncome = data.cashCustody.totalFundTransfersIn + data.cashCustody.totalProjectTransfersIn;
   body += `<table class="summary-table" style="width:100%;"><tbody>
-    <tr><td class="label-cell">إجمالي التحويلات الواردة</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalFundTransfersIn)}</td></tr>
-    <tr><td class="label-cell">تحويلات من مشاريع أخرى (وارد)</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalProjectTransfersIn)}</td></tr>
+    ${data.cashCustody.totalFundTransfersIn > 0 ? `<tr><td class="label-cell">إجمالي التحويلات الواردة</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalFundTransfersIn)}</td></tr>` : ''}
+    ${data.cashCustody.totalProjectTransfersIn > 0 ? `<tr><td class="label-cell">تحويلات من مشاريع أخرى (وارد)</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalProjectTransfersIn)}</td></tr>` : ''}
     <tr style="border-top:2px solid ${PDF_COLORS.navy};"><td class="label-cell" style="font-weight:800;">إجمالي الدخل</td><td class="value-cell debit-cell" style="font-weight:800;">${formatNum(custodyIncome)}</td></tr>
     <tr><td class="label-cell">إجمالي المصروفات (شامل الترحيل الصادر)</td><td class="value-cell credit-cell">${formatNum(data.cashCustody.totalExpenses)}</td></tr>
   </tbody>`;

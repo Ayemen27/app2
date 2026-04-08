@@ -114,6 +114,13 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
     { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !projectIdForApi },
   ];
 
+  const hasSettlements = useMemo(() =>
+    (report?.workforce?.topWorkers || []).some(w => (w.totalSettled ?? 0) !== 0),
+  [report]);
+  const hasRebalance = useMemo(() =>
+    (report?.workforce?.topWorkers || []).some(w => (w.rebalanceDelta ?? 0) !== 0),
+  [report]);
+
   const pieData = useMemo(() => {
     if (!report?.totals) return [];
     return [
@@ -185,7 +192,7 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
                     { label: "مصاريف النقل", value: report.totals.totalTransport, color: "#f59e0b" },
                     { label: "مصاريف متنوعة", value: report.totals.totalMisc, color: "#ef4444" },
                     { label: "حوالات العمال", value: report.totals.totalWorkerTransfers, color: "#8b5cf6" },
-                  ].map((item) => {
+                  ].filter((item) => item.value > 0).map((item) => {
                     const pct = report.totals.totalExpenses > 0 ? (item.value / report.totals.totalExpenses * 100) : 0;
                     return (
                       <div key={item.label} className="space-y-1">
@@ -212,7 +219,7 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
                       <tr className="border-b bg-muted/50">
                         <th className="p-2 text-right">#</th><th className="p-2 text-right">الاسم</th><th className="p-2 text-right">النوع</th>
                         <th className="p-2 text-right">الأيام</th><th className="p-2 text-right">المستحق</th><th className="p-2 text-right">المدفوع</th>
-                        <th className="p-2 text-right">الحوالات</th><th className="p-2 text-right">التسويات</th><th className="p-2 text-right">التصفية البينية</th><th className="p-2 text-right">المتبقي الصافي</th>
+                        <th className="p-2 text-right">الحوالات</th>{hasSettlements && <th className="p-2 text-right">التسويات</th>}{hasRebalance && <th className="p-2 text-right">التصفية البينية</th>}<th className="p-2 text-right">المتبقي الصافي</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -227,8 +234,8 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
                             <td className="p-2 text-green-600 font-semibold">{formatCurrency(w.totalEarned)}</td>
                             <td className="p-2 text-red-600">{formatCurrency(w.totalPaid)}</td>
                             <td className="p-2 text-orange-600">{formatCurrency(w.totalTransfers ?? 0)}</td>
-                            <td className="p-2 text-blue-600">{formatCurrency(w.totalSettled ?? 0)}</td>
-                            <td className="p-2 text-purple-600">{formatCurrency(w.rebalanceDelta ?? 0)}</td>
+                            {hasSettlements && <td className="p-2 text-blue-600">{formatCurrency(w.totalSettled ?? 0)}</td>}
+                            {hasRebalance && <td className="p-2 text-purple-600">{formatCurrency(w.rebalanceDelta ?? 0)}</td>}
                             <td className="p-2 font-bold" style={{ color: (w.balance) >= 0 ? '#16a34a' : '#dc2626' }}>{formatCurrency(w.balance)}</td>
                           </tr>
                         ))}
@@ -317,9 +324,9 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><DollarSign className="h-4 w-4" />الصندوق والأمانات</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-testid="cash-custody-summary">
-                <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg"><div className="text-xs text-muted-foreground">التحويلات الواردة</div><div className="text-lg font-bold text-green-600">{formatCurrency(report.cashCustody.totalFundTransfersIn)}</div></div>
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg"><div className="text-xs text-muted-foreground">من مشاريع أخرى</div><div className="text-lg font-bold text-blue-600">{formatCurrency(report.cashCustody.totalProjectTransfersIn)}</div></div>
-                <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg"><div className="text-xs text-muted-foreground">لمشاريع أخرى</div><div className="text-lg font-bold text-red-600">{formatCurrency(report.cashCustody.totalProjectTransfersOut)}</div></div>
+                {report.cashCustody.totalFundTransfersIn > 0 && <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg"><div className="text-xs text-muted-foreground">التحويلات الواردة</div><div className="text-lg font-bold text-green-600">{formatCurrency(report.cashCustody.totalFundTransfersIn)}</div></div>}
+                {report.cashCustody.totalProjectTransfersIn > 0 && <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg"><div className="text-xs text-muted-foreground">من مشاريع أخرى</div><div className="text-lg font-bold text-blue-600">{formatCurrency(report.cashCustody.totalProjectTransfersIn)}</div></div>}
+                {report.cashCustody.totalProjectTransfersOut > 0 && <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg"><div className="text-xs text-muted-foreground">لمشاريع أخرى</div><div className="text-lg font-bold text-red-600">{formatCurrency(report.cashCustody.totalProjectTransfersOut)}</div></div>}
                 <div className="text-center p-3 bg-purple-50 dark:bg-purple-950 rounded-lg"><div className="text-xs text-muted-foreground">صافي الرصيد</div><div className="text-lg font-bold text-purple-600">{formatCurrency(report.cashCustody.netBalance)}</div></div>
               </div>
               {(report.cashCustody.fundTransferItems?.length || 0) > 0 && (

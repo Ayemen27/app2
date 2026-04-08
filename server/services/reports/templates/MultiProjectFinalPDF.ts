@@ -46,8 +46,8 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
 
   if (data.combinedSections.attendance.byWorker.length > 0) {
     body += pdfSectionTitle('ملخص العمالة المجمع');
+    const hasRebalance = data.combinedSections.attendance.byWorker.some(w => ((w as any).rebalanceDelta ?? 0) !== 0);
 
-    // تجميع العمال بالـ workerId لضمان الدقة
     type WRow = typeof data.combinedSections.attendance.byWorker[0];
     const workerGroupMap = new Map<string, WRow[]>();
     for (const w of data.combinedSections.attendance.byWorker) {
@@ -61,7 +61,6 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     for (const [, rows] of workerGroupMap) {
       workerSeq++;
       const rowCount = rows.length;
-      const totalRemaining = rows.reduce((s, r) => s + r.balance, 0);
       const bgStyle = workerSeq % 2 === 0 ? 'background:#EBF4FF;' : '';
       const displayName = rows[0].workerName;
 
@@ -79,7 +78,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
         workerRows += `<td style="color:#4A90D9;font-weight:600;">${formatNum(r.totalTransfers)}</td>`;
         workerRows += `<td class="credit-cell" style="font-weight:700;">${formatNum(r.totalPaid)}</td>`;
         workerRows += `<td class="balance-cell">${formatNum(r.balance)}</td>`;
-        workerRows += `<td style="color:#7C3AED;font-weight:600;">${formatNum((r as any).rebalanceDelta ?? 0)}</td>`;
+        if (hasRebalance) workerRows += `<td style="color:#7C3AED;font-weight:600;">${formatNum((r as any).rebalanceDelta ?? 0)}</td>`;
         if (ri === 0) {
           const totalAdjusted = rows.reduce((s, rr) => s + ((rr as any).adjustedBalance ?? rr.balance), 0);
           workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;font-weight:700;color:${totalAdjusted >= 0 ? '#16a34a' : '#C0392B'};">${formatNum(totalAdjusted)}</td>`;
@@ -88,14 +87,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
       });
     }
 
-    body += `<table><thead><tr>
-      <th style="width:25px;">م</th><th>اسم العامل</th><th>المشروع</th>
-      <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
-      <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
-      <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
-      <th style="width:80px;">المتبقي</th><th style="width:75px;">التصفية البينية</th><th style="width:85px;">المتبقي الصافي</th>
-    </tr></thead><tbody>${workerRows}
-    ${pdfTotalRow([
+    const totalCols = [
       'الإجمالي',
       data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalDays, 0).toFixed(2),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalEarned, 0)),
@@ -103,9 +95,18 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalTransfers, 0)),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalPaid, 0)),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.balance, 0)),
-      formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + ((w as any).rebalanceDelta ?? 0), 0)),
+      ...(hasRebalance ? [formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + ((w as any).rebalanceDelta ?? 0), 0))] : []),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + ((w as any).adjustedBalance ?? w.balance), 0)),
-    ], 3)}
+    ];
+
+    body += `<table><thead><tr>
+      <th style="width:25px;">م</th><th>اسم العامل</th><th>المشروع</th>
+      <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
+      <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
+      <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
+      <th style="width:80px;">المتبقي</th>${hasRebalance ? '<th style="width:75px;">التصفية البينية</th>' : ''}<th style="width:85px;">المتبقي الصافي</th>
+    </tr></thead><tbody>${workerRows}
+    ${pdfTotalRow(totalCols, 3)}
     </tbody></table>`;
   }
 
@@ -215,19 +216,19 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
 
   body += pdfSectionTitle('الملخص المالي الشامل المجمع');
   const grandSummary = [
-    ['إجمالي العهدة (التحويلات المالية)', `${formatNum(data.combinedTotals.totalFundTransfers)} YER`],
-    ['ترحيل وارد من مشاريع أخرى', `${formatNum(data.combinedTotals.totalProjectTransfersIn)} YER`],
-    ['إجمالي الإيرادات', `${formatNum(data.combinedTotals.totalIncome)} YER`],
-    ['إجمالي الأجور', `${formatNum(data.combinedTotals.totalWages)} YER`],
-    ['إجمالي المواد', `${formatNum(data.combinedTotals.totalMaterials)} YER`],
-    ['إجمالي النقل', `${formatNum(data.combinedTotals.totalTransport)} YER`],
-    ['النثريات', `${formatNum(data.combinedTotals.totalMisc)} YER`],
-    ['حوالات العمال', `${formatNum(data.combinedTotals.totalWorkerTransfers)} YER`],
-    ['ترحيل صادر لمشاريع أخرى', `${formatNum(data.combinedTotals.totalProjectTransfersOut)} YER`],
-    ['تحويلات بين المشاريع المحددة', `${formatNum(data.combinedTotals.totalInterProjectTransfers)} YER`],
-  ];
+    ['إجمالي العهدة (التحويلات المالية)', data.combinedTotals.totalFundTransfers],
+    ['ترحيل وارد من مشاريع أخرى', data.combinedTotals.totalProjectTransfersIn],
+    ['إجمالي الإيرادات', data.combinedTotals.totalIncome],
+    ['إجمالي الأجور', data.combinedTotals.totalWages],
+    ['إجمالي المواد', data.combinedTotals.totalMaterials],
+    ['إجمالي النقل', data.combinedTotals.totalTransport],
+    ['النثريات', data.combinedTotals.totalMisc],
+    ['حوالات العمال', data.combinedTotals.totalWorkerTransfers],
+    ['ترحيل صادر لمشاريع أخرى', data.combinedTotals.totalProjectTransfersOut],
+    ['تحويلات بين المشاريع المحددة', data.combinedTotals.totalInterProjectTransfers],
+  ].filter(([, val]) => (val as number) > 0) as [string, number][];
   body += `<table class="summary-table" style="width:100%;">
-    ${grandSummary.map(([l, v]) => `<tr><td class="label-cell">${l}</td><td class="value-cell">${v}</td></tr>`).join('')}
+    ${grandSummary.map(([l, v]) => `<tr><td class="label-cell">${l}</td><td class="value-cell">${formatNum(v)} YER</td></tr>`).join('')}
     ${pdfTotalRow(['إجمالي المصروفات', `${formatNum(data.combinedTotals.totalExpenses)} YER`])}
     ${pdfGrandTotalRow(['الرصيد النهائي', `${formatNum(data.combinedTotals.balance)} YER`])}
   </table>`;

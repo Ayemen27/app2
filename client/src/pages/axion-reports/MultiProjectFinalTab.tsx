@@ -201,9 +201,11 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
 
       {multiReport && (() => {
         const q = searchValue.trim().toLowerCase();
-        const filteredWorkers = (multiReport.combinedSections?.attendance?.byWorker || []).filter((w: any) =>
+        const allWorkers = (multiReport.combinedSections?.attendance?.byWorker || []);
+        const filteredWorkers = allWorkers.filter((w: any) =>
           !q || [w.workerName, w.workerType, w.projectName].some((v: string) => v?.toLowerCase().includes(q))
         );
+        const hasRebalance = allWorkers.some((w: any) => (w.rebalanceDelta ?? 0) !== 0);
         const filteredMaterials = (multiReport.combinedSections?.materials?.items || []).filter((m: any) =>
           !q || [m.materialName, m.supplierName, m.projectName].some((v: string) => v?.toLowerCase().includes(q))
         );
@@ -286,7 +288,12 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص العمالة المجمع</CardTitle><Badge variant="secondary">{filteredWorkers.length} عامل</Badge></CardHeader>
                 <CardContent>
-                  <ReportTable testId="table-multi-attendance" headers={["اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي", "التصفية البينية", "المتبقي الصافي"]}
+                  <ReportTable testId="table-multi-attendance"
+                    headers={[
+                      "اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي",
+                      ...(hasRebalance ? ["التصفية البينية"] : []),
+                      "المتبقي الصافي",
+                    ]}
                     rows={filteredWorkers.map((w: any) => [
                       w.workerName,
                       w.projectName,
@@ -297,7 +304,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                       formatCurrency(w.totalTransfers ?? 0),
                       formatCurrency(w.totalPaid),
                       formatCurrency(w.balance ?? 0),
-                      formatCurrency(w.rebalanceDelta ?? 0),
+                      ...(hasRebalance ? [formatCurrency(w.rebalanceDelta ?? 0)] : []),
                       formatCurrency(w.adjustedBalance ?? w.balance ?? 0),
                     ])} />
                 </CardContent>

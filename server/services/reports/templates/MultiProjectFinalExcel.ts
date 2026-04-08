@@ -142,38 +142,142 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     row++;
   }
 
-  row = xlSectionHeader(ws, row, 'ملخص العمالة المجمع', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي']);
+  // تجميع العمال حسب workerId لدمج من اشتغل في أكثر من مشروع في صف واحد
+  const projectsList = data.projectNames;
+  const nProjects = projectsList.length;
 
-  let totalDays = 0, totalEarned = 0, totalDirectPaid = 0, totalTransfers = 0, totalPaid = 0, totalBal = 0;
-  data.combinedSections.attendance.byWorker.forEach((w, idx) => {
-    row = xlDataRow(ws, row, [
-      idx + 1, w.workerName, w.projectName, w.workerType, w.totalDays,
-      formatNum(w.totalEarned), formatNum(w.totalDirectPaid), formatNum(w.totalTransfers),
-      formatNum(w.totalPaid), formatNum(w.balance),
-    ], idx % 2 === 1);
-    totalDays += w.totalDays;
-    totalEarned += w.totalEarned;
-    totalDirectPaid += w.totalDirectPaid;
-    totalTransfers += w.totalTransfers;
-    totalPaid += w.totalPaid;
-    totalBal += w.balance;
+  const workerMap = new Map<string, {
+    workerName: string;
+    workerType: string;
+    projects: Map<string, { days: number; earned: number; directPaid: number; transfers: number; paid: number; balance: number }>;
+  }>();
+
+  data.combinedSections.attendance.byWorker.forEach(w => {
+    if (!workerMap.has(w.workerId)) {
+      workerMap.set(w.workerId, { workerName: w.workerName, workerType: w.workerType, projects: new Map() });
+    }
+    const entry = workerMap.get(w.workerId)!;
+    const existing = entry.projects.get(w.projectName);
+    if (existing) {
+      existing.days += w.totalDays;
+      existing.earned += w.totalEarned;
+      existing.directPaid += w.totalDirectPaid;
+      existing.transfers += w.totalTransfers;
+      existing.paid += w.totalPaid;
+      existing.balance += w.balance;
+    } else {
+      entry.projects.set(w.projectName, {
+        days: w.totalDays, earned: w.totalEarned, directPaid: w.totalDirectPaid,
+        transfers: w.totalTransfers, paid: w.totalPaid, balance: w.balance,
+      });
+    }
   });
 
+  // عدد الأعمدة: # + اسم + نوع + (أيام+مستحق لكل مشروع) + إجمالي الأيام + إجمالي المستحق + إجمالي المدفوع + الحوالات + المتبقي
+  const workerTableCols = 3 + nProjects * 2 + 5;
+  const workerSectionCols = Math.max(COL_COUNT, workerTableCols);
+
+  // توسيع الأعمدة إن احتاج الجدول أكثر من COL_COUNT
+  for (let i = COL_COUNT + 1; i <= workerTableCols; i++) {
+    ws.getColumn(i).width = 13;
+  }
+
+  row = xlSectionHeader(ws, row, 'ملخص العمالة المجمع', workerSectionCols);
+
+  // رأس الجدول الديناميكي
+  {
+    const hdr = ws.getRow(row);
+    const headers: string[] = ['#', 'اسم العامل', 'النوع'];
+    for (const pName of projectsList) {
+      headers.push(`${pName}\nأيام`);
+      headers.push(`${pName}\nمستحق`);
+    }
+    headers.push('إجمالي الأيام', 'إجمالي المستحق', 'إجمالي المدفوع', 'الحوالات', 'المتبقي');
+    headers.forEach((h, i) => {
+      const cell = hdr.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, size: 9, color: { argb: COLORS.white }, name: 'Calibri' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = BORDER;
+    });
+    hdr.height = 34;
+    row++;
+  }
+
+  // بيانات العمال المجمعة
+  let totalDays = 0, totalEarned = 0, totalPaid = 0, totalTransfers = 0, totalBal = 0;
+  let workerIdx = 0;
+
+  for (const [, wData] of workerMap) {
+    workerIdx++;
+    let sumDays = 0, sumEarned = 0, sumPaid = 0, sumTransfers = 0, sumBalance = 0;
+    const rowVals: (string | number)[] = [workerIdx, wData.workerName, wData.workerType];
+
+    for (const pName of projectsList) {
+      const pd = wData.projects.get(pName);
+      if (pd) {
+        rowVals.push(pd.days, formatNum(pd.earned));
+        sumDays += pd.days;
+        sumEarned += pd.earned;
+        sumPaid += pd.paid;
+        sumTransfers += pd.transfers;
+        sumBalance += pd.balance;
+      } else {
+        rowVals.push('-', '-');
+      }
+    }
+    rowVals.push(sumDays, formatNum(sumEarned), formatNum(sumPaid), formatNum(sumTransfers), formatNum(sumBalance));
+
+    const r = ws.getRow(row);
+    rowVals.forEach((v, i) => {
+      const cell = r.getCell(i + 1);
+      cell.value = v;
+      cell.alignment = { horizontal: (i === 1 || i === 2) ? 'right' : 'center', vertical: 'middle' };
+      cell.font = { size: 10, name: 'Calibri' };
+      cell.border = BORDER;
+      if (workerIdx % 2 === 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+      }
+    });
+    r.height = 24;
+    row++;
+
+    totalDays += sumDays;
+    totalEarned += sumEarned;
+    totalPaid += sumPaid;
+    totalTransfers += sumTransfers;
+    totalBal += sumBalance;
+  }
+
+  // صف الإجمالي النهائي
   {
     const r = ws.getRow(row);
-    ws.mergeCells(row, 1, row, 4);
-    r.getCell(1).value = 'الإجمالي';
-    const totVals = [undefined, undefined, undefined, undefined, totalDays, formatNum(totalEarned), formatNum(totalDirectPaid), formatNum(totalTransfers), formatNum(totalPaid), formatNum(totalBal)];
-    totVals.forEach((v, i) => {
-      if (v !== undefined) {
-        r.getCell(i + 1).value = v;
-      }
-      r.getCell(i + 1).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
-      r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
-      r.getCell(i + 1).alignment = { horizontal: 'center', vertical: 'middle' };
-      r.getCell(i + 1).border = BORDER;
-    });
+    ws.mergeCells(row, 1, row, 3);
+    r.getCell(1).value = 'الإجمالي العام';
+
+    let col = 4;
+    for (const pName of projectsList) {
+      let projDays = 0, projEarned = 0;
+      data.combinedSections.attendance.byWorker.forEach(w => {
+        if (w.projectName === pName) { projDays += w.totalDays; projEarned += w.totalEarned; }
+      });
+      r.getCell(col).value = projDays;
+      r.getCell(col + 1).value = formatNum(projEarned);
+      col += 2;
+    }
+    r.getCell(col).value = totalDays;
+    r.getCell(col + 1).value = formatNum(totalEarned);
+    r.getCell(col + 2).value = formatNum(totalPaid);
+    r.getCell(col + 3).value = formatNum(totalTransfers);
+    r.getCell(col + 4).value = formatNum(totalBal);
+
+    for (let c = 1; c <= workerTableCols; c++) {
+      r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+      r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+      r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(c).border = BORDER;
+    }
     r.height = 26;
     row++;
   }

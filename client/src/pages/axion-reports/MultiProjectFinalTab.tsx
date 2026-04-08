@@ -27,46 +27,52 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [autoDateApplied, setAutoDateApplied] = useState(false);
 
-  const firstSelectedId = selectedProjectIds.length > 0 ? selectedProjectIds[0] : "";
-
-  const { data: projectDateRange, isLoading: isLoadingDateRange, isError: isDateRangeError } = useQuery<{ success: boolean; data: { minDate: string | null; maxDate: string | null } }>({
-    queryKey: ["project-date-range", firstSelectedId],
+  // جلب نطاق التواريخ لجميع المشاريع المختارة (وليس الأول فقط)
+  const { data: allProjectDateRanges, isLoading: isLoadingDateRange, isError: isDateRangeError } = useQuery<{ id: string; minDate: string | null; maxDate: string | null }[]>({
+    queryKey: ["project-date-range-all", selectedProjectIds],
     queryFn: async () => {
-      const params = new URLSearchParams({ project_id: firstSelectedId });
-      const res = await fetch(`/api/reports/v2/export/project-date-range?${params.toString()}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('فشل في جلب نطاق التواريخ');
-      return res.json();
+      const results = await Promise.all(
+        selectedProjectIds.map(async (pid) => {
+          const params = new URLSearchParams({ project_id: pid });
+          const res = await fetch(`/api/reports/v2/export/project-date-range?${params.toString()}`, { credentials: 'include' });
+          if (!res.ok) return { id: pid, minDate: null, maxDate: null };
+          const json = await res.json();
+          return { id: pid, minDate: json.data?.minDate || null, maxDate: json.data?.maxDate || null };
+        })
+      );
+      return results;
     },
-    enabled: !!firstSelectedId,
+    enabled: selectedProjectIds.length > 0,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   useEffect(() => {
-    if (!autoDateApplied && selectedProjectIds.length > 0) {
-      if (projectDateRange?.data) {
-        const { minDate, maxDate } = projectDateRange.data;
-        if (minDate && maxDate) {
-          setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
-        } else {
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-          setDateRange({ from: sixMonthsAgo, to: new Date() });
-        }
-        setAutoDateApplied(true);
-      } else if (isDateRangeError) {
+    if (!autoDateApplied && selectedProjectIds.length > 0 && allProjectDateRanges) {
+      // نأخذ أقدم تاريخ بين كل المشاريع وأحدث تاريخ
+      const validRanges = allProjectDateRanges.filter(r => r.minDate && r.maxDate);
+      if (validRanges.length > 0) {
+        const minDate = validRanges.map(r => r.minDate!).sort()[0]; // أقدم تاريخ
+        const maxDate = validRanges.map(r => r.maxDate!).sort().reverse()[0]; // أحدث تاريخ
+        setDateRange({ from: new Date(minDate), to: new Date(maxDate) });
+      } else {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         setDateRange({ from: sixMonthsAgo, to: new Date() });
-        setAutoDateApplied(true);
       }
+      setAutoDateApplied(true);
+    } else if (!autoDateApplied && selectedProjectIds.length > 0 && isDateRangeError) {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      setDateRange({ from: sixMonthsAgo, to: new Date() });
+      setAutoDateApplied(true);
     }
-  }, [projectDateRange, autoDateApplied, selectedProjectIds, isDateRangeError]);
+  }, [allProjectDateRanges, autoDateApplied, selectedProjectIds, isDateRangeError]);
 
   useEffect(() => {
     setAutoDateApplied(false);
     setDateRange({});
-  }, [firstSelectedId]);
+  }, [JSON.stringify(selectedProjectIds)]);
 
   const { data: projectsList = [] } = useQuery({
     queryKey: ['/api/projects'],

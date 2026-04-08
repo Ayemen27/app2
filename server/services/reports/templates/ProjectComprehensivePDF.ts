@@ -116,7 +116,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
   if (data.workforce.topWorkers.length > 0) {
     body += `<div style="font-size:9px;font-weight:700;color:${PDF_COLORS.navy};margin:6px 0 3px;">أعلى 20 عامل من حيث الأجور</div>`;
     body += `<table><thead><tr>
-      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th><th>التسويات</th><th>التسوية البينية</th><th>المتبقي الصافي</th>
+      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th><th>التسويات</th><th>التصفية البينية</th><th>المتبقي الصافي</th>
     </tr></thead><tbody>`;
     let topTotalDays = 0, topTotalEarned = 0, topTotalPaid = 0, topTotalTransfers = 0, topTotalSettled = 0, topTotalRebalance = 0, topTotalBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {

@@ -93,7 +93,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
       <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
       <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
       <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
-      <th style="width:80px;">المتبقي</th><th style="width:75px;">التسوية البينية</th><th style="width:85px;">المتبقي الصافي</th>
+      <th style="width:80px;">المتبقي</th><th style="width:75px;">التصفية البينية</th><th style="width:85px;">المتبقي الصافي</th>
     </tr></thead><tbody>${workerRows}
     ${pdfTotalRow([
       'الإجمالي',
@@ -130,7 +130,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
   }
 
   if (data.rebalanceTransfers && data.rebalanceTransfers.length > 0) {
-    body += pdfSectionTitle('التسويات البينية للعمال بين المشاريع');
+    body += pdfSectionTitle('التصفيات البينية للعمال بين المشاريع');
 
     // مصفوفة الديون
     if (data.projectDebtMatrix && data.projectDebtMatrix.length > 0) {
@@ -152,7 +152,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     }
 
     // تفاصيل التسويات
-    body += `<div style="font-size:9px;font-weight:700;color:#374151;margin:8px 0 3px;">تفاصيل التسويات البينية</div>`;
+    body += `<div style="font-size:9px;font-weight:700;color:#374151;margin:8px 0 3px;">تفاصيل التصفيات البينية</div>`;
     const rebalRows = data.rebalanceTransfers.map((t, idx) =>
       `<tr>
         <td>${idx + 1}</td>

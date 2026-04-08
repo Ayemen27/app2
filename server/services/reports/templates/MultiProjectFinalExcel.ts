@@ -156,7 +156,7 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   // رأس الجدول
   {
     const hdr = ws.getRow(row);
-    const headers = ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التسوية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
+    const headers = ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التصفية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
     headers.forEach((h, i) => {
       const cell = hdr.getCell(i + 1);
       cell.value = h;
@@ -304,7 +304,7 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   }
 
   if (data.rebalanceTransfers && data.rebalanceTransfers.length > 0) {
-    row = xlSectionHeader(ws, row, 'التسويات البينية للعمال بين المشاريع', COL_COUNT);
+    row = xlSectionHeader(ws, row, 'التصفيات البينية للعمال بين المشاريع', COL_COUNT);
 
     // مصفوفة الديون
     if (data.projectDebtMatrix && data.projectDebtMatrix.length > 0) {
@@ -322,7 +322,7 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     }
 
     // تفاصيل التسويات
-    row = xlInfoRow(ws, row, 'تفاصيل التسويات البينية', COL_COUNT);
+    row = xlInfoRow(ws, row, 'تفاصيل التصفيات البينية', COL_COUNT);
     row = xlTableHeader(ws, row, ['#', 'التاريخ', 'اسم العامل', 'من مشروع', 'إلى مشروع', 'المبلغ', '', '', '', '']);
     data.rebalanceTransfers.forEach((t, idx) => {
       row = xlDataRow(ws, row, [

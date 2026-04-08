@@ -286,7 +286,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص العمالة المجمع</CardTitle><Badge variant="secondary">{filteredWorkers.length} عامل</Badge></CardHeader>
                 <CardContent>
-                  <ReportTable testId="table-multi-attendance" headers={["اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي", "التسوية البينية", "المتبقي الصافي"]}
+                  <ReportTable testId="table-multi-attendance" headers={["اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي", "التصفية البينية", "المتبقي الصافي"]}
                     rows={filteredWorkers.map((w: any) => [
                       w.workerName,
                       w.projectName,
@@ -328,7 +328,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
               </Card>
             )}
 
-            {/* ─── قسم التسويات البينية للعمال ─── */}
+            {/* ─── قسم التصفيات البينية للعمال ─── */}
             {multiReport.rebalanceTransfers && multiReport.rebalanceTransfers.length > 0 && (
               <>
                 {/* مصفوفة الديون بين المشاريع */}
@@ -374,10 +374,10 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                   </CardContent>
                 </Card>
 
-                {/* تفاصيل كل تسوية بينية */}
+                {/* تفاصيل كل تصفية بينية */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <CardTitle className="text-base">تفاصيل التسويات البينية للعمال</CardTitle>
+                    <CardTitle className="text-base">تفاصيل التصفيات البينية للعمال</CardTitle>
                     <Badge variant="secondary">{multiReport.rebalanceTransfers.length} عملية</Badge>
                   </CardHeader>
                   <CardContent>

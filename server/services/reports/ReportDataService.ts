@@ -1410,7 +1410,7 @@ export class ReportDataService {
 
     const totalInterProjectAmount = interProjectTransfers.reduce((s: any, t: any) => s + t.amount, 0);
 
-    // استعلام التسويات البينية للعمال مع اسم العامل ومصفوفة الديون
+    // استعلام التصفيات البينية للعمال مع اسم العامل ومصفوفة الديون
     const rebalanceTransfersResult = await pool.query(`
       SELECT
         pft.transfer_date AS transfer_date,

@@ -119,7 +119,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   if (data.workforce.topWorkers.length > 0) {
     row = xlInfoRow(ws, row, 'أعلى 20 عامل من حيث الأجور', COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'التسويات', 'التسوية البينية', 'المتبقي الصافي']);
+    row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'التسويات', 'التصفية البينية', 'المتبقي الصافي']);
     let xlTopDays = 0, xlTopEarned = 0, xlTopPaid = 0, xlTopTransfers = 0, xlTopSettled = 0, xlTopRebalance = 0, xlTopBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
       xlTopDays += w.totalDays;

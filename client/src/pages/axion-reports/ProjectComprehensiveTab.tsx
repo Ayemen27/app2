@@ -212,7 +212,7 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
                       <tr className="border-b bg-muted/50">
                         <th className="p-2 text-right">#</th><th className="p-2 text-right">الاسم</th><th className="p-2 text-right">النوع</th>
                         <th className="p-2 text-right">الأيام</th><th className="p-2 text-right">المستحق</th><th className="p-2 text-right">المدفوع</th>
-                        <th className="p-2 text-right">الحوالات</th><th className="p-2 text-right">التسويات</th><th className="p-2 text-right">التسوية البينية</th><th className="p-2 text-right">المتبقي الصافي</th>
+                        <th className="p-2 text-right">الحوالات</th><th className="p-2 text-right">التسويات</th><th className="p-2 text-right">التصفية البينية</th><th className="p-2 text-right">المتبقي الصافي</th>
                       </tr>
                     </thead>
                     <tbody>

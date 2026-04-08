@@ -119,18 +119,19 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
 
   if (data.workforce.topWorkers.length > 0) {
     row = xlInfoRow(ws, row, 'أعلى 20 عامل من حيث الأجور', COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'التسويات', 'المتبقي']);
-    let xlTopDays = 0, xlTopEarned = 0, xlTopPaid = 0, xlTopTransfers = 0, xlTopSettled = 0, xlTopBalance = 0;
+    row = xlTableHeader(ws, row, ['#', 'الاسم', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'التسويات', 'التسوية البينية', 'المتبقي الصافي']);
+    let xlTopDays = 0, xlTopEarned = 0, xlTopPaid = 0, xlTopTransfers = 0, xlTopSettled = 0, xlTopRebalance = 0, xlTopBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
       xlTopDays += w.totalDays;
       xlTopEarned += w.totalEarned;
       xlTopPaid += w.totalPaid;
       xlTopTransfers += (w.totalTransfers || 0);
       xlTopSettled += (w.totalSettled || 0);
+      xlTopRebalance += (w.rebalanceDelta || 0);
       xlTopBalance += w.balance;
-      row = xlDataRow(ws, row, [i + 1, w.name, w.type, formatNum(w.totalDays), formatNum(w.totalEarned), formatNum(w.totalPaid), formatNum(w.totalTransfers || 0), formatNum(w.totalSettled || 0), formatNum(w.balance)], i % 2 === 1);
+      row = xlDataRow(ws, row, [i + 1, w.name, w.type, formatNum(w.totalDays), formatNum(w.totalEarned), formatNum(w.totalPaid), formatNum(w.totalTransfers || 0), formatNum(w.totalSettled || 0), formatNum(w.rebalanceDelta || 0), formatNum(w.balance)], i % 2 === 1);
     });
-    row = xlGrandTotalRow(ws, row, ['', 'الإجمالي', '', formatNum(xlTopDays), formatNum(xlTopEarned), formatNum(xlTopPaid), formatNum(xlTopTransfers), formatNum(xlTopSettled), formatNum(xlTopBalance)]);
+    row = xlGrandTotalRow(ws, row, ['', 'الإجمالي', '', formatNum(xlTopDays), formatNum(xlTopEarned), formatNum(xlTopPaid), formatNum(xlTopTransfers), formatNum(xlTopSettled), formatNum(xlTopRebalance), formatNum(xlTopBalance)]);
     row++;
   }
 

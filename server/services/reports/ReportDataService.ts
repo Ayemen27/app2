@@ -905,6 +905,38 @@ export class ReportDataService {
       )
       .groupBy(workerTransfers.worker_id, workers.name, workers.type);
 
+    const rebalanceDeltaByWorkerResult = await pool.query(`
+      SELECT
+        worker_id,
+        SUM(delta) AS rebalance_delta
+      FROM (
+        SELECT
+          substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]') AS worker_id,
+          safe_numeric(pft.amount::text, 0) AS delta
+        FROM project_fund_transfers pft
+        WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+          AND pft.to_project_id = $1
+          AND pft.transfer_date::date >= $2::date AND pft.transfer_date::date <= $3::date
+        UNION ALL
+        SELECT
+          substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]') AS worker_id,
+          -safe_numeric(pft.amount::text, 0) AS delta
+        FROM project_fund_transfers pft
+        WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+          AND pft.from_project_id = $1
+          AND pft.transfer_date::date >= $2::date AND pft.transfer_date::date <= $3::date
+      ) rd
+      WHERE worker_id IS NOT NULL
+      GROUP BY worker_id
+    `, [projectId, dateFrom, dateTo]);
+
+    const rebalanceDeltaMap = new Map<string, number>();
+    for (const r of rebalanceDeltaByWorkerResult.rows) {
+      if (r.worker_id) {
+        rebalanceDeltaMap.set(r.worker_id, Number(r.rebalance_delta) || 0);
+      }
+    }
+
     const projectTransferOutRows = await db
       .select({
         id: projectFundTransfers.id,
@@ -981,12 +1013,15 @@ export class ReportDataService {
     const attendanceByWorker = Array.from(allWorkerIds).map((wId) => {
       const att = attendanceMap.get(wId);
       const transfer = transfersByWorkerMap.get(wId) || 0;
+      const rebalanceDelta = rebalanceDeltaMap.get(wId) || 0;
 
       if (att) {
         const attData = att as { totalEarned?: number; totalPaid?: number; workerName?: string; workerType?: string; totalDays?: number };
         const earned = safeNum(attData.totalEarned);
         const directPaid = safeNum(attData.totalPaid);
         const totalPaid = directPaid + transfer;
+        const balance = earned - totalPaid;
+        const adjustedBalance = balance + rebalanceDelta;
         return {
           workerId: wId,
           workerName: attData.workerName || '-',
@@ -996,10 +1031,14 @@ export class ReportDataService {
           totalDirectPaid: directPaid,
           totalTransfers: transfer,
           totalPaid,
-          balance: earned - totalPaid,
+          balance,
+          rebalanceDelta,
+          adjustedBalance,
         };
       } else {
         const tw = transfersByWorkerRows.find((t: any) => t.workerId === wId);
+        const balance = -transfer;
+        const adjustedBalance = balance + rebalanceDelta;
         return {
           workerId: wId,
           workerName: tw?.workerName || '-',
@@ -1009,7 +1048,9 @@ export class ReportDataService {
           totalDirectPaid: 0,
           totalTransfers: transfer,
           totalPaid: transfer,
-          balance: -transfer,
+          balance,
+          rebalanceDelta,
+          adjustedBalance,
         };
       }
     });
@@ -1888,6 +1929,7 @@ export class ReportDataService {
             totalPaid: safeNum(r.total_paid),
             totalTransfers: safeNum(r.total_transfers),
             totalSettled: safeNum(r.total_settled),
+            rebalanceDelta: safeNum(r.rebalance_delta),
             balance: safeNum(r.total_earned) - safeNum(r.total_paid) - safeNum(r.total_transfers) - safeNum(r.total_settled) + safeNum(r.rebalance_delta),
           })),
         },

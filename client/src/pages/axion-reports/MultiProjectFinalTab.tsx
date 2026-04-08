@@ -286,8 +286,20 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص العمالة المجمع</CardTitle><Badge variant="secondary">{filteredWorkers.length} عامل</Badge></CardHeader>
                 <CardContent>
-                  <ReportTable testId="table-multi-attendance" headers={["اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي"]}
-                    rows={filteredWorkers.map((w: any) => [w.workerName, w.projectName, w.workerType, w.totalDays, formatCurrency(w.totalEarned), formatCurrency(w.totalDirectPaid ?? w.totalPaid), formatCurrency(w.totalTransfers ?? 0), formatCurrency(w.totalPaid), formatCurrency(w.balance ?? 0)])} />
+                  <ReportTable testId="table-multi-attendance" headers={["اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي", "التسوية البينية", "المتبقي الصافي"]}
+                    rows={filteredWorkers.map((w: any) => [
+                      w.workerName,
+                      w.projectName,
+                      w.workerType,
+                      w.totalDays,
+                      formatCurrency(w.totalEarned),
+                      formatCurrency(w.totalDirectPaid ?? w.totalPaid),
+                      formatCurrency(w.totalTransfers ?? 0),
+                      formatCurrency(w.totalPaid),
+                      formatCurrency(w.balance ?? 0),
+                      formatCurrency(w.rebalanceDelta ?? 0),
+                      formatCurrency(w.adjustedBalance ?? w.balance ?? 0),
+                    ])} />
                 </CardContent>
               </Card>
             )}

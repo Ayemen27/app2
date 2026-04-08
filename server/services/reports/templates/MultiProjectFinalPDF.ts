@@ -79,8 +79,10 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
         workerRows += `<td style="color:#4A90D9;font-weight:600;">${formatNum(r.totalTransfers)}</td>`;
         workerRows += `<td class="credit-cell" style="font-weight:700;">${formatNum(r.totalPaid)}</td>`;
         workerRows += `<td class="balance-cell">${formatNum(r.balance)}</td>`;
+        workerRows += `<td style="color:#7C3AED;font-weight:600;">${formatNum((r as any).rebalanceDelta ?? 0)}</td>`;
         if (ri === 0) {
-          workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;font-weight:700;color:#C0392B;">${formatNum(totalRemaining)}</td>`;
+          const totalAdjusted = rows.reduce((s, rr) => s + ((rr as any).adjustedBalance ?? rr.balance), 0);
+          workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;font-weight:700;color:${totalAdjusted >= 0 ? '#16a34a' : '#C0392B'};">${formatNum(totalAdjusted)}</td>`;
         }
         workerRows += `</tr>`;
       });
@@ -91,7 +93,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
       <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
       <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
       <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
-      <th style="width:80px;">المتبقي</th><th style="width:85px;">إجمالي المتبقي</th>
+      <th style="width:80px;">المتبقي</th><th style="width:75px;">التسوية البينية</th><th style="width:85px;">المتبقي الصافي</th>
     </tr></thead><tbody>${workerRows}
     ${pdfTotalRow([
       'الإجمالي',
@@ -101,7 +103,9 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalTransfers, 0)),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.totalPaid, 0)),
       formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + w.balance, 0)),
-    ], 4)}
+      formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + ((w as any).rebalanceDelta ?? 0), 0)),
+      formatNum(data.combinedSections.attendance.byWorker.reduce((s, w) => s + ((w as any).adjustedBalance ?? w.balance), 0)),
+    ], 3)}
     </tbody></table>`;
   }
 

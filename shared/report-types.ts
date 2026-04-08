@@ -227,6 +227,8 @@ export interface PeriodFinalReportData {
         totalTransfers: number;
         totalPaid: number;
         balance: number;
+        rebalanceDelta?: number;
+        adjustedBalance?: number;
       }>;
     };
     materials: {
@@ -368,6 +370,8 @@ export interface MultiProjectFinalReportData {
         totalTransfers: number;
         totalPaid: number;
         balance: number;
+        rebalanceDelta?: number;
+        adjustedBalance?: number;
       }>;
     };
     materials: {
@@ -430,6 +434,7 @@ export interface ProjectComprehensiveReportData {
       totalPaid: number;
       totalTransfers: number;
       totalSettled: number;
+      rebalanceDelta: number;
       balance: number;
     }>;
   };

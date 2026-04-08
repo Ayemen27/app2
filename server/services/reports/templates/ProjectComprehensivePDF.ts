@@ -116,15 +116,16 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
   if (data.workforce.topWorkers.length > 0) {
     body += `<div style="font-size:9px;font-weight:700;color:${PDF_COLORS.navy};margin:6px 0 3px;">أعلى 20 عامل من حيث الأجور</div>`;
     body += `<table><thead><tr>
-      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th><th>التسويات</th><th>المتبقي</th>
+      <th>#</th><th>الاسم</th><th>النوع</th><th>الأيام</th><th>المستحق</th><th>المدفوع</th><th>الحوالات</th><th>التسويات</th><th>التسوية البينية</th><th>المتبقي الصافي</th>
     </tr></thead><tbody>`;
-    let topTotalDays = 0, topTotalEarned = 0, topTotalPaid = 0, topTotalTransfers = 0, topTotalSettled = 0, topTotalBalance = 0;
+    let topTotalDays = 0, topTotalEarned = 0, topTotalPaid = 0, topTotalTransfers = 0, topTotalSettled = 0, topTotalRebalance = 0, topTotalBalance = 0;
     data.workforce.topWorkers.forEach((w, i) => {
       topTotalDays += w.totalDays;
       topTotalEarned += w.totalEarned;
       topTotalPaid += w.totalPaid;
       topTotalTransfers += (w.totalTransfers || 0);
       topTotalSettled += (w.totalSettled || 0);
+      topTotalRebalance += (w.rebalanceDelta || 0);
       topTotalBalance += w.balance;
       body += `<tr>
         <td>${i + 1}</td>
@@ -135,10 +136,11 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
         <td class="credit-cell">${formatNum(w.totalPaid)}</td>
         <td class="credit-cell">${formatNum(w.totalTransfers || 0)}</td>
         <td class="credit-cell">${formatNum(w.totalSettled || 0)}</td>
-        <td class="balance-cell">${formatNum(w.balance)}</td>
+        <td style="color:#7C3AED;font-weight:600;">${formatNum(w.rebalanceDelta || 0)}</td>
+        <td class="balance-cell" style="color:${w.balance >= 0 ? '#16a34a' : '#C0392B'};">${formatNum(w.balance)}</td>
       </tr>`;
     });
-    body += pdfGrandTotalRow(['', 'الإجمالي', '', formatNum(topTotalDays), formatNum(topTotalEarned), formatNum(topTotalPaid), formatNum(topTotalTransfers), formatNum(topTotalSettled), formatNum(topTotalBalance)]);
+    body += pdfGrandTotalRow(['', 'الإجمالي', '', formatNum(topTotalDays), formatNum(topTotalEarned), formatNum(topTotalPaid), formatNum(topTotalTransfers), formatNum(topTotalSettled), formatNum(topTotalRebalance), formatNum(topTotalBalance)]);
     body += `</tbody></table>`;
   }
 

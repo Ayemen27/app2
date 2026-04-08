@@ -145,17 +145,18 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   // ─── جدول ملخص العمالة المجمع ───
   // الشكل: صف لكل مشروع، مع دمج خلايا (#، اسم العامل، إجمالي المتبقي) عبر صفوف نفس العامل
   // الأعمدة: # | اسم العامل | المشروع | النوع | الأيام | المستحق | المدفوع | الحوالات | إجمالي المدفوع | المتبقي | إجمالي المتبقي
-  const WORKER_COL_COUNT = 11;
+  const WORKER_COL_COUNT = 13;
 
-  // إضافة العمود الحادي عشر إن لم يكن موجوداً
-  if (!ws.getColumn(11).width) ws.getColumn(11).width = 16;
+  if (!ws.getColumn(11).width) ws.getColumn(11).width = 14;
+  if (!ws.getColumn(12).width) ws.getColumn(12).width = 16;
+  if (!ws.getColumn(13).width) ws.getColumn(13).width = 16;
 
   row = xlSectionHeader(ws, row, 'ملخص العمالة المجمع', WORKER_COL_COUNT);
 
   // رأس الجدول
   {
     const hdr = ws.getRow(row);
-    const headers = ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'إجمالي المتبقي'];
+    const headers = ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التسوية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
     headers.forEach((h, i) => {
       const cell = hdr.getCell(i + 1);
       cell.value = h;
@@ -191,11 +192,14 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
       totalDays: w.totalDays, totalEarned: w.totalEarned,
       totalDirectPaid: w.totalDirectPaid, totalTransfers: w.totalTransfers,
       totalPaid: w.totalPaid, balance: w.balance,
+      rebalanceDelta: (w as any).rebalanceDelta ?? 0,
+      adjustedBalance: (w as any).adjustedBalance ?? w.balance,
     });
     g.totalBalance += w.balance;
+    g.totalAdjustedBalance = (g.totalAdjustedBalance || 0) + ((w as any).adjustedBalance ?? w.balance);
   });
 
-  let grandDays = 0, grandEarned = 0, grandPaid = 0, grandTransfers = 0, grandBal = 0;
+  let grandDays = 0, grandEarned = 0, grandPaid = 0, grandTransfers = 0, grandBal = 0, grandRebalance = 0, grandAdjusted = 0;
   let workerSeq = 0;
 
   for (const [, wg] of workerGroupMap) {
@@ -217,7 +221,9 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
         formatNum(pRow.totalTransfers),
         formatNum(pRow.totalPaid),
         formatNum(pRow.balance),
-        formatNum(wg.totalBalance),
+        formatNum(pRow.rebalanceDelta),
+        formatNum(pRow.adjustedBalance),
+        formatNum((wg as any).totalAdjustedBalance ?? wg.totalBalance),
       ];
       vals.forEach((v, ci) => {
         const cell = r.getCell(ci + 1);
@@ -238,6 +244,8 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
       grandPaid += pRow.totalPaid;
       grandTransfers += pRow.totalTransfers;
       grandBal += pRow.balance;
+      grandRebalance += pRow.rebalanceDelta;
+      grandAdjusted += pRow.adjustedBalance;
       row++;
     });
 
@@ -245,12 +253,12 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     if (rowCount > 1) {
       ws.mergeCells(startRow, 1, row - 1, 1);
       ws.mergeCells(startRow, 2, row - 1, 2);
-      ws.mergeCells(startRow, 11, row - 1, 11);
+      ws.mergeCells(startRow, 13, row - 1, 13);
       // إعادة تطبيق التنسيق على الخلية المدموجة
-      [1, 2, 11].forEach(ci => {
+      [1, 2, 13].forEach(ci => {
         const cell = ws.getCell(startRow, ci);
         cell.alignment = { horizontal: ci === 2 ? 'right' : 'center', vertical: 'middle', wrapText: true };
-        cell.font = { size: 10, name: 'Calibri', bold: ci === 11 };
+        cell.font = { size: 10, name: 'Calibri', bold: ci === 13 };
         cell.border = BORDER;
         if (bgColor) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
       });
@@ -265,7 +273,8 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     const totVals: (string | number | undefined)[] = [
       undefined, undefined, undefined, undefined,
       grandDays, formatNum(grandEarned), formatNum(grandPaid - grandTransfers),
-      formatNum(grandTransfers), formatNum(grandPaid), formatNum(grandBal), formatNum(grandBal),
+      formatNum(grandTransfers), formatNum(grandPaid), formatNum(grandBal),
+      formatNum(grandRebalance), formatNum(grandAdjusted), formatNum(grandAdjusted),
     ];
     totVals.forEach((v, i) => {
       const cell = r.getCell(i + 1);

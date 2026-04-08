@@ -47,27 +47,29 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
   if (data.combinedSections.attendance.byWorker.length > 0) {
     body += pdfSectionTitle('ملخص العمالة المجمع');
 
-    // تجميع العمال: كل عامل له قائمة صفوف مشاريعه
+    // تجميع العمال بالـ workerId لضمان الدقة
     type WRow = typeof data.combinedSections.attendance.byWorker[0];
     const workerGroupMap = new Map<string, WRow[]>();
     for (const w of data.combinedSections.attendance.byWorker) {
-      if (!workerGroupMap.has(w.workerName)) workerGroupMap.set(w.workerName, []);
-      workerGroupMap.get(w.workerName)!.push(w);
+      const key = w.workerId || w.workerName;
+      if (!workerGroupMap.has(key)) workerGroupMap.set(key, []);
+      workerGroupMap.get(key)!.push(w);
     }
 
     let workerSeq = 0;
     let workerRows = '';
-    for (const [workerName, rows] of workerGroupMap) {
+    for (const [, rows] of workerGroupMap) {
       workerSeq++;
       const rowCount = rows.length;
       const totalRemaining = rows.reduce((s, r) => s + r.balance, 0);
       const bgStyle = workerSeq % 2 === 0 ? 'background:#EBF4FF;' : '';
+      const displayName = rows[0].workerName;
 
       rows.forEach((r, ri) => {
         workerRows += `<tr style="${bgStyle}">`;
         if (ri === 0) {
           workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;">${workerSeq}</td>`;
-          workerRows += `<td rowspan="${rowCount}" style="text-align:right;vertical-align:middle;font-weight:600;">${escapeHtml(workerName)}</td>`;
+          workerRows += `<td rowspan="${rowCount}" style="text-align:right;vertical-align:middle;font-weight:600;">${escapeHtml(displayName)}</td>`;
         }
         workerRows += `<td>${escapeHtml(r.projectName)}</td>`;
         workerRows += `<td>${escapeHtml(r.workerType)}</td>`;

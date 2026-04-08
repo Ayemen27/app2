@@ -46,27 +46,50 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
 
   if (data.combinedSections.attendance.byWorker.length > 0) {
     body += pdfSectionTitle('ملخص العمالة المجمع');
-    const workerRows = data.combinedSections.attendance.byWorker.map((w, idx) =>
-      `<tr>
-        <td>${idx + 1}</td>
-        <td style="text-align:right;">${escapeHtml(w.workerName)}</td>
-        <td>${escapeHtml(w.projectName)}</td>
-        <td>${escapeHtml(w.workerType)}</td>
-        <td>${w.totalDays.toFixed(2)}</td>
-        <td class="debit-cell">${formatNum(w.totalEarned)}</td>
-        <td class="credit-cell">${formatNum(w.totalDirectPaid)}</td>
-        <td style="color:#4A90D9;font-weight:600;">${formatNum(w.totalTransfers)}</td>
-        <td class="credit-cell" style="font-weight:700;">${formatNum(w.totalPaid)}</td>
-        <td class="balance-cell">${formatNum(w.balance)}</td>
-      </tr>`
-    ).join('');
+
+    // تجميع العمال: كل عامل له قائمة صفوف مشاريعه
+    type WRow = typeof data.combinedSections.attendance.byWorker[0];
+    const workerGroupMap = new Map<string, WRow[]>();
+    for (const w of data.combinedSections.attendance.byWorker) {
+      if (!workerGroupMap.has(w.workerName)) workerGroupMap.set(w.workerName, []);
+      workerGroupMap.get(w.workerName)!.push(w);
+    }
+
+    let workerSeq = 0;
+    let workerRows = '';
+    for (const [workerName, rows] of workerGroupMap) {
+      workerSeq++;
+      const rowCount = rows.length;
+      const totalRemaining = rows.reduce((s, r) => s + r.balance, 0);
+      const bgStyle = workerSeq % 2 === 0 ? 'background:#EBF4FF;' : '';
+
+      rows.forEach((r, ri) => {
+        workerRows += `<tr style="${bgStyle}">`;
+        if (ri === 0) {
+          workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;">${workerSeq}</td>`;
+          workerRows += `<td rowspan="${rowCount}" style="text-align:right;vertical-align:middle;font-weight:600;">${escapeHtml(workerName)}</td>`;
+        }
+        workerRows += `<td>${escapeHtml(r.projectName)}</td>`;
+        workerRows += `<td>${escapeHtml(r.workerType)}</td>`;
+        workerRows += `<td>${r.totalDays.toFixed(2)}</td>`;
+        workerRows += `<td class="debit-cell">${formatNum(r.totalEarned)}</td>`;
+        workerRows += `<td class="credit-cell">${formatNum(r.totalDirectPaid)}</td>`;
+        workerRows += `<td style="color:#4A90D9;font-weight:600;">${formatNum(r.totalTransfers)}</td>`;
+        workerRows += `<td class="credit-cell" style="font-weight:700;">${formatNum(r.totalPaid)}</td>`;
+        workerRows += `<td class="balance-cell">${formatNum(r.balance)}</td>`;
+        if (ri === 0) {
+          workerRows += `<td rowspan="${rowCount}" style="text-align:center;vertical-align:middle;font-weight:700;color:#C0392B;">${formatNum(totalRemaining)}</td>`;
+        }
+        workerRows += `</tr>`;
+      });
+    }
 
     body += `<table><thead><tr>
       <th style="width:25px;">م</th><th>اسم العامل</th><th>المشروع</th>
       <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
       <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
       <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
-      <th style="width:80px;">المتبقي</th>
+      <th style="width:80px;">المتبقي</th><th style="width:85px;">إجمالي المتبقي</th>
     </tr></thead><tbody>${workerRows}
     ${pdfTotalRow([
       'الإجمالي',

@@ -343,6 +343,18 @@ export interface MultiProjectFinalReportData {
     toProjectName: string;
     reason: string;
   }>;
+  rebalanceTransfers: Array<{
+    date: string;
+    fromProjectName: string;
+    toProjectName: string;
+    workerName: string;
+    amount: number;
+  }>;
+  projectDebtMatrix: Array<{
+    fromProjectName: string;
+    toProjectName: string;
+    totalAmount: number;
+  }>;
   combinedTotals: {
     totalIncome: number;
     totalFundTransfers: number;

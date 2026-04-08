@@ -328,6 +328,78 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
               </Card>
             )}
 
+            {/* ─── قسم التسويات البينية للعمال ─── */}
+            {multiReport.rebalanceTransfers && multiReport.rebalanceTransfers.length > 0 && (
+              <>
+                {/* مصفوفة الديون بين المشاريع */}
+                <Card className="border-purple-200 dark:border-purple-800">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-base text-purple-700 dark:text-purple-400">ملخص الديون البينية بين المشاريع</CardTitle>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                      {multiReport.projectDebtMatrix?.length ?? 0} علاقة
+                    </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      الجدول التالي يُبيّن كم دفع كل مشروع لصالح مشروع آخر لتغطية رصيد عامل مشترك.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm" data-testid="table-project-debt-matrix">
+                        <thead>
+                          <tr className="border-b bg-purple-50 dark:bg-purple-950/30">
+                            <th className="p-2 text-right font-semibold text-purple-800 dark:text-purple-300">المشروع الدافع</th>
+                            <th className="p-2 text-right font-semibold text-purple-800 dark:text-purple-300">المشروع المستفيد</th>
+                            <th className="p-2 text-center font-semibold text-purple-800 dark:text-purple-300">إجمالي المبلغ المحوَّل</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(multiReport.projectDebtMatrix ?? []).map((row: any, i: number) => (
+                            <tr key={i} className={i % 2 === 0 ? 'bg-muted/20' : ''} data-testid={`row-debt-matrix-${i}`}>
+                              <td className="p-2 font-medium text-red-600 dark:text-red-400">{row.fromProjectName}</td>
+                              <td className="p-2 font-medium text-green-600 dark:text-green-400">{row.toProjectName}</td>
+                              <td className="p-2 text-center font-bold text-purple-700 dark:text-purple-300">{formatCurrency(row.totalAmount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 bg-purple-100 dark:bg-purple-900/40">
+                            <td className="p-2 font-bold" colSpan={2}>الإجمالي الكلي للتسويات البينية</td>
+                            <td className="p-2 text-center font-bold text-purple-700 dark:text-purple-300">
+                              {formatCurrency((multiReport.projectDebtMatrix ?? []).reduce((s: number, r: any) => s + r.totalAmount, 0))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* تفاصيل كل تسوية بينية */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-base">تفاصيل التسويات البينية للعمال</CardTitle>
+                    <Badge variant="secondary">{multiReport.rebalanceTransfers.length} عملية</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      كل سطر يُمثّل تحويلاً من مشروع إلى آخر لتسوية رصيد عامل مشترك بين المشروعين.
+                    </p>
+                    <ReportTable
+                      testId="table-rebalance-transfers"
+                      headers={["التاريخ", "اسم العامل", "المشروع الدافع", "المشروع المستفيد", "المبلغ المحوَّل"]}
+                      rows={multiReport.rebalanceTransfers.map((t: any) => [
+                        safeFormatDate(t.date, "dd/MM/yyyy"),
+                        t.workerName,
+                        t.fromProjectName,
+                        t.toProjectName,
+                        formatCurrency(t.amount),
+                      ])}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
             {filteredFundTransfers.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">التحويلات المالية المجمعة</CardTitle><Badge variant="secondary">{filteredFundTransfers.length}</Badge></CardHeader>

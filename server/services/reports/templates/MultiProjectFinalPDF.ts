@@ -129,6 +129,49 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     </tbody></table>`;
   }
 
+  if (data.rebalanceTransfers && data.rebalanceTransfers.length > 0) {
+    body += pdfSectionTitle('التسويات البينية للعمال بين المشاريع');
+
+    // مصفوفة الديون
+    if (data.projectDebtMatrix && data.projectDebtMatrix.length > 0) {
+      body += `<div style="font-size:9px;font-weight:700;color:#7C3AED;margin:4px 0 3px;">ملخص الديون البينية بين المشاريع</div>`;
+      const matrixRows = data.projectDebtMatrix.map((r, idx) =>
+        `<tr>
+          <td>${idx + 1}</td>
+          <td style="text-align:right;color:#dc2626;font-weight:600;">${escapeHtml(r.fromProjectName)}</td>
+          <td style="text-align:right;color:#16a34a;font-weight:600;">${escapeHtml(r.toProjectName)}</td>
+          <td style="font-weight:700;color:#7C3AED;">${formatNum(r.totalAmount)}</td>
+        </tr>`
+      ).join('');
+      const totalRebalance = data.projectDebtMatrix.reduce((s, r) => s + r.totalAmount, 0);
+      body += `<table><thead><tr>
+        <th style="width:30px;">م</th><th>المشروع الدافع</th><th>المشروع المستفيد</th><th style="width:100px;">إجمالي المحوَّل</th>
+      </tr></thead><tbody>${matrixRows}
+      ${pdfTotalRow(['الإجمالي الكلي', formatNum(totalRebalance) + ' YER'], 3)}
+      </tbody></table>`;
+    }
+
+    // تفاصيل التسويات
+    body += `<div style="font-size:9px;font-weight:700;color:#374151;margin:8px 0 3px;">تفاصيل التسويات البينية</div>`;
+    const rebalRows = data.rebalanceTransfers.map((t, idx) =>
+      `<tr>
+        <td>${idx + 1}</td>
+        <td>${formatDateBR(t.date)}</td>
+        <td style="text-align:right;">${escapeHtml(t.workerName)}</td>
+        <td style="text-align:right;color:#dc2626;">${escapeHtml(t.fromProjectName)}</td>
+        <td style="text-align:right;color:#16a34a;">${escapeHtml(t.toProjectName)}</td>
+        <td style="font-weight:700;color:#7C3AED;">${formatNum(t.amount)}</td>
+      </tr>`
+    ).join('');
+    const totalReb = data.rebalanceTransfers.reduce((s, t) => s + t.amount, 0);
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th style="width:75px;">التاريخ</th>
+      <th>العامل</th><th>من مشروع</th><th>إلى مشروع</th><th style="width:90px;">المبلغ</th>
+    </tr></thead><tbody>${rebalRows}
+    ${pdfTotalRow(['الإجمالي', formatNum(totalReb) + ' YER'], 5)}
+    </tbody></table>`;
+  }
+
   if (data.interProjectTransfers.length > 0) {
     body += pdfSectionTitle('التحويلات بين المشاريع المحددة');
     const ptRows = data.interProjectTransfers.map((t, idx) =>

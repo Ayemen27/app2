@@ -303,6 +303,39 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     row++;
   }
 
+  if (data.rebalanceTransfers && data.rebalanceTransfers.length > 0) {
+    row = xlSectionHeader(ws, row, 'التسويات البينية للعمال بين المشاريع', COL_COUNT);
+
+    // مصفوفة الديون
+    if (data.projectDebtMatrix && data.projectDebtMatrix.length > 0) {
+      row = xlInfoRow(ws, row, 'ملخص الديون البينية بين المشاريع', COL_COUNT);
+      row = xlTableHeader(ws, row, ['#', 'المشروع الدافع', 'المشروع المستفيد', 'إجمالي المحوَّل', '', '', '', '', '', '']);
+      data.projectDebtMatrix.forEach((r, idx) => {
+        row = xlDataRow(ws, row, [
+          idx + 1, r.fromProjectName, r.toProjectName,
+          formatNum(r.totalAmount), '', '', '', '', '', '',
+        ], idx % 2 === 1);
+      });
+      const totalMatrix = data.projectDebtMatrix.reduce((s, r) => s + r.totalAmount, 0);
+      row = xlTotalsRow(ws, row, ['', 'الإجمالي الكلي', '', formatNum(totalMatrix), '', '', '', '', '', '']);
+      row++;
+    }
+
+    // تفاصيل التسويات
+    row = xlInfoRow(ws, row, 'تفاصيل التسويات البينية', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'التاريخ', 'اسم العامل', 'من مشروع', 'إلى مشروع', 'المبلغ', '', '', '', '']);
+    data.rebalanceTransfers.forEach((t, idx) => {
+      row = xlDataRow(ws, row, [
+        idx + 1, formatDateBR(t.date), t.workerName,
+        t.fromProjectName, t.toProjectName, formatNum(t.amount),
+        '', '', '', '',
+      ], idx % 2 === 1);
+    });
+    const totalReb = data.rebalanceTransfers.reduce((s, t) => s + t.amount, 0);
+    row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', '', '', formatNum(totalReb), '', '', '', '']);
+    row++;
+  }
+
   if (data.interProjectTransfers.length > 0) {
     row = xlSectionHeader(ws, row, 'التحويلات بين المشاريع المحددة', COL_COUNT);
     row = xlTableHeader(ws, row, ['#', 'التاريخ', 'من مشروع', 'إلى مشروع', 'المبلغ', 'السبب', '', '', '', '']);

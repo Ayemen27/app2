@@ -1410,6 +1410,45 @@ export class ReportDataService {
 
     const totalInterProjectAmount = interProjectTransfers.reduce((s: any, t: any) => s + t.amount, 0);
 
+    // استعلام التسويات البينية للعمال مع اسم العامل ومصفوفة الديون
+    const rebalanceTransfersResult = await pool.query(`
+      SELECT
+        pft.transfer_date AS transfer_date,
+        pft.from_project_id,
+        pft.to_project_id,
+        pft.amount,
+        substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]') AS worker_id,
+        w.name AS worker_name,
+        pft.description
+      FROM project_fund_transfers pft
+      LEFT JOIN workers w ON w.id = substring(pft.description FROM '\\[([0-9a-f\\-]+)\\]')::varchar
+      WHERE pft.transfer_reason = 'legacy_worker_rebalance'
+        AND pft.from_project_id = ANY($1::varchar[])
+        AND pft.to_project_id = ANY($1::varchar[])
+        AND pft.transfer_date::date >= $2::date
+        AND pft.transfer_date::date <= $3::date
+      ORDER BY pft.transfer_date ASC
+    `, [projectIds, dateFrom, dateTo]);
+
+    const rebalanceTransfers = rebalanceTransfersResult.rows.map((r: any) => ({
+      date: r.transfer_date ? String(r.transfer_date).slice(0, 10) : '-',
+      fromProjectName: projectNameMap.get(r.from_project_id) || r.from_project_id || '-',
+      toProjectName: projectNameMap.get(r.to_project_id) || r.to_project_id || '-',
+      workerName: r.worker_name || r.worker_id || 'غير محدد',
+      amount: safeNum(r.amount),
+    }));
+
+    // مصفوفة الديون: مجموع ما دفعه كل مشروع لكل مشروع آخر
+    const debtMatrixMap = new Map<string, number>();
+    for (const t of rebalanceTransfers) {
+      const key = `${t.fromProjectName}|||${t.toProjectName}`;
+      debtMatrixMap.set(key, (debtMatrixMap.get(key) || 0) + t.amount);
+    }
+    const projectDebtMatrix = Array.from(debtMatrixMap.entries()).map(([key, totalAmount]) => {
+      const [fromProjectName, toProjectName] = key.split('|||');
+      return { fromProjectName, toProjectName, totalAmount };
+    }).sort((a, b) => b.totalAmount - a.totalAmount);
+
     const projectBreakdowns: ProjectBreakdown[] = projectReports.map((r) => ({
       projectId: r.project.id,
       projectName: r.project.name,
@@ -1501,6 +1540,8 @@ export class ReportDataService {
       chartData,
       projects: projectBreakdowns,
       interProjectTransfers,
+      rebalanceTransfers,
+      projectDebtMatrix,
       combinedTotals: {
         totalIncome: combinedIncome,
         totalFundTransfers: combinedFundTransfers,

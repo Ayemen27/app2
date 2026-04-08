@@ -290,8 +290,16 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 
 const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttempt: number; blockedUntil: number }>();
 const SUSPICIOUS_WINDOW_MS = 15 * 60 * 1000;
-const SUSPICIOUS_MAX_ATTEMPTS = 15;
+const SUSPICIOUS_MAX_ATTEMPTS = 50;
 const SUSPICIOUS_BLOCK_MS = 30 * 60 * 1000;
+
+// مسارات المصادقة والمسارات العامة — لا تُحتسب ضمن العداد حتى لو أعادت 401/403
+const AUTH_EXEMPT_PREFIXES = [
+  '/api/auth/',
+  '/api/webauthn/',
+  '/api/health',
+  '/health',
+];
 
 const TRUSTED_IPS = new Set([
   '127.0.0.1', '::1', '::ffff:127.0.0.1',
@@ -305,9 +313,11 @@ function isTrustedIp(ip: string): boolean {
 }
 
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
-  // استثناء health check دائماً — حتى لو كان الـ IP محظوراً
   const requestPath = req.originalUrl?.split('?')[0] || req.path;
-  if (requestPath === '/api/health' || requestPath === '/health') return next();
+
+  // استثناء مسارات المصادقة والمسارات العامة من الحظر والعداد تماماً
+  const isAuthExempt = AUTH_EXEMPT_PREFIXES.some(prefix => requestPath.startsWith(prefix));
+  if (isAuthExempt) return next();
 
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -323,14 +333,6 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
     }
     if (now - entry.lastAttempt > SUSPICIOUS_WINDOW_MS) {
       suspiciousActivityTracker.delete(ip);
-    } else {
-      entry.attempts++;
-      entry.lastAttempt = now;
-      if (entry.attempts >= SUSPICIOUS_MAX_ATTEMPTS) {
-        entry.blockedUntil = now + SUSPICIOUS_BLOCK_MS;
-        console.error(`🚨 [SuspiciousActivity] IP ${ip} blocked after ${entry.attempts} failed attempts`);
-        return res.status(429).json({ success: false, message: 'تم حظر الوصول مؤقتاً بسبب نشاط مشبوه', code: 'SUSPICIOUS_BLOCK' });
-      }
     }
   }
 
@@ -341,6 +343,10 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
       if (existing) {
         existing.attempts++;
         existing.lastAttempt = Date.now();
+        if (existing.attempts >= SUSPICIOUS_MAX_ATTEMPTS) {
+          existing.blockedUntil = Date.now() + SUSPICIOUS_BLOCK_MS;
+          console.error(`🚨 [SuspiciousActivity] IP ${ip} blocked after ${existing.attempts} failed attempts`);
+        }
       } else {
         suspiciousActivityTracker.set(ip, { attempts: 1, lastAttempt: Date.now(), blockedUntil: 0 });
       }

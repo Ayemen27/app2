@@ -751,7 +751,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
 
     const [totalFunds] = await db.select({ sum: sql<string>`SUM(${NUM(fundTransfers.amount)})` }).from(fundTransfers).where(fundsTimeFilter);
     const [totalWages] = await db.select({ sum: sql<string>`SUM(${NUM(workerAttendance.paidAmount)})` }).from(workerAttendance).where(attendanceFilter);
-    const [totalMaterials] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(materialsFilter);
+    const [totalMaterials] = await db.select({ sum: sql<string>`SUM(CASE WHEN ${NUM(materialPurchases.paidAmount)} > 0 THEN ${NUM(materialPurchases.paidAmount)} ELSE ${NUM(materialPurchases.totalAmount)} END)` }).from(materialPurchases).where(and(materialsFilter, inArray(materialPurchases.purchaseType, ['نقد', 'نقداً'])));
     const [totalTransport] = await db.select({ sum: sql<string>`SUM(${NUM(transportationExpenses.amount)})` }).from(transportationExpenses).where(transportFilter);
     const [totalMisc] = await db.select({ sum: sql<string>`SUM(${NUM(workerMiscExpenses.amount)})` }).from(workerMiscExpenses).where(miscFilter);
     const [totalWorkerTransfersKPI] = await db.select({ sum: sql<string>`SUM(${NUM(workerTransfers.amount)})` }).from(workerTransfers).where(workerTransfersFilter);

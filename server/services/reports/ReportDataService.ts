@@ -1292,7 +1292,7 @@ export class ReportDataService {
         } : undefined,
       },
       totals: {
-        totalIncome: totalFundTransfersAmount,
+        totalIncome: totalFundTransfersAmount + totalProjectTransfersIn,
         totalExpenses,
         totalWages,
         totalMaterials: totalMaterialsAmount,
@@ -1361,7 +1361,7 @@ export class ReportDataService {
       sections: r.sections,
     }));
 
-    const combinedFundTransfers = projectReports.reduce((s, r) => s + r.totals.totalIncome, 0);
+    const combinedFundTransfers = projectReports.reduce((s, r) => s + r.sections.fundTransfers.total, 0);
     const combinedProjectTransfersIn = projectReports.reduce((s, r) => s + r.totals.totalProjectTransfersIn, 0);
     const combinedProjectTransfersOut = projectReports.reduce((s, r) => s + r.totals.totalProjectTransfersOut, 0);
     const combinedIncome = combinedFundTransfers + combinedProjectTransfersIn;

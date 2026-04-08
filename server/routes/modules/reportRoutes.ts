@@ -374,6 +374,20 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .groupBy(workerMiscExpenses.date)
       .orderBy(asc(workerMiscExpenses.date));
 
+    // جلب بيانات حوالات العمال المجمعة
+    const workerTransfersSummary = await db
+      .select({
+        totalAmount: sql<number>`COALESCE(SUM(${NUM(workerTransfers.amount)}), 0)`
+      })
+      .from(workerTransfers)
+      .where(
+        and(
+          eq(workerTransfers.project_id, project_id as string),
+          gte(workerTransfers.transferDate, dateFromStr),
+          lte(workerTransfers.transferDate, dateToStr)
+        )
+      );
+
     // حساب الإجماليات الكلية
     const totalWorkDays = attendanceSummary.reduce((sum: any, a: any) => sum + Number(a.totalWorkDays), 0);
     const totalWages = attendanceSummary.reduce((sum: any, a: any) => sum + Number(a.totalWages), 0);
@@ -382,9 +396,10 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const totalTransport = transportSummary.reduce((sum: any, t: any) => sum + Number(t.totalAmount), 0);
     const totalFundTransfers = fundTransfersSummary.reduce((sum: any, f: any) => sum + Number(f.totalAmount), 0);
     const totalMiscExpenses = miscExpensesSummary.reduce((sum: any, e: any) => sum + Number(e.totalAmount), 0);
+    const totalWorkerTransfers = Number(workerTransfersSummary[0]?.totalAmount || 0);
     const uniqueWorkers = Math.max(...attendanceSummary.map((a: any) => Number(a.workerCount)), 0);
     const activeDays = attendanceSummary.length;
-    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses;
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers;
     const balance = totalFundTransfers - totalExpenses;
 
     const totalStats = {
@@ -394,6 +409,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       totalMaterials,
       totalTransport,
       totalMiscExpenses,
+      totalWorkerTransfers,
       totalFundTransfers,
       uniqueWorkers,
       activeDays,
@@ -722,6 +738,11 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       range === 'today' ? eq(workerMiscExpenses.date, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(workerMiscExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
+    const workerTransfersFilter = and(
+      project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(workerTransfers.project_id, project_id as string) : sql`1=1`,
+      range === 'today' ? eq(workerTransfers.transferDate, new Date().toISOString().split('T')[0]) :
+      range === 'this-month' ? gte(workerTransfers.transferDate, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
+    );
     const fundsTimeFilter = and(
       projectFilter,
       range === 'today' ? sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) = ${new Date().toISOString().split('T')[0]}::date` : 
@@ -733,6 +754,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     const [totalMaterials] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(materialsFilter);
     const [totalTransport] = await db.select({ sum: sql<string>`SUM(${NUM(transportationExpenses.amount)})` }).from(transportationExpenses).where(transportFilter);
     const [totalMisc] = await db.select({ sum: sql<string>`SUM(${NUM(workerMiscExpenses.amount)})` }).from(workerMiscExpenses).where(miscFilter);
+    const [totalWorkerTransfersKPI] = await db.select({ sum: sql<string>`SUM(${NUM(workerTransfers.amount)})` }).from(workerTransfers).where(workerTransfersFilter);
 
     const [activeWorkers] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.worker_id})` }).from(workerAttendance).where(attendanceFilter);
 
@@ -751,11 +773,12 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       data: {
         overall: {
           totalFunds: Number(totalFunds?.sum || 0),
-          totalExpenses: Number(totalWages?.sum || 0) + Number(totalMaterials?.sum || 0) + Number(totalTransport?.sum || 0) + Number(totalMisc?.sum || 0),
+          totalExpenses: Number(totalWages?.sum || 0) + Number(totalMaterials?.sum || 0) + Number(totalTransport?.sum || 0) + Number(totalMisc?.sum || 0) + Number(totalWorkerTransfersKPI?.sum || 0),
           wages: Number(totalWages?.sum || 0),
           materials: Number(totalMaterials?.sum || 0),
           transport: Number(totalTransport?.sum || 0),
           misc: Number(totalMisc?.sum || 0),
+          workerTransfers: Number(totalWorkerTransfersKPI?.sum || 0),
           activeWorkers: Number(activeWorkers?.count || 0)
         },
         chartData: chartData.reverse()
@@ -845,6 +868,34 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
           .from(transportationExpenses)
           .where(and(...transportConditions));
 
+        // إحصائيات النثريات
+        let miscConditions: any[] = [eq(workerMiscExpenses.project_id, project_id)];
+        if (dateFrom && dateTo) {
+          miscConditions.push(gte(workerMiscExpenses.date, dateFrom as string));
+          miscConditions.push(lte(workerMiscExpenses.date, dateTo as string));
+        }
+
+        const miscStats = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(${NUM(workerMiscExpenses.amount)}), 0)`
+          })
+          .from(workerMiscExpenses)
+          .where(and(...miscConditions));
+
+        // إحصائيات حوالات العمال
+        let transferConditions: any[] = [eq(workerTransfers.project_id, project_id)];
+        if (dateFrom && dateTo) {
+          transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
+          transferConditions.push(lte(workerTransfers.transferDate, dateTo as string));
+        }
+
+        const workerTransfersStats = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(${NUM(workerTransfers.amount)}), 0)`
+          })
+          .from(workerTransfers)
+          .where(and(...transferConditions));
+
         // إحصائيات الدخل
         const fundStats = await db
           .select({
@@ -857,7 +908,9 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
         const totalWages = Number(attendanceStats[0]?.totalPaid || 0);
         const totalMaterials = Number(materialsStats[0]?.total || 0);
         const totalTransport = Number(transportStats[0]?.total || 0);
-        const totalExpenses = totalWages + totalMaterials + totalTransport;
+        const totalMisc = Number(miscStats[0]?.total || 0);
+        const totalWorkerTransfers = Number(workerTransfersStats[0]?.total || 0);
+        const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc + totalWorkerTransfers;
 
         return {
           project: projectInfo[0],
@@ -868,6 +921,8 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
             wages: totalWages,
             materials: totalMaterials,
             transport: totalTransport,
+            misc: totalMisc,
+            workerTransfers: totalWorkerTransfers,
             workers: Number(attendanceStats[0]?.workerCount || 0),
             workDays: Number(attendanceStats[0]?.totalWorkDays || 0)
           }

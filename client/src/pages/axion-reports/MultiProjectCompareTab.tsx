@@ -211,7 +211,7 @@ export function MultiProjectCompareTab({ onStatsReady }: { onStatsReady?: (stats
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروعين على الأقل", variant: "destructive" });
       return;
     }
-    secureDownloadExport("multi-project-final", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
+    secureDownloadExport("multi-project-compare", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
   };
 
   const filterConfig: FilterConfig[] = [{ key: "dateRange", label: "الفترة الزمنية", type: "date-range" }];

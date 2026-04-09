@@ -3,7 +3,7 @@
  */
 import type { MultiProjectFinalReportData } from '../../../../shared/report-types';
 import {
-  escapeHtml, formatNum, formatDateBR, PDF_COLORS,
+  escapeHtml, formatNum, formatDateBR, nowDateBR, PDF_COLORS,
   pdfHeader, pdfInfoBar, pdfSectionTitle, pdfFooter, pdfWrap,
 } from './shared-styles';
 
@@ -243,7 +243,7 @@ export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportDat
     `).join('')}
   </div>`;
 
-  body += pdfFooter();
+  body += pdfFooter(nowDateBR());
 
   return pdfWrap('مقارنة العمالة الموحّدة', body);
 }

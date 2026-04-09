@@ -35,6 +35,8 @@ import { generateDailyRangeExcel } from '../../services/reports/templates/DailyR
 import { generateDailyRangeHTML } from '../../services/reports/templates/DailyRangePDF';
 import { generateMultiProjectFinalExcel } from '../../services/reports/templates/MultiProjectFinalExcel';
 import { generateMultiProjectFinalHTML } from '../../services/reports/templates/MultiProjectFinalPDF';
+import { generateMultiProjectCompareExcel } from '../../services/reports/templates/MultiProjectCompareExcel';
+import { generateMultiProjectCompareHTML } from '../../services/reports/templates/MultiProjectComparePDF';
 import { generateProjectComprehensiveExcel } from '../../services/reports/templates/ProjectComprehensiveExcel';
 import { generateProjectComprehensiveHTML } from '../../services/reports/templates/ProjectComprehensivePDF';
 import { safeErrorMessage } from '../../middleware/api-response';
@@ -1438,6 +1440,34 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateMultiProjectFinalHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    if (type === 'multi-project-compare') {
+      const { project_ids } = req.query;
+      if (!project_ids || !dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'معرفات المشاريع وفترة التاريخ مطلوبة' });
+      }
+      const ids = (project_ids as string).split(',').filter(Boolean);
+      if (ids.length < 2) {
+        return res.status(400).json({ success: false, error: 'يجب تحديد مشروعين على الأقل للمقارنة' });
+      }
+      if (!isAdminUser) {
+        const unauthorized = ids.filter(id => !accessibleIds.includes(id));
+        if (unauthorized.length > 0) {
+          return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+        }
+      }
+      const data = await reportDataService.getMultiProjectFinalReport(ids, dateFrom as string, dateTo as string);
+      if (format === 'xlsx') {
+        const buffer = await generateMultiProjectCompareExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="multi-compare-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generateMultiProjectCompareHTML(data);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(html);
       }

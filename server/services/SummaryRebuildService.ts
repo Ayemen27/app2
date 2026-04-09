@@ -42,7 +42,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       FROM fund_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL
-        AND transfer_date::date = $2::date
+        AND transfer_date::date::text = $2
     ),
     day_incoming_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -64,7 +64,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       SELECT COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total
       FROM worker_attendance
       WHERE project_id = $1
-        AND COALESCE(NULLIF(date,''), attendance_date) = $2
+        AND COALESCE(NULLIF(date,''), attendance_date::text) = $2
         AND safe_numeric(paid_amount::text, 0) > 0
     ),
     day_materials AS (
@@ -82,7 +82,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
     day_transport AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM transportation_expenses
-      WHERE project_id = $1 AND date = $2
+      WHERE project_id = $1 AND "date" = $2
     ),
     day_worker_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -94,7 +94,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
     day_misc AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_misc_expenses
-      WHERE project_id = $1 AND date = $2
+      WHERE project_id = $1 AND "date" = $2
     ),
     day_supplier_payments AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -202,14 +202,14 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND transfer_date IS NOT NULL
         AND transfer_date::date::text <= $2::text
       UNION
-      SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance
-      WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2::text
+      SELECT COALESCE(NULLIF(date,''), attendance_date::text) as sub_date FROM worker_attendance
+      WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date::text) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date::text) != '' AND COALESCE(NULLIF(date,''), attendance_date::text) <= $2::text
       UNION
       SELECT purchase_date as sub_date FROM material_purchases
       WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2::text
       UNION
-      SELECT date as sub_date FROM transportation_expenses
-      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2::text
+      SELECT "date" as sub_date FROM transportation_expenses
+      WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND "date" <= $2::text
       UNION
       SELECT transfer_date as sub_date
       FROM worker_transfers
@@ -217,8 +217,8 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date <= $2::text
       UNION
-      SELECT date as sub_date FROM worker_misc_expenses
-      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2::text
+      SELECT "date" as sub_date FROM worker_misc_expenses
+      WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND "date" <= $2::text
       UNION
       SELECT transfer_date as sub_date
       FROM project_fund_transfers
@@ -297,11 +297,11 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
       } else {
         const firstActivity = await client.query(`
           SELECT MIN(sub_date) as first_date FROM (
-            SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != ''
+            SELECT COALESCE(NULLIF(date,''), attendance_date::text) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date::text) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date::text) != ''
             UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != ''
-            UNION SELECT date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
+            UNION SELECT "date" FROM transportation_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != ''
             UNION SELECT transfer_date::date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
-            UNION SELECT date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
+            UNION SELECT "date" FROM worker_misc_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != ''
             UNION SELECT transfer_date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date != ''
             UNION SELECT transfer_date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND transfer_date != ''
             UNION SELECT payment_date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != ''

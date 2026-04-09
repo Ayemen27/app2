@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { ClipboardList, User, BarChart3, ArrowUpDown, Building2 } from "lucide-react";
+import { ClipboardList, User, BarChart3, ArrowUpDown, Building2, GitCompare } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { DailyReportTab } from "./DailyReportTab";
@@ -7,6 +7,7 @@ import { WorkerStatementTab } from "./WorkerStatementTab";
 import { PeriodFinalTab } from "./PeriodFinalTab";
 import { MultiProjectFinalTab } from "./MultiProjectFinalTab";
 import { ProjectComprehensiveTab } from "./ProjectComprehensiveTab";
+import { MultiProjectCompareTab } from "./MultiProjectCompareTab";
 
 export default function AxionReports() {
   const [activeTab, setActiveTab] = useState("daily");
@@ -29,33 +30,40 @@ export default function AxionReports() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full grid grid-cols-5" data-testid="tabs-report-center">
-            <TabsTrigger value="daily" className="gap-1 text-xs sm:text-sm" data-testid="tab-daily">
-              <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">التقرير اليومي</span>
-              <span className="sm:hidden">يومي</span>
-            </TabsTrigger>
-            <TabsTrigger value="worker" className="gap-1 text-xs sm:text-sm" data-testid="tab-worker">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">كشف حساب العمال</span>
-              <span className="sm:hidden">العمال</span>
-            </TabsTrigger>
-            <TabsTrigger value="final" className="gap-1 text-xs sm:text-sm" data-testid="tab-final">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">التقرير الختامي</span>
-              <span className="sm:hidden">ختامي</span>
-            </TabsTrigger>
-            <TabsTrigger value="multi" className="gap-1 text-xs sm:text-sm" data-testid="tab-multi">
-              <ArrowUpDown className="h-4 w-4" />
-              <span className="hidden sm:inline">تقرير مجمع</span>
-              <span className="sm:hidden">مجمع</span>
-            </TabsTrigger>
-            <TabsTrigger value="comprehensive" className="gap-1 text-xs sm:text-sm" data-testid="tab-comprehensive">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">تقرير شامل</span>
-              <span className="sm:hidden">شامل</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="inline-flex w-max min-w-full" data-testid="tabs-report-center">
+              <TabsTrigger value="daily" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-daily">
+                <ClipboardList className="h-4 w-4" />
+                <span className="hidden sm:inline">التقرير اليومي</span>
+                <span className="sm:hidden">يومي</span>
+              </TabsTrigger>
+              <TabsTrigger value="worker" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-worker">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">كشف حساب العمال</span>
+                <span className="sm:hidden">العمال</span>
+              </TabsTrigger>
+              <TabsTrigger value="final" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-final">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">التقرير الختامي</span>
+                <span className="sm:hidden">ختامي</span>
+              </TabsTrigger>
+              <TabsTrigger value="multi" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-multi">
+                <ArrowUpDown className="h-4 w-4" />
+                <span className="hidden sm:inline">تقرير مجمع</span>
+                <span className="sm:hidden">مجمع</span>
+              </TabsTrigger>
+              <TabsTrigger value="compare" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-compare">
+                <GitCompare className="h-4 w-4" />
+                <span className="hidden sm:inline">مقارنة المشاريع</span>
+                <span className="sm:hidden">مقارنة</span>
+              </TabsTrigger>
+              <TabsTrigger value="comprehensive" className="gap-1 text-xs sm:text-sm flex-shrink-0" data-testid="tab-comprehensive">
+                <Building2 className="h-4 w-4" />
+                <span className="hidden sm:inline">تقرير شامل</span>
+                <span className="sm:hidden">شامل</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="daily" className="mt-4">
             <DailyReportTab onStatsReady={handleStatsReady} />
@@ -68,6 +76,9 @@ export default function AxionReports() {
           </TabsContent>
           <TabsContent value="multi" className="mt-4">
             <MultiProjectFinalTab onStatsReady={handleStatsReady} />
+          </TabsContent>
+          <TabsContent value="compare" className="mt-4">
+            <MultiProjectCompareTab onStatsReady={handleStatsReady} />
           </TabsContent>
           <TabsContent value="comprehensive" className="mt-4">
             <ProjectComprehensiveTab onStatsReady={handleStatsReady} />

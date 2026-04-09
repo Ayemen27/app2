@@ -376,7 +376,15 @@ export default function DailySummariesAdminPage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-sm font-bold">الملخصات اليومية</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-bold">الملخصات اليومية</CardTitle>
+                  <Badge
+                    variant="outline"
+                    className="h-5 px-2 text-[10px] font-bold rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                  >
+                    {summaries.length.toLocaleString("en-US")}
+                  </Badge>
+                </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   {isAllProjects ? "عرض ملخصات جميع المشاريع" : `مشروع: ${selectedProjectName}`}
                 </p>

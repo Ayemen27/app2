@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
@@ -44,7 +45,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 function formatCurrency(val: string | number | null | undefined): string {
   const num = parseFloat(String(val || "0"));
   if (isNaN(num)) return "0.00";
-  return num.toLocaleString("ar-SA", {
+  return num.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -101,7 +102,6 @@ export default function DailySummariesAdminPage() {
 
   const totalIncome = summaries.reduce((s, r) => s + parseFloat(r.total_income || "0"), 0);
   const totalExpenses = summaries.reduce((s, r) => s + parseFloat(r.total_expenses || "0"), 0);
-  const totalBalance = summaries.reduce((s, r) => s + parseFloat(r.remaining_balance || "0"), 0);
   const uniqueProjects = new Set(summaries.map((r) => r.project_id)).size;
 
   const deleteMutation = useMutation({
@@ -174,7 +174,7 @@ export default function DailySummariesAdminPage() {
             className="h-8 px-3 text-[11px] font-medium rounded-full bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400"
             data-testid="badge-total-count"
           >
-            {total.toLocaleString("ar-SA")} ملخص
+            {total.toLocaleString("en-US")} ملخص
           </Badge>
         </div>
 
@@ -203,7 +203,7 @@ export default function DailySummariesAdminPage() {
                   تأكيد الحذف
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-right">
-                  سيتم حذف <strong>{total.toLocaleString("ar-SA")}</strong> ملخص يومي
+                  سيتم حذف <strong>{total.toLocaleString("en-US")}</strong> ملخص يومي
                   {isAllProjects ? " لجميع المشاريع" : ` للمشروع: ${selectedProjectName}`}.
                   <br />
                   هذا الإجراء لا يمكن التراجع عنه، لكن يمكنك إعادة البناء لاحقاً.
@@ -271,30 +271,31 @@ export default function DailySummariesAdminPage() {
       </div>
 
       <UnifiedStats
+        columns={4}
         stats={[
           {
             title: "إجمالي الملخصات",
-            value: total.toLocaleString("ar-SA"),
+            value: total.toLocaleString("en-US"),
             color: "blue",
             icon: CalendarDays as LucideIcon,
           },
           {
             title: "إجمالي الإيرادات",
-            value: `${formatCurrency(totalIncome)} ر.س`,
+            value: formatCurrency(totalIncome),
             color: "green",
             icon: TrendingUp as LucideIcon,
           },
           {
             title: "إجمالي المصروفات",
-            value: `${formatCurrency(totalExpenses)} ر.س`,
+            value: formatCurrency(totalExpenses),
             color: "red",
             icon: TrendingDown as LucideIcon,
           },
           {
             title: isAllProjects ? "عدد المشاريع" : "الرصيد الأخير",
             value: isAllProjects
-              ? uniqueProjects.toLocaleString("ar-SA")
-              : `${formatCurrency(summaries[0]?.remaining_balance)} ر.س`,
+              ? uniqueProjects.toLocaleString("en-US")
+              : formatCurrency(summaries[0]?.remaining_balance),
             color: "purple",
             icon: (isAllProjects ? Building2 : Wallet) as LucideIcon,
           },
@@ -361,100 +362,164 @@ export default function DailySummariesAdminPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
-                    {isAllProjects && (
-                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400 w-32">
-                        المشروع
+            <>
+              {/* جدول - يظهر فقط على الشاشات المتوسطة وما فوق */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      {isAllProjects && (
+                        <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400 w-32">
+                          المشروع
+                        </TableHead>
+                      )}
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400 w-28">
+                        التاريخ
                       </TableHead>
-                    )}
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400 w-28">
-                      التاريخ
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      المرحّل
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      الإيرادات
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      الأجور
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      المواد
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      النقل
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      إجمالي المصروف
-                    </TableHead>
-                    <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
-                      الرصيد
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        المرحّل
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        الإيرادات
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        الأجور
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        المواد
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        النقل
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        إجمالي المصروف
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold text-slate-600 dark:text-slate-400">
+                        الرصيد
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summaries.map((row, idx) => {
+                      const balance = parseFloat(row.remaining_balance || "0");
+                      const isPositive = balance >= 0;
+                      return (
+                        <TableRow
+                          key={row.id}
+                          className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800/60"
+                          data-testid={`row-summary-${idx}`}
+                        >
+                          {isAllProjects && (
+                            <TableCell className="text-xs font-medium py-2.5">
+                              <span className="flex items-center gap-1.5">
+                                <Building2 className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate max-w-[120px]" title={row.project_name}>
+                                  {row.project_name || row.project_id}
+                                </span>
+                              </span>
+                            </TableCell>
+                          )}
+                          <TableCell className="text-xs font-mono py-2.5" data-testid={`text-date-${idx}`}>
+                            {formatDate(row.date)}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2.5" data-testid={`text-carried-${idx}`}>
+                            {formatCurrency(row.carried_forward_amount)}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-emerald-700 dark:text-emerald-400 py-2.5" data-testid={`text-income-${idx}`}>
+                            {formatCurrency(row.total_income)}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-wages-${idx}`}>
+                            {formatCurrency(row.total_worker_wages)}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-materials-${idx}`}>
+                            {formatCurrency(row.total_material_costs)}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-transport-${idx}`}>
+                            {formatCurrency(row.total_transportation_costs)}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-red-600 dark:text-red-400 py-2.5" data-testid={`text-expenses-${idx}`}>
+                            {formatCurrency(row.total_expenses)}
+                          </TableCell>
+                          <TableCell className="py-2.5" data-testid={`text-balance-${idx}`}>
+                            <span
+                              className={`text-xs font-bold ${
+                                isPositive
+                                  ? "text-emerald-700 dark:text-emerald-400"
+                                  : "text-red-600 dark:text-red-400"
+                              }`}
+                            >
+                              {isPositive ? "+" : ""}
+                              {formatCurrency(row.remaining_balance)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* بطاقات - تظهر فقط على شاشات الهاتف */}
+              <div className="md:hidden p-3">
+                <UnifiedCardGrid columns={1}>
                   {summaries.map((row, idx) => {
                     const balance = parseFloat(row.remaining_balance || "0");
                     const isPositive = balance >= 0;
                     return (
-                      <TableRow
+                      <UnifiedCard
                         key={row.id}
-                        className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800/60"
-                        data-testid={`row-summary-${idx}`}
-                      >
-                        {isAllProjects && (
-                          <TableCell className="text-xs font-medium py-2.5">
-                            <span className="flex items-center gap-1.5">
-                              <Building2 className="h-3 w-3 text-slate-400 flex-shrink-0" />
-                              <span className="truncate max-w-[120px]" title={row.project_name}>
-                                {row.project_name || row.project_id}
-                              </span>
-                            </span>
-                          </TableCell>
-                        )}
-                        <TableCell className="text-xs font-mono py-2.5" data-testid={`text-date-${idx}`}>
-                          {formatDate(row.date)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2.5" data-testid={`text-carried-${idx}`}>
-                          {formatCurrency(row.carried_forward_amount)}
-                        </TableCell>
-                        <TableCell className="text-xs font-medium text-emerald-700 dark:text-emerald-400 py-2.5" data-testid={`text-income-${idx}`}>
-                          {formatCurrency(row.total_income)}
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-wages-${idx}`}>
-                          {formatCurrency(row.total_worker_wages)}
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-materials-${idx}`}>
-                          {formatCurrency(row.total_material_costs)}
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2.5" data-testid={`text-transport-${idx}`}>
-                          {formatCurrency(row.total_transportation_costs)}
-                        </TableCell>
-                        <TableCell className="text-xs font-medium text-red-600 dark:text-red-400 py-2.5" data-testid={`text-expenses-${idx}`}>
-                          {formatCurrency(row.total_expenses)}
-                        </TableCell>
-                        <TableCell className="py-2.5" data-testid={`text-balance-${idx}`}>
-                          <span
-                            className={`text-xs font-bold ${
-                              isPositive
-                                ? "text-emerald-700 dark:text-emerald-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
-                            {isPositive ? "+" : ""}
-                            {formatCurrency(row.remaining_balance)}
-                          </span>
-                        </TableCell>
-                      </TableRow>
+                        data-testid={`card-summary-${idx}`}
+                        compact
+                        title={formatDate(row.date)}
+                        titleIcon={CalendarDays}
+                        subtitle={isAllProjects ? (row.project_name || row.project_id) : undefined}
+                        badges={[
+                          {
+                            label: isPositive
+                              ? `+${formatCurrency(row.remaining_balance)}`
+                              : formatCurrency(row.remaining_balance),
+                            variant: isPositive ? "success" : "destructive",
+                          },
+                        ]}
+                        fields={[
+                          {
+                            label: "المرحّل",
+                            value: formatCurrency(row.carried_forward_amount),
+                            color: "muted",
+                          },
+                          {
+                            label: "الإيرادات",
+                            value: formatCurrency(row.total_income),
+                            color: "success",
+                          },
+                          {
+                            label: "الأجور",
+                            value: formatCurrency(row.total_worker_wages),
+                            color: "default",
+                          },
+                          {
+                            label: "المواد",
+                            value: formatCurrency(row.total_material_costs),
+                            color: "default",
+                          },
+                          {
+                            label: "النقل",
+                            value: formatCurrency(row.total_transportation_costs),
+                            color: "default",
+                          },
+                          {
+                            label: "إجمالي المصروف",
+                            value: formatCurrency(row.total_expenses),
+                            color: "danger",
+                            emphasis: true,
+                          },
+                        ]}
+                      />
                     );
                   })}
-                </TableBody>
-              </Table>
-            </div>
+                </UnifiedCardGrid>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -462,7 +527,7 @@ export default function DailySummariesAdminPage() {
       {summaries.length > 0 && (
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pb-2">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span>عرض {summaries.length.toLocaleString("ar-SA")} من أصل {total.toLocaleString("ar-SA")} ملخص</span>
+          <span>عرض {summaries.length.toLocaleString("en-US")} من أصل {total.toLocaleString("en-US")} ملخص</span>
         </div>
       )}
     </div>

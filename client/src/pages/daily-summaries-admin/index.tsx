@@ -194,117 +194,17 @@ export default function DailySummariesAdminPage() {
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-24 md:pb-8" dir="rtl">
 
-      {/* شريط الأزرار */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className="h-8 px-3 text-[11px] font-bold flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-            data-testid="badge-project-label"
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            {projectLabel}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="h-8 px-3 text-[11px] font-medium rounded-full bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400"
-            data-testid="badge-total-count"
-          >
-            {total.toLocaleString("en-US")} ملخص
-          </Badge>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* حذف الجميع */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-full text-[11px] font-medium border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
-                disabled={isBusy || total === 0}
-                data-testid="button-delete-all"
-              >
-                {deleteMutation.isPending ? <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="ml-1.5 h-3.5 w-3.5" />}
-                حذف جميع الملخصات
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl" className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2 text-right">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  تأكيد الحذف
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-right">
-                  سيتم حذف <strong>{total.toLocaleString("en-US")}</strong> ملخص يومي
-                  {isAllProjects ? " لجميع المشاريع" : ` للمشروع: ${selectedProjectName}`}.
-                  <br />
-                  هذا الإجراء لا يمكن التراجع عنه، لكن يمكنك إعادة البناء لاحقاً.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row-reverse gap-2">
-                <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-red-600 hover:bg-red-700 text-white rounded-xl" data-testid="button-confirm-delete">
-                  نعم، احذف الملخصات
-                </AlertDialogAction>
-                <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* إعادة البناء */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                size="sm"
-                className="h-8 rounded-full text-[11px] font-medium bg-primary hover:bg-primary/90"
-                disabled={isBusy}
-                data-testid="button-rebuild-all"
-              >
-                {rebuildMutation.isPending ? <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="ml-1.5 h-3.5 w-3.5" />}
-                إعادة بناء الملخصات
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl" className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2 text-right">
-                  <RefreshCw className="h-5 w-5 text-blue-500" />
-                  تأكيد إعادة البناء
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-right">
-                  سيتم إعادة حساب وبناء جميع الملخصات اليومية{" "}
-                  {isAllProjects ? "لجميع المشاريع" : `للمشروع: ${selectedProjectName}`}.
-                  <br />
-                  قد تستغرق هذه العملية بعض الوقت حسب حجم البيانات.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row-reverse gap-2">
-                <AlertDialogAction onClick={() => rebuildMutation.mutate()} className="bg-primary hover:bg-primary/90 rounded-xl" data-testid="button-confirm-rebuild">
-                  نعم، أعد البناء
-                </AlertDialogAction>
-                <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-rebuild">إلغاء</AlertDialogCancel>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-
-      {/* الإحصائيات */}
+      {/* الإحصائيات - 3 بطاقات في صف */}
       <UnifiedStats
-        columns={4}
+        columns={3}
         stats={[
           { title: "إجمالي الملخصات", value: summaries.length.toLocaleString("en-US"), color: "blue", icon: CalendarDays as LucideIcon },
           { title: "إجمالي الإيرادات", value: formatCurrency(totalIncome), color: "green", icon: TrendingUp as LucideIcon },
           { title: "إجمالي المصروفات", value: formatCurrency(totalExpenses), color: "red", icon: TrendingDown as LucideIcon },
-          {
-            title: isAllProjects ? "عدد المشاريع" : "الرصيد الأخير",
-            value: isAllProjects ? uniqueProjects.toLocaleString("en-US") : formatCurrency(summaries[0]?.remaining_balance),
-            color: "purple",
-            icon: (isAllProjects ? Building2 : Wallet) as LucideIcon,
-          },
         ]}
       />
 
-      {/* شريط البحث والفلترة */}
+      {/* شريط البحث والفلترة مع أزرار الحذف وإعادة البناء */}
       <UnifiedSearchFilter
         searchValue={searchValue}
         onSearchChange={onSearchChange}
@@ -328,6 +228,85 @@ export default function DailySummariesAdminPage() {
         onReset={onReset}
         showResetButton
         showActiveFilters
+        extraActions={
+          <div className="flex items-center gap-1">
+            {/* زر حذف الجميع */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl relative"
+                  disabled={isBusy || total === 0}
+                  data-testid="button-delete-all"
+                  title="حذف جميع الملخصات"
+                >
+                  {deleteMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent dir="rtl" className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2 text-right">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    تأكيد الحذف
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-right">
+                    سيتم حذف <strong>{total.toLocaleString("en-US")}</strong> ملخص يومي
+                    {isAllProjects ? " لجميع المشاريع" : ` للمشروع: ${selectedProjectName}`}.
+                    <br />
+                    هذا الإجراء لا يمكن التراجع عنه، لكن يمكنك إعادة البناء لاحقاً.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-row-reverse gap-2">
+                  <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-red-600 hover:bg-red-700 text-white rounded-xl" data-testid="button-confirm-delete">
+                    نعم، احذف الملخصات
+                  </AlertDialogAction>
+                  <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* زر إعادة البناء */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-primary hover:text-primary/80 hover:bg-primary/10 rounded-xl"
+                  disabled={isBusy}
+                  data-testid="button-rebuild-all"
+                  title="إعادة بناء الملخصات"
+                >
+                  {rebuildMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <RefreshCw className="h-4 w-4" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent dir="rtl" className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2 text-right">
+                    <RefreshCw className="h-5 w-5 text-blue-500" />
+                    تأكيد إعادة البناء
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-right">
+                    سيتم إعادة حساب وبناء جميع الملخصات اليومية{" "}
+                    {isAllProjects ? "لجميع المشاريع" : `للمشروع: ${selectedProjectName}`}.
+                    <br />
+                    قد تستغرق هذه العملية بعض الوقت حسب حجم البيانات.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-row-reverse gap-2">
+                  <AlertDialogAction onClick={() => rebuildMutation.mutate()} className="bg-primary hover:bg-primary/90 rounded-xl" data-testid="button-confirm-rebuild">
+                    نعم، أعد البناء
+                  </AlertDialogAction>
+                  <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-rebuild">إلغاء</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        }
       />
 
       {/* مؤشر التحميل أو العملية الجارية */}

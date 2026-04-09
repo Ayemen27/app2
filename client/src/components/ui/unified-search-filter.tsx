@@ -50,6 +50,7 @@ export interface UnifiedSearchFilterProps {
   className?: string;
   compact?: boolean;
   showActiveFilters?: boolean;
+  extraActions?: React.ReactNode;
 }
 
 function AsyncSelectFilter({
@@ -103,6 +104,7 @@ export function UnifiedSearchFilter({
   className,
   compact = false,
   showActiveFilters = true,
+  extraActions,
 }: UnifiedSearchFilterProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -391,6 +393,8 @@ export function UnifiedSearchFilter({
             </SheetContent>
           </Sheet>
         )}
+
+        {extraActions}
 
         {showResetButton && hasActiveFilters && (
           <Button

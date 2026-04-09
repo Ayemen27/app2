@@ -1477,7 +1477,7 @@ export class ReportDataService {
     const allWorkers: MultiProjectFinalReportData['combinedSections']['attendance']['byWorker'] = [];
     for (const r of projectReports) {
       for (const w of r.sections.attendance.byWorker) {
-        allWorkers.push({ ...w, projectName: r.project.name });
+        allWorkers.push({ ...w, projectId: r.project.id, projectName: r.project.name });
       }
     }
 

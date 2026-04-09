@@ -378,6 +378,7 @@ export interface MultiProjectFinalReportData {
         workerId: string;
         workerName: string;
         workerType: string;
+        projectId?: string;
         projectName: string;
         totalDays: number;
         totalEarned: number;

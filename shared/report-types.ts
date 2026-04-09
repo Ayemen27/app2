@@ -315,6 +315,7 @@ export interface ProjectBreakdown {
     totalIncome: number;
     totalExpenses: number;
     totalWages: number;
+    totalPaidWages?: number;
     totalMaterials: number;
     totalTransport: number;
     totalMisc: number;

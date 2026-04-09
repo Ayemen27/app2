@@ -76,7 +76,7 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     row = xlTableHeader(ws, row, ['البند', 'المبلغ']);
     const summaryItems = [
       ['إجمالي الإيرادات (العهدة)', formatNum(proj.totals.totalIncome)],
-      ['إجمالي الأجور', formatNum(proj.totals.totalWages)],
+      ['أجور العمال المدفوعة', formatNum(proj.totals.totalPaidWages ?? proj.totals.totalWages)],
       ['إجمالي المواد', formatNum(proj.totals.totalMaterials)],
       ['إجمالي النقل', formatNum(proj.totals.totalTransport)],
       ['إجمالي النثريات', formatNum(proj.totals.totalMisc)],
@@ -157,8 +157,8 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   {
     const hdr = ws.getRow(row);
     const headers = hasRebalance
-      ? ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التصفية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي']
-      : ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
+      ? ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'أجور مدفوعة', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'التصفية البينية', 'المتبقي الصافي', 'صافي المتبقي الكلي']
+      : ['#', 'اسم العامل', 'المشروع', 'النوع', 'الأيام', 'المستحق', 'أجور مدفوعة', 'الحوالات', 'إجمالي المدفوع', 'المتبقي', 'المتبقي الصافي', 'صافي المتبقي الكلي'];
     headers.forEach((h, i) => {
       const cell = hdr.getCell(i + 1);
       cell.value = h;
@@ -358,7 +358,7 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
     ['إجمالي العهدة (التحويلات المالية)', data.combinedTotals.totalFundTransfers],
     ['ترحيل وارد من مشاريع أخرى', data.combinedTotals.totalProjectTransfersIn],
     ['إجمالي الإيرادات', data.combinedTotals.totalIncome],
-    ['إجمالي الأجور', data.combinedTotals.totalWages],
+    ['أجور العمال المدفوعة', data.combinedTotals.totalPaidWages ?? data.combinedTotals.totalWages],
     ['إجمالي المواد', data.combinedTotals.totalMaterials],
     ['إجمالي النقل', data.combinedTotals.totalTransport],
     ['إجمالي النثريات', data.combinedTotals.totalMisc],

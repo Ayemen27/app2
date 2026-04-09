@@ -70,7 +70,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   row += 3;
 
   row = xlSectionHeader(ws, row, 'ملخص الحضور حسب العامل', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي']);
+  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'المستحق', 'أجور مدفوعة', 'الحوالات', 'إجمالي المدفوع', 'المتبقي']);
   let totalAttDays = 0, totalAttEarned = 0, totalAttDirectPaid = 0, totalAttTransfers = 0, totalAttPaid = 0, totalAttBalance = 0;
   data.sections.attendance.byWorker.forEach((w, idx) => {
     const r = ws.getRow(row);
@@ -452,7 +452,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   const summaryItems = [
     ['إجمالي الإيرادات', formatNum(data.totals.totalIncome)],
     ['ترحيل وارد من مشاريع أخرى', formatNum(data.totals.totalProjectTransfersIn)],
-    ['إجمالي الأجور', formatNum(data.totals.totalWages)],
+    ['أجور العمال المدفوعة', formatNum(data.totals.totalPaidWages ?? data.totals.totalWages)],
     ['إجمالي المواد', formatNum(data.totals.totalMaterials)],
     ['إجمالي النقل', formatNum(data.totals.totalTransport)],
     ['إجمالي النثريات', formatNum(data.totals.totalMisc)],

@@ -29,7 +29,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     body += pdfSectionTitle(`مشروع: ${escapeHtml(proj.projectName)}`);
     const summaryData = [
       ['إجمالي الإيرادات (العهدة)', `${formatNum(proj.totals.totalIncome)} YER`],
-      ['إجمالي الأجور', `${formatNum(proj.totals.totalWages)} YER`],
+      ['أجور العمال المدفوعة', `${formatNum(proj.totals.totalPaidWages ?? proj.totals.totalWages)} YER`],
       ['إجمالي المواد', `${formatNum(proj.totals.totalMaterials)} YER`],
       ['إجمالي النقل', `${formatNum(proj.totals.totalTransport)} YER`],
       ['إجمالي النثريات', `${formatNum(proj.totals.totalMisc)} YER`],
@@ -102,11 +102,11 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     body += `<table><thead><tr>
       <th style="width:25px;">م</th><th>اسم العامل</th><th>المشروع</th>
       <th style="width:50px;">النوع</th><th style="width:55px;">الأيام</th>
-      <th style="width:75px;">المستحق</th><th style="width:75px;">المدفوع</th>
+      <th style="width:75px;">المستحق</th><th style="width:75px;">أجور مدفوعة</th>
       <th style="width:70px;">الحوالات</th><th style="width:80px;">إجمالي المدفوع</th>
       <th style="width:80px;">المتبقي</th>${hasRebalance ? '<th style="width:75px;">التصفية البينية</th>' : ''}<th style="width:85px;">المتبقي الصافي</th>
     </tr></thead><tbody>${workerRows}
-    ${pdfTotalRow(totalCols, 3)}
+    ${pdfTotalRow(totalCols, 4)}
     </tbody></table>`;
   }
 
@@ -219,7 +219,7 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     ['إجمالي العهدة (التحويلات المالية)', data.combinedTotals.totalFundTransfers],
     ['ترحيل وارد من مشاريع أخرى', data.combinedTotals.totalProjectTransfersIn],
     ['إجمالي الإيرادات', data.combinedTotals.totalIncome],
-    ['إجمالي الأجور', data.combinedTotals.totalWages],
+    ['أجور العمال المدفوعة', data.combinedTotals.totalPaidWages ?? data.combinedTotals.totalWages],
     ['إجمالي المواد', data.combinedTotals.totalMaterials],
     ['إجمالي النقل', data.combinedTotals.totalTransport],
     ['النثريات', data.combinedTotals.totalMisc],

@@ -1263,7 +1263,7 @@ export class ReportDataService {
     const kpis: ReportKPI[] = [
       { label: 'إجمالي الإيرادات (العهدة)', value: totalFundTransfersAmount, format: 'currency' },
       { label: 'إجمالي المصروفات', value: totalExpenses, format: 'currency' },
-      { label: 'إجمالي الأجور', value: totalWages, format: 'currency' },
+      { label: 'أجور العمال المدفوعة', value: totalPaidWages, format: 'currency' },
       { label: 'إجمالي المواد', value: totalMaterialsAmount, format: 'currency' },
       { label: 'إجمالي النقل', value: transportTotal, format: 'currency' },
       { label: 'إجمالي النثريات', value: miscTotal, format: 'currency' },
@@ -1525,7 +1525,7 @@ export class ReportDataService {
       { label: 'إجمالي الإيرادات', value: combinedIncome, format: 'currency' },
       { label: 'إجمالي المصروفات', value: combinedExpenses, format: 'currency' },
       { label: 'ترحيل صادر', value: combinedProjectTransfersOut, format: 'currency' },
-      { label: 'إجمالي الأجور', value: combinedWages, format: 'currency' },
+      { label: 'أجور العمال المدفوعة', value: combinedPaidWages, format: 'currency' },
       { label: 'إجمالي المواد', value: combinedMaterials, format: 'currency' },
       { label: 'إجمالي النقل', value: combinedTransport, format: 'currency' },
       { label: 'حوالات العمال', value: combinedWorkerTransfers, format: 'currency' },

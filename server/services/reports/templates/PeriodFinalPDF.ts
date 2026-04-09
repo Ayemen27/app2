@@ -96,7 +96,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     body += `<table><thead><tr>
       <th style="width:25px;">م</th><th>اسم العامل</th><th style="width:50px;">النوع</th>
       <th style="width:55px;">الأيام</th><th style="width:75px;">المستحق</th>
-      <th style="width:75px;">المدفوع</th><th style="width:70px;">الحوالات</th>
+      <th style="width:75px;">أجور مدفوعة</th><th style="width:70px;">الحوالات</th>
       <th style="width:80px;">إجمالي المدفوع</th><th style="width:80px;">المتبقي</th>
     </tr></thead><tbody>${attendanceByWorkerRows}
     ${pdfTotalRow([
@@ -199,7 +199,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
   const summaryData = [
     ['إجمالي الدخل (التحويلات الواردة)', `${formatNum(data.totals.totalIncome)} YER`],
     ['ترحيل وارد من مشاريع أخرى', `${formatNum(data.totals.totalProjectTransfersIn)} YER`],
-    ['إجمالي الأجور', `${formatNum(data.totals.totalWages)} YER`],
+    ['أجور العمال المدفوعة', `${formatNum(data.totals.totalPaidWages ?? data.totals.totalWages)} YER`],
     ['إجمالي المواد', `${formatNum(data.totals.totalMaterials)} YER`],
     ['إجمالي النقل', `${formatNum(data.totals.totalTransport)} YER`],
     ['المصروفات المتنوعة', `${formatNum(data.totals.totalMisc)} YER`],

@@ -131,7 +131,7 @@ export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: an
         onRefresh={() => refetch()}
         onReset={() => {
           setSearchValue("");
-          setFilterValues({ dateRange: null, worker_id: "all" });
+          setFilterValues({ dateRange: null, worker_id: "all", project_scope: "all" });
           setSelectedWorkerId(null);
         }}
       />
@@ -154,22 +154,61 @@ export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: an
               <Badge variant="secondary">{workerStatement.statement?.length || 0} حركة</Badge>
             </CardHeader>
             <CardContent>
-              <ReportTable
-                testId="table-worker-statement"
-                headers={["#", "التاريخ", "اليوم", "النوع", "المشروع", "أيام العمل", "مدين", "دائن", "الرصيد", "الوصف"]}
-                rows={(workerStatement.statement || []).map((row, i) => [
-                  i + 1,
-                  safeFormatDate(row.date, "dd/MM/yyyy"),
-                  safeFormatDate(row.date, "EEEE", { locale: arSA }),
-                  row.type || "-",
-                  row.projectName || selectedProjectName || "-",
-                  row.workDays || 0,
-                  formatCurrency(row.debit || 0),
-                  formatCurrency(row.credit || 0),
-                  formatCurrency(row.balance || 0),
-                  row.description || "-",
-                ])}
-              />
+              <div className="overflow-x-auto rounded-md border" data-testid="table-worker-statement">
+                <table className="w-full text-right border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      {["#", "التاريخ", "اليوم", "النوع", "المشروع", "أيام العمل", "مدين", "دائن", "الرصيد", "الوصف"].map((h, i) => (
+                        <th key={i} className="p-3 font-bold text-muted-foreground border-b whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(workerStatement.statement || []).map((row, i) => (
+                      <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                        <td className="p-3 border-b whitespace-nowrap">{i + 1}</td>
+                        <td className="p-3 border-b whitespace-nowrap">{safeFormatDate(row.date, "dd/MM/yyyy")}</td>
+                        <td className="p-3 border-b whitespace-nowrap">{safeFormatDate(row.date, "EEEE", { locale: arSA })}</td>
+                        <td className="p-3 border-b whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            row.type === 'عمل' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400' :
+                            row.type === 'دفعة' ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400' :
+                            row.type === 'حوالة' ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400' :
+                            row.type === 'تصفية' ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{row.type || "-"}</span>
+                        </td>
+                        <td className="p-3 border-b whitespace-nowrap">{row.projectName || selectedProjectName || "-"}</td>
+                        <td className="p-3 border-b whitespace-nowrap">{row.workDays || 0}</td>
+                        <td className="p-3 border-b whitespace-nowrap font-medium text-blue-600 dark:text-blue-400">
+                          {(row.debit || 0) > 0 ? formatCurrency(row.debit) : "-"}
+                        </td>
+                        <td className="p-3 border-b whitespace-nowrap font-medium text-green-600 dark:text-green-400">
+                          {(row.credit || 0) > 0 ? formatCurrency(row.credit) : "-"}
+                        </td>
+                        <td className={`p-3 border-b whitespace-nowrap font-bold ${(row.balance || 0) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatCurrency(row.balance || 0)}
+                        </td>
+                        <td className="p-3 border-b whitespace-nowrap text-muted-foreground">{row.description || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {(workerStatement.statement?.length || 0) > 1 && (
+                    <tfoot>
+                      <tr className="bg-muted/60 font-bold border-t-2 border-border">
+                        <td className="p-3" colSpan={6}>الإجمالي</td>
+                        <td className="p-3 whitespace-nowrap text-blue-600 dark:text-blue-400">
+                          {formatCurrency((workerStatement.statement || []).reduce((s, r) => s + (r.debit || 0), 0))}
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-green-600 dark:text-green-400">
+                          {formatCurrency((workerStatement.statement || []).reduce((s, r) => s + (r.credit || 0), 0))}
+                        </td>
+                        <td className="p-3 whitespace-nowrap" colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
             </CardContent>
           </Card>
 

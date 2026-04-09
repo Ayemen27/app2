@@ -5,14 +5,12 @@ import { Button } from "@/components/ui/button";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, DollarSign, TrendingUp, PieChart, Download } from "lucide-react";
+import { ArrowLeft, DollarSign, TrendingUp, PieChart } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { useToast } from "@/hooks/use-toast";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function WellCostReport() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const { selectedProjectId } = useSelectedProject();
 
@@ -55,7 +53,17 @@ export default function WellCostReport() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
+    <div className="min-h-screen bg-background p-4 md:p-6 space-y-6" dir="rtl">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/wells")} data-testid="button-back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">تقرير تكاليف الآبار</h1>
+          <p className="text-sm text-muted-foreground">تحليل مفصّل لتكاليف الآبار والمشروع</p>
+        </div>
+      </div>
+
       {/* ملخص المشروع */}
       {projectCosts && (
         <UnifiedCardGrid columns={2}>

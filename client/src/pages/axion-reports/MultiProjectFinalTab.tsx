@@ -317,7 +317,14 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص المواد المجمع</CardTitle><Badge variant="secondary">{filteredMaterials.length} مادة</Badge></CardHeader>
                 <CardContent>
                   <ReportTable testId="table-multi-materials" headers={["اسم المادة", "المشروع", "الكمية", "الإجمالي", "المورد"]}
-                    rows={filteredMaterials.map((m: any) => [m.materialName, m.projectName, m.totalQuantity, formatCurrency(m.totalAmount), m.supplierName || "-"])} />
+                    rows={filteredMaterials.map((m: any) => [m.materialName, m.projectName, m.totalQuantity, formatCurrency(m.totalAmount), m.supplierName || "-"])}
+                    totalsRow={filteredMaterials.length > 1 ? [
+                      "الإجمالي", null,
+                      filteredMaterials.reduce((s: number, m: any) => s + (m.totalQuantity || 0), 0),
+                      formatCurrency(filteredMaterials.reduce((s: number, m: any) => s + (m.totalAmount || 0), 0)),
+                      null,
+                    ] : undefined}
+                  />
                 </CardContent>
               </Card>
             )}

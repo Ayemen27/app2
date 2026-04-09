@@ -123,8 +123,9 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
 
   const pieData = useMemo(() => {
     if (!report?.totals) return [];
+    const paidWages = (report.totals as any).totalPaidWages ?? report.totals.totalWages;
     return [
-      { name: "أجور العمال المدفوعة", value: report.totals.totalWages || 0 },
+      { name: "أجور العمال المدفوعة", value: paidWages || 0 },
       { name: "حوالات العمال", value: report.totals.totalWorkerTransfers || 0 },
       { name: "المواد", value: report.totals.totalMaterials || 0 },
       { name: "النقل", value: report.totals.totalTransport || 0 },

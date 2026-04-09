@@ -224,7 +224,17 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص الحضور</CardTitle><Badge variant="secondary">{filteredWorkers.length} عامل</Badge></CardHeader>
                 <CardContent>
                   <ReportTable testId="table-period-attendance" headers={["اسم العامل", "النوع", "الأيام", "المستحق", "أجور مدفوعة", "حوالات", "إجمالي المدفوع", "المتبقي"]}
-                    rows={filteredWorkers.map((w: any) => [w.workerName, w.workerType, w.totalDays, formatCurrency(w.totalEarned), formatCurrency(w.totalDirectPaid ?? 0), formatCurrency(w.totalTransfers ?? 0), formatCurrency(w.totalPaid ?? (w.totalDirectPaid ?? 0) + (w.totalTransfers ?? 0)), formatCurrency(w.balance ?? 0)])} />
+                    rows={filteredWorkers.map((w: any) => [w.workerName, w.workerType, w.totalDays, formatCurrency(w.totalEarned), formatCurrency(w.totalDirectPaid ?? 0), formatCurrency(w.totalTransfers ?? 0), formatCurrency(w.totalPaid ?? (w.totalDirectPaid ?? 0) + (w.totalTransfers ?? 0)), formatCurrency(w.balance ?? 0)])}
+                    totalsRow={filteredWorkers.length > 1 ? [
+                      "الإجمالي", null,
+                      filteredWorkers.reduce((s: number, w: any) => s + (w.totalDays || 0), 0).toFixed(1),
+                      formatCurrency(filteredWorkers.reduce((s: number, w: any) => s + (w.totalEarned || 0), 0)),
+                      formatCurrency(filteredWorkers.reduce((s: number, w: any) => s + (w.totalDirectPaid ?? 0), 0)),
+                      formatCurrency(filteredWorkers.reduce((s: number, w: any) => s + (w.totalTransfers ?? 0), 0)),
+                      formatCurrency(filteredWorkers.reduce((s: number, w: any) => s + (w.totalPaid ?? (w.totalDirectPaid ?? 0) + (w.totalTransfers ?? 0)), 0)),
+                      formatCurrency(filteredWorkers.reduce((s: number, w: any) => s + (w.balance ?? 0), 0)),
+                    ] : undefined}
+                  />
                 </CardContent>
               </Card>
             )}
@@ -234,7 +244,14 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص المواد</CardTitle><Badge variant="secondary">{filteredMaterials.length} مادة</Badge></CardHeader>
                 <CardContent>
                   <ReportTable testId="table-period-materials" headers={["اسم المادة", "الكمية", "الإجمالي", "المورد"]}
-                    rows={filteredMaterials.map((m: any) => [m.materialName, m.totalQuantity, formatCurrency(m.totalAmount), m.supplierName || "-"])} />
+                    rows={filteredMaterials.map((m: any) => [m.materialName, m.totalQuantity, formatCurrency(m.totalAmount), m.supplierName || "-"])}
+                    totalsRow={filteredMaterials.length > 1 ? [
+                      "الإجمالي",
+                      filteredMaterials.reduce((s: number, m: any) => s + (m.totalQuantity || 0), 0),
+                      formatCurrency(filteredMaterials.reduce((s: number, m: any) => s + (m.totalAmount || 0), 0)),
+                      null,
+                    ] : undefined}
+                  />
                 </CardContent>
               </Card>
             )}

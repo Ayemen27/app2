@@ -1680,7 +1680,7 @@ export class DatabaseStorage implements IStorage {
       const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
       const totalFundTransfersCents = fundTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
       
-      const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
+      const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id && t.transferReason !== 'settlement').reduce((sum, t) => sum + tocents(t.amount), 0);
       const outgoingTransfersCents = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
       
       const totalWorkerWagesCents = workerAttendanceRecords.reduce((sum, a) => {
@@ -1795,7 +1795,7 @@ export class DatabaseStorage implements IStorage {
 
         const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
         const totalFundTransfersCents = fundTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
-        const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
+        const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id && t.transferReason !== 'settlement').reduce((sum, t) => sum + tocents(t.amount), 0);
         const outgoingTransfersCents = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
         const totalWorkerWagesCents = workerAttendanceRecords.reduce((sum, a) => {
           const paid = Math.round(parseFloat(a.paidAmount || '0') * 100);

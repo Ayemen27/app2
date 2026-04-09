@@ -134,6 +134,28 @@ dailySummariesRouter.delete('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/daily-summaries/:id
+ * حذف ملخص يومي واحد بالـ ID
+ */
+dailySummariesRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `DELETE FROM daily_expense_summaries WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if ((result.rowCount || 0) === 0) {
+      return res.status(404).json({ success: false, message: 'الملخص غير موجود' });
+    }
+    console.log(`🗑️ [DailySummaries] تم حذف الملخص: ${id}`);
+    res.json({ success: true, message: 'تم حذف الملخص بنجاح' });
+  } catch (error: any) {
+    console.error('❌ [DailySummaries] خطأ في حذف الملخص:', error);
+    res.status(500).json({ success: false, message: 'فشل في حذف الملخص' });
+  }
+});
+
+/**
  * POST /api/daily-summaries/rebuild
  * إعادة بناء الملخصات اليومية (لمشروع محدد أو جميع المشاريع)
  */

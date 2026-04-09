@@ -3906,6 +3906,16 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
   }
 });
 
+financialRouter.post('/admin/rebuild-summaries/:projectId', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    await SummaryRebuildService.rebuildProjectSummaries(projectId);
+    return sendSuccess(res, { projectId }, 'تم إعادة بناء الملخصات بنجاح');
+  } catch (e: any) {
+    return sendError(res, e.message || 'فشل في إعادة البناء', 500);
+  }
+});
+
 console.log('💰 [FinancialRouter] تم تهيئة مسارات التحويلات المالية + endpoints التقارير');
 console.log('📦 [FinancialRouter] تم تهيئة مسارات المواد: /api/materials');
 

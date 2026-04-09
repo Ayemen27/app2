@@ -200,34 +200,34 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
       FROM fund_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL
-        AND transfer_date::date <= $2::date
+        AND transfer_date::date::text <= $2::text
       UNION
       SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance
-      WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2
+      WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2::text
       UNION
       SELECT purchase_date as sub_date FROM material_purchases
-      WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2
+      WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2::text
       UNION
       SELECT date as sub_date FROM transportation_expenses
-      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
+      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2::text
       UNION
       SELECT transfer_date as sub_date
       FROM worker_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL AND transfer_date != ''
-        AND transfer_date <= $2
+        AND transfer_date <= $2::text
       UNION
       SELECT date as sub_date FROM worker_misc_expenses
-      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
+      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2::text
       UNION
       SELECT transfer_date as sub_date
       FROM project_fund_transfers
       WHERE (from_project_id = $1 OR to_project_id = $1)
         AND transfer_date IS NOT NULL AND transfer_date != ''
-        AND transfer_date <= $2
+        AND transfer_date <= $2::text
       UNION
       SELECT payment_date as sub_date FROM supplier_payments
-      WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND payment_date <= $2
+      WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND payment_date <= $2::text
     ) dates
     WHERE sub_date IS NOT NULL AND sub_date != ''
     ${outerFromCondition}

@@ -50,7 +50,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       WHERE to_project_id = $1
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date = $2
-        AND (transfer_reason IS NULL OR (transfer_reason != 'legacy_worker_rebalance' AND transfer_reason != 'settlement'))
+        AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
     ),
     day_outgoing_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total

@@ -12,6 +12,7 @@ const PROJ_COLORS = [
   '#2E5090', '#2E7D32', '#AD1457', '#E65100', '#4527A0', '#00695C',
 ];
 function projColor(i: number) { return PROJ_COLORS[i % PROJ_COLORS.length]; }
+function rd(n: number): number { return Math.round(n * 100) / 100; }
 
 export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportData): string {
   const projects = data.projects;
@@ -111,7 +112,7 @@ export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportDat
       const pid = String(p.projectId);
       const pd = w.projects[pid];
       if (pd) {
-        body += `<td style="${tdBase}${bg}font-weight:600;color:${PDF_COLORS.navy};">${pd.days}</td>`;
+        body += `<td style="${tdBase}${bg}font-weight:600;color:${PDF_COLORS.navy};">${rd(pd.days)}</td>`;
         body += `<td style="${tdBase}${bg}color:${PDF_COLORS.amber};">${formatNum(pd.earned)}</td>`;
         body += `<td style="${tdBase}${bg}color:${PDF_COLORS.green};font-weight:600;">${formatNum(pd.paid)}</td>`;
       } else {
@@ -120,7 +121,7 @@ export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportDat
         body += `<td style="${tdBase}${bg}color:${PDF_COLORS.textMuted};">—</td>`;
       }
     });
-    body += `<td style="${tdBase}background:${PDF_COLORS.totalBg};font-weight:700;color:${PDF_COLORS.navy};">${w.totalDays}</td>`;
+    body += `<td style="${tdBase}background:${PDF_COLORS.totalBg};font-weight:700;color:${PDF_COLORS.navy};">${rd(w.totalDays)}</td>`;
     body += `<td style="${tdBase}background:${PDF_COLORS.totalBg};font-weight:700;color:${PDF_COLORS.amber};">${formatNum(w.totalEarned)}</td>`;
     body += `<td style="${tdBase}background:${PDF_COLORS.totalBg};font-weight:700;color:${PDF_COLORS.green};">${formatNum(w.totalPaid)}</td>`;
     body += `</tr>`;
@@ -132,11 +133,11 @@ export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportDat
   body += `<td colspan="2" style="${tdBase}background:${PDF_COLORS.navy};color:#fff;font-weight:800;text-align:center;">الإجمالي العام</td>`;
   projects.forEach(p => {
     const ct = colTotals[String(p.projectId)] || { days: 0, earned: 0, paid: 0 };
-    body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:700;">${ct.days}</td>`;
+    body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:700;">${rd(ct.days)}</td>`;
     body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:700;">${formatNum(ct.earned)}</td>`;
     body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#69F0AE;font-weight:700;">${formatNum(ct.paid)}</td>`;
   });
-  body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:800;">${grandDays}</td>`;
+  body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:800;">${rd(grandDays)}</td>`;
   body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#FFD54F;font-weight:800;">${formatNum(grandEarned)}</td>`;
   body += `<td style="${tdBase}background:${PDF_COLORS.navy};color:#69F0AE;font-weight:800;">${formatNum(grandPaid)}</td>`;
   body += `</tr></tfoot>`;

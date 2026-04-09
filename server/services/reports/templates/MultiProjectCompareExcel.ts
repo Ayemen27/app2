@@ -143,6 +143,8 @@ export async function generateMultiProjectCompareExcel(data: MultiProjectFinalRe
   }
 
   // ─── بناء pivot: كل عامل → بياناته لكل مشروع ────────────────────────────────
+  const rd = (n: number) => Math.round(n * 100) / 100;
+
   interface ProjData { days: number; earned: number; paid: number }
   interface WorkerPivot { name: string; type: string; projects: Record<string, ProjData>; totalDays: number; totalEarned: number; totalPaid: number }
 
@@ -188,7 +190,7 @@ export async function generateMultiProjectCompareExcel(data: MultiProjectFinalRe
       if (!colTotals[pid]) colTotals[pid] = { days: 0, earned: 0, paid: 0 };
 
       if (pd) {
-        styleData(ws.getCell(row, startCol), pd.days, { bg, color: COLORS.navy });
+        styleData(ws.getCell(row, startCol), rd(pd.days), { bg, color: COLORS.navy });
         styleData(ws.getCell(row, startCol + 1), formatNum(pd.earned), { bg, color: COLORS.amber });
         styleData(ws.getCell(row, startCol + 2), formatNum(pd.paid), { bg, color: COLORS.green });
         colTotals[pid].days += pd.days;
@@ -203,7 +205,7 @@ export async function generateMultiProjectCompareExcel(data: MultiProjectFinalRe
 
     // إجمالي العامل
     const totalStart = 3 + N * 3;
-    styleData(ws.getCell(row, totalStart), w.totalDays, { bg: COLORS.totalBg, bold: true, color: COLORS.navy });
+    styleData(ws.getCell(row, totalStart), rd(w.totalDays), { bg: COLORS.totalBg, bold: true, color: COLORS.navy });
     styleData(ws.getCell(row, totalStart + 1), formatNum(w.totalEarned), { bg: COLORS.totalBg, bold: true, color: COLORS.amber });
     styleData(ws.getCell(row, totalStart + 2), formatNum(w.totalPaid), { bg: COLORS.totalBg, bold: true, color: COLORS.green });
 
@@ -225,13 +227,13 @@ export async function generateMultiProjectCompareExcel(data: MultiProjectFinalRe
       const pid = String(projects[p].projectId);
       const ct = colTotals[pid] || { days: 0, earned: 0, paid: 0 };
       const startCol = 3 + p * 3;
-      styleData(ws.getCell(row, startCol), ct.days, { bg: COLORS.grandTotalBg, bold: true, color: COLORS.white });
+      styleData(ws.getCell(row, startCol), rd(ct.days), { bg: COLORS.grandTotalBg, bold: true, color: COLORS.white });
       styleData(ws.getCell(row, startCol + 1), formatNum(ct.earned), { bg: COLORS.grandTotalBg, bold: true, color: 'FFFFD54F' });
       styleData(ws.getCell(row, startCol + 2), formatNum(ct.paid), { bg: COLORS.grandTotalBg, bold: true, color: 'FF69F0AE' });
     }
 
     const totalStart = 3 + N * 3;
-    styleData(ws.getCell(row, totalStart), grandDays, { bg: COLORS.grandTotalBg, bold: true, color: COLORS.white });
+    styleData(ws.getCell(row, totalStart), rd(grandDays), { bg: COLORS.grandTotalBg, bold: true, color: COLORS.white });
     styleData(ws.getCell(row, totalStart + 1), formatNum(grandEarned), { bg: COLORS.grandTotalBg, bold: true, color: 'FFFFD54F' });
     styleData(ws.getCell(row, totalStart + 2), formatNum(grandPaid), { bg: COLORS.grandTotalBg, bold: true, color: 'FF69F0AE' });
     row++;

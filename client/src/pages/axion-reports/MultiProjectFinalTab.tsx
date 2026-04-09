@@ -139,12 +139,13 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
 
   const pieData = useMemo(() => {
     if (!multiReport?.combinedTotals) return [];
+    const paidWages = multiReport.combinedTotals.totalPaidWages ?? multiReport.combinedTotals.totalWages;
     return [
-      { name: "الأجور", value: multiReport.combinedTotals.totalWages || 0 },
+      { name: "أجور العمال المدفوعة", value: paidWages || 0 },
+      { name: "حوالات العمال", value: multiReport.combinedTotals.totalWorkerTransfers || 0 },
       { name: "المواد", value: multiReport.combinedTotals.totalMaterials || 0 },
       { name: "النقل", value: multiReport.combinedTotals.totalTransport || 0 },
       { name: "متنوعة", value: multiReport.combinedTotals.totalMisc || 0 },
-      { name: "تحويلات عمال", value: multiReport.combinedTotals.totalWorkerTransfers || 0 },
     ].filter((d) => d.value > 0);
   }, [multiReport]);
 
@@ -278,7 +279,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                     <div className="text-center p-3 rounded-md bg-blue-50 dark:bg-blue-950/30" data-testid={`stat-income-${proj.projectId}`}><p className="text-xs text-muted-foreground">الوارد</p><p className="font-bold text-sm mt-1 text-blue-600 dark:text-blue-400">{formatCurrency(proj.totals.totalIncome)}</p></div>
                     <div className="text-center p-3 rounded-md bg-red-50 dark:bg-red-950/30" data-testid={`stat-expenses-${proj.projectId}`}><p className="text-xs text-muted-foreground">المصروفات</p><p className="font-bold text-sm mt-1 text-red-600 dark:text-red-400">{formatCurrency(proj.totals.totalExpenses)}</p></div>
                     <div className="text-center p-3 rounded-md bg-green-50 dark:bg-green-950/30" data-testid={`stat-balance-${proj.projectId}`}><p className="text-xs text-muted-foreground">الرصيد</p><p className="font-bold text-sm mt-1 text-green-600 dark:text-green-400">{formatCurrency(proj.totals.balance)}</p></div>
-                    <div className="text-center p-3 rounded-md bg-muted/30" data-testid={`stat-wages-${proj.projectId}`}><p className="text-xs text-muted-foreground">الأجور</p><p className="font-bold text-sm mt-1">{formatCurrency(proj.totals.totalWages)}</p></div>
+                    <div className="text-center p-3 rounded-md bg-muted/30" data-testid={`stat-wages-${proj.projectId}`}><p className="text-xs text-muted-foreground">أجور مدفوعة</p><p className="font-bold text-sm mt-1">{formatCurrency(proj.totals.totalPaidWages ?? proj.totals.totalWages)}</p></div>
                   </div>
                 </CardContent>
               </Card>
@@ -290,7 +291,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                 <CardContent>
                   <ReportTable testId="table-multi-attendance"
                     headers={[
-                      "اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي",
+                      "اسم العامل", "المشروع", "النوع", "الأيام", "المستحق", "أجور مدفوعة", "حوالات", "إجمالي المدفوع", "المتبقي",
                       ...(hasRebalance ? ["التصفية البينية"] : []),
                       "المتبقي الصافي",
                     ]}
@@ -300,9 +301,9 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                       w.workerType,
                       w.totalDays,
                       formatCurrency(w.totalEarned),
-                      formatCurrency(w.totalDirectPaid ?? w.totalPaid),
+                      formatCurrency(w.totalDirectPaid ?? 0),
                       formatCurrency(w.totalTransfers ?? 0),
-                      formatCurrency(w.totalPaid),
+                      formatCurrency(w.totalPaid ?? (w.totalDirectPaid ?? 0) + (w.totalTransfers ?? 0)),
                       formatCurrency(w.balance ?? 0),
                       ...(hasRebalance ? [formatCurrency(w.rebalanceDelta ?? 0)] : []),
                       formatCurrency(w.adjustedBalance ?? w.balance ?? 0),
@@ -424,7 +425,7 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
                   <div className="text-center p-3 rounded-md bg-blue-50 dark:bg-blue-950/30" data-testid="stat-combined-fund-transfers"><p className="text-xs text-muted-foreground">العهدة</p><p className="font-bold text-sm mt-1 text-blue-600 dark:text-blue-400">{formatCurrency(multiReport.combinedTotals.totalFundTransfers)}</p></div>
                   <div className="text-center p-3 rounded-md bg-green-50 dark:bg-green-950/30" data-testid="stat-combined-transfers-in"><p className="text-xs text-muted-foreground">ترحيل وارد</p><p className="font-bold text-sm mt-1 text-green-600 dark:text-green-400">{formatCurrency(multiReport.combinedTotals.totalProjectTransfersIn)}</p></div>
                   <div className="text-center p-3 rounded-md bg-orange-50 dark:bg-orange-950/30" data-testid="stat-combined-transfers-out"><p className="text-xs text-muted-foreground">ترحيل صادر</p><p className="font-bold text-sm mt-1 text-orange-600 dark:text-orange-400">{formatCurrency(multiReport.combinedTotals.totalProjectTransfersOut)}</p></div>
-                  <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-wages"><p className="text-xs text-muted-foreground">الأجور</p><p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalWages)}</p></div>
+                  <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-wages"><p className="text-xs text-muted-foreground">أجور مدفوعة</p><p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalPaidWages ?? multiReport.combinedTotals.totalWages)}</p></div>
                   <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-materials"><p className="text-xs text-muted-foreground">المواد</p><p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalMaterials)}</p></div>
                   <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-transport"><p className="text-xs text-muted-foreground">النقل</p><p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalTransport)}</p></div>
                   <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-misc"><p className="text-xs text-muted-foreground">النثريات</p><p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalMisc)}</p></div>

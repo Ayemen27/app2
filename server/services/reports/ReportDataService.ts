@@ -1355,6 +1355,7 @@ export class ReportDataService {
         totalIncome: totalFundTransfersAmount + totalProjectTransfersIn,
         totalExpenses,
         totalWages,
+        totalPaidWages,
         totalMaterials: totalMaterialsAmount,
         totalTransport: transportTotal,
         totalMisc: miscTotal,
@@ -1465,6 +1466,7 @@ export class ReportDataService {
     const combinedProjectTransfersOut = projectReports.reduce((s, r) => s + r.totals.totalProjectTransfersOut, 0);
     const combinedIncome = combinedFundTransfers + combinedProjectTransfersIn;
     const combinedWages = projectReports.reduce((s, r) => s + r.totals.totalWages, 0);
+    const combinedPaidWages = projectReports.reduce((s, r) => s + (r.totals.totalPaidWages ?? r.totals.totalWages), 0);
     const combinedMaterials = projectReports.reduce((s, r) => s + r.totals.totalMaterials, 0);
     const combinedTransport = projectReports.reduce((s, r) => s + r.totals.totalTransport, 0);
     const combinedMisc = projectReports.reduce((s, r) => s + r.totals.totalMisc, 0);
@@ -1549,6 +1551,7 @@ export class ReportDataService {
         totalProjectTransfersOut: combinedProjectTransfersOut,
         totalExpenses: combinedExpenses,
         totalWages: combinedWages,
+        totalPaidWages: combinedPaidWages,
         totalMaterials: combinedMaterials,
         totalTransport: combinedTransport,
         totalMisc: combinedMisc,

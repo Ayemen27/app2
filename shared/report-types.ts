@@ -291,6 +291,7 @@ export interface PeriodFinalReportData {
     totalIncome: number;
     totalExpenses: number;
     totalWages: number;
+    totalPaidWages?: number;
     totalMaterials: number;
     totalTransport: number;
     totalMisc: number;
@@ -362,6 +363,7 @@ export interface MultiProjectFinalReportData {
     totalProjectTransfersOut: number;
     totalExpenses: number;
     totalWages: number;
+    totalPaidWages?: number;
     totalMaterials: number;
     totalTransport: number;
     totalMisc: number;

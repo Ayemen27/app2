@@ -54,7 +54,7 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
       if (dailyReport && onStatsReady) {
         onStatsReady([
           { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
-          { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+          { title: "أجور مدفوعة", value: dailyReport.totals?.totalPaidWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
           { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
           { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
           { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
@@ -310,7 +310,13 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
                   const fund = (r.fundTransfers || []).reduce((s: number, f: any) => s + parseFloat(f.amount || '0'), 0);
                   let exp = 0;
                   (r.attendance || []).forEach((a: any) => { exp += parseFloat(a.paidAmount || '0'); });
-                  (r.materials || []).forEach((m: any) => { exp += parseFloat(m.totalAmount || '0'); });
+                  (r.materials || []).forEach((m: any) => {
+                    const isNaqd = m.purchaseType === 'نقد' || m.purchaseType === 'نقداً';
+                    if (isNaqd) {
+                      const paid = parseFloat(m.paidAmount || '0');
+                      exp += paid > 0 ? paid : parseFloat(m.totalAmount || '0');
+                    }
+                  });
                   (r.transport || []).forEach((t: any) => { exp += parseFloat(t.amount || '0'); });
                   (r.miscExpenses || []).forEach((e: any) => { exp += parseFloat(e.amount || '0'); });
                   (r.workerTransfers || []).forEach((wt: any) => { exp += parseFloat(wt.amount || '0'); });

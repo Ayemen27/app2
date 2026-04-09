@@ -122,12 +122,13 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
 
   const pieData = useMemo(() => {
     if (!periodReport?.totals) return [];
+    const paidWages = periodReport.totals.totalPaidWages ?? periodReport.totals.totalWages;
     return [
-      { name: "الأجور", value: periodReport.totals.totalWages || 0 },
+      { name: "أجور العمال المدفوعة", value: paidWages || 0 },
+      { name: "حوالات العمال", value: periodReport.totals.totalWorkerTransfers || 0 },
       { name: "المواد", value: periodReport.totals.totalMaterials || 0 },
       { name: "النقل", value: periodReport.totals.totalTransport || 0 },
       { name: "متنوعة", value: periodReport.totals.totalMisc || 0 },
-      { name: "تحويلات عمال", value: periodReport.totals.totalWorkerTransfers || 0 },
     ].filter((d) => d.value > 0);
   }, [periodReport]);
 
@@ -222,8 +223,8 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2"><CardTitle className="text-base">ملخص الحضور</CardTitle><Badge variant="secondary">{filteredWorkers.length} عامل</Badge></CardHeader>
                 <CardContent>
-                  <ReportTable testId="table-period-attendance" headers={["اسم العامل", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي"]}
-                    rows={filteredWorkers.map((w: any) => [w.workerName, w.workerType, w.totalDays, formatCurrency(w.totalEarned), formatCurrency(w.totalDirectPaid ?? w.totalPaid), formatCurrency(w.totalTransfers ?? 0), formatCurrency(w.totalPaid), formatCurrency(w.balance ?? 0)])} />
+                  <ReportTable testId="table-period-attendance" headers={["اسم العامل", "النوع", "الأيام", "المستحق", "أجور مدفوعة", "حوالات", "إجمالي المدفوع", "المتبقي"]}
+                    rows={filteredWorkers.map((w: any) => [w.workerName, w.workerType, w.totalDays, formatCurrency(w.totalEarned), formatCurrency(w.totalDirectPaid ?? 0), formatCurrency(w.totalTransfers ?? 0), formatCurrency(w.totalPaid ?? (w.totalDirectPaid ?? 0) + (w.totalTransfers ?? 0)), formatCurrency(w.balance ?? 0)])} />
                 </CardContent>
               </Card>
             )}

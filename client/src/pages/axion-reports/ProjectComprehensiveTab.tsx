@@ -124,11 +124,11 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
   const pieData = useMemo(() => {
     if (!report?.totals) return [];
     return [
-      { name: "الأجور", value: report.totals.totalWages || 0 },
+      { name: "أجور العمال المدفوعة", value: report.totals.totalWages || 0 },
+      { name: "حوالات العمال", value: report.totals.totalWorkerTransfers || 0 },
       { name: "المواد", value: report.totals.totalMaterials || 0 },
       { name: "النقل", value: report.totals.totalTransport || 0 },
       { name: "متنوعة", value: report.totals.totalMisc || 0 },
-      { name: "تحويلات عمال", value: report.totals.totalWorkerTransfers || 0 },
     ].filter((d) => d.value > 0);
   }, [report]);
 
@@ -187,11 +187,11 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
               <CardContent>
                 <div className="space-y-3" data-testid="expense-summary-comprehensive">
                   {[
-                    { label: "أجور العمال", value: report.totals.totalWages, color: "#2563eb" },
+                    { label: "أجور العمال المدفوعة", value: report.totals.totalWages, color: "#2563eb" },
+                    { label: "حوالات العمال", value: report.totals.totalWorkerTransfers, color: "#8b5cf6" },
                     { label: "مشتريات المواد", value: report.totals.totalMaterials, color: "#10b981" },
                     { label: "مصاريف النقل", value: report.totals.totalTransport, color: "#f59e0b" },
                     { label: "مصاريف متنوعة", value: report.totals.totalMisc, color: "#ef4444" },
-                    { label: "حوالات العمال", value: report.totals.totalWorkerTransfers, color: "#8b5cf6" },
                   ].filter((item) => item.value > 0).map((item) => {
                     const pct = report.totals.totalExpenses > 0 ? (item.value / report.totals.totalExpenses * 100) : 0;
                     return (

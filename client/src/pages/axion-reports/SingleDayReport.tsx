@@ -21,6 +21,16 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
   const filteredFundTransfers = (report.fundTransfers || []).filter((r: any) =>
     !q || [r.senderName, r.transferType, r.transferNumber].some((v: string) => v?.toLowerCase().includes(q))
   );
+
+  const attTotalWage = filteredAttendance.reduce((s: number, r: any) => s + parseFloat(r.totalWage || '0'), 0);
+  const attTotalPaid = filteredAttendance.reduce((s: number, r: any) => s + parseFloat(r.paidAmount || '0'), 0);
+  const attTotalRemaining = filteredAttendance.reduce((s: number, r: any) => s + parseFloat(r.remainingAmount || '0'), 0);
+
+  const matTotal = filteredMaterials.reduce((s: number, r: any) => s + parseFloat(r.totalAmount || '0'), 0);
+  const transTotal = filteredTransport.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
+  const miscTotal = filteredMisc.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
+  const fundTotal = filteredFundTransfers.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
+
   return (
     <>
       <Card>
@@ -36,6 +46,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
               i + 1, r.workerName, r.workerType, r.workDays, formatCurrency(r.dailyWage),
               formatCurrency(r.totalWage), formatCurrency(r.paidAmount), formatCurrency(r.remainingAmount), r.workDescription || "-",
             ])}
+            totalsRow={filteredAttendance.length > 1 ? ["الإجمالي", null, null, null, null, formatCurrency(attTotalWage), formatCurrency(attTotalPaid), formatCurrency(attTotalRemaining), null] : undefined}
           />
         </CardContent>
       </Card>
@@ -53,6 +64,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
               i + 1, r.materialName, r.category || "-", r.quantity, r.unit || "-",
               formatCurrency(r.unitPrice), formatCurrency(r.totalAmount), r.supplierName || "-",
             ])}
+            totalsRow={filteredMaterials.length > 1 ? ["الإجمالي", null, null, null, null, null, formatCurrency(matTotal), null] : undefined}
           />
         </CardContent>
       </Card>
@@ -69,6 +81,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
             rows={filteredTransport.map((r: any, i: number) => [
               i + 1, formatCurrency(r.amount), r.description || "-", r.workerName || "-",
             ])}
+            totalsRow={filteredTransport.length > 1 ? ["الإجمالي", formatCurrency(transTotal), null, null] : undefined}
           />
         </CardContent>
       </Card>
@@ -85,6 +98,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
             rows={filteredMisc.map((r: any, i: number) => [
               i + 1, formatCurrency(r.amount), r.description || "-", r.notes || "-",
             ])}
+            totalsRow={filteredMisc.length > 1 ? ["الإجمالي", formatCurrency(miscTotal), null, null] : undefined}
           />
         </CardContent>
       </Card>
@@ -102,6 +116,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
               rows={filteredFundTransfers.map((r: any, i: number) => [
                 i + 1, formatCurrency(r.amount), r.senderName || "-", r.transferType || "-", r.transferNumber || "-",
               ])}
+              totalsRow={filteredFundTransfers.length > 1 ? ["الإجمالي", formatCurrency(fundTotal), null, null, null] : undefined}
             />
           </CardContent>
         </Card>

@@ -127,11 +127,13 @@ export function ReportTable({
   rows,
   testId,
   rowClassNames,
+  totalsRow,
 }: {
   headers: string[];
   rows: (string | number)[][];
   testId: string;
   rowClassNames?: (string | undefined)[];
+  totalsRow?: (string | number | null)[];
 }) {
   if (!rows || rows.length === 0) {
     return <EmptyState message="لا توجد بيانات لعرضها" />;
@@ -161,6 +163,15 @@ export function ReportTable({
               ))}
             </tr>
           ))}
+          {totalsRow && (
+            <tr className="bg-muted/60 font-bold border-t-2 border-border">
+              {totalsRow.map((cell, j) => (
+                <td key={j} className="p-3 whitespace-nowrap">
+                  {cell ?? ""}
+                </td>
+              ))}
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

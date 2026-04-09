@@ -123,6 +123,7 @@ intelligentMonitor.initialize().catch(() => {});
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const DailySummariesAdmin = lazy(() => import("./pages/daily-summaries-admin"));
 
 function WorkerMiscExpensesPage() {
   const { selectedProjectId, isWellsProject } = useSelectedProject();
@@ -400,6 +401,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <SecurityPoliciesPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/daily-summaries">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <DailySummariesAdmin />
           </Suspense>
         </AdminRoute>
       </Route>

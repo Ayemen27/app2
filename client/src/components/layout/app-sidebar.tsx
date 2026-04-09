@@ -2,7 +2,7 @@ import {
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
   ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
-  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText, FileSpreadsheet, FileUp
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText, FileSpreadsheet, FileUp, CalendarDays
 } from "lucide-react";
 import { 
   Sidebar,
@@ -102,6 +102,7 @@ const sections: SidebarSection[] = [
     adminOnly: true,
     items: [
       { title: "لوحة القيادة", icon: BarChart3, url: "/admin/dashboard" },
+      { title: "الملخصات اليومية", icon: CalendarDays, url: "/admin/daily-summaries" },
       { title: "إدارة المستخدمين", icon: Users, url: "/users-management" },
       { title: "إدارة الصلاحيات", icon: KeyRound, url: "/admin/permissions" },
       { title: "إدارة النظام", icon: Settings, url: "/admin/system" },

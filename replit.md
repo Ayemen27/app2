@@ -235,6 +235,7 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 - **Memory leak verification:** Confirmed all 15 `setInterval` usages and all event listeners have proper cleanup/`clearInterval` in React `useEffect` return functions — no leaks found
 - **Auth verification:** Confirmed `requireAuth` middleware applied at router level in `workerRoutes.ts` (line 421) and `financialRoutes.ts` — all protected routes enforced correctly
 - **Financial transaction integrity:** Verified all financial write operations use `withTransaction` wrapper — no unprotected financial mutations found
+- **Daily Summaries Admin Page:** Added `/admin/daily-summaries` — admin-only page for managing `daily_expense_summaries` table. Features: filter by project via top-bar project selector, display summaries table (date, carried forward, income, wages, materials, transport, total expenses, balance), stats strip (total count, total income, total expenses, project count/last balance). Delete button (with confirmation dialog) deletes summaries for selected project or all projects + clears `summary_invalidations`. Rebuild button (with confirmation dialog) calls `SummaryRebuildService.rebuildProjectSummaries()` per project. Backend: `server/routes/modules/dailySummariesRoutes.ts` — GET/DELETE `/api/daily-summaries` + POST `/api/daily-summaries/rebuild`. Registered in `server/routes/modules/index.ts`. Sidebar entry under "الإدارة والأمان" section. Header pageInfo entry added.
 
 ### Remaining Phases (Planned)
 

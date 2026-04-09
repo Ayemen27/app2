@@ -53,6 +53,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/local-db': { title: 'إدارة قاعدة البيانات المحلية', icon: Database },
   '/admin/sync': { title: 'إدارة المزامنة', icon: RefreshCw },
   '/admin/dashboard': { title: 'لوحة القيادة الإدارية', icon: BarChart3 },
+  '/admin/daily-summaries': { title: 'إدارة الملخصات اليومية', icon: FileText },
   '/admin/monitoring': { title: 'نظام الرصد المركزي', icon: Activity },
   '/admin/system': { title: 'لوحة إدارة النظام المركزية', icon: Settings },
   '/whatsapp-setup': { title: 'ربط الواتساب', icon: MessageSquare },

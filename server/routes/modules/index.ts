@@ -40,6 +40,7 @@ import inventoryRouter from './inventoryRoutes.js';
 import centralLogRouter from './centralLogRoutes.js';
 import waImportRouter from './waImportRoutes.js';
 import smartErrorRouter from './smartErrorRoutes.js';
+import dailySummariesRouter from './dailySummariesRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -191,6 +192,9 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/central-logs', centralLogRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات بنك السجلات المركزي: /api/central-logs');
 
+  app.use('/api/daily-summaries', dailySummariesRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الملخصات اليومية: /api/daily-summaries');
+
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);
   app.use('/api/worker-transfer-numbers', autocompleteRouter);
@@ -242,6 +246,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'recordTransferRoutes',
   'settlementRoutes',
   'centralLogRoutes',
+  'dailySummariesRoutes',
 ]);
 
 export async function checkForUnregisteredRouters() {

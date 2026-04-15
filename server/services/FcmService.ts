@@ -30,9 +30,9 @@ export class FcmService {
       if (envKey) {
         try {
           serviceAccountJson = JSON.parse(envKey);
-          console.log("🔑 [FCM] تم قراءة Service Account من متغير البيئة");
-        } catch {
-          console.error("❌ [FCM] خطأ في تحليل FIREBASE_SERVICE_ACCOUNT_KEY JSON");
+          console.log("🔑 [FCM] تم قراءة Service Account من متغير البيئة FIREBASE_SERVICE_ACCOUNT_KEY");
+        } catch (e: any) {
+          console.error(`❌ [FCM] خطأ في تحليل FIREBASE_SERVICE_ACCOUNT_KEY JSON: ${e.message}`);
         }
       }
 
@@ -46,8 +46,10 @@ export class FcmService {
             serviceAccountJson = JSON.parse(content);
             console.log(`🔑 [FCM] تم قراءة Service Account من الملف: ${keyPath}`);
           } catch (e: any) {
-            console.error(`❌ [FCM] خطأ في قراءة ملف Service Account: ${e.message}`);
+            console.error(`❌ [FCM] خطأ في قراءة/تحليل ملف Service Account (${keyPath}): ${e.message}`);
           }
+        } else {
+          console.debug("ℹ️ [FCM] FIREBASE_SERVICE_ACCOUNT_PATH غير معرّف - سيتم تخطيه");
         }
       }
 
@@ -73,7 +75,10 @@ export class FcmService {
         }
       } else {
         console.warn("⚠️ [FCM] لم يتم تعيين FIREBASE_SERVICE_ACCOUNT_KEY أو FIREBASE_SERVICE_ACCOUNT_PATH - الإشعارات معطلة");
-        console.warn("⚠️ [FCM] لتفعيل الإشعارات: احصل على Service Account Key من Firebase Console للمشروع:", process.env.VITE_FIREBASE_PROJECT_ID || 'app2-eb4df');
+        console.warn("⚠️ [FCM] الخيارات المتاحة:");
+        console.warn("  1. تعيين FIREBASE_SERVICE_ACCOUNT_KEY كمتغير بيئة JSON");
+        console.warn("  2. تعيين FIREBASE_SERVICE_ACCOUNT_PATH كمسار ملف JSON");
+        console.warn(`⚠️ [FCM] لتفعيل الإشعارات: احصل على Service Account Key من Firebase Console للمشروع: ${process.env.VITE_FIREBASE_PROJECT_ID || 'app2-eb4df'}`);
         this.isInitialized = false;
       }
     } catch (error) {

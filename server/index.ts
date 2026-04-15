@@ -36,8 +36,10 @@ import { setupAdvancedErrorTracking } from './middleware/error-tracking';
 import { healthMonitor } from './services/HealthMonitor';
 import { FcmService } from "./services/FcmService";
 
-// تهيئة الخدمات الخارجية
-FcmService.initialize();
+// تهيئة الخدمات الخارجية - استدعاء غير متزامن
+FcmService.initialize().catch((error: any) => {
+  console.error('❌ [Startup] خطأ في تهيئة Firebase:', error.message);
+});
 
 const SENSITIVE_FIELDS = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'jwt', 'auth_token', 'api_key', 'apiKey', 'authorization', 'currentPassword', 'newPassword', 'confirmPassword'];
 

@@ -2819,8 +2819,8 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         FROM project_fund_transfers 
         WHERE to_project_id = $1 
           AND transfer_date IS NOT NULL AND transfer_date != ''
-          AND transfer_date >= COALESCE($2, '1900-01-01')
-          AND transfer_date <= $3
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
           AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
       ),
       all_expenses AS (
@@ -2828,8 +2828,8 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         FROM worker_attendance 
         WHERE project_id = $1 
           AND attendance_date IS NOT NULL AND attendance_date != ''
-          AND attendance_date >= COALESCE($2, '1900-01-01')
-          AND attendance_date <= $3
+          AND attendance_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND attendance_date::date <= $3::date
           AND safe_numeric(paid_amount::text, 0) > 0
         UNION ALL
         SELECT 
@@ -2841,44 +2841,44 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         WHERE project_id = $1 
           AND (purchase_type = 'نقد' OR purchase_type = 'نقداً')
           AND purchase_date IS NOT NULL AND purchase_date != ''
-          AND purchase_date >= COALESCE($2, '1900-01-01')
-          AND purchase_date <= $3
+          AND purchase_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND purchase_date::date <= $3::date
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM transportation_expenses 
         WHERE project_id = $1 
           AND date IS NOT NULL AND date != ''
-          AND date >= COALESCE($2, '1900-01-01')
-          AND date <= $3
+          AND date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND date::date <= $3::date
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_transfers 
         WHERE project_id = $1 
           AND transfer_date IS NOT NULL AND transfer_date != ''
-          AND transfer_date >= COALESCE($2, '1900-01-01')
-          AND transfer_date <= $3
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_misc_expenses 
         WHERE project_id = $1 
           AND date IS NOT NULL AND date != ''
-          AND date >= COALESCE($2, '1900-01-01')
-          AND date <= $3
+          AND date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND date::date <= $3::date
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 
         WHERE from_project_id = $1 
           AND transfer_date IS NOT NULL AND transfer_date != ''
-          AND transfer_date >= COALESCE($2, '1900-01-01')
-          AND transfer_date <= $3
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
           AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
         UNION ALL
         SELECT safe_numeric(amount::text, 0) as amount
         FROM supplier_payments 
         WHERE project_id = $1 
           AND payment_date IS NOT NULL AND payment_date != ''
-          AND payment_date >= COALESCE($2, '1900-01-01')
-          AND payment_date <= $3
+          AND payment_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND payment_date::date <= $3::date
       )
       SELECT 
         COALESCE((SELECT SUM(amount) FROM all_income), 0) as total_income,

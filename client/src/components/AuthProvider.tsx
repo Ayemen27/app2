@@ -248,6 +248,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Proactive token refresh mechanism - check every 5 minutes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkAndRefreshToken = async () => {
+      try {
+        const token = getAccessToken();
+        if (!token) return;
+
+        // Import token utilities
+        const { isTokenExpired } = await import('../lib/token-utils');
+        
+        // Check if token will expire within 10 minutes
+        const expiringIn10Minutes = isTokenExpired(token, 10 * 60); // 10 minutes buffer
+        
+        if (expiringIn10Minutes) {
+          if (import.meta.env.DEV) {
+            console.log('[AuthProvider] Token expiring soon, attempting proactive refresh');
+          }
+          await refreshToken();
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[AuthProvider] Error checking token expiry:', error);
+        }
+      }
+    };
+
+    // Run check immediately on authentication
+    checkAndRefreshToken();
+
+    // Set interval to check every 5 minutes (300 seconds)
+    const intervalId = setInterval(checkAndRefreshToken, 5 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (!user) return;
 

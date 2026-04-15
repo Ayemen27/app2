@@ -39,6 +39,7 @@ import { generateMultiProjectCompareExcel } from '../../services/reports/templat
 import { generateMultiProjectCompareHTML } from '../../services/reports/templates/MultiProjectComparePDF';
 import { generateProjectComprehensiveExcel } from '../../services/reports/templates/ProjectComprehensiveExcel';
 import { generateProjectComprehensiveHTML } from '../../services/reports/templates/ProjectComprehensivePDF';
+import { convertHtmlToPdf } from '../../services/reports/HtmlToPdfService';
 import { safeErrorMessage } from '../../middleware/api-response';
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
@@ -1318,15 +1319,18 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
       }
       const data = await reportDataService.getDailyReport(project_id as string, date as string);
+      const dailyFileBase = encodeURIComponent(`التقرير-اليومي-${data.project?.name || 'مشروع'}-${date}`);
       if (format === 'xlsx') {
         const buffer = await generateDailyReportExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="daily-report-${safeFileName(date as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${dailyFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateDailyReportHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${dailyFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1344,16 +1348,18 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         accessibleProjectIds: accessibleIds,
         isAdmin: isAdminUser
       });
+      const safeWorkerName = encodeURIComponent(data.worker?.name || 'عامل');
       if (format === 'xlsx') {
         const buffer = await generateWorkerStatementExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        const safeWorkerName = encodeURIComponent(data.worker?.name || 'worker');
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''worker-statement-${safeWorkerName}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateWorkerStatementHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('كشف-حساب-عامل-' + (data.worker?.name || 'عامل'))}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1385,15 +1391,19 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         } catch { /* skip */ }
       }
 
+      const rangeProjectName = allReports[0]?.project?.name || 'مشروع';
+      const rangeFileBase = encodeURIComponent(`التقارير-اليومية-${rangeProjectName}-${dateFrom}-${dateTo}`);
       if (format === 'xlsx') {
         const buffer = await generateDailyRangeExcel(allReports);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="daily-range-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${rangeFileBase}.xlsx`);
         return res.send(buffer);
       } else {
         const html = generateDailyRangeHTML(allReports, dateFrom as string, dateTo as string);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${rangeFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1405,15 +1415,18 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
       }
       const data = await reportDataService.getPeriodFinalReport(project_id as string, dateFrom as string, dateTo as string);
+      const periodFileBase = encodeURIComponent(`التقرير-الختامي-${(data as any).projectName || 'مشروع'}-${dateFrom}-${dateTo}`);
       if (format === 'xlsx') {
         const buffer = await generatePeriodFinalExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="period-report-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${periodFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generatePeriodFinalHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${periodFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1433,15 +1446,19 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         }
       }
       const data = await reportDataService.getMultiProjectFinalReport(ids, dateFrom as string, dateTo as string);
+      const multiProjectNames = ((data as any).projectNames || ids).slice(0, 2).join('-');
+      const multiFinalFileBase = encodeURIComponent(`تقرير-متعدد-المشاريع-${multiProjectNames}-${dateFrom}-${dateTo}`);
       if (format === 'xlsx') {
         const buffer = await generateMultiProjectFinalExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="multi-project-report-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${multiFinalFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateMultiProjectFinalHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${multiFinalFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1461,15 +1478,19 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         }
       }
       const data = await reportDataService.getMultiProjectFinalReport(ids, dateFrom as string, dateTo as string);
+      const compareProjectNames = ((data as any).projectNames || ids).slice(0, 2).join('-');
+      const compareFileBase = encodeURIComponent(`مقارنة-المشاريع-${compareProjectNames}-${dateFrom}-${dateTo}`);
       if (format === 'xlsx') {
         const buffer = await generateMultiProjectCompareExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="multi-compare-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${compareFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateMultiProjectCompareHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${compareFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 
@@ -1500,15 +1521,19 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       if (format === 'json') {
         return res.json({ success: true, data });
       }
+      const compProjName = (data as any).project?.name || (data as any).projectName || 'مشروع';
+      const compFileBase = encodeURIComponent(`التقرير-الشامل-${compProjName}-${dfStr}-${dtStr}`);
       if (format === 'xlsx') {
         const buffer = await generateProjectComprehensiveExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="project-comprehensive-${safeFileName(dateFrom as string)}-${safeFileName(dateTo as string)}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${compFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateProjectComprehensiveHTML(data);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${compFileBase}.pdf`);
+        return res.send(pdfBuffer);
       }
     }
 

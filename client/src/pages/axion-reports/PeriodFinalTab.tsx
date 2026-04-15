@@ -102,12 +102,21 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     }
   }, [periodReport, onStatsReady]);
 
-  const handleExport = (fmt: "xlsx" | "pdf") => {
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExport = async (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    secureDownloadExport("period-final", fmt, { project_id: projectIdForApi, dateFrom, dateTo }, toast);
+    const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
+    setLoading(true);
+    try {
+      await secureDownloadExport("period-final", fmt, { project_id: projectIdForApi, dateFrom, dateTo }, toast);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterConfig: FilterConfig[] = [{ key: "dateRange", label: "الفترة الزمنية", type: "date-range" }];
@@ -116,8 +125,8 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     if (key === "dateRange" && val) setDateRange((prev) => ({ ...prev, ...val }));
   };
   const exportActions: ActionButton[] = [
-    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: !projectIdForApi },
-    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !projectIdForApi },
+    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: !projectIdForApi || isExportingXlsx || isExportingPdf, loading: isExportingXlsx },
+    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !projectIdForApi || isExportingPdf || isExportingXlsx, loading: isExportingPdf },
   ];
 
   const pieData = useMemo(() => {

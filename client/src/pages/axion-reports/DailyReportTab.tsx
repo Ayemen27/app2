@@ -32,6 +32,8 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
   const [isLoadingRange, setIsLoadingRange] = useState(false);
   const [rangeDates, setRangeDates] = useState<string[]>([]);
   const [lastFetchedKey, setLastFetchedKey] = useState("");
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -147,19 +149,25 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     }
   }, [dateRange.from, dateRange.to, projectIdForApi, fetchRangeReports]);
 
-  const handleExport = (fmt: "xlsx" | "pdf") => {
+  const handleExport = async (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    if (isRangeMode && dateRange.from && dateRange.to) {
-      secureDownloadExport("daily-range", fmt, {
-        project_id: projectIdForApi,
-        dateFrom: format(dateRange.from, "yyyy-MM-dd"),
-        dateTo: format(dateRange.to, "yyyy-MM-dd"),
-      }, toast);
-    } else {
-      secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
+    const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
+    setLoading(true);
+    try {
+      if (isRangeMode && dateRange.from && dateRange.to) {
+        await secureDownloadExport("daily-range", fmt, {
+          project_id: projectIdForApi,
+          dateFrom: format(dateRange.from, "yyyy-MM-dd"),
+          dateTo: format(dateRange.to, "yyyy-MM-dd"),
+        }, toast);
+      } else {
+        await secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -196,8 +204,22 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
   };
 
   const exportActions: ActionButton[] = [
-    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: !projectIdForApi },
-    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !projectIdForApi },
+    {
+      key: "export-excel",
+      icon: FileSpreadsheet,
+      tooltip: "تصدير Excel",
+      onClick: () => handleExport("xlsx"),
+      disabled: !projectIdForApi || isExportingXlsx || isExportingPdf,
+      loading: isExportingXlsx,
+    },
+    {
+      key: "export-pdf",
+      icon: FileText,
+      tooltip: "تصدير PDF",
+      onClick: () => handleExport("pdf"),
+      disabled: !projectIdForApi || isExportingPdf || isExportingXlsx,
+      loading: isExportingPdf,
+    },
   ];
 
   const prevDate = () => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); };

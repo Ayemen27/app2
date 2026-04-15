@@ -16,7 +16,7 @@ import {
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet';
-import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid } from 'lucide-react';
+import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FilterDatePicker, FilterDateRangePicker } from '@/components/ui/filter-date-pickers';
 import { DatePickerField } from '@/components/ui/date-picker-field';
@@ -423,22 +423,27 @@ export function SearchToolbar({
                       variant={action.variant || 'ghost'}
                       size="icon"
                       className={cn(
-                        'h-8 w-8 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200',
-                        action.loading && 'bg-primary/10 text-primary',
-                        action.variant === 'default' && 'bg-primary/10 text-primary'
+                        'h-8 w-8 rounded-lg transition-all duration-200 relative overflow-hidden',
+                        action.loading
+                          ? 'bg-primary text-primary-foreground shadow-md scale-95 cursor-not-allowed'
+                          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                        action.variant === 'default' && !action.loading && 'bg-primary/10 text-primary'
                       )}
                       onClick={action.onClick}
                       disabled={action.disabled || action.loading}
                     >
-                      <Icon className={cn(
-                        'h-4 w-4 transition-transform duration-200',
-                        action.loading && 'animate-spin'
-                      )} />
+                      {action.loading && (
+                        <span className="absolute inset-0 rounded-lg animate-pulse bg-primary/20" />
+                      )}
+                      {action.loading
+                        ? <Loader2 className="h-4 w-4 animate-spin relative z-10" />
+                        : <Icon className="h-4 w-4 transition-transform duration-200" />
+                      }
                     </Button>
                   </TooltipTrigger>
                   {action.tooltip && (
                     <TooltipContent side="bottom" className="text-xs">
-                      <p>{action.loading ? 'جاري التحديث...' : action.tooltip}</p>
+                      <p>{action.loading ? 'جاري التصدير...' : action.tooltip}</p>
                     </TooltipContent>
                   )}
                 </Tooltip>

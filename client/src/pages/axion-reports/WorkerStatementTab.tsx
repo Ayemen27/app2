@@ -100,7 +100,10 @@ export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: an
     }
   }, [workerStatement, workerLoading, selectedWorkerId, onStatsReady]);
 
-  const handleExport = (fmt: "xlsx" | "pdf") => {
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExport = async (fmt: "xlsx" | "pdf") => {
     if (!selectedWorkerId) {
       toast({ title: "تنبيه", description: "الرجاء اختيار عامل أولاً", variant: "destructive" });
       return;
@@ -109,12 +112,18 @@ export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: an
     if (workerProjectScope) exportParams.project_id = workerProjectScope;
     if (filterValues.dateRange?.from) exportParams.dateFrom = format(new Date(filterValues.dateRange.from), "yyyy-MM-dd");
     if (filterValues.dateRange?.to) exportParams.dateTo = format(new Date(filterValues.dateRange.to), "yyyy-MM-dd");
-    secureDownloadExport("worker-statement", fmt, exportParams, toast);
+    const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
+    setLoading(true);
+    try {
+      await secureDownloadExport("worker-statement", fmt, exportParams, toast);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportActions: ActionButton[] = [
-    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: !selectedWorkerId },
-    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !selectedWorkerId },
+    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: !selectedWorkerId || isExportingXlsx || isExportingPdf, loading: isExportingXlsx },
+    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: !selectedWorkerId || isExportingPdf || isExportingXlsx, loading: isExportingPdf },
   ];
 
   return (

@@ -14,10 +14,33 @@ function findChromiumPath(): string | undefined {
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-131.0.6778.204/bin/chromium',
+    '/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome',
   ];
 
   for (const p of candidates) {
     if (p && existsSync(p)) return p;
+  }
+
+  try {
+    const { readdirSync } = require('fs');
+    const nixStore = '/nix/store';
+    const entries = readdirSync(nixStore);
+    for (const entry of entries) {
+      if (entry.includes('playwright-browsers-chromium')) {
+        const chromePath = `${nixStore}/${entry}/chromium-1080/chrome-linux/chrome`;
+        if (existsSync(chromePath)) return chromePath;
+      }
+      if (entry.includes('chromium') && !entry.includes('.drv') && !entry.includes('patch') && !entry.includes('dict') && !entry.includes('bsu') && !entry.includes('codecs') && !entry.includes('sandbox')) {
+        const candidates2 = [
+          `${nixStore}/${entry}/bin/chromium`,
+          `${nixStore}/${entry}/bin/chromium-browser`,
+        ];
+        for (const c of candidates2) {
+          if (existsSync(c)) return c;
+        }
+      }
+    }
+  } catch {
   }
 
   return undefined;

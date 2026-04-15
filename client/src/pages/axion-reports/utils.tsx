@@ -20,7 +20,7 @@ export function buildExportUrl(type: string, fmt: string, params: Record<string,
   return `/api/reports/v2/export/${type}?${searchParams.toString()}`;
 }
 
-export async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any) {
+export async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any): Promise<void> {
   const url = buildExportUrl(type, fmt, params);
   let phase = 'fetch';
   try {

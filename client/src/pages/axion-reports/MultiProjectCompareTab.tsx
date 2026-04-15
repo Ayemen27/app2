@@ -206,12 +206,21 @@ export function MultiProjectCompareTab({ onStatsReady }: { onStatsReady?: (stats
   const toggleProject = (id: string) =>
     setSelectedProjectIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const handleExport = (fmt: "xlsx" | "pdf") => {
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExport = async (fmt: "xlsx" | "pdf") => {
     if (selectedProjectIds.length < 2) {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروعين على الأقل", variant: "destructive" });
       return;
     }
-    secureDownloadExport("multi-project-compare", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
+    const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
+    setLoading(true);
+    try {
+      await secureDownloadExport("multi-project-compare", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterConfig: FilterConfig[] = [{ key: "dateRange", label: "الفترة الزمنية", type: "date-range" }];
@@ -220,8 +229,8 @@ export function MultiProjectCompareTab({ onStatsReady }: { onStatsReady?: (stats
     if (key === "dateRange" && val) setDateRange((prev) => ({ ...prev, ...val }));
   };
   const exportActions: ActionButton[] = [
-    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: selectedProjectIds.length < 2 },
-    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: selectedProjectIds.length < 2 },
+    { key: "export-excel", icon: FileSpreadsheet, tooltip: "تصدير Excel", onClick: () => handleExport("xlsx"), disabled: selectedProjectIds.length < 2 || isExportingXlsx || isExportingPdf, loading: isExportingXlsx },
+    { key: "export-pdf", icon: FileText, tooltip: "تصدير PDF", onClick: () => handleExport("pdf"), disabled: selectedProjectIds.length < 2 || isExportingPdf || isExportingXlsx, loading: isExportingPdf },
   ];
 
   const q = searchValue.trim().toLowerCase();

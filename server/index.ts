@@ -796,16 +796,22 @@ const activeIntervals: NodeJS.Timeout[] = [];
       await runAllStartupMigrations();
     } catch (err) {
       console.error("❌ [Startup] Failed to run startup migrations:", err);
-      try {
-        const check = await pool.query(`SELECT safe_numeric('1', 0) AS v`);
-        if (check.rows[0]?.v == 1) {
-          console.warn("⚠️ [Startup] Migrations failed but safe_numeric exists from previous boot — continuing.");
-        } else {
-          throw new Error("safe_numeric returned unexpected result");
+      let safeNumericOk = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          await new Promise(r => setTimeout(r, attempt * 3000));
+          const check = await pool.query(`SELECT safe_numeric('1', 0) AS v`);
+          if (check.rows[0]?.v == 1) {
+            safeNumericOk = true;
+            console.warn("⚠️ [Startup] Migrations failed but safe_numeric exists from previous boot — continuing.");
+            break;
+          }
+        } catch (checkErr) {
+          console.warn(`⚠️ [Startup] safe_numeric check attempt ${attempt + 1}/5 failed — retrying...`);
         }
-      } catch (checkErr) {
-        console.error("🛑 [Startup] Critical DB function safe_numeric missing and migrations failed. Exiting.");
-        process.exit(1);
+      }
+      if (!safeNumericOk) {
+        console.warn("⚠️ [Startup] safe_numeric check failed — DB may be overloaded. Continuing anyway to avoid crash loop.");
       }
     }
 

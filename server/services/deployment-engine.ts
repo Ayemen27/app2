@@ -2908,20 +2908,24 @@ export class DeploymentEngine {
     this.updateStepProgress(deploymentId, "gradle-build", 5, "فحص Gradle Wrapper...");
     const remoteDir = "/home/administrator/AXION";
 
+    // استخدام اتصال SSH مباشر جديد (بدون mux) لتجنب مشكلة الـ socket الفاسد بعد build-server
+    const freshSsh = this.buildSSHCommand(null);
+    await this.addLog(deploymentId, "🔗 إنشاء اتصال SSH مباشر لخطوة Gradle...", "info");
+
     let gradlewCheck = "";
     for (let gwAttempt = 0; gwAttempt < 3; gwAttempt++) {
       try {
         gradlewCheck = await this.execWithLog(
           deploymentId,
-          `${sshCmd} 'cd ${remoteDir}/android && test -f gradlew && echo GRADLEW_EXISTS || echo GRADLEW_MISSING'`,
+          `${freshSsh} 'cd ${remoteDir}/android && test -f gradlew && echo GRADLEW_EXISTS || echo GRADLEW_MISSING'`,
           "Gradle Wrapper Check",
-          15000
+          20000
         );
         if (gradlewCheck.includes("GRADLEW_EXISTS") || gradlewCheck.includes("GRADLEW_MISSING")) break;
       } catch (gwErr: any) {
         if (gwAttempt < 2) {
           await this.addLog(deploymentId, `⚠️ Gradle wrapper check SSH error (${gwAttempt + 1}/3), retrying...`, "warn");
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, 5000));
         } else throw gwErr;
       }
     }
@@ -2930,7 +2934,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ gradlew مفقود — جاري الإنشاء التلقائي...", "warn");
       const fixGradlew = await this.execWithLog(
         deploymentId,
-        `${sshCmd} 'cd ${remoteDir}/android && gradle wrapper --gradle-version 8.11.1 2>&1 | tail -5 && chmod +x gradlew && echo GRADLEW_CREATED || echo GRADLEW_FAILED'`,
+        `${freshSsh} 'cd ${remoteDir}/android && gradle wrapper --gradle-version 8.11.1 2>&1 | tail -5 && chmod +x gradlew && echo GRADLEW_CREATED || echo GRADLEW_FAILED'`,
         "Gradle Wrapper Create",
         60000
       );
@@ -2946,7 +2950,7 @@ export class DeploymentEngine {
       try {
         const keystoreCheck = await this.execWithLog(
           deploymentId,
-          `${sshCmd} "if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo 'KEYSTORE_FILE_OK'; else for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_COPIED' && break; fi; done; fi; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS' || echo 'KEYSTORE_MISSING'"`,
+          `${freshSsh} "if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo 'KEYSTORE_FILE_OK'; else for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_COPIED' && break; fi; done; fi; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS' || echo 'KEYSTORE_MISSING'"`,
           "Keystore Check",
           15000
         );
@@ -2979,7 +2983,7 @@ export class DeploymentEngine {
         try {
           const wsResult = await this.execWithLog(
             deploymentId,
-            `${sshCmd} "printf '%s' '${safePass}' > /tmp/.ks_pass && printf '%s' '${safeKeyPass}' > /tmp/.ks_key_pass && chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
+            `${freshSsh} "printf '%s' '${safePass}' > /tmp/.ks_pass && printf '%s' '${safeKeyPass}' > /tmp/.ks_key_pass && chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
             "Write Signing Secrets",
             30000
           );
@@ -3003,7 +3007,7 @@ export class DeploymentEngine {
     try {
       await this.execWithLog(
         deploymentId,
-        `${sshCmd} "cd ${remoteDir}/android && ` +
+        `${freshSsh} "cd ${remoteDir}/android && ` +
           `sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 26/' variables.gradle 2>/dev/null; ` +
           `sed -i 's/minSdk [0-9]*/minSdk 26/' app/build.gradle 2>/dev/null; ` +
           `grep -q 'onSaveInstanceState' app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || ` +
@@ -3045,10 +3049,7 @@ export class DeploymentEngine {
 
     const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
 
-    const getActiveSshCmd = (attempt: number): string => {
-      if (attempt === 0) return this.buildSSHCommand(this.sshMuxSockets.get(deploymentId) ?? null);
-      return this.buildSSHCommand(null);
-    };
+    const getActiveSshCmd = (_attempt: number): string => freshSsh;
 
     for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
       try {

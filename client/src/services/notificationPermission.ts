@@ -2,6 +2,8 @@ import { ENV } from "@/lib/env";
 import { authFetch } from '@/lib/auth-token-store';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { initializeNativePush } from './capacitorPush';
+
 const PERM_LAST_ASKED_KEY = 'push_permission_last_asked_at';
 const PERM_DENIED_COUNT_KEY = 'push_permission_denied_count';
 const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -9,8 +11,6 @@ const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 type PermissionState = 'granted' | 'prompt' | 'denied' | 'cooldown';
 
 let resumeListenerRegistered = false;
-let pushListenersRegistered = false;
-let pushRegistered = false;
 
 async function getPermissionState(): Promise<PermissionState> {
   if (!Capacitor.isNativePlatform()) return 'denied';
@@ -39,7 +39,7 @@ async function requestNotificationPermission(): Promise<boolean> {
     const state = await getPermissionState();
 
     if (state === 'granted') {
-      await registerPush();
+      await initializeNativePush('');
       return true;
     }
 
@@ -51,7 +51,7 @@ async function requestNotificationPermission(): Promise<boolean> {
 
       if (result.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
-        await registerPush();
+        await initializeNativePush('');
         return true;
       }
 
@@ -83,43 +83,6 @@ function shouldShowSettingsPrompt(): boolean {
   return getDeniedCount() >= 2;
 }
 
-async function registerPush() {
-  try {
-    if (!pushListenersRegistered) {
-      pushListenersRegistered = true;
-
-      await PushNotifications.addListener('registration', async (token) => {
-        try {
-          await authFetch(ENV.getApiUrl('/api/push/token'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-request-nonce': crypto.randomUUID(),
-              'x-request-timestamp': new Date().toISOString(),
-            },
-            body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
-          });
-        } catch {}
-      });
-
-      await PushNotifications.addListener('registrationError', (err) => {
-      });
-
-      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      });
-
-      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      });
-    }
-
-    if (!pushRegistered) {
-      pushRegistered = true;
-      await PushNotifications.register();
-    }
-  } catch (err) {
-  }
-}
-
 async function registerResumeListener() {
   if (resumeListenerRegistered) return;
   if (!Capacitor.isNativePlatform()) return;
@@ -134,7 +97,7 @@ async function registerResumeListener() {
       const status = await PushNotifications.checkPermissions();
       if (status.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
-        await registerPush();
+        await initializeNativePush('');
       }
     } catch {}
   });

@@ -29,10 +29,24 @@ function isDarkMode(): boolean {
     window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
+export async function getStatusBarHeight(): Promise<number> {
+  if (!await loadPlugin()) return 0;
+  try {
+    const info = await StatusBarPlugin.getInfo();
+    // Return a default height if we can't get it, or use the info if available in future versions
+    // For now, most Android status bars are around 24dp-32dp
+    return 24; 
+  } catch (e) {
+    return 0;
+  }
+}
+
 export async function setStatusBarForPage(page: 'login' | 'app' | 'dark') {
   if (!await loadPlugin()) return;
   try {
     const dark = isDarkMode();
+    const overlay = false;
+    
     switch (page) {
       case 'login':
         if (dark) {
@@ -57,7 +71,15 @@ export async function setStatusBarForPage(page: 'login' | 'app' | 'dark') {
         await StatusBarPlugin.setStyle({ style: StyleEnum.Dark });
         break;
     }
-    await StatusBarPlugin.setOverlaysWebView({ overlay: false });
+    
+    await StatusBarPlugin.setOverlaysWebView({ overlay });
+    
+    // Apply padding to document body to prevent overlap when not overlaying
+    if (!overlay) {
+      document.body.style.paddingTop = 'env(safe-area-inset-top)';
+    } else {
+      document.body.style.paddingTop = '0px';
+    }
   } catch (e) {
   }
 }
@@ -65,8 +87,16 @@ export async function setStatusBarForPage(page: 'login' | 'app' | 'dark') {
 export async function initStatusBar() {
   if (!await loadPlugin()) return;
   try {
-    await StatusBarPlugin.setOverlaysWebView({ overlay: false });
+    const overlay = false;
+    await StatusBarPlugin.setOverlaysWebView({ overlay });
     await StatusBarPlugin.show();
+    
+    // Apply padding to document body to prevent overlap when not overlaying
+    if (!overlay) {
+      document.body.style.paddingTop = 'env(safe-area-inset-top)';
+    } else {
+      document.body.style.paddingTop = '0px';
+    }
   } catch (e) {
   }
 }

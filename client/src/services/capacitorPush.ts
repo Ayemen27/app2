@@ -42,6 +42,17 @@ export const initializeNativePush = async (_user_id: string) => {
   }
 
   try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.createChannel({
+      id: 'default',
+      name: 'الإشعارات العامة',
+      description: 'الإشعارات الرئيسية لتطبيق AXION',
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+      sound: 'default',
+    });
+
     let permStatus: PermissionStatus = await PushNotifications.checkPermissions();
 
     if (permStatus.receive === 'prompt') {
@@ -56,7 +67,7 @@ export const initializeNativePush = async (_user_id: string) => {
 
     // Listeners
     await PushNotifications.addListener('registration', async (token: Token) => {
-      
+      console.log('[Push] Registered with token:', token.value);
       // Save token to backend
       try {
         await authFetch(ENV.getApiUrl('/api/push/token'), {
@@ -65,16 +76,38 @@ export const initializeNativePush = async (_user_id: string) => {
           body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
         });
       } catch (err) {
+        console.error('[Push] Failed to save token to backend:', err);
       }
     });
 
     await PushNotifications.addListener('registrationError', (err: any) => {
+      console.error('[Push] FCM registration error:', err);
     });
 
-    await PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
+    await PushNotifications.addListener('pushNotificationReceived', async (notification: any) => {
+      console.log('[Push] Notification received:', notification);
+      
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: notification.title || 'إشعار جديد',
+              body: notification.body || '',
+              id: Math.floor(Math.random() * 10000),
+              schedule: { at: new Date(Date.now() + 100) },
+              extra: notification.data,
+              channelId: 'default'
+            }
+          ]
+        });
+      } catch (err) {
+        console.error('[Push] Error showing local notification:', err);
+      }
     });
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (notification: any) => {
+      console.log('[Push] Notification action performed:', notification);
     });
 
   } catch (error) {

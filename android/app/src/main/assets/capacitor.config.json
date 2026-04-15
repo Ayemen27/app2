@@ -1,0 +1,41 @@
+{
+	"appId": "com.axion.app",
+	"appName": "AXION",
+	"webDir": "www",
+	"bundledWebRuntime": false,
+	"android": {
+		"allowMixedContent": true
+	},
+	"server": {
+		"androidScheme": "https",
+		"hostname": "localhost",
+		"allowNavigation": [
+			"https://axion.binarjoinanalytic.info",
+			"*.binarjoinanalytic.info"
+		],
+		"cleartext": true
+	},
+	"plugins": {
+		"NativeBiometric": {
+			"faceIdReason": "تسجيل الدخول بالبصمة"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		},
+		"LocalNotifications": {
+			"smallIcon": "ic_notification",
+			"iconColor": "#2563EB",
+			"sound": "default"
+		},
+		"CapacitorHttp": {
+			"enabled": true
+		},
+		"CapacitorCookies": {
+			"enabled": true
+		}
+	}
+}

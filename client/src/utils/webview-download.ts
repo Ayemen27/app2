@@ -102,15 +102,26 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-let _debugMode = false;
+let _debugMode = true; // Enabled by default for better troubleshooting as per T002
 export function enableDownloadDebug(enable: boolean = true) {
   _debugMode = enable;
 }
 
+const lastErrors: Record<string, string> = {};
+
 function debugLog(method: string, status: string, detail?: string) {
   const msg = `[DL] ${method}: ${status}${detail ? ' - ' + detail : ''}`;
-  if (_debugMode) {
-    try { alert(msg); } catch {}
+  console.log(msg);
+  if (status === 'ERROR' || status === 'UPLOAD_FAILED' || status === 'SKIP') {
+    lastErrors[method] = detail || status;
+  }
+  if (_debugMode && (status === 'ERROR' || status === 'UPLOAD_FAILED')) {
+    // Only alert on actual failures in debug mode to avoid annoying the user during normal operation
+    // but keep console logs for everything
+    try { 
+      // Use toast instead of alert if possible, but alert is more reliable in broken WebViews
+      console.warn(`Download Error in ${method}: ${detail}`);
+    } catch {}
   }
 }
 
@@ -129,11 +140,18 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
 
     debugLog('FileSharer', 'START', `${sanitizedName} (${blob.size} bytes)`);
 
-    await FileSharer.share({
+    // Add 10s timeout as per T002
+    const sharePromise = FileSharer.share({
       filename: sanitizedName,
       contentType: contentType,
       base64Data: base64Data,
     });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT: FileSharer took too long (10s)')), 10000)
+    );
+
+    await Promise.race([sharePromise, timeoutPromise]);
 
     debugLog('FileSharer', 'OK');
     return true;
@@ -158,6 +176,21 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
     if (!Filesystem || !Share) {
       debugLog('CapFS+Share', 'SKIP', 'plugins not available');
       return false;
+    }
+
+    // Check permissions explicitly as per T002
+    try {
+      const status = await Filesystem.checkPermissions();
+      if (status.publicStorage !== 'granted') {
+        debugLog('CapFS', 'PERMISSION_REQUEST');
+        const req = await Filesystem.requestPermissions();
+        if (req.publicStorage !== 'granted') {
+          debugLog('CapFS', 'ERROR', 'Storage permission denied');
+          // We can still try writing to Cache directory as it usually doesn't need publicStorage permission
+        }
+      }
+    } catch (e) {
+      debugLog('CapFS', 'PERMISSION_ERROR', String(e));
     }
 
     const base64Data = await blobToBase64(blob);
@@ -310,76 +343,101 @@ export async function downloadFile(
     throw new Error('الملف فارغ - لم يتم إنشاء التقرير بشكل صحيح');
   }
 
-  const tried: string[] = [];
+  // Clear previous errors for this session
+  Object.keys(lastErrors).forEach(key => delete lastErrors[key]);
 
   if (onCapacitor) {
-    tried.push('FileSharer');
     try {
       const r = await tryFileSharer(blob, fileName, type);
-      if (r) {
-        return true;
-      }
+      if (r) return true;
     } catch (e: any) {
+      debugLog('FileSharer', 'ERROR', String(e?.message || e));
     }
 
-    tried.push('CapFS+Share');
     try {
       const r = await tryCapacitorFsShare(blob, fileName, type);
-      if (r) {
-        return true;
-      }
+      if (r) return true;
     } catch (e: any) {
+      debugLog('CapFS+Share', 'ERROR', String(e?.message || e));
     }
   }
 
   if (hasAndroidBridge()) {
-    tried.push('AndroidBridge');
     try {
       const base64 = await blobToBase64(blob);
       if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); return true; }
       if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); return true; }
       if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); return true; }
-    } catch (e) {}
+    } catch (e: any) {
+      debugLog('AndroidBridge', 'ERROR', String(e?.message || e));
+    }
   }
 
   if (hasIOSBridge()) {
-    tried.push('iOSBridge');
     try {
       const base64 = await blobToBase64(blob);
       window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType: type });
       return true;
-    } catch (e) {}
+    } catch (e: any) {
+      debugLog('iOSBridge', 'ERROR', String(e?.message || e));
+    }
   }
 
   if (onMobile || onMobileDevice) {
-    tried.push('WebShare');
     try {
       const r = await tryWebShareAPI(blob, fileName, type);
-      if (r) {
-        return true;
-      }
+      if (r) return true;
     } catch (e: any) {
+      debugLog('WebShare', 'ERROR', String(e?.message || e));
     }
   }
 
   if (onMobile) {
-    tried.push('ServerProxy');
     try {
       const r = await tryServerProxyDownload(blob, fileName, type);
-      if (r) {
-        return true;
-      }
+      if (r) return true;
     } catch (e: any) {
+      debugLog('ServerProxy', 'ERROR', String(e?.message || e));
     }
   }
 
-  tried.push('BrowserDownload');
-  const browserResult = downloadForBrowser(blob, fileName);
-  if (browserResult) {
-    return true;
+  try {
+    const browserResult = downloadForBrowser(blob, fileName);
+    if (browserResult) return true;
+  } catch (e: any) {
+    debugLog('BrowserDownload', 'ERROR', String(e?.message || e));
   }
 
-  throw new Error('فشل تحميل الملف - جرّب متصفح آخر أو تحقق من إعدادات التحميل');
+  // Construct a detailed error message as per T002
+  const errorDetails = Object.entries(lastErrors)
+    .map(([method, err]) => `• ${method}: ${err}`)
+    .join('\n');
+
+  const detailedMsg = `فشل تصدير الملف بعدة محاولات:\n${errorDetails}\n\nيرجى التحقق من صلاحيات التطبيق أو تجربة متصفح آخر.`;
+  
+  console.error('Download Failed:', lastErrors);
+  throw new Error(detailedMsg);
+}
+
+export function exportDiagnostics() {
+  const capabilities = getDownloadCapabilities();
+  const ua = navigator.userAgent;
+  
+  return {
+    timestamp: new Date().toISOString(),
+    capabilities,
+    userAgent: ua,
+    platform: Capacitor.getPlatform(),
+    isNative: isCapacitorNative(),
+    lastSessionErrors: { ...lastErrors },
+    checks: {
+      hasAndroidBridge: hasAndroidBridge(),
+      hasIOSBridge: hasIOSBridge(),
+      hasShareAPI: hasShareAPI(),
+      windowAndroid: !!window.Android,
+      windowWebkit: !!window.webkit,
+    }
+  };
 }
 
 export async function downloadExcelFile(buffer: ArrayBuffer | Buffer, fileName: string): Promise<boolean> {

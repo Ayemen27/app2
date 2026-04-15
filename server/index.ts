@@ -41,6 +41,11 @@ FcmService.initialize().catch((error: any) => {
   console.error('❌ [Startup] خطأ في تهيئة Firebase:', error.message);
 });
 
+import { initializeEmailService } from './services/email-service.js';
+initializeEmailService().catch((error: any) => {
+  console.error('❌ [Startup] خطأ في تهيئة خدمة البريد الإلكتروني:', error.message);
+});
+
 const SENSITIVE_FIELDS = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'jwt', 'auth_token', 'api_key', 'apiKey', 'authorization', 'currentPassword', 'newPassword', 'confirmPassword'];
 
 function sanitizeLogData(data: any): any {

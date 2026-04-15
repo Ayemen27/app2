@@ -14,7 +14,7 @@ import { projectTypeRouter } from './projectTypeRoutes.js';
 import wellRouter from './wellRoutes.js';
 import wellExpenseRouter from './wellExpenseRoutes.js';
 import whatsappAIRoutes from './whatsappAIRoutes.js';
-// import sshRoutes from './sshRoutes'; // معطل مؤقتاً بسبب مشكلة ssh2
+import sshRouter from './sshRoutes.js';
 import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
@@ -194,6 +194,10 @@ export function registerOrganizedRoutes(app: Express) {
 
   app.use('/api/daily-summaries', dailySummariesRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الملخصات اليومية: /api/daily-summaries');
+
+  // مسارات إدارة SSH (بدون مكتبة خارجية - يستخدم أدوات النظام)
+  app.use('/api/ssh', sshRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات SSH: /api/ssh');
 
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);

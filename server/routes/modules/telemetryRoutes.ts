@@ -78,8 +78,48 @@ telemetryRouter.get("/monitoring/stats", requireAuth, requireAdmin(), async (_re
   }
 });
 
-telemetryRouter.post("/v1/traces", async (_req: Request, res: Response) => {
-  res.status(202).json({ status: "disabled", message: "OTLP proxy is currently disabled" });
+telemetryRouter.post("/v1/traces", async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+    const traceCount = Array.isArray(payload?.resourceSpans) ? payload.resourceSpans.length : 0;
+    console.log(`[OTLP] استقبال ${traceCount} resource span(s)`);
+    res.status(202).json({ success: true, message: "تم استقبال traces بنجاح", received: traceCount });
+  } catch (e: unknown) {
+    res.status(400).json({ success: false, error: getErrorMessage(e) });
+  }
+});
+
+telemetryRouter.get("/metrics", requireAuth, requireAdmin(), async (_req: Request, res: Response) => {
+  try {
+    const devicesList = await storage.getDevices();
+    const recentCrashes = await storage.getRecentCrashes(100);
+    const deviceCount = devicesList.length;
+    const crashCount = recentCrashes.length;
+
+    const platformStats = devicesList.reduce((acc: Record<string, number>, d: any) => {
+      const p = d.platform || 'unknown';
+      acc[p] = (acc[p] || 0) + 1;
+      return acc;
+    }, {});
+
+    const now = Date.now();
+    const last24h = recentCrashes.filter((c: any) => {
+      const ts = new Date(c.timestamp).getTime();
+      return now - ts < 86400000;
+    }).length;
+
+    res.json({
+      success: true,
+      data: {
+        devices: { total: deviceCount, byPlatform: platformStats },
+        crashes: { total: crashCount, last24h },
+        crashRate: deviceCount > 0 ? ((crashCount / deviceCount) * 100).toFixed(2) : '0.00',
+        generatedAt: new Date().toISOString()
+      }
+    });
+  } catch (e: unknown) {
+    res.status(500).json({ success: false, error: getErrorMessage(e) });
+  }
 });
 
 export default telemetryRouter;

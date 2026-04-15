@@ -3044,25 +3044,33 @@ export class DeploymentEngine {
     const scriptB64 = Buffer.from(scriptLines).toString("base64");
 
     const sshEnv = { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' };
+
+    const getActiveSshCmd = (attempt: number): string => {
+      if (attempt === 0) return this.buildSSHCommand(this.sshMuxSockets.get(deploymentId) ?? null);
+      return this.buildSSHCommand(null);
+    };
+
     for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
       try {
+        const activeSsh = getActiveSshCmd(launchAttempt);
         await execAsync(
-          `${sshCmd} "echo '${scriptB64}' | base64 -d > ${scriptPath} && chmod +x ${scriptPath}"`,
-          { timeout: 15000, env: sshEnv }
+          `${activeSsh} "echo '${scriptB64}' | base64 -d > ${scriptPath} && chmod +x ${scriptPath}"`,
+          { timeout: 20000, env: sshEnv }
         );
         break;
       } catch (uploadErr: any) {
         if (launchAttempt < 2) {
           await this.addLog(deploymentId, `⚠️ فشل رفع سكريبت Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, 5000));
         } else throw uploadErr;
       }
     }
     for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
       try {
+        const activeSsh = getActiveSshCmd(launchAttempt);
         const launchResult = await execAsync(
-          `${sshCmd} "if [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo ALREADY_RUNNING; else rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo LAUNCHED_\\$PID; fi"`,
-          { timeout: 15000, env: sshEnv }
+          `${activeSsh} "if [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo ALREADY_RUNNING; else rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo LAUNCHED_\\$PID; fi"`,
+          { timeout: 20000, env: sshEnv }
         );
         const out = launchResult.stdout?.toString().trim() || "";
         if (out.includes("ALREADY_RUNNING")) {
@@ -3072,7 +3080,7 @@ export class DeploymentEngine {
       } catch (launchErr: any) {
         if (launchAttempt < 2) {
           await this.addLog(deploymentId, `⚠️ فشل إطلاق Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
-          await new Promise(r => setTimeout(r, 5000));
+          await new Promise(r => setTimeout(r, 6000));
         } else throw launchErr;
       }
     }
@@ -3082,56 +3090,82 @@ export class DeploymentEngine {
     const maxWaitMs = 900000;
     const pollInterval = 20000;
     const startTime = Date.now();
+    let gradleDone = false;
 
-    while (Date.now() - startTime < maxWaitMs) {
+    while (!gradleDone && Date.now() - startTime < maxWaitMs) {
       if (this.isCancelled(deploymentId)) throw new CancellationError();
       await new Promise(r => setTimeout(r, pollInterval));
 
-      try {
-        const { stdout } = await execAsync(
-          `${sshCmd} "` +
-          `if [ -f ${gradleExitFile} ]; then EC=\\$(cat ${gradleExitFile}); echo \\"EXIT:\\$EC\\"; tail -5 ${gradleLogFile} 2>/dev/null; ` +
-          `elif [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo 'RUNNING'; tail -1 ${gradleLogFile} 2>/dev/null; ` +
-          `else echo 'LOST'; tail -5 ${gradleLogFile} 2>/dev/null; fi"`,
-          { timeout: 15000, env: this.getSSHExecEnv() }
-        );
+      let gradlePollRetries = 0;
+      const maxGradlePollRetries = 4;
 
-        const raw = stdout.trim();
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
+      while (gradlePollRetries < maxGradlePollRetries) {
+        gradlePollRetries++;
+        try {
+          const activeSsh = getActiveSshCmd(gradlePollRetries - 1);
+          const { stdout } = await execAsync(
+            `${activeSsh} "` +
+            `if [ -f ${gradleExitFile} ]; then EC=\\$(cat ${gradleExitFile}); echo \\"EXIT:\\$EC\\"; tail -5 ${gradleLogFile} 2>/dev/null; ` +
+            `elif [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo 'RUNNING'; tail -1 ${gradleLogFile} 2>/dev/null; ` +
+            `else echo 'LOST'; tail -5 ${gradleLogFile} 2>/dev/null; fi"`,
+            { timeout: 20000, env: this.getSSHExecEnv() }
+          );
 
-        if (raw.startsWith("EXIT:")) {
-          const exitCode = parseInt(raw.split("\n")[0].replace("EXIT:", ""));
-          const lastLines = raw.split("\n").slice(1).join("\n");
-          if (exitCode === 0) {
-            await this.addLog(deploymentId, `✅ اكتمل بناء Gradle بنجاح (${elapsed}s)`, "success");
-            if (lastLines) await this.addLog(deploymentId, `📄 ${lastLines.slice(-200)}`, "info");
-            this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
-            return;
-          } else {
-            const logTail = lastLines || "";
-            throw new Error(`Gradle build failed (exit ${exitCode}): ${logTail.slice(-500)}`);
+          const raw = stdout.trim();
+          const elapsed = Math.round((Date.now() - startTime) / 1000);
+
+          if (raw.startsWith("EXIT:")) {
+            const exitCode = parseInt(raw.split("\n")[0].replace("EXIT:", ""));
+            const lastLines = raw.split("\n").slice(1).join("\n");
+            if (exitCode === 0) {
+              await this.addLog(deploymentId, `✅ اكتمل بناء Gradle بنجاح (${elapsed}s)`, "success");
+              if (lastLines) await this.addLog(deploymentId, `📄 ${lastLines.slice(-200)}`, "info");
+              this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
+              gradleDone = true;
+              break;
+            } else {
+              const logTail = lastLines || "";
+              throw new Error(`Gradle build failed (exit ${exitCode}): ${logTail.slice(-500)}`);
+            }
+          } else if (raw.startsWith("RUNNING")) {
+            const lastLine = raw.split("\n").slice(1).join("").trim();
+            if (lastLine) {
+              await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.slice(-200)}`, "info");
+            }
+            this.updateStepProgress(deploymentId, "gradle-build", Math.min(90, 25 + Math.round(elapsed / 12)), `بناء Gradle... (${elapsed}s)`);
+            break;
+          } else if (raw.startsWith("LOST")) {
+            if (gradlePollRetries < maxGradlePollRetries) {
+              await this.addLog(deploymentId, `⚠️ [${elapsed}s] Gradle لا يستجيب — إعادة فحص (${gradlePollRetries}/${maxGradlePollRetries})...`, "warn");
+              await new Promise(r => setTimeout(r, 8000));
+              continue;
+            }
+            const logTail = raw.split("\n").slice(1).join("\n");
+            throw new Error(`Gradle process lost. Last output: ${logTail.slice(-500)}`);
           }
-        } else if (raw.startsWith("RUNNING")) {
-          const lastLine = raw.split("\n").slice(1).join("").trim();
-          if (lastLine) {
-            await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.slice(-200)}`, "info");
+          break;
+        } catch (pollErr: any) {
+          if (pollErr instanceof CancellationError) throw pollErr;
+          const msg = pollErr.message || "";
+          const isFatal = msg.includes("Gradle build failed") || msg.includes("Gradle process lost");
+          if (isFatal) throw pollErr;
+          const isSSHError = msg.includes("255") || msg.includes("Command failed") || msg.includes("Connection refused") || msg.includes("Connection reset") || msg.includes("Broken pipe") || msg.includes("timed out");
+          if (isSSHError && gradlePollRetries < maxGradlePollRetries) {
+            const elapsed = Math.round((Date.now() - startTime) / 1000);
+            await this.addLog(deploymentId, `⚠️ [${elapsed}s] خطأ SSH مؤقت (محاولة ${gradlePollRetries}/${maxGradlePollRetries})، إعادة الاتصال...`, "warn");
+            await new Promise(r => setTimeout(r, 5000 * gradlePollRetries));
+            continue;
           }
-          this.updateStepProgress(deploymentId, "gradle-build", Math.min(90, 25 + Math.round(elapsed / 12)), `بناء Gradle... (${elapsed}s)`);
-        } else if (raw.startsWith("LOST")) {
-          const logTail = raw.split("\n").slice(1).join("\n");
-          throw new Error(`Gradle process lost. Last output: ${logTail.slice(-500)}`);
+          if (gradlePollRetries >= maxGradlePollRetries) {
+            const elapsed = Math.round((Date.now() - startTime) / 1000);
+            await this.addLog(deploymentId, `⚠️ [${elapsed}s] تعذر مراقبة Gradle — المتابعة في الدورة القادمة...`, "warn");
+          }
+          break;
         }
-      } catch (pollErr: any) {
-        if (pollErr instanceof CancellationError) throw pollErr;
-        const msg = pollErr.message || "";
-        const isSSHError = msg.includes("255") || msg.includes("Command failed: sshpass") || msg.includes("Connection refused") || msg.includes("Connection reset");
-        if (!isSSHError && (msg.includes("Gradle build failed") || msg.includes("Gradle process lost"))) throw pollErr;
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        await this.addLog(deploymentId, `⚠️ [${elapsed}s] خطأ مراقبة مؤقت (SSH)، سيتم إعادة المحاولة...`, "warn");
       }
     }
 
-    throw new Error("⏱️ بناء Gradle تجاوز الحد الزمني (15 دقيقة)");
+    if (!gradleDone) throw new Error("⏱️ بناء Gradle تجاوز الحد الزمني (15 دقيقة)");
   }
 
   // NOTE: هذه الخطوة تنسخ APK من مخرجات Gradle إلى مجلد releases — التوقيع الفعلي يتم عبر Gradle signing config

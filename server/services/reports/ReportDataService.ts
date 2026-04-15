@@ -408,6 +408,8 @@ export class ReportDataService {
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPayments;
     const balance = (totalFundTransfers - settlementRebalanceIncoming) - totalExpenses;
 
+    const finalBalance = carryForwardBalance + (totalFundTransfers - settlementRebalanceIncoming) - totalExpenses;
+
     const kpis: ReportKPI[] = [
       { label: 'إجمالي أجور العمال', value: totalWorkerWages, format: 'currency' },
       { label: 'إجمالي المدفوع', value: totalPaidWages, format: 'currency' },
@@ -417,7 +419,8 @@ export class ReportDataService {
       { label: 'إجمالي الحوالات', value: totalWorkerTransfers, format: 'currency' },
       { label: 'إجمالي تحويلات العهدة', value: totalFundTransfers, format: 'currency' },
       { label: 'إجمالي المصروفات', value: totalExpenses, format: 'currency' },
-      { label: 'الرصيد', value: balance, format: 'currency' },
+      { label: 'الرصيد المرحّل من السابق', value: carryForwardBalance, format: 'currency' },
+      { label: 'الرصيد النهائي', value: finalBalance, format: 'currency' },
       { label: 'عدد العمال', value: attendance.length, format: 'number' },
       { label: 'إجمالي أيام العمل', value: totalWorkDays, format: 'number' },
     ];

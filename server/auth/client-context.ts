@@ -166,6 +166,10 @@ function arePlatformsCompatible(storedPlatform: string, currentPlatform: string,
   if (storedPlatform === 'ios' && currentPlatform === 'web' && currentOsName === 'iOS') return true;
   if (storedPlatform === 'web' && currentPlatform === 'ios' && currentOsName === 'iOS') return true;
 
+  // السماح بالطلبات من Native apps عندما لا يمكن اكتشاف المنصة
+  // يحدث ذلك مع بعض طلبات Capacitor الداخلية (plugins / background sync)
+  if (currentPlatform === 'unknown') return true;
+
   return false;
 }
 

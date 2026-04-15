@@ -14,28 +14,70 @@ export class FcmService {
 
   static async initialize() {
     try {
-      const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-      if (serviceAccountKey) {
+      const { default: admin } = await import('firebase-admin');
+
+      if (admin.apps.length) {
+        this.adminInstance = admin;
+        this.isInitialized = true;
+        console.log("✅ [FCM] Firebase Admin already initialized");
+        return;
+      }
+
+      let serviceAccountJson: object | null = null;
+
+      // المصدر 1: متغير البيئة JSON مباشرة
+      const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (envKey) {
         try {
-          const { default: admin } = await import('firebase-admin');
-          if (!admin.apps.length) {
-            admin.initializeApp({
-              credential: admin.credential.cert(JSON.parse(serviceAccountKey))
-            });
+          serviceAccountJson = JSON.parse(envKey);
+          console.log("🔑 [FCM] تم قراءة Service Account من متغير البيئة");
+        } catch {
+          console.error("❌ [FCM] خطأ في تحليل FIREBASE_SERVICE_ACCOUNT_KEY JSON");
+        }
+      }
+
+      // المصدر 2: مسار ملف JSON (FIREBASE_SERVICE_ACCOUNT_PATH)
+      if (!serviceAccountJson) {
+        const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+        if (keyPath) {
+          try {
+            const { readFileSync } = await import('fs');
+            const content = readFileSync(keyPath, 'utf-8');
+            serviceAccountJson = JSON.parse(content);
+            console.log(`🔑 [FCM] تم قراءة Service Account من الملف: ${keyPath}`);
+          } catch (e: any) {
+            console.error(`❌ [FCM] خطأ في قراءة ملف Service Account: ${e.message}`);
           }
+        }
+      }
+
+      if (serviceAccountJson) {
+        // التحقق من تطابق project_id مع إعدادات Firebase Frontend
+        const expectedProjectId = process.env.VITE_FIREBASE_PROJECT_ID;
+        const keyProjectId = (serviceAccountJson as any).project_id;
+        if (expectedProjectId && keyProjectId && keyProjectId !== expectedProjectId) {
+          console.warn(`⚠️ [FCM] تحذير: project_id في Service Account (${keyProjectId}) لا يتطابق مع VITE_FIREBASE_PROJECT_ID (${expectedProjectId})`);
+          console.warn("⚠️ [FCM] إشعارات FCM للأجهزة ستفشل - تأكد من استخدام مفتاح Firebase الصحيح للمشروع:", expectedProjectId);
+        }
+
+        try {
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccountJson as any)
+          });
           this.adminInstance = admin;
-          console.log("✅ [FCM] Firebase Admin Initialized Successfully");
+          console.log(`✅ [FCM] Firebase Admin تم التهيئة بنجاح (مشروع: ${keyProjectId})`);
           this.isInitialized = true;
         } catch (e: any) {
-          console.error("❌ [FCM] Failed to initialize Firebase Admin:", e.message);
+          console.error("❌ [FCM] فشل تهيئة Firebase Admin:", e.message);
           this.isInitialized = false;
         }
       } else {
-        console.warn("⚠️ [FCM] FIREBASE_SERVICE_ACCOUNT_KEY not found - push notifications disabled");
+        console.warn("⚠️ [FCM] لم يتم تعيين FIREBASE_SERVICE_ACCOUNT_KEY أو FIREBASE_SERVICE_ACCOUNT_PATH - الإشعارات معطلة");
+        console.warn("⚠️ [FCM] لتفعيل الإشعارات: احصل على Service Account Key من Firebase Console للمشروع:", process.env.VITE_FIREBASE_PROJECT_ID || 'app2-eb4df');
         this.isInitialized = false;
       }
     } catch (error) {
-      console.error("❌ [FCM] Error initializing Firebase:", error);
+      console.error("❌ [FCM] خطأ في تهيئة Firebase:", error);
       this.isInitialized = false;
     }
   }

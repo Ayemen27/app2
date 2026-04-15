@@ -64,6 +64,7 @@ function xlMergedTotalsRow(ws: ExcelJS.Worksheet, rowNum: number, cells: { col: 
 
 function xlKpiCards(ws: ExcelJS.Worksheet, rowNum: number, data: DailyReportData, colCount: number): number {
   const carryForward = (data as any).carryForwardBalance ?? 0;
+  const finalBalance = carryForward + data.totals.totalFundTransfers - data.totals.totalExpenses;
 
   const rows = [
     [
@@ -74,49 +75,50 @@ function xlKpiCards(ws: ExcelJS.Worksheet, rowNum: number, data: DailyReportData
     ],
     [
       { label: 'إجمالي المصروفات', value: formatNum(data.totals.totalExpenses) },
-      { label: 'إجمالي تحويلات العهدة', value: formatNum(data.totals.totalFundTransfers) },
+      { label: 'عهدة اليوم (وارد)', value: formatNum(data.totals.totalFundTransfers) },
       { label: 'إجمالي الحوالات', value: formatNum(data.totals.totalWorkerTransfers) },
       { label: 'إجمالي النثريات', value: formatNum(data.totals.totalMiscExpenses) },
     ],
     [
       { label: 'إجمالي أيام العمل', value: String(data.totals.totalWorkDays ?? 0) },
       { label: 'عدد العمال', value: String(data.totals.workerCount ?? 0) },
-      { label: 'الرصيد النهائي', value: formatNum(data.totals.balance) },
-      { label: 'الرصيد السابق', value: formatNum(carryForward) },
+      { label: 'الرصيد المرحّل من السابق', value: formatNum(carryForward) },
+      { label: 'الرصيد النهائي', value: formatNum(finalBalance) },
     ],
   ];
 
   const colWidth = Math.floor(colCount / 4);
 
   for (const cardRow of rows) {
-    const valRowNum = rowNum;
-    const lblRowNum = rowNum + 1;
-    const valRow = ws.getRow(valRowNum);
+    const lblRowNum = rowNum;
+    const valRowNum = rowNum + 1;
     const lblRow = ws.getRow(lblRowNum);
+    const valRow = ws.getRow(valRowNum);
 
     cardRow.forEach((card, i) => {
       const startCol = i * colWidth + 1;
       const endCol = i === 3 ? colCount : startCol + colWidth - 1;
       if (startCol !== endCol) {
-        ws.mergeCells(valRowNum, startCol, valRowNum, endCol);
         ws.mergeCells(lblRowNum, startCol, lblRowNum, endCol);
+        ws.mergeCells(valRowNum, startCol, valRowNum, endCol);
       }
+      const lblCell = lblRow.getCell(startCol);
+      lblCell.value = card.label;
+      lblCell.font = { bold: true, size: 9, color: { argb: COLORS.white }, name: 'Calibri' };
+      lblCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      lblCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      lblCell.border = BORDER;
+
       const valCell = valRow.getCell(startCol);
       valCell.value = card.value;
-      valCell.font = { bold: true, size: 11, color: { argb: COLORS.navy }, name: 'Calibri' };
+      valCell.font = { bold: true, size: 12, color: { argb: COLORS.navy }, name: 'Calibri' };
       valCell.alignment = { horizontal: 'center', vertical: 'middle' };
       valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.gray100 } };
       valCell.border = BORDER;
-
-      const lblCell = lblRow.getCell(startCol);
-      lblCell.value = card.label;
-      lblCell.font = { size: 9, color: { argb: COLORS.gray500 }, name: 'Calibri' };
-      lblCell.alignment = { horizontal: 'center', vertical: 'middle' };
-      lblCell.border = BORDER;
     });
 
-    valRow.height = 26;
     lblRow.height = 20;
+    valRow.height = 28;
     rowNum += 2;
   }
   return rowNum + 1;
@@ -158,86 +160,90 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   row = xlKpiCards(ws, row, data, COL_COUNT);
 
   // ─── 1. سجل الحضور والعمالة ────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'سجل الحضور والعمالة', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'الأجر اليومي', 'المستحق', 'المدفوع', 'المتبقي', 'وصف العمل']);
-  data.attendance.forEach((rec, idx) => {
-    const r = ws.getRow(row);
-    const vals = [
-      idx + 1,
-      rec.workerName,
-      rec.workerType,
-      rec.workDays,
-      formatNum(rec.dailyWage),
-      formatNum(rec.totalWage),
-      formatNum(rec.paidAmount),
-      formatNum(rec.remainingAmount),
-      rec.workDescription,
-    ];
-    vals.forEach((v, i) => {
-      r.getCell(i + 1).value = v;
-      const isTextCol = i === 1 || i === 8;
-      r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
-      r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
-      r.getCell(i + 1).border = BORDER;
-      if (idx % 2 === 1) {
-        r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
-      }
+  if (data.attendance.length > 0) {
+    row = xlSectionHeader(ws, row, 'سجل الحضور والعمالة', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'الأجر اليومي', 'المستحق', 'المدفوع', 'المتبقي', 'وصف العمل']);
+    data.attendance.forEach((rec, idx) => {
+      const r = ws.getRow(row);
+      const vals = [
+        idx + 1,
+        rec.workerName,
+        rec.workerType,
+        rec.workDays,
+        formatNum(rec.dailyWage),
+        formatNum(rec.totalWage),
+        formatNum(rec.paidAmount),
+        formatNum(rec.remainingAmount),
+        rec.workDescription,
+      ];
+      vals.forEach((v, i) => {
+        r.getCell(i + 1).value = v;
+        const isTextCol = i === 1 || i === 8;
+        r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+        r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
+        r.getCell(i + 1).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      });
+      r.height = 24;
+      row++;
     });
-    r.height = 24;
-    row++;
-  });
-  {
-    const r = ws.getRow(row);
-    ws.mergeCells(row, 1, row, 3);
-    r.getCell(1).value = 'الإجمالي';
-    r.getCell(4).value = data.totals.totalWorkDays;
-    r.getCell(6).value = formatNum(data.totals.totalWorkerWages);
-    r.getCell(7).value = formatNum(data.totals.totalPaidWages);
-    r.getCell(8).value = formatNum(data.totals.totalWorkerWages - data.totals.totalPaidWages);
-    for (let c = 1; c <= COL_COUNT; c++) {
-      r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
-      r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
-      r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
-      r.getCell(c).border = BORDER;
+    {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 3);
+      r.getCell(1).value = 'الإجمالي';
+      r.getCell(4).value = data.totals.totalWorkDays;
+      r.getCell(6).value = formatNum(data.totals.totalWorkerWages);
+      r.getCell(7).value = formatNum(data.totals.totalPaidWages);
+      r.getCell(8).value = formatNum(data.totals.totalWorkerWages - data.totals.totalPaidWages);
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        r.getCell(c).border = BORDER;
+      }
+      r.height = 28;
+      row++;
     }
-    r.height = 28;
     row++;
   }
-  row++;
 
   // ─── 2. المواد والمشتريات ──────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'المواد والمشتريات', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الفئة', 'الكمية', 'سعر الوحدة', 'الإجمالي', 'المدفوع', 'المتبقي', 'المورد']);
-  data.materials.forEach((rec, idx) => {
-    const r = ws.getRow(row);
-    const vals = [
-      idx + 1,
-      rec.materialName,
-      rec.category,
-      rec.quantity,
-      formatNum(rec.unitPrice),
-      formatNum(rec.totalAmount),
-      formatNum(rec.paidAmount),
-      formatNum(rec.remainingAmount),
-      rec.supplierName,
-    ];
-    vals.forEach((v, i) => {
-      r.getCell(i + 1).value = v;
-      const isTextCol = i === 1 || i === 2 || i === 8;
-      r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
-      r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
-      r.getCell(i + 1).border = BORDER;
-      if (idx % 2 === 1) {
-        r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
-      }
+  if (data.materials.length > 0) {
+    row = xlSectionHeader(ws, row, 'المواد والمشتريات', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الفئة', 'الكمية', 'سعر الوحدة', 'الإجمالي', 'المدفوع', 'المتبقي', 'المورد']);
+    data.materials.forEach((rec, idx) => {
+      const r = ws.getRow(row);
+      const vals = [
+        idx + 1,
+        rec.materialName,
+        rec.category,
+        rec.quantity,
+        formatNum(rec.unitPrice),
+        formatNum(rec.totalAmount),
+        formatNum(rec.paidAmount),
+        formatNum(rec.remainingAmount),
+        rec.supplierName,
+      ];
+      vals.forEach((v, i) => {
+        r.getCell(i + 1).value = v;
+        const isTextCol = i === 1 || i === 2 || i === 8;
+        r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+        r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
+        r.getCell(i + 1).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      });
+      r.height = 24;
+      row++;
     });
-    r.height = 24;
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 6, value: formatNum(data.totals.totalMaterials) }],
+      [[1, 5], [7, 9]], COL_COUNT);
     row++;
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 6, value: formatNum(data.totals.totalMaterials) }],
-    [[1, 5], [7, 9]], COL_COUNT);
-  row++;
+  }
 
   // ─── مواد المخزن (اختيارية) ───────────────────────────────────────────
   const invIssued = data.inventoryIssued || [];
@@ -269,64 +275,72 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   }
 
   // ─── 3. النقل والمواصلات ──────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'النقل والمواصلات', COL_COUNT);
-  row = xlMergedHeader(ws, row,
-    [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'الوصف' }, { col: 6, text: 'اسم العامل' }],
-    [[3, 5], [6, 9]], COL_COUNT);
-  data.transport.forEach((rec, idx) => {
-    row = xlMergedDataRow(ws, row,
-      [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.description, rightAlign: true }, { col: 6, value: rec.workerName, rightAlign: true }],
-      [[3, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalTransport) }],
-    [[1, 1], [3, 9]], COL_COUNT);
-  row++;
+  if (data.transport.length > 0) {
+    row = xlSectionHeader(ws, row, 'النقل والمواصلات', COL_COUNT);
+    row = xlMergedHeader(ws, row,
+      [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'الوصف' }, { col: 6, text: 'اسم العامل' }],
+      [[3, 5], [6, 9]], COL_COUNT);
+    data.transport.forEach((rec, idx) => {
+      row = xlMergedDataRow(ws, row,
+        [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.description, rightAlign: true }, { col: 6, value: rec.workerName, rightAlign: true }],
+        [[3, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
+    });
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalTransport) }],
+      [[1, 1], [3, 9]], COL_COUNT);
+    row++;
+  }
 
   // ─── 4. مصاريف متنوعة ────────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'مصاريف متنوعة', COL_COUNT);
-  row = xlMergedHeader(ws, row,
-    [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'الوصف' }, { col: 6, text: 'ملاحظات' }],
-    [[3, 5], [6, 9]], COL_COUNT);
-  data.miscExpenses.forEach((rec, idx) => {
-    row = xlMergedDataRow(ws, row,
-      [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.description, rightAlign: true }, { col: 6, value: rec.notes, rightAlign: true }],
-      [[3, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalMiscExpenses) }],
-    [[1, 1], [3, 9]], COL_COUNT);
-  row++;
+  if (data.miscExpenses.length > 0) {
+    row = xlSectionHeader(ws, row, 'مصاريف متنوعة', COL_COUNT);
+    row = xlMergedHeader(ws, row,
+      [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'الوصف' }, { col: 6, text: 'ملاحظات' }],
+      [[3, 5], [6, 9]], COL_COUNT);
+    data.miscExpenses.forEach((rec, idx) => {
+      row = xlMergedDataRow(ws, row,
+        [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.description, rightAlign: true }, { col: 6, value: rec.notes, rightAlign: true }],
+        [[3, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
+    });
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalMiscExpenses) }],
+      [[1, 1], [3, 9]], COL_COUNT);
+    row++;
+  }
 
   // ─── 5. التحويلات المالية (العهدة الواردة) ────────────────────────────
-  row = xlSectionHeader(ws, row, 'التحويلات المالية (العهدة الواردة)', COL_COUNT);
-  row = xlMergedHeader(ws, row,
-    [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'المرسل' }, { col: 5, text: 'نوع التحويل' }, { col: 7, text: 'رقم التحويل' }],
-    [[3, 4], [5, 6], [7, 9]], COL_COUNT);
-  data.fundTransfers.forEach((rec, idx) => {
-    row = xlMergedDataRow(ws, row,
-      [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.senderName, rightAlign: true }, { col: 5, value: rec.transferType }, { col: 7, value: rec.transferNumber }],
-      [[3, 4], [5, 6], [7, 9]], COL_COUNT, idx % 2 === 1);
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalFundTransfers) }],
-    [[1, 1], [3, 9]], COL_COUNT);
-  row++;
+  if (data.fundTransfers.length > 0) {
+    row = xlSectionHeader(ws, row, 'التحويلات المالية (العهدة الواردة)', COL_COUNT);
+    row = xlMergedHeader(ws, row,
+      [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'المرسل' }, { col: 5, text: 'نوع التحويل' }, { col: 7, text: 'رقم التحويل' }],
+      [[3, 4], [5, 6], [7, 9]], COL_COUNT);
+    data.fundTransfers.forEach((rec, idx) => {
+      row = xlMergedDataRow(ws, row,
+        [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.senderName, rightAlign: true }, { col: 5, value: rec.transferType }, { col: 7, value: rec.transferNumber }],
+        [[3, 4], [5, 6], [7, 9]], COL_COUNT, idx % 2 === 1);
+    });
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalFundTransfers) }],
+      [[1, 1], [3, 9]], COL_COUNT);
+    row++;
+  }
 
   // ─── 6. حوالات العمال ────────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'حوالات العمال', COL_COUNT);
-  row = xlMergedHeader(ws, row,
-    [{ col: 1, text: '#' }, { col: 2, text: 'اسم العامل' }, { col: 3, text: 'المبلغ' }, { col: 4, text: 'المستلم' }, { col: 6, text: 'طريقة التحويل' }],
-    [[4, 5], [6, 9]], COL_COUNT);
-  data.workerTransfers.forEach((rec, idx) => {
-    row = xlMergedDataRow(ws, row,
-      [{ col: 1, value: idx + 1 }, { col: 2, value: rec.workerName, rightAlign: true }, { col: 3, value: formatNum(rec.amount) }, { col: 4, value: rec.recipientName, rightAlign: true }, { col: 6, value: rec.transferMethod }],
-      [[4, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 3, value: formatNum(data.totals.totalWorkerTransfers) }],
-    [[1, 2], [4, 9]], COL_COUNT);
-  row++;
+  if (data.workerTransfers.length > 0) {
+    row = xlSectionHeader(ws, row, 'حوالات العمال', COL_COUNT);
+    row = xlMergedHeader(ws, row,
+      [{ col: 1, text: '#' }, { col: 2, text: 'اسم العامل' }, { col: 3, text: 'المبلغ' }, { col: 4, text: 'المستلم' }, { col: 6, text: 'طريقة التحويل' }],
+      [[4, 5], [6, 9]], COL_COUNT);
+    data.workerTransfers.forEach((rec, idx) => {
+      row = xlMergedDataRow(ws, row,
+        [{ col: 1, value: idx + 1 }, { col: 2, value: rec.workerName, rightAlign: true }, { col: 3, value: formatNum(rec.amount) }, { col: 4, value: rec.recipientName, rightAlign: true }, { col: 6, value: rec.transferMethod }],
+        [[4, 5], [6, 9]], COL_COUNT, idx % 2 === 1);
+    });
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 3, value: formatNum(data.totals.totalWorkerTransfers) }],
+      [[1, 2], [4, 9]], COL_COUNT);
+    row++;
+  }
 
   // ─── ترحيل لمشاريع أخرى (اختياري) ───────────────────────────────────
   const ptOut = data.projectTransfersOut || [];
@@ -348,19 +362,20 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   }
 
   // ─── 7. ملخص اليوم ───────────────────────────────────────────────────
-  row = xlSectionHeader(ws, row, 'ملخص اليوم', COL_COUNT);
+  row = xlSectionHeader(ws, row, 'ملخص اليوم المالي', COL_COUNT);
   const carryForward = (data as any).carryForwardBalance ?? 0;
-  const summaryItems = [
+  const finalBalance = carryForward + data.totals.totalFundTransfers - data.totals.totalExpenses;
+  const summaryItems: [string, string][] = [
+    ['عهدة اليوم (وارد)', formatNum(data.totals.totalFundTransfers)],
     ['إجمالي أجور العمال', formatNum(data.totals.totalWorkerWages)],
-    ['إجمالي المدفوع', formatNum(data.totals.totalPaidWages)],
+    ['إجمالي المدفوع للعمال', formatNum(data.totals.totalPaidWages)],
     ['إجمالي المواد', formatNum(data.totals.totalMaterials)],
     ['إجمالي النقل', formatNum(data.totals.totalTransport)],
     ['إجمالي النثريات', formatNum(data.totals.totalMiscExpenses)],
     ['إجمالي حوالات العمال', formatNum(data.totals.totalWorkerTransfers)],
-    ['إجمالي تحويلات العهدة', formatNum(data.totals.totalFundTransfers)],
     ['إجمالي المصروفات', formatNum(data.totals.totalExpenses)],
-    ['الرصيد السابق', formatNum(carryForward)],
-    ['الرصيد النهائي', formatNum(data.totals.balance)],
+    ['الرصيد المرحّل من السابق', formatNum(carryForward)],
+    ['الرصيد النهائي', formatNum(finalBalance)],
   ];
   summaryItems.forEach(([label, value], idx) => {
     ws.mergeCells(row, 1, row, 5);

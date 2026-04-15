@@ -39,6 +39,7 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
   const fundTotal = filteredFundTransfers.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
 
   const carryForward = report.carryForwardBalance ?? 0;
+  const attTotalUnpaid = filteredAttendance.reduce((s: number, r: any) => s + parseFloat(r.remainingAmount || '0'), 0);
   const totalExpenses = attTotalPaid + matCashTotal + transTotal + miscTotal;
   const totalAvailable = carryForward + fundTotal;
   const finalBalance = totalAvailable - totalExpenses;
@@ -236,17 +237,34 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
               </p>
             </div>
           </div>
-          {(carryForward !== 0 || fundTotal !== 0) && (
-            <div className="mt-3 pt-3 border-t flex items-center justify-end gap-2 text-xs text-muted-foreground flex-wrap">
-              <span>إجمالي المتاح:</span>
-              <span className="font-bold text-foreground">{formatCurrency(totalAvailable)}</span>
-              <span className="mx-1">−</span>
-              <span>المصروفات:</span>
-              <span className="font-bold text-foreground">{formatCurrency(totalExpenses)}</span>
-              <span className="mx-1">=</span>
-              <span className={`font-bold text-base ${finalBalance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(finalBalance)}</span>
+          {attTotalUnpaid > 0 && (
+            <div className="mt-3 pt-3 border-t flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-md px-3 py-2">
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              <span>مستحقات عمال معلقة (غير مدفوعة):</span>
+              <span className="font-bold" data-testid="summary-unpaid-wages">{formatCurrency(attTotalUnpaid)}</span>
+              <span className="text-muted-foreground mr-auto">— لا تُحسب ضمن المصروفات النقدية</span>
             </div>
           )}
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
+              <span>تفصيل المصروفات:</span>
+              {attTotalPaid > 0 && <span>أجور مدفوعة: <span className="font-bold text-foreground">{formatCurrency(attTotalPaid)}</span></span>}
+              {matCashTotal > 0 && <span>مواد نقد: <span className="font-bold text-foreground">{formatCurrency(matCashTotal)}</span></span>}
+              {transTotal > 0 && <span>نقل: <span className="font-bold text-foreground">{formatCurrency(transTotal)}</span></span>}
+              {miscTotal > 0 && <span>متنوعة: <span className="font-bold text-foreground">{formatCurrency(miscTotal)}</span></span>}
+            </div>
+            {(carryForward !== 0 || fundTotal !== 0) && (
+              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground flex-wrap">
+                <span>إجمالي المتاح:</span>
+                <span className="font-bold text-foreground">{formatCurrency(totalAvailable)}</span>
+                <span className="mx-1">−</span>
+                <span>المصروفات:</span>
+                <span className="font-bold text-foreground">{formatCurrency(totalExpenses)}</span>
+                <span className="mx-1">=</span>
+                <span className={`font-bold text-base ${finalBalance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(finalBalance)}</span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </>

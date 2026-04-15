@@ -3982,8 +3982,9 @@ echo 'MAINACTIVITY_FIXED'"`,
     const pollInterval = 15000;
     const startTime = Date.now();
     let lastLogLine = 0;
+    let buildDone = false;
 
-    while (Date.now() - startTime < maxWaitMs) {
+    while (!buildDone && Date.now() - startTime < maxWaitMs) {
       if (this.isCancelled(deploymentId)) {
         try {
           await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null; rm -f ${pidFile} ${exitFile}"`, { timeout: 10000, env: this.getSSHExecEnv() });
@@ -3995,60 +3996,86 @@ echo 'MAINACTIVITY_FIXED'"`,
       const elapsed = Math.round((Date.now() - startTime) / 1000);
       const progress = Math.min(85, 15 + Math.round((elapsed / (maxWaitMs / 1000)) * 70));
 
-      try {
-        const { stdout: status } = await execAsync(
-          `${sshCmd} "if [ -f ${exitFile} ]; then echo \\"EXIT:\\$(cat ${exitFile})\\"; elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then WC=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); echo \\"RUNNING:\\$WC\\"; else echo 'LOST'; fi"`,
-          { timeout: 15000, env: this.getSSHExecEnv() }
-        );
+      let pollRetries = 0;
+      const maxPollRetries = 4;
+      while (pollRetries < maxPollRetries) {
+        pollRetries++;
+        try {
+          const freshSshCmd = this.buildSSHCommand(this.sshMuxSockets.get(deploymentId) ?? null);
+          const { stdout: status } = await execAsync(
+            `${freshSshCmd} "if [ -f ${exitFile} ]; then echo \\"EXIT:\\$(cat ${exitFile})\\"; elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then WC=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); echo \\"RUNNING:\\$WC\\"; else echo 'LOST'; fi"`,
+            { timeout: 20000, env: this.getSSHExecEnv() }
+          );
 
-        const trimmed = status.trim();
+          const trimmed = status.trim();
 
-        if (trimmed.startsWith("EXIT:")) {
-          const exitCode = parseInt(trimmed.replace("EXIT:", "").trim());
-          if (exitCode === 0) {
-            await this.addLog(deploymentId, `✅ اكتمل البناء بنجاح (${elapsed}s)`, "success");
+          if (trimmed.startsWith("EXIT:")) {
+            const exitCode = parseInt(trimmed.replace("EXIT:", "").trim());
+            if (exitCode === 0) {
+              await this.addLog(deploymentId, `✅ اكتمل البناء بنجاح (${elapsed}s)`, "success");
+              buildDone = true;
+              break;
+            } else {
+              const { stdout: errLog } = await execAsync(`${freshSshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 15000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
+              const errorLines = errLog.split("\n").filter((l: string) => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
+              if (errorLines.length > 0) {
+                await this.addLog(deploymentId, `📋 أسطر الخطأ:\n${errorLines.join("\n")}`, "error");
+              }
+              if (!errLog.trim()) {
+                const { stdout: nohupLog } = await execAsync(`${freshSshCmd} "tail -20 ${remoteDir}/nohup.out 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
+                if (nohupLog.trim()) {
+                  await this.addLog(deploymentId, `📋 nohup.out:\n${nohupLog.trim().split("\n").slice(-10).join("\n")}`, "error");
+                }
+              }
+              throw new Error(`فشل البناء على السيرفر (exit code: ${exitCode})`);
+            }
+          } else if (trimmed.startsWith("RUNNING:")) {
+            const lines = parseInt(trimmed.replace("RUNNING:", "").trim()) || 0;
+            if (lines > lastLogLine) {
+              this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s (${lines} سطر)`);
+              lastLogLine = lines;
+              try {
+                const { stdout: tailOut } = await execAsync(`${freshSshCmd} "tail -3 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
+                const lastLine = tailOut.trim().split("\n").pop()?.trim();
+                if (lastLine && lastLine.length > 5) {
+                  await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.substring(0, 200)}`, "info");
+                }
+              } catch { /* non-critical */ }
+            } else {
+              this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s`);
+            }
             break;
-          } else {
-            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
-            const errorLines = errLog.split("\n").filter((l: string) => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
-            if (errorLines.length > 0) {
-              await this.addLog(deploymentId, `📋 أسطر الخطأ:\n${errorLines.join("\n")}`, "error");
+          } else if (trimmed === "LOST") {
+            if (pollRetries < maxPollRetries) {
+              await this.addLog(deploymentId, `⚠️ [${elapsed}s] العملية لا تستجيب — إعادة فحص (${pollRetries}/${maxPollRetries})...`, "warn");
+              await new Promise(r => setTimeout(r, 8000));
+              continue;
             }
-            if (!errLog.trim()) {
-              const { stdout: nohupLog } = await execAsync(`${sshCmd} "tail -20 ${remoteDir}/nohup.out 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
-              if (nohupLog.trim()) {
-                await this.addLog(deploymentId, `📋 nohup.out:\n${nohupLog.trim().split("\n").slice(-10).join("\n")}`, "error");
-              }
-            }
-            throw new Error(`فشل البناء على السيرفر (exit code: ${exitCode})`);
+            const { stdout: errLog } = await execAsync(`${freshSshCmd} "tail -30 ${logFile} 2>/dev/null"`, { timeout: 15000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
+            await this.addLog(deploymentId, `❌ عملية البناء توقفت بشكل غير متوقع\n${errLog.trim().split("\n").slice(-5).join("\n")}`, "error");
+            throw new Error("عملية البناء توقفت — قد يكون السبب نفاد الذاكرة (OOM killed)");
           }
-        } else if (trimmed.startsWith("RUNNING:")) {
-          const lines = parseInt(trimmed.replace("RUNNING:", "").trim()) || 0;
-          if (lines > lastLogLine) {
-            const newLines = lines - lastLogLine;
-            this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s (${lines} سطر)`);
-            lastLogLine = lines;
-            try {
-              const { stdout: tailOut } = await execAsync(`${sshCmd} "tail -3 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() });
-              const lastLine = tailOut.trim().split("\n").pop()?.trim();
-              if (lastLine && lastLine.length > 5) {
-                await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.substring(0, 200)}`, "info");
-              }
-            } catch { /* non-critical */ }
-          } else {
-            this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s`);
+          break;
+        } catch (pollErr: any) {
+          const isTransient = pollErr.message?.includes("exit 255")
+            || pollErr.message?.includes("Exit code: 255")
+            || pollErr.message?.includes("Connection reset")
+            || pollErr.message?.includes("Broken pipe")
+            || pollErr.message?.includes("Connection closed")
+            || pollErr.message?.includes("timed out")
+            || (pollErr.message?.includes("Command failed") && pollErr.message?.includes("ssh"));
+
+          if (isTransient && pollRetries < maxPollRetries) {
+            await this.addLog(deploymentId, `⚠️ انقطاع SSH مؤقت (${elapsed}s، محاولة ${pollRetries}/${maxPollRetries}) — إعادة الاتصال...`, "warn");
+            await new Promise(r => setTimeout(r, 5000 * pollRetries));
+            continue;
           }
-        } else if (trimmed === "LOST") {
-          const { stdout: errLog } = await execAsync(`${sshCmd} "tail -30 ${logFile} 2>/dev/null"`, { timeout: 10000, env: this.getSSHExecEnv() }).catch(() => ({ stdout: "" }));
-          await this.addLog(deploymentId, `❌ عملية البناء توقفت بشكل غير متوقع\n${errLog.trim().split("\n").slice(-5).join("\n")}`, "error");
-          throw new Error("عملية البناء توقفت — قد يكون السبب نفاد الذاكرة (OOM killed)");
+          if (!isTransient) throw pollErr;
+          if (pollRetries >= maxPollRetries) {
+            await this.addLog(deploymentId, `⚠️ تعذر الاتصال بالسيرفر بعد ${maxPollRetries} محاولات — المتابعة في الدورة القادمة...`, "warn");
+          }
+          break;
         }
-      } catch (pollErr: any) {
-        if (pollErr.message?.includes("exit 255") || pollErr.message?.includes("Exit code: 255")) {
-          await this.addLog(deploymentId, `⚠️ انقطاع SSH مؤقت (${elapsed}s) — إعادة المحاولة...`, "warn");
-          continue;
-        }
-        throw pollErr;
       }
     }
 

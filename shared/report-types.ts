@@ -96,6 +96,14 @@ export interface SupplierPaymentRecord {
   notes: string;
 }
 
+export interface SupplierBalanceSummary {
+  supplierName: string;
+  previousDebt: number;
+  todayPurchases: number;
+  todayPayments: number;
+  totalDebt: number;
+}
+
 export interface DailyReportData {
   reportType: 'daily';
   generatedAt: string;
@@ -121,6 +129,8 @@ export interface DailyReportData {
     toProjectName: string;
     description: string;
   }[];
+  carryForwardBalance?: number;
+  supplierBalances?: SupplierBalanceSummary[];
   totals: {
     totalWorkerWages: number;
     totalPaidWages: number;

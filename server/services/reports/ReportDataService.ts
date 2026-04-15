@@ -306,6 +306,101 @@ export class ReportDataService {
       .reduce((s: number, f: any) => s + safeNum(f.amount), 0);
     const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
     const totalSupplierPayments = safeParseNum(supplierPaymentsResult.rows[0]?.total);
+
+    const [carryForwardResult, supplierBalancesResult] = await Promise.all([
+      pool.query(`
+        SELECT (
+          COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers
+            WHERE project_id = $1
+              AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) < $2::date
+          ), 0)
+          + COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM project_fund_transfers
+            WHERE to_project_id = $1 AND transfer_date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance
+            WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date)::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(CASE WHEN purchase_type IN ('نقد', 'نقداً')
+              THEN CASE WHEN safe_numeric(paid_amount::text, 0) > 0 THEN safe_numeric(paid_amount::text, 0)
+                        ELSE safe_numeric(total_amount::text, 0) END
+              ELSE 0 END)
+            FROM material_purchases WHERE project_id = $1 AND purchase_date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM transportation_expenses
+            WHERE project_id = $1 AND date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_misc_expenses
+            WHERE project_id = $1 AND date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers
+            WHERE project_id = $1 AND transfer_date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM supplier_payments
+            WHERE project_id = $1 AND payment_date::date < $2::date
+          ), 0)
+          - COALESCE((
+            SELECT SUM(safe_numeric(amount::text, 0)) FROM project_fund_transfers
+            WHERE from_project_id = $1 AND transfer_date::date < $2::date
+              AND (transfer_reason IS NULL OR transfer_reason NOT IN ('legacy_worker_rebalance', 'settlement'))
+          ), 0)
+        ) AS carry_forward
+      `, [projectId, date]),
+
+      pool.query(`
+        SELECT
+          supplier_name,
+          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+            THEN safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)
+            ELSE 0 END), 0) AS previous_debt,
+          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+            THEN safe_numeric(total_amount::text, 0)
+            ELSE 0 END), 0) AS today_purchases,
+          COALESCE((
+            SELECT SUM(safe_numeric(sp.amount::text, 0))
+            FROM supplier_payments sp
+            WHERE sp.project_id = $1
+              AND sp.payment_date::date = $2::date
+              AND sp.supplier_name = mp.supplier_name
+          ), 0) AS today_payments
+        FROM material_purchases mp
+        WHERE project_id = $1
+          AND supplier_name IS NOT NULL AND supplier_name <> ''
+          AND supplier_name <> '-'
+          AND purchase_type NOT IN ('نقد', 'نقداً')
+        GROUP BY supplier_name
+        HAVING
+          SUM(CASE WHEN purchase_date::date < $2::date
+            THEN safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)
+            ELSE 0 END) > 0
+          OR SUM(CASE WHEN purchase_date::date = $2::date
+            THEN safe_numeric(total_amount::text, 0)
+            ELSE 0 END) > 0
+        ORDER BY supplier_name
+      `, [projectId, date]),
+    ]);
+
+    const carryForwardBalance = safeParseNum(carryForwardResult.rows[0]?.carry_forward);
+
+    const supplierBalances = supplierBalancesResult.rows.map((r: any) => {
+      const previousDebt = safeParseNum(r.previous_debt);
+      const todayPurchases = safeParseNum(r.today_purchases);
+      const todayPayments = safeParseNum(r.today_payments);
+      return {
+        supplierName: r.supplier_name,
+        previousDebt,
+        todayPurchases,
+        todayPayments,
+        totalDebt: previousDebt + todayPurchases - todayPayments,
+      };
+    }).filter((s: any) => s.totalDebt > 0 || s.todayPurchases > 0);
     const settlementRebalanceIncoming = projectFundTransfersData
       .filter((f: any) => f.transferReason === 'legacy_worker_rebalance' || f.transferReason === 'settlement')
       .reduce((s: number, f: any) => s + safeNum(f.amount), 0);
@@ -345,6 +440,8 @@ export class ReportDataService {
       workerTransfers: workerTransfersList,
       fundTransfers: fundTransfersList,
       inventoryIssued,
+      carryForwardBalance,
+      supplierBalances,
       projectTransfersOut: projectFundTransfersOutData.map((pf: any) => ({
         id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
         amount: safeNum(pf.amount),

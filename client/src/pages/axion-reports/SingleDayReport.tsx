@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Wallet, Users } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Users, Store, ArrowLeftRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { ReportTable } from "./utils";
 import type { DailyReportData } from "@shared/report-types";
@@ -28,12 +28,41 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
   const attTotalRemaining = filteredAttendance.reduce((s: number, r: any) => s + parseFloat(r.remainingAmount || '0'), 0);
 
   const matTotal = filteredMaterials.reduce((s: number, r: any) => s + parseFloat(r.totalAmount || '0'), 0);
+  const matCashTotal = filteredMaterials
+    .filter((r: any) => r.purchaseType === 'نقد' || r.purchaseType === 'نقداً')
+    .reduce((s: number, r: any) => {
+      const paid = parseFloat(r.paidAmount || '0');
+      return s + (paid > 0 ? paid : parseFloat(r.totalAmount || '0'));
+    }, 0);
   const transTotal = filteredTransport.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
   const miscTotal = filteredMisc.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
   const fundTotal = filteredFundTransfers.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
 
+  const carryForward = report.carryForwardBalance ?? 0;
+  const totalExpenses = attTotalPaid + matCashTotal + transTotal + miscTotal;
+  const totalAvailable = carryForward + fundTotal;
+  const finalBalance = totalAvailable - totalExpenses;
+
+  const supplierBalances = (report.supplierBalances || []).filter(s =>
+    !q || s.supplierName.toLowerCase().includes(q)
+  );
+
   return (
     <>
+      {carryForward !== 0 && (
+        <Card className={`border-2 ${carryForward >= 0 ? 'border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20' : 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-950/20'}`} data-testid="card-carry-forward">
+          <CardContent className="py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-bold">الرصيد المرحّل من الأيام السابقة</span>
+            </div>
+            <span className={`text-lg font-bold ${carryForward >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} data-testid="text-carry-forward">
+              {formatCurrency(carryForward)}
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
           <CardTitle className="text-base">سجل الحضور</CardTitle>
@@ -79,6 +108,41 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
           />
         </CardContent>
       </Card>
+
+      {supplierBalances.length > 0 && (
+        <Card className="border-amber-200 dark:border-amber-800/50" data-testid="card-supplier-balances">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Store className="h-4 w-4" />
+              أرصدة الموردين (آجل)
+            </CardTitle>
+            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+              {formatCurrency(supplierBalances.reduce((s, b) => s + b.totalDebt, 0))}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <ReportTable
+              testId="table-supplier-balances"
+              headers={["#", "المورد", "دين سابق", "مشتريات اليوم", "مدفوع اليوم", "إجمالي المستحق"]}
+              rows={supplierBalances.map((s, i) => [
+                i + 1,
+                s.supplierName,
+                formatCurrency(s.previousDebt),
+                formatCurrency(s.todayPurchases),
+                s.todayPayments > 0 ? formatCurrency(s.todayPayments) : "-",
+                formatCurrency(s.totalDebt),
+              ])}
+              totalsRow={supplierBalances.length > 1 ? [
+                "الإجمالي", null,
+                formatCurrency(supplierBalances.reduce((s, b) => s + b.previousDebt, 0)),
+                formatCurrency(supplierBalances.reduce((s, b) => s + b.todayPurchases, 0)),
+                formatCurrency(supplierBalances.reduce((s, b) => s + b.todayPayments, 0)),
+                formatCurrency(supplierBalances.reduce((s, b) => s + b.totalDebt, 0)),
+              ] : undefined}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -141,32 +205,48 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
               <Users className="h-4 w-4 mx-auto mb-1 text-blue-600" />
               <p className="text-xs text-muted-foreground">عدد العمال</p>
               <p className="font-bold text-blue-700 dark:text-blue-400 text-sm mt-0.5" data-testid="summary-worker-count">{filteredAttendance.length}</p>
             </div>
+            <div className={`text-center p-3 rounded-lg border ${carryForward >= 0 ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/50' : 'bg-red-50 dark:bg-red-950/30 border-red-100 dark:border-red-900/50'}`}>
+              <ArrowLeftRight className={`h-4 w-4 mx-auto mb-1 ${carryForward >= 0 ? 'text-indigo-600' : 'text-red-600'}`} />
+              <p className="text-xs text-muted-foreground">رصيد مرحّل</p>
+              <p className={`font-bold text-sm mt-0.5 ${carryForward >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`} data-testid="summary-carry-forward">{formatCurrency(carryForward)}</p>
+            </div>
             <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/50">
               <TrendingUp className="h-4 w-4 mx-auto mb-1 text-green-600" />
-              <p className="text-xs text-muted-foreground">العهدة الواردة</p>
+              <p className="text-xs text-muted-foreground">عهدة اليوم</p>
               <p className="font-bold text-green-700 dark:text-green-400 text-sm mt-0.5" data-testid="summary-fund-in">{formatCurrency(fundTotal)}</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50">
               <TrendingDown className="h-4 w-4 mx-auto mb-1 text-red-600" />
               <p className="text-xs text-muted-foreground">إجمالي المصروفات</p>
               <p className="font-bold text-red-700 dark:text-red-400 text-sm mt-0.5" data-testid="summary-total-expenses">
-                {formatCurrency(attTotalPaid + matTotal + transTotal + miscTotal)}
+                {formatCurrency(totalExpenses)}
               </p>
             </div>
-            <div className={`text-center p-3 rounded-lg border ${(fundTotal - attTotalPaid - matTotal - transTotal - miscTotal) >= 0 ? 'bg-green-100 dark:bg-green-950/50 border-green-300 dark:border-green-700' : 'bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700'}`}>
+            <div className={`text-center p-3 rounded-lg border col-span-2 sm:col-span-1 ${finalBalance >= 0 ? 'bg-green-100 dark:bg-green-950/50 border-green-300 dark:border-green-700' : 'bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700'}`}>
               <Wallet className="h-4 w-4 mx-auto mb-1 text-purple-600" />
-              <p className="text-xs text-muted-foreground">الرصيد</p>
-              <p className={`font-bold text-sm mt-0.5 ${(fundTotal - attTotalPaid - matTotal - transTotal - miscTotal) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} data-testid="summary-balance">
-                {formatCurrency(fundTotal - attTotalPaid - matTotal - transTotal - miscTotal)}
+              <p className="text-xs text-muted-foreground">المتبقي</p>
+              <p className={`font-bold text-sm mt-0.5 ${finalBalance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} data-testid="summary-balance">
+                {formatCurrency(finalBalance)}
               </p>
             </div>
           </div>
+          {(carryForward !== 0 || fundTotal !== 0) && (
+            <div className="mt-3 pt-3 border-t flex items-center justify-end gap-2 text-xs text-muted-foreground flex-wrap">
+              <span>إجمالي المتاح:</span>
+              <span className="font-bold text-foreground">{formatCurrency(totalAvailable)}</span>
+              <span className="mx-1">−</span>
+              <span>المصروفات:</span>
+              <span className="font-bold text-foreground">{formatCurrency(totalExpenses)}</span>
+              <span className="mx-1">=</span>
+              <span className={`font-bold text-base ${finalBalance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(finalBalance)}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </>

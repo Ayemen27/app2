@@ -44,6 +44,8 @@ export class DeploymentEngine {
   private remoteMonitors = new Map<string, NodeJS.Timeout>();
   private recoverySupervisorTimer: NodeJS.Timeout | null = null;
   private static RECOVERY_INTERVAL = 30000;
+  private recoverySupervisorConsecutiveErrors = 0;
+  private static RECOVERY_MAX_BACKOFF = 300000;
   private healthCheckResults = new Map<string, Record<string, any>>();
   private cleanupResults = new Map<string, { totalReclaimedBytes: number; steps: { name: string; reclaimedBytes: number; detail: string }[]; errors: string[] }>();
   private heartbeats = new Map<string, number>();
@@ -57,10 +59,18 @@ export class DeploymentEngine {
 
   startRecoverySupervisor() {
     if (this.recoverySupervisorTimer) return;
-    this.recoverySupervisorTimer = setInterval(async () => {
+
+    const runCycle = async () => {
       try {
-        const orphaned = await db.select().from(buildDeployments)
+        const queryPromise = db.select().from(buildDeployments)
           .where(eq(buildDeployments.status, "running"));
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("RecoverySupervisor query timed out after 10s")), 10000)
+        );
+        const orphaned = await Promise.race([queryPromise, timeoutPromise]);
+
+        this.recoverySupervisorConsecutiveErrors = 0;
+
         if (orphaned.length === 0) return;
 
         for (const d of orphaned) {
@@ -100,11 +110,36 @@ export class DeploymentEngine {
             }
           }
         }
-      } catch (err) {
-        console.error("[RecoverySupervisor] Error:", err);
+      } catch (err: any) {
+        this.recoverySupervisorConsecutiveErrors++;
+        const isConnErr = err.message?.includes("timeout") || err.message?.includes("terminated") || err.message?.includes("Connection");
+        if (isConnErr) {
+          const backoff = Math.min(
+            DeploymentEngine.RECOVERY_INTERVAL * Math.pow(2, this.recoverySupervisorConsecutiveErrors - 1),
+            DeploymentEngine.RECOVERY_MAX_BACKOFF
+          );
+          console.warn(`[RecoverySupervisor] DB connection error (attempt ${this.recoverySupervisorConsecutiveErrors}) — backoff ${Math.round(backoff / 1000)}s`);
+          if (this.recoverySupervisorConsecutiveErrors > 3) return;
+        } else {
+          console.error("[RecoverySupervisor] Error:", err.message);
+        }
       }
-    }, DeploymentEngine.RECOVERY_INTERVAL);
-    console.log("[DeploymentEngine] 🔄 Recovery supervisor started (every 30s)");
+    };
+
+    const scheduleNext = () => {
+      const errCount = this.recoverySupervisorConsecutiveErrors;
+      const interval = errCount > 0
+        ? Math.min(DeploymentEngine.RECOVERY_INTERVAL * Math.pow(2, errCount), DeploymentEngine.RECOVERY_MAX_BACKOFF)
+        : DeploymentEngine.RECOVERY_INTERVAL;
+
+      this.recoverySupervisorTimer = setTimeout(async () => {
+        await runCycle();
+        scheduleNext();
+      }, interval);
+    };
+
+    scheduleNext();
+    console.log("[DeploymentEngine] 🔄 Recovery supervisor started (adaptive interval)");
   }
 
   private getLogger(deploymentId: string): DeploymentLogger {
@@ -4229,16 +4264,29 @@ echo 'MAINACTIVITY_FIXED'"`,
     const toFlush = [...buffered];
     buffered.length = 0;
 
-    try {
-      const [current] = await db.select({ logs: buildDeployments.logs }).from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
-      const existingLogs = Array.isArray(current?.logs) ? current.logs : [];
-      const maxLogs = 500;
-      const combined = [...existingLogs, ...toFlush];
-      const trimmed = combined.length > maxLogs ? combined.slice(-maxLogs) : combined;
-      await db.update(buildDeployments).set({ logs: trimmed }).where(eq(buildDeployments.id, deploymentId));
-    } catch (err) {
-      console.error(`[DeploymentEngine] Failed to flush ${toFlush.length} logs for ${deploymentId}:`, err);
-      buffered.unshift(...toFlush);
+    let attempt = 0;
+    const maxAttempts = 3;
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        const [current] = await db.select({ logs: buildDeployments.logs }).from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+        const existingLogs = Array.isArray(current?.logs) ? current.logs : [];
+        const maxLogs = 500;
+        const combined = [...existingLogs, ...toFlush];
+        const trimmed = combined.length > maxLogs ? combined.slice(-maxLogs) : combined;
+        await db.update(buildDeployments).set({ logs: trimmed }).where(eq(buildDeployments.id, deploymentId));
+        return;
+      } catch (err: any) {
+        const isConnErr = err.message?.includes("timeout") || err.message?.includes("terminated") || err.message?.includes("Connection");
+        if (isConnErr && attempt < maxAttempts) {
+          console.warn(`[DeploymentEngine] flushLogs retry ${attempt}/${maxAttempts} for ${deploymentId}`);
+          await new Promise(r => setTimeout(r, attempt * 1500));
+        } else {
+          console.error(`[DeploymentEngine] Failed to flush ${toFlush.length} logs for ${deploymentId}:`, err.message?.substring(0, 120));
+          buffered.unshift(...toFlush);
+          return;
+        }
+      }
     }
   }
 
@@ -4253,22 +4301,41 @@ echo 'MAINACTIVITY_FIXED'"`,
     broadcastToClients(deploymentId, { type: "event", data: { eventType, message, metadata } });
   }
 
+  private async withDbRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
+    let lastErr: any;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        lastErr = err;
+        const isConnErr = err.message?.includes("timeout") || err.message?.includes("terminated") || err.message?.includes("Connection");
+        if (!isConnErr || attempt === maxAttempts) throw err;
+        const delay = attempt * 2000;
+        console.warn(`[DeploymentEngine] ${label} DB error attempt ${attempt}/${maxAttempts} — retry in ${delay}ms: ${err.message?.substring(0, 80)}`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    throw lastErr;
+  }
+
   private async updateStepStatus(deploymentId: string, stepName: string, status: StepEntry["status"], duration?: number) {
     if (status === "success" || status === "failed" || status === "cancelled") {
       await this.flushLogs(deploymentId);
     }
 
-    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
-    if (!deployment) return;
+    await this.withDbRetry(async () => {
+      const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+      if (!deployment) return;
 
-    const steps = (deployment.steps as StepEntry[]).map(s => {
-      if (s.name === stepName) {
-        return { ...s, status, duration, startedAt: status === "running" ? new Date().toISOString() : s.startedAt };
-      }
-      return s;
-    });
+      const steps = (deployment.steps as StepEntry[]).map(s => {
+        if (s.name === stepName) {
+          return { ...s, status, duration, startedAt: status === "running" ? new Date().toISOString() : s.startedAt };
+        }
+        return s;
+      });
 
-    await db.update(buildDeployments).set({ steps }).where(eq(buildDeployments.id, deploymentId));
+      await db.update(buildDeployments).set({ steps }).where(eq(buildDeployments.id, deploymentId));
+    }, `updateStepStatus(${stepName}=${status})`);
 
     broadcastToClients(deploymentId, { type: "step_update", data: { stepName, status, duration } });
   }
@@ -4281,7 +4348,10 @@ echo 'MAINACTIVITY_FIXED'"`,
   }
 
   private async updateDeployment(deploymentId: string, updates: Partial<Record<string, any>>) {
-    await db.update(buildDeployments).set(updates).where(eq(buildDeployments.id, deploymentId));
+    await this.withDbRetry(
+      () => db.update(buildDeployments).set(updates).where(eq(buildDeployments.id, deploymentId)),
+      "updateDeployment"
+    );
 
     broadcastToClients(deploymentId, { type: "deployment_update", data: updates });
 

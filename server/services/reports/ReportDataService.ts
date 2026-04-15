@@ -366,9 +366,10 @@ export class ReportDataService {
           COALESCE((
             SELECT SUM(safe_numeric(sp.amount::text, 0))
             FROM supplier_payments sp
+            JOIN suppliers s ON s.id = sp.supplier_id
             WHERE sp.project_id = $1
               AND sp.payment_date::date = $2::date
-              AND sp.supplier_name = mp.supplier_name
+              AND s.name = mp.supplier_name
           ), 0) AS today_payments
         FROM material_purchases mp
         WHERE project_id = $1

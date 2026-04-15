@@ -64,7 +64,14 @@ class SQLiteStorage {
 
   private async createTables() {
     if (!this.db) return;
-    
+
+    await this.db.execute(`
+      CREATE TABLE IF NOT EXISTS _schema_version (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `);
+
     const ALL_STORES = [
       'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
       'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
@@ -79,9 +86,12 @@ class SQLiteStorage {
       'wellTaskAccounts', 'notifications',
       'notificationReadStates',
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-      'reportTemplates',
-      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
+      'reportTemplates', 'backupLogs', 'backupSettings',
       'equipment', 'equipmentMovements',
+      'wellWorkCrews', 'wellCrewWorkers', 'wellSolarComponents',
+      'wellTransportDetails', 'wellReceptions',
+      'authRequestNonces', 'workerSettlements', 'workerSettlementLines',
+      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
       'deadLetterQueue', 'localAuditLog'
     ];
 
@@ -96,6 +106,11 @@ class SQLiteStorage {
         );
       `);
     }
+
+    await this.db.run(
+      `INSERT OR REPLACE INTO _schema_version (key, value) VALUES (?, ?)`,
+      ['version', '2.0']
+    );
   }
 
   async get(table: string, id: string): Promise<any | null> {

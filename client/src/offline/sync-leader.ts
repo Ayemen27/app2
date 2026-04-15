@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+
 const CHANNEL_NAME = 'binarjoin-sync-leader';
 const HEARTBEAT_INTERVAL = 3000;
 const HEARTBEAT_TIMEOUT = 6000;
@@ -181,6 +183,15 @@ export function initLeaderElection(): void {
     leaderChangeCallbacks.forEach(cb => cb(true));
     return;
   }
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      tabId = generateTabId();
+      isLeader = true;
+      leaderChangeCallbacks.forEach(cb => cb(true));
+      return;
+    }
+  } catch {}
 
   tabId = generateTabId();
 

@@ -10,50 +10,81 @@ export function getReplayHeaders(): Record<string, string> {
   };
 }
 
-class ApiClient {
-  private baseURL: string;
+let _sharedRefreshPromise: Promise<string | null> | null = null;
 
-  constructor() {
-    this.baseURL = `${ENV.getApiBaseUrl()}/api`;
-  }
+async function getValidTokenWithRefresh(): Promise<string | null> {
+  if (!shouldUseBearerAuth()) return null;
 
-  private async getTokenWithRefresh(): Promise<string | null> {
-    if (!shouldUseBearerAuth()) return null;
+  const validToken = getValidToken('accessToken');
+  if (validToken) return validToken;
 
-    let token = getValidToken('accessToken');
-    if (token) return token;
+  const rawToken = getAccessToken();
+  if (!rawToken || !isValidJwt(rawToken) || !isTokenExpired(rawToken)) return null;
 
-    const rawToken = getAccessToken();
-    if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
-      const refreshToken = getRefreshToken();
-      if (refreshToken && isValidJwt(refreshToken) && !isTokenExpired(refreshToken)) {
-        try {
-          if (import.meta.env.DEV) console.log('[ApiClient] Access token expired, attempting proactive refresh...');
-          const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
-            refreshToken
-          });
-          if (refreshResponse && refreshResponse.accessToken) {
-            storeTokens(refreshResponse.accessToken, refreshResponse.refreshToken || refreshToken);
-            return refreshResponse.accessToken;
-          }
-        } catch (e) {
-          console.error('[ApiClient] Proactive refresh failed:', e);
-        }
+  const refreshTokenVal = getRefreshToken();
+  if (!refreshTokenVal || !isValidJwt(refreshTokenVal) || isTokenExpired(refreshTokenVal)) return null;
+
+  if (_sharedRefreshPromise) return _sharedRefreshPromise;
+
+  _sharedRefreshPromise = (async () => {
+    try {
+      if (import.meta.env.DEV) console.log('[Auth] Proactive token refresh...');
+      const baseURL = ENV.getApiBaseUrl();
+      const res = await fetch(`${baseURL}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: getFetchCredentials(),
+        headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
+        body: JSON.stringify({ refreshToken: refreshTokenVal })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const newToken = data.data?.accessToken || data.accessToken;
+      const newRefresh = data.data?.refreshToken || data.refreshToken;
+      if (newToken) {
+        storeTokens(newToken, newRefresh || refreshTokenVal);
+        return newToken;
       }
+      return null;
+    } catch (e) {
+      console.error('[Auth] Proactive refresh failed:', e);
+      return null;
+    } finally {
+      setTimeout(() => { _sharedRefreshPromise = null; }, 200);
     }
-    return null;
+  })();
+
+  return _sharedRefreshPromise;
+}
+
+async function checkNetworkOnNative(): Promise<boolean> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const { Network } = await import('@capacitor/network');
+      const status = await Network.getStatus();
+      return status.connected;
+    }
+  } catch {}
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
+
+class ApiClient {
+  private get baseURL(): string {
+    return `${ENV.getApiBaseUrl()}/api`;
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (Capacitor.getPlatform() !== 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
-      console.warn(`[API] Offline mode on ${Capacitor.getPlatform()}: skipping direct request to ${endpoint}`);
-      throw new Error('OFFLINE_MODE');
+    if (Capacitor.isNativePlatform()) {
+      const online = await checkNetworkOnNative();
+      if (!online) {
+        console.warn(`[API] Offline on native: skipping ${endpoint}`);
+        throw new Error('OFFLINE_MODE');
+      }
     }
 
     const isAuthEndpoint = endpoint === '/auth/refresh' || endpoint === '/auth/login';
     const token = isAuthEndpoint
       ? getAccessToken()
-      : await this.getTokenWithRefresh();
+      : await getValidTokenWithRefresh();
 
     try {
       const url = `${this.baseURL}${endpoint}`;
@@ -88,7 +119,7 @@ class ApiClient {
       if (response.status === 401) {
         const errorData = await response.clone().json().catch(() => ({}));
         if (errorData.code === 'TOKEN_EXPIRED' && endpoint !== '/auth/refresh') {
-          if (import.meta.env.DEV) console.log('🔄 [API] Token expired, attempting refresh...');
+          if (import.meta.env.DEV) console.log('[API] Token expired, attempting refresh...');
           try {
             const currentRefreshToken = getRefreshToken();
             const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
@@ -97,11 +128,10 @@ class ApiClient {
             
             if (refreshResponse && refreshResponse.accessToken) {
               storeTokens(refreshResponse.accessToken, refreshResponse.refreshToken || currentRefreshToken || '');
-              
               return this.request<T>(endpoint, options);
             }
           } catch (refreshError) {
-            console.error('❌ [API] Refresh failed:', refreshError);
+            console.error('[API] Refresh failed:', refreshError);
             if (typeof window !== 'undefined') {
               clearTokens();
               localStorage.removeItem('user');
@@ -171,36 +201,7 @@ export async function apiRequest(
     ...getClientPlatformHeader(),
   };
 
-  let token = shouldUseBearerAuth() ? getValidToken('accessToken') : null;
-  if (!token && shouldUseBearerAuth()) {
-    const rawToken = getAccessToken();
-    if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
-      const refreshTokenVal = getRefreshToken();
-      if (refreshTokenVal && isValidJwt(refreshTokenVal) && !isTokenExpired(refreshTokenVal)) {
-        try {
-          if (import.meta.env.DEV) console.log('[apiRequest] Access token expired, attempting proactive refresh...');
-          const refreshUrl = `${baseURL}/api/auth/refresh`;
-          const refreshRes = await fetch(refreshUrl, {
-            method: 'POST',
-            credentials: getFetchCredentials(),
-            headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
-            body: JSON.stringify({ refreshToken: refreshTokenVal })
-          });
-          if (refreshRes.ok) {
-            const refreshData = await refreshRes.json();
-            const newToken = refreshData.data?.accessToken || refreshData.accessToken;
-            const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
-            if (newToken) {
-              storeTokens(newToken, newRefresh || refreshTokenVal);
-              token = newToken;
-            }
-          }
-        } catch (e) {
-          console.error('[apiRequest] Proactive refresh failed:', e);
-        }
-      }
-    }
-  }
+  const token = await getValidTokenWithRefresh();
 
   if (shouldUseBearerAuth() && token) {
     const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
@@ -214,7 +215,7 @@ export async function apiRequest(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   try {
     const response = await fetch(url, {
@@ -225,7 +226,7 @@ export async function apiRequest(
       signal: controller.signal
     });
 
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -238,7 +239,7 @@ export async function apiRequest(
     }
     return await response.text();
   } catch (error) {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
     throw error;
   }
 }

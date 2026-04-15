@@ -13,6 +13,18 @@ import { getAccessToken, isWebCookieMode } from '../lib/auth-token-store';
 import { SYNCABLE_TABLES, SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
 import { endpointToStore } from './store-registry';
 import { initLeaderElection, isCurrentTabLeader, onLeaderChange } from './sync-leader';
+import { Capacitor } from '@capacitor/core';
+
+async function isNetworkAvailable(): Promise<boolean> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const { Network } = await import('@capacitor/network');
+      const status = await Network.getStatus();
+      return status.connected;
+    }
+  } catch {}
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
 
 export const ALL_SYNC_TABLES = SYNCABLE_TABLES;
 
@@ -118,7 +130,8 @@ export async function performInitialDataPull(): Promise<boolean> {
     }
   }
 
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+  const online = await isNetworkAvailable();
+  if (!online) {
     return false;
   }
 
@@ -305,7 +318,8 @@ async function checkLWWConflict(item: { action: string; endpoint: string; payloa
  */
 export async function syncOfflineData(): Promise<void> {
   if (isSyncing) return;
-  if (!navigator.onLine) {
+  const online = await isNetworkAvailable();
+  if (!online) {
     updateSyncState({ isOnline: false });
     return;
   }
@@ -483,6 +497,10 @@ export async function syncOfflineData(): Promise<void> {
  */
 export function initSyncListener(): void {
   initLeaderElection();
+  _initSyncListenerAsync().catch(() => {});
+}
+
+async function _initSyncListenerAsync(): Promise<void> {
 
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
@@ -497,9 +515,13 @@ export function initSyncListener(): void {
   });
 
   onLeaderChange((leader) => {
-    if (leader && navigator.onLine) {
-      performInitialDataPull().catch(() => {});
-      syncOfflineData().catch(() => {});
+    if (leader) {
+      isNetworkAvailable().then(online => {
+        if (online) {
+          performInitialDataPull().catch(() => {});
+          syncOfflineData().catch(() => {});
+        }
+      });
     }
   });
 
@@ -511,9 +533,27 @@ export function initSyncListener(): void {
     runSync().catch(() => {});
   }
 
-  syncInterval = setInterval(() => {
-    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData().catch(() => {});
+  syncInterval = setInterval(async () => {
+    if (isCurrentTabLeader()) {
+      const online = await isNetworkAvailable();
+      if (online) syncOfflineData().catch(() => {});
+    }
   }, 30000);
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const { App } = await import('@capacitor/app');
+      App.addListener('appStateChange', async ({ isActive }) => {
+        if (isActive) {
+          const online = await isNetworkAvailable();
+          if (online) {
+            updateSyncState({ isOnline: true });
+            await syncOfflineData().catch(() => {});
+          }
+        }
+      });
+    }
+  } catch {}
 }
 
 export function stopSyncListener(): void {

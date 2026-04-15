@@ -1,7 +1,7 @@
+import { Capacitor } from '@capacitor/core';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, Messaging, getToken, onMessage } from 'firebase/messaging';
 
-// Firebase config from environment variables
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -11,20 +11,32 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Validate Firebase config
 const isFirebaseConfigValid = (): boolean => {
   return Object.values(firebaseConfig).every((value) => value && typeof value === 'string');
 };
+
+function isNativePlatform(): boolean {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
 
 let app: ReturnType<typeof initializeApp> | null = null;
 let messagingInstance: Messaging | null = null;
 
 /**
- * Initialize Firebase app and messaging service
- * Validates configuration and handles initialization errors
+ * Initialize Firebase app and messaging service.
+ * On native platforms (Android/iOS) FCM is handled by Capacitor PushNotifications natively,
+ * so Web Firebase Messaging is intentionally skipped to avoid conflicts.
  */
 export const initializeFirebase = (): void => {
   try {
+    if (isNativePlatform()) {
+      return;
+    }
+
     if (!isFirebaseConfigValid()) {
       return;
     }
@@ -42,9 +54,10 @@ export const initializeFirebase = (): void => {
 
 /**
  * Get Firebase Messaging instance
- * Ensures Firebase is initialized before returning instance
+ * On native platforms returns null (Capacitor handles push natively)
  */
 export const getFirebaseMessaging = (): Messaging | null => {
+  if (isNativePlatform()) return null;
   if (!messagingInstance) {
     initializeFirebase();
   }

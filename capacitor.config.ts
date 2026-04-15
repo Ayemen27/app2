@@ -12,19 +12,21 @@ if (productionDomain) {
   }
 }
 
+const isProduction = !!productionDomain;
+
 const config: CapacitorConfig = {
   appId: 'com.axion.app',
   appName: 'AXION',
   webDir: 'www',
   bundledWebRuntime: false,
   android: {
-    allowMixedContent: true,
+    allowMixedContent: !isProduction,
   },
   server: {
     androidScheme: 'https',
     hostname: 'localhost',
     allowNavigation,
-    cleartext: true,
+    cleartext: !isProduction,
   },
   plugins: {
     NativeBiometric: {

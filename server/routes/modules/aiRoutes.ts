@@ -376,6 +376,13 @@ router.post("/chat", requireAdmin, chatRateLimit, async (req: AuthenticatedReque
       return res.status(400).json({ error: "sessionId و message مطلوبان" });
     }
 
+    const MAX_MESSAGE_LENGTH = 4000;
+    if (typeof message !== 'string' || message.length > MAX_MESSAGE_LENGTH) {
+      return res.status(400).json({
+        error: `طول الرسالة يتجاوز الحد المسموح (${MAX_MESSAGE_LENGTH} حرف)`
+      });
+    }
+
     const aiService = getAIAgentService();
     const result = await aiService.processMessage(sessionId, message, req.user!.user_id);
 

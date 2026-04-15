@@ -346,13 +346,25 @@ io.use(async (socket, next) => {
 });
 
 // Socket.IO connection handler
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const user = (socket as any).user;
   console.log(`🔌 [WebSocket] Authenticated client connected: ${socket.id} (user: ${user?.userId})`);
 
   socket.join('authenticated');
-  if (user?.role === 'admin' || user?.role === 'مدير') {
+  if (user?.role === 'admin' || user?.role === 'مدير' || user?.role === 'super_admin') {
     socket.join('admin');
+  }
+
+  if (user?.userId) {
+    try {
+      const { projectAccessService } = await import('./services/ProjectAccessService.js');
+      const accessible = await projectAccessService.getAccessibleProjectIds(user.userId, user.role || 'user');
+      for (const pid of accessible) {
+        socket.join(`project:${pid}`);
+      }
+    } catch (err) {
+      console.error('[WebSocket] Failed to load project rooms for user:', err);
+    }
   }
 
   socket.on('disconnect', () => {

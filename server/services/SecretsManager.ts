@@ -5,10 +5,11 @@
 
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { randomBytes } from 'crypto';
 
 interface SecretKey {
   name: string;
-  value: string;
+  generate: () => string;
   description: string;
 }
 
@@ -16,21 +17,20 @@ export class SecretsManager {
   private static instance: SecretsManager;
   private envFilePath: string;
   
-  // المفاتيح المطلوبة مع قيمها الافتراضية
   private requiredSecrets: SecretKey[] = [
     {
       name: 'JWT_ACCESS_SECRET',
-      value: 'ebd185c17c06993902fe94b0d2628af77440140e6be2304fa9891dedb4dc14c5c5107ea13af39608c372c42e6dc3b797eba082e1d484f44e9bb08f8c4f0aa3d9',
+      generate: () => randomBytes(64).toString('hex'),
       description: 'مفتاح JWT للوصول'
     },
     {
       name: 'JWT_REFRESH_SECRET',
-      value: '5246045571e21f30c5ea8e3bb051bb8e68a6dc1256f3267711e8391cad91866e849d4ecc139a8d491169f4f2a50a15680cca9bfa7181e7554cc61915f3867b20',
+      generate: () => randomBytes(64).toString('hex'),
       description: 'مفتاح JWT للتحديث'
     },
     {
       name: 'ENCRYPTION_KEY',
-      value: '0367beacd2697c2d253a477e870747b7bc03ca5e0812962139e97e8541050b7d725d00726eb3fc809dbd2279fac5b53e69c25b2fbac3e4379ca98044986c5b00',
+      generate: () => randomBytes(64).toString('hex'),
       description: 'مفتاح التشفير'
     }
   ];
@@ -144,7 +144,7 @@ export class SecretsManager {
       if (secretData) {
         console.log(`🔧 إضافة المفتاح: ${secretName}`);
         
-        if (this.addSecretToEnvFile(secretData.name, secretData.value)) {
+        if (this.addSecretToEnvFile(secretData.name, secretData.generate())) {
           added.push(secretName);
           console.log(`✅ تم إضافة المفتاح: ${secretName}`);
         } else {

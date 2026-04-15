@@ -260,15 +260,18 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
       emailVerified: !!user.email_verified_at,
       token: tokenPair.accessToken,
       accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
-      tokens: { accessToken: tokenPair.accessToken, refreshToken: tokenPair.refreshToken },
+      ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
+      tokens: {
+        accessToken: tokenPair.accessToken,
+        ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
+      },
       data: {
         user: userInfo,
         triggerSync: true,
         initialSyncDelay: 1000,
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
+        ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
       }
     };
 
@@ -573,11 +576,11 @@ authRouter.post('/refresh', refreshRateLimit, async (req: Request, res: Response
           expiresIn: 900,
           token: tokenPair.accessToken,
           accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken,
+          ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
           user: emergencyUser,
           data: {
             accessToken: tokenPair.accessToken,
-            refreshToken: tokenPair.refreshToken
+            ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
           }
         };
 
@@ -622,7 +625,7 @@ authRouter.post('/refresh', refreshRateLimit, async (req: Request, res: Response
         expiresIn: 900,
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
+        ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
         user: {
           id: user.id,
           email: user.email,
@@ -631,7 +634,7 @@ authRouter.post('/refresh', refreshRateLimit, async (req: Request, res: Response
         },
         data: {
           accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken
+          ...(nativeClient ? { refreshToken: tokenPair.refreshToken } : {}),
         }
       };
 

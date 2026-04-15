@@ -2857,12 +2857,9 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
 
     if (globalThis.io && deletedAttendance[0]) {
-      (globalThis.io as any).to('authenticated').emit('entity:update', {
-        type: 'INVALIDATE',
-        entity: 'worker-attendance',
-        project_id: deletedAttendance[0].project_id,
-        date: deletedAttendance[0].date
-      });
+      const _pid = deletedAttendance[0].project_id;
+      const _payload = { type: 'INVALIDATE', entity: 'worker-attendance', project_id: _pid, date: deletedAttendance[0].date };
+      (_pid ? (globalThis.io as any).to(`project:${_pid}`) : (globalThis.io as any).to('admin')).emit('entity:update', _payload);
     }
 
     const duration = Date.now() - startTime;
@@ -3215,12 +3212,9 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const balanceWarning = await FinancialIntegrityService.getBalanceWarnings(record.worker_id, record.project_id);
 
     if (globalThis.io) {
-      (globalThis.io as any).to('authenticated').emit('entity:update', {
-        type: 'INVALIDATE',
-        entity: 'worker-attendance',
-        project_id: record.project_id,
-        date: record.date
-      });
+      const _pid = record.project_id;
+      const _payload = { type: 'INVALIDATE', entity: 'worker-attendance', project_id: _pid, date: record.date };
+      (_pid ? (globalThis.io as any).to(`project:${_pid}`) : (globalThis.io as any).to('admin')).emit('entity:update', _payload);
     }
 
     let advanceTransferRecord: any = null;
@@ -3536,12 +3530,9 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
 
     if (globalThis.io && updated_attendance[0]) {
-      (globalThis.io as any).to('authenticated').emit('entity:update', {
-        type: 'INVALIDATE',
-        entity: 'worker-attendance',
-        project_id: updated_attendance[0].project_id,
-        date: updated_attendance[0].date
-      });
+      const _pid = updated_attendance[0].project_id;
+      const _payload = { type: 'INVALIDATE', entity: 'worker-attendance', project_id: _pid, date: updated_attendance[0].date };
+      (_pid ? (globalThis.io as any).to(`project:${_pid}`) : (globalThis.io as any).to('admin')).emit('entity:update', _payload);
     }
 
     const duration = Date.now() - startTime;

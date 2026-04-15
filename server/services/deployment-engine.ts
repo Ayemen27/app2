@@ -1474,7 +1474,7 @@ export class DeploymentEngine {
     try {
       const baseCmd = this.buildSSHCommandBase();
       await execAsync(
-        `${baseCmd} -o ControlMaster=yes -o ControlPath=${socketPath} -o ControlPersist=900 -fN`,
+        `${baseCmd} -o ControlMaster=yes -o ControlPath=${socketPath} -o ControlPersist=7200 -fN`,
         { timeout: 25000, env: sshEnv }
       );
       this.establishedMuxSockets.add(socketPath);
@@ -1719,7 +1719,7 @@ export class DeploymentEngine {
 
     // ControlMaster: إذا تم تمرير مسار socket، استخدم الاتصال الرئيسي المشترك
     const muxOpts = muxSocket
-      ? ` -o ControlMaster=auto -o ControlPath=${muxSocket} -o ControlPersist=900`
+      ? ` -o ControlMaster=auto -o ControlPath=${muxSocket} -o ControlPersist=7200`
       : "";
 
     const authMethod = this.getSSHAuthMethod();
@@ -2908,9 +2908,8 @@ export class DeploymentEngine {
     this.updateStepProgress(deploymentId, "gradle-build", 5, "فحص Gradle Wrapper...");
     const remoteDir = "/home/administrator/AXION";
 
-    // استخدام اتصال SSH مباشر جديد (بدون mux) لتجنب مشكلة الـ socket الفاسد بعد build-server
-    const freshSsh = this.buildSSHCommand(null);
-    await this.addLog(deploymentId, "🔗 إنشاء اتصال SSH مباشر لخطوة Gradle...", "info");
+    // استخدام اتصال SSH مع مux (ControlPersist=7200) لتجنب مشكلة فتح TCP جديد مع سيرفر محمّل
+    const freshSsh = sshCmd;
 
     let gradlewCheck = "";
     for (let gwAttempt = 0; gwAttempt < 3; gwAttempt++) {
@@ -3051,39 +3050,56 @@ export class DeploymentEngine {
 
     const getActiveSshCmd = (_attempt: number): string => freshSsh;
 
-    for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
+    // دمج رفع السكريبت وإطلاقه في أمر SSH واحد لتقليل عدد الاتصالات
+    let gradleLaunched = false;
+    for (let launchAttempt = 0; launchAttempt < 5; launchAttempt++) {
       try {
         const activeSsh = getActiveSshCmd(launchAttempt);
-        await execAsync(
-          `${activeSsh} "echo '${scriptB64}' | base64 -d > ${scriptPath} && chmod +x ${scriptPath}"`,
-          { timeout: 20000, env: sshEnv }
-        );
-        break;
-      } catch (uploadErr: any) {
-        if (launchAttempt < 2) {
-          await this.addLog(deploymentId, `⚠️ فشل رفع سكريبت Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
-          await new Promise(r => setTimeout(r, 5000));
-        } else throw uploadErr;
-      }
-    }
-    for (let launchAttempt = 0; launchAttempt < 3; launchAttempt++) {
-      try {
-        const activeSsh = getActiveSshCmd(launchAttempt);
+        if (launchAttempt > 0) {
+          await this.addLog(deploymentId, `⚠️ إعادة محاولة إطلاق Gradle عبر SSH (${launchAttempt + 1}/5)...`, "warn");
+          await new Promise(r => setTimeout(r, 10000));
+        }
         const launchResult = await execAsync(
-          `${activeSsh} "if [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then echo ALREADY_RUNNING; else rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & PID=\\$!; echo \\$PID > ${gradlePidFile}; echo LAUNCHED_\\$PID; fi"`,
-          { timeout: 20000, env: sshEnv }
+          `${activeSsh} "` +
+          `if [ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null; then ` +
+          `echo ALREADY_RUNNING; ` +
+          `else ` +
+          `echo '${scriptB64}' | base64 -d > ${scriptPath} && chmod +x ${scriptPath} && ` +
+          `rm -f ${gradlePidFile} ${gradleExitFile} ${gradleLogFile} && ` +
+          `{ setsid bash -c '${scriptPath} > ${gradleLogFile} 2>&1; echo \\$? > ${gradleExitFile}' </dev/null >/dev/null 2>&1 & } && ` +
+          `PID=\\$!; echo \\$PID > ${gradlePidFile}; echo LAUNCHED_\\$PID; ` +
+          `fi"`,
+          { timeout: 60000, env: sshEnv }
         );
         const out = launchResult.stdout?.toString().trim() || "";
         if (out.includes("ALREADY_RUNNING")) {
-          await this.addLog(deploymentId, "♻️ Gradle build already running from previous attempt — resuming poll", "info");
+          await this.addLog(deploymentId, "♻️ Gradle build already running — resuming poll", "info");
+        } else if (out.includes("LAUNCHED_")) {
+          await this.addLog(deploymentId, `✅ تم إطلاق Gradle: ${out.replace("LAUNCHED_", "PID=")}`, "info");
         }
+        gradleLaunched = true;
         break;
       } catch (launchErr: any) {
-        if (launchAttempt < 2) {
-          await this.addLog(deploymentId, `⚠️ فشل إطلاق Gradle (SSH) — محاولة ${launchAttempt + 2}/3...`, "warn");
-          await new Promise(r => setTimeout(r, 6000));
-        } else throw launchErr;
+        await this.addLog(deploymentId, `⚠️ فشل إطلاق Gradle (SSH) — محاولة ${launchAttempt + 1}/5 ...`, "warn");
+        // فحص ما إذا كانت العملية قد بدأت بالفعل رغم انقطاع SSH
+        await new Promise(r => setTimeout(r, 8000));
+        try {
+          const checkSsh = getActiveSshCmd(launchAttempt);
+          const { stdout: chk } = await execAsync(
+            `${checkSsh} "[ -f ${gradlePidFile} ] && kill -0 \\$(cat ${gradlePidFile}) 2>/dev/null && echo PROC_OK || echo PROC_ABSENT"`,
+            { timeout: 20000, env: sshEnv }
+          );
+          if (chk.trim().includes("PROC_OK")) {
+            await this.addLog(deploymentId, "♻️ العملية بدأت رغم انقطاع SSH — متابعة المراقبة...", "info");
+            gradleLaunched = true;
+            break;
+          }
+        } catch { /* استمرار المحاولة */ }
+        if (launchAttempt >= 4) throw launchErr;
       }
+    }
+    if (!gradleLaunched) {
+      throw new Error("فشل إطلاق Gradle بعد 5 محاولات");
     }
 
     await this.addLog(deploymentId, "⏳ بناء Gradle جارٍ في الخلفية... مراقبة دورية كل 20 ثانية", "info");

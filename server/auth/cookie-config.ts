@@ -6,7 +6,7 @@ const isProduction = ENV.isProduction;
 const BASE_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: 'lax',
+  sameSite: isProduction ? 'strict' : 'lax',
   path: '/',
 };
 
@@ -23,7 +23,7 @@ export const REFRESH_TOKEN_COOKIE_OPTIONS: CookieOptions = {
 export const CLEAR_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: 'lax',
+  sameSite: isProduction ? 'strict' : 'lax',
   path: '/',
 };
 

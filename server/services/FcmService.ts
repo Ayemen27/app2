@@ -126,7 +126,13 @@ export class FcmService {
           priority: payload.priority || 'high',
           notification: {
             sound: 'default',
-            channelId: payload.channelId || 'default',
+            channelId: payload.channelId || (
+              (payload.priority === 'high' || payload.priority === 5 as any)
+                ? 'high_priority'
+                : payload.data?.type === 'financial'
+                ? 'financial'
+                : 'default'
+            ),
             icon: 'ic_notification',
             color: '#2563EB',
           },
@@ -282,7 +288,7 @@ export class FcmService {
       }
     }
 
-    return { success: true };
+    return { success: false, sent: 0, failed: 0, reason: 'NO_VALID_RECIPIENT_OR_UNINITIALIZED' };
   }
 
   static get initialized() {

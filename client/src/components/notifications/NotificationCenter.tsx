@@ -124,6 +124,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         setUnreadCount(1);
       }
     } catch (error) {
+      console.error('[NotificationCenter] خطأ في جلب الإشعارات:', error);
     } finally {
       setLoading(false);
     }

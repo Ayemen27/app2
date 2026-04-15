@@ -201,7 +201,8 @@ const STATIC_ALLOWED_ORIGINS = new Set(
 const ALLOWED_DOMAIN_SUFFIXES = (process.env.ALLOWED_DOMAIN_SUFFIXES || '').split(',').map(s => s.trim()).filter(Boolean);
 
 function isOriginAllowed(origin: string, isDev: boolean, req?: Request): boolean {
-  if (!origin || origin === 'null') return true;
+  if (!origin) return true;
+  if (origin === 'null') return !isProduction;
   if (origin.startsWith('capacitor://')) return true;
 
   const normalized = normalizeOrigin(origin);

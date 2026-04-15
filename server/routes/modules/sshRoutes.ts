@@ -94,12 +94,34 @@ router.post('/server-info', async (req: Request, res: Response) => {
     }
 
     const safePort = sanitizePort(port);
-    const keyArg = privateKeyPath ? `-i ${privateKeyPath}` : '';
 
-    const sshCmd = `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes ${keyArg} -p ${safePort} ${username}@${host} "uname -a && uptime && df -h / | tail -1 && free -m | tail -1" 2>&1`;
+    if (privateKeyPath && !/^[a-zA-Z0-9/_\-\.]+$/.test(privateKeyPath)) {
+      return res.status(400).json({ success: false, message: 'مسار المفتاح غير صالح' });
+    }
+
+    const sshArgs = [
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ConnectTimeout=5',
+      '-o', 'BatchMode=yes',
+      ...(privateKeyPath ? ['-i', privateKeyPath] : []),
+      '-p', String(safePort),
+      `${username}@${host}`,
+      'uname -a && uptime && df -h / | tail -1 && free -m | tail -1'
+    ];
 
     try {
-      const { stdout } = await execAsync(sshCmd, { timeout: 10000 });
+      const stdout = await new Promise<string>((resolve, reject) => {
+        const proc = spawn('ssh', sshArgs, { timeout: 10000 });
+        let out = '';
+        let err = '';
+        proc.stdout.on('data', (d: Buffer) => { out += d.toString(); });
+        proc.stderr.on('data', (d: Buffer) => { err += d.toString(); });
+        proc.on('close', (code: number) => {
+          if (code === 0) resolve(out);
+          else reject(new Error(err || `Exit code ${code}`));
+        });
+        proc.on('error', reject);
+      });
       const lines = stdout.trim().split('\n');
       return res.json({
         success: true,

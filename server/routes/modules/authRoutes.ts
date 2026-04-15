@@ -232,12 +232,6 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
       clientContext
     );
 
-    console.log('✅ [AUTH-DEBUG] تم توليد زوج الرموز بنجاح:', {
-      user_id: user.id,
-      accessTokenLength: tokenPair.accessToken?.length || 0,
-      refreshTokenLength: tokenPair.refreshToken?.length || 0
-    });
-
     setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
     const nativeClient = isNativeClient(req);
@@ -277,13 +271,6 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
         refreshToken: tokenPair.refreshToken,
       }
     };
-
-    console.log('📤 [AUTH-DEBUG] إرسال الاستجابة النهائية:', {
-      user_id: user.id,
-      hasToken: !!responseData.token,
-      tokenPreview: responseData.token ? (responseData.token.substring(0, 10) + '...') : 'null',
-      timestamp: new Date().toISOString()
-    });
 
     res.json(responseData);
 

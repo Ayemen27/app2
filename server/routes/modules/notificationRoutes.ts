@@ -196,11 +196,43 @@ notificationRouter.patch('/:id', async (req: Request, res: Response) => {
       });
     }
     
-    // تحديث الإشعار (مثلاً تغيير النص أو الأولوية)
-    // مؤقتاً نرجع رسالة نجاح حتى يتم توسيع NotificationService بدالة التحديث
+    const { db } = await import('../../db');
+    const { notifications } = await import('../../../shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const allowedFields: Record<string, any> = {};
+    if (req.body.title !== undefined) allowedFields.title = req.body.title;
+    if (req.body.body !== undefined) allowedFields.body = req.body.body;
+    if (req.body.message !== undefined) allowedFields.body = req.body.message;
+    if (req.body.priority !== undefined) allowedFields.priority = Number(req.body.priority);
+    if (req.body.status !== undefined) allowedFields.status = req.body.status;
+
+    if (Object.keys(allowedFields).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'لم يتم تقديم أي حقول للتحديث',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const [updated] = await db
+      .update(notifications)
+      .set(allowedFields)
+      .where(eq(notifications.id, notificationId))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'الإشعار غير موجود',
+        processingTime: Date.now() - startTime
+      });
+    }
+
     res.json({
       success: true,
       message: 'تم تحديث الإشعار بنجاح',
+      data: updated,
       processingTime: Date.now() - startTime
     });
     
@@ -636,5 +668,39 @@ notificationRouter.get('/test/stats', requireRole('admin'), async (req: Request,
 });
 
 console.log('✅ [NotificationRoutes] تم تحديث مسارات إدارة الإشعارات مع المنطق الكامل');
+
+/**
+ * 📄 جلب إشعار واحد محدد بمعرفه
+ * GET /api/notifications/:id
+ * ملاحظة: يجب أن يكون آخر مسار GET لتجنب تعارض المسارات الديناميكية
+ */
+notificationRouter.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const user_id = getAuthUser(req)?.user_id || "unknown";
+    if (!user_id || user_id === "unknown") {
+      return res.status(401).json({ success: false, message: "غير مخول" });
+    }
+
+    const notificationId = req.params.id;
+    const { db } = await import('../../db');
+    const { notifications } = await import('../../../shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const [notification] = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, notificationId))
+      .limit(1);
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: "الإشعار غير موجود" });
+    }
+
+    res.json({ success: true, data: notification });
+  } catch (error: unknown) {
+    console.error('❌ [API] خطأ في جلب الإشعار:', error);
+    res.status(500).json({ success: false, message: "فشل في جلب الإشعار" });
+  }
+});
 
 export default notificationRouter;

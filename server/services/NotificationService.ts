@@ -99,9 +99,16 @@ export class NotificationService {
 
     console.log(`✅ تم إنشاء الإشعار: ${notification.id}`);
 
-    // إرسال عبر FCM إذا كان التوكن متوفراً
+    // إرسال إشعارات Push الحقيقية عبر FCM
     if (recipients.length > 0) {
-      console.log(`ℹ️ [NotificationService] سيتم إرسال إشعارات لـ ${recipients.length} مستلم`);
+      this.sendPushNotifications(
+        recipients,
+        data.title,
+        data.body,
+        data.payload
+      ).catch((err: any) => {
+        console.warn(`⚠️ [NotificationService] خطأ في Push: ${err?.message}`);
+      });
     }
 
     TelegramService.sendNotification({
@@ -118,10 +125,26 @@ export class NotificationService {
   }
 
   /**
-   * إرسال إشعارات Push (تعطيل مؤقت لتجنب الأخطاء)
+   * إرسال إشعارات Push الحقيقية عبر FCM
    */
   private async sendPushNotifications(recipients: string[], title: string, body: string, payload?: any): Promise<void> {
-    console.log(`📱 [Push] محاكاة إرسال لـ ${recipients.length} مستخدم: ${title}`);
+    try {
+      const { FcmService } = await import('./FcmService');
+      if (!FcmService.initialized) {
+        console.log(`ℹ️ [Push] FCM غير مهيأ - تخطي إرسال Push لـ ${recipients.length} مستخدم`);
+        return;
+      }
+      const data: Record<string, string> = {};
+      if (payload) {
+        Object.entries(payload).forEach(([k, v]) => {
+          data[k] = String(v);
+        });
+      }
+      const result = await FcmService.sendToUsers(recipients, { title, body, data, priority: 'high' });
+      console.log(`📱 [Push] تم الإرسال: ${result.sent} نجاح, ${result.failed} فشل, ${result.skipped} بدون token`);
+    } catch (err: any) {
+      console.error(`❌ [Push] خطأ في sendPushNotifications:`, err.message);
+    }
   }
 
   /**

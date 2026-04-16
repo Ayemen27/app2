@@ -1,5 +1,3 @@
-import { ENV } from "@/lib/env";
-import { authFetch } from '@/lib/auth-token-store';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { initializeNativePush } from './capacitorPush';
@@ -11,6 +9,17 @@ const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 type PermissionState = 'granted' | 'prompt' | 'denied' | 'cooldown';
 
 let resumeListenerRegistered = false;
+
+function getCurrentUserId(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return parsed?.id ? String(parsed.id) : '';
+  } catch {
+    return '';
+  }
+}
 
 async function getPermissionState(): Promise<PermissionState> {
   if (!Capacitor.isNativePlatform()) return 'denied';
@@ -39,7 +48,7 @@ async function requestNotificationPermission(): Promise<boolean> {
     const state = await getPermissionState();
 
     if (state === 'granted') {
-      await initializeNativePush('');
+      await initializeNativePush(getCurrentUserId());
       return true;
     }
 
@@ -51,7 +60,7 @@ async function requestNotificationPermission(): Promise<boolean> {
 
       if (result.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
-        await initializeNativePush('');
+        await initializeNativePush(getCurrentUserId());
         return true;
       }
 
@@ -97,7 +106,7 @@ async function registerResumeListener() {
       const status = await PushNotifications.checkPermissions();
       if (status.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
-        await initializeNativePush('');
+        await initializeNativePush(getCurrentUserId());
       }
     } catch {}
   });

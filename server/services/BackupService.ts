@@ -886,7 +886,6 @@ export class BackupService {
 
     const defaults = [
       { key: 'DATABASE_URL_CENTRAL', id: 'central', name: 'CENTRAL' },
-      { key: 'DATABASE_URL_SUPABASE', id: 'supabase', name: 'SUPABASE' },
       { key: 'DATABASE_URL', id: 'local', name: 'LOCAL' }
     ];
 

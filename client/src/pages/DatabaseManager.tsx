@@ -93,7 +93,7 @@ export default function DatabaseManager() {
   const sourceError = overviewError || tablesError;
 
   const [compareSource1, setCompareSource1] = useState("local");
-  const [compareSource2, setCompareSource2] = useState("supabase");
+  const [compareSource2, setCompareSource2] = useState("central");
 
   const compareUrl = `/api/db/compare?source1=${compareSource1}&source2=${compareSource2}`;
   const { data: comparison, isLoading: comparisonLoading, refetch: refetchComparison } = useQuery<any>({
@@ -227,7 +227,7 @@ export default function DatabaseManager() {
             <div className="flex items-center gap-2">
               {selectedSource === 'active' && <CircleDot className="h-3.5 w-3.5 text-blue-500" />}
               {selectedSource === 'local' && <MonitorSmartphone className="h-3.5 w-3.5 text-emerald-500" />}
-              {selectedSource === 'supabase' && <Cloud className="h-3.5 w-3.5 text-violet-500" />}
+              {selectedSource === 'central' && <Cloud className="h-3.5 w-3.5 text-violet-500" />}
               <SelectValue placeholder="اختر قاعدة البيانات" />
             </div>
           </SelectTrigger>

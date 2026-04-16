@@ -135,19 +135,7 @@ export class DbMetricsService {
     }
 
     if (source === 'supabase') {
-      const dynConn = connMgr.getDynamicConnection('supabase');
-      if (dynConn?.connected && dynConn.pool) return { pool: dynConn.pool };
-
-      const status = connMgr.getConnectionStatus();
-      if (status.supabase) {
-        const conn = connMgr.getSmartConnection('sync');
-        if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
-        // fallback to specialized supabase pool if smart connection returned local but supabase is marked active
-        const instance = connMgr as unknown as { supabasePool?: typeof pool };
-        if (instance.supabasePool) return { pool: instance.supabasePool };
-      }
-      
-      // العودة لقاعدة البيانات النشطة بدلاً من إرجاع خطأ 500
+      // supabase محذوف - العودة لقاعدة البيانات النشطة
       return { pool };
     }
 
@@ -245,7 +233,7 @@ export class DbMetricsService {
 
   static async compareDatabases(source1?: string, source2?: string): Promise<ComparisonReport | null> {
     const s1 = source1 || 'local';
-    const s2 = source2 || 'supabase';
+    const s2 = source2 || 'central';
 
     console.log(`🔍 [DbMetrics] Comparing databases: s1=${s1}, s2=${s2}`);
 

@@ -89,12 +89,12 @@ const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");
 
 let finalDbUrl = dbUrl;
 
-if (dbUrl.includes("supabase.co")) {
+if (false && dbUrl.includes("supabase.co")) {
   const projectRefMatch = dbUrl.match(/@db\.([^.]+)\.supabase\.co/);
   const projectRef = projectRefMatch ? projectRefMatch[1] : null;
   
   if (projectRef) {
-    console.log(`🔧 [Supabase Fix] تطبيق بروتوكول Pooler للمشروع: ${projectRef}`);
+    console.log(`🔧 [DB Fix] تطبيق بروتوكول Pooler للمشروع: ${projectRef}`);
     
     const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
     if (urlParts) {
@@ -356,7 +356,7 @@ export async function checkDBConnection() {
  * 🔄 إعادة محاولة الاتصال الذكية
  * يتم استدعاؤها عند الكشف عن فشل الاتصال
  */
-export async function smartReconnect(target: 'local' | 'supabase' | 'both' = 'both'): Promise<boolean> {
+export async function smartReconnect(target: 'local' | 'both' = 'both'): Promise<boolean> {
   console.log(`🔄 [Smart Reconnect] Initiating smart reconnection for: ${target}`);
   
   try {

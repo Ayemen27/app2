@@ -34,12 +34,9 @@ export interface DynamicConnection {
 export class SmartConnectionManager {
   private static instance: SmartConnectionManager;
   private localPool: Pool | null = null;
-  private supabasePool: Pool | null = null;
   private localDb: any = null;
-  private supabaseDb: any = null;
   private connectionStatus = {
-    local: false,
-    supabase: false
+    local: false
   };
   private isProduction = envConfig.isProduction;
   
@@ -55,15 +52,6 @@ export class SmartConnectionManager {
     latencyHistory: number[];
   }> = {
     local: {
-      totalAttempts: 0,
-      successfulAttempts: 0,
-      failedAttempts: 0,
-      lastAttemptTime: null,
-      lastFailureTime: null,
-      averageLatency: 0,
-      latencyHistory: []
-    },
-    supabase: {
       totalAttempts: 0,
       successfulAttempts: 0,
       failedAttempts: 0,
@@ -114,7 +102,6 @@ export class SmartConnectionManager {
     }
     
     await this.initializeLocalConnection();
-    await this.initializeSupabaseConnection();
     
     const enableEagerDiscovery = process.env.ENABLE_EAGER_DB_DISCOVERY === 'true';
     if (enableEagerDiscovery) {
@@ -131,7 +118,7 @@ export class SmartConnectionManager {
       }, 10000);
     }
 
-    if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
+    if (!this.connectionStatus.local) {
       const isAndroid = process.env.PLATFORM === 'android';
       if (isAndroid) {
          console.log('📱 [Smart Connection Manager] بيئة أندرويد مكتشفة، استخدام SQLite افتراضياً.');
@@ -274,13 +261,12 @@ export class SmartConnectionManager {
    * 🔄 فحص استعادة الاتصال والمزامنة العكسية
    */
   async checkAndSyncBack(): Promise<void> {
-    if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
-      await this.reconnect('both');
+    if (!this.connectionStatus.local) {
+      await this.reconnect('local');
     }
 
-    if (this.connectionStatus.local || this.connectionStatus.supabase) {
+    if (this.connectionStatus.local) {
       console.log('✅ [Sync] تم استعادة الاتصال المركزي، بدء المزامنة العكسية...');
-      // منطق المزامنة من SQLite إلى Postgres
       (globalThis as Record<string, unknown>).isEmergencyMode = false;
     }
   }
@@ -302,22 +288,19 @@ export class SmartConnectionManager {
         /**
          * 🔗 ترتيب أولوية الاتصال:
          * 1. DATABASE_URL_CENTRAL - القاعدة المركزية الرئيسية
-         * 2. DATABASE_URL_SUPABASE - قاعدة Supabase/External
-         * 3. DATABASE_URL_RAILWAY - قاعدة Railway
+         * 2. DATABASE_URL_RAILWAY - قاعدة Railway
          * ❌ يتم تجاهل DATABASE_URL (Replit Helium) لمنع الاتصال بها
          */
         const databaseUrl = 
           process.env.DATABASE_URL_CENTRAL ||
-          process.env.DATABASE_URL_SUPABASE || 
           process.env.DATABASE_URL_RAILWAY;
         
         // تسجيل مصدر القاعدة
         const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
-                        process.env.DATABASE_URL_SUPABASE ? 'SUPABASE' :
                         process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' : 'NONE';
         
         if (!databaseUrl) {
-          console.warn('⚠️ [Local DB] لا توجد قاعدة بيانات مركزية - تحقق من DATABASE_URL_CENTRAL أو DATABASE_URL_SUPABASE');
+          console.warn('⚠️ [Local DB] لا توجد قاعدة بيانات مركزية - تحقق من DATABASE_URL_CENTRAL');
           metrics.failedAttempts++;
           return;
         }
@@ -419,120 +402,9 @@ export class SmartConnectionManager {
   }
 
   /**
-   * ☁️ تهيئة اتصال Supabase
-   */
-  private async initializeSupabaseConnection(): Promise<void> {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseDbPassword = process.env.SUPABASE_DATABASE_PASSWORD || process.env.SSH_PASSWORD;
-
-    if (!supabaseUrl || !supabaseDbPassword) {
-      return;
-    }
-    
-    try {
-      const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-      
-      if (!project) {
-        return;
-      }
-
-      let sslConfig: any = { rejectUnauthorized: false };
-      
-      const certPath = './pg_cert.pem';
-      if (fs.existsSync(certPath)) {
-        const ca = fs.readFileSync(certPath, { encoding: "utf8" });
-        sslConfig = {
-          rejectUnauthorized: false,
-          ca: ca,
-          minVersion: 'TLSv1.2',
-          checkServerIdentity: () => undefined
-        };
-      }
-
-      let connectionString = process.env.DATABASE_URL_SUPABASE;
-      const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
-
-      if (connectionString) {
-        if (connectionString.includes("supabase.co") || connectionString.includes("pooler.supabase.com")) {
-          const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/) || 
-                                connectionString.match(/postgresql:\/\/postgres\.([^:]+):/);
-          const projectRef = projectRefMatch ? projectRefMatch[1] : project;
-          
-          if (projectRef) {
-            const urlParts = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@/);
-            if (urlParts) {
-              const password = urlParts[2];
-              const poolerHost = `aws-0-eu-central-1.pooler.supabase.com`;
-              const compositeUser = `postgres.${projectRef}`;
-              connectionString = `postgresql://${compositeUser}:${password}@${poolerHost}:6543/postgres?pgbouncer=true&connection_limit=1`;
-            } else {
-              connectionString = connectionString
-                .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
-                .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
-                
-              if (!connectionString.includes("?")) {
-                connectionString += "?pgbouncer=true&connection_limit=1";
-              }
-            }
-          }
-        }
-
-        this.supabasePool = new Pool({
-          connectionString: connectionString,
-          ssl: sslConfig,
-          max: 5,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 15000
-        });
-      } else if (supabaseKey && project) {
-        this.supabasePool = new Pool({
-          host: `aws-0-eu-central-1.pooler.supabase.com`,
-          port: 6543,
-          database: 'postgres',
-          user: `postgres.${project}`,
-          password: supabaseDbPassword,
-          ssl: sslConfig,
-          max: 5,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 15000
-        });
-      } else {
-        this.supabasePool = new Pool({
-          host: 'aws-0-eu-central-1.pooler.supabase.com',
-          port: 6543,
-          database: 'postgres',
-          user: `postgres.${project}`,
-          password: supabaseDbPassword,
-          ssl: sslConfig,
-          max: 5,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 15000
-        });
-      }
-
-      this.supabaseDb = drizzle(this.supabasePool, { schema });
-
-      try {
-        const client = await this.supabasePool.connect();
-        await client.query('SELECT 1');
-        client.release();
-        this.connectionStatus.supabase = true;
-        console.log('✅ [Supabase] اتصال ثانوي نجح');
-      } catch (connError: any) {
-        (this as unknown as Record<string, boolean>).supabaseTenantError = 
-          connError.message?.includes('Tenant or user not found');
-        this.connectionStatus.supabase = false;
-      }
-
-    } catch {
-      this.connectionStatus.supabase = false;
-    }
-  }
-
-  /**
    * 📊 تحديث قياسات الأداء
    */
-  private updateMetrics(target: 'local' | 'supabase', latency: number): void {
+  private updateMetrics(target: 'local', latency: number): void {
     const metrics = this.connectionMetrics[target];
     metrics.latencyHistory.push(latency);
     
@@ -589,59 +461,23 @@ export class SmartConnectionManager {
   getSmartConnection(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read'): {
     pool: Pool | null;
     db: any;
-    source: 'local' | 'supabase' | 'emergency' | null;
+    source: 'local' | 'emergency' | null;
   } {
     // التحقق من وضع الطوارئ أولاً
     if ((globalThis as Record<string, unknown>).isEmergencyMode) {
       return {
         pool: null,
-        db: this.localDb, // في Replit، القاعدة المحلية هي SQLite
+        db: this.localDb,
         source: 'emergency'
       };
     }
 
-    // قواعد التوجيه الذكي المعتادة
-    switch (operationType) {
-      case 'write':
-        // الكتابة دائماً في قاعدة البيانات المحلية
-        if (this.connectionStatus.local) {
-          return {
-            pool: this.localPool,
-            db: this.localDb,
-            source: 'local'
-          };
-        }
-        break;
-
-      case 'backup':
-      case 'sync':
-        // النسخ الاحتياطي والمزامنة من Supabase
-        if (this.connectionStatus.supabase) {
-          return {
-            pool: this.supabasePool,
-            db: this.supabaseDb,
-            source: 'supabase'
-          };
-        }
-        break;
-
-      case 'read':
-      default:
-        // القراءة: أولوية للمحلي، ثم Supabase
-        if (this.connectionStatus.local) {
-          return {
-            pool: this.localPool,
-            db: this.localDb,
-            source: 'local'
-          };
-        } else if (this.connectionStatus.supabase) {
-          return {
-            pool: this.supabasePool,
-            db: this.supabaseDb,
-            source: 'supabase'
-          };
-        }
-        break;
+    if (this.connectionStatus.local) {
+      return {
+        pool: this.localPool,
+        db: this.localDb,
+        source: 'local'
+      };
     }
 
     return {
@@ -654,17 +490,9 @@ export class SmartConnectionManager {
   /**
    * 🔄 إعادة تهيئة اتصال معين
    */
-  async reconnect(target: 'local' | 'supabase' | 'both' = 'both'): Promise<void> {
+  async reconnect(target: 'local' | 'both' = 'both'): Promise<void> {
     console.log(`🔄 [Smart Connection Manager] إعادة تهيئة: ${target}`);
-
-    if (target === 'local' || target === 'both') {
-      await this.initializeLocalConnection();
-    }
-
-    if (target === 'supabase' || target === 'both') {
-      await this.initializeSupabaseConnection();
-    }
-
+    await this.initializeLocalConnection();
     this.logConnectionStatus();
   }
 
@@ -673,14 +501,13 @@ export class SmartConnectionManager {
    */
   getConnectionStatus(): {
     local: boolean;
-    supabase: boolean;
     totalConnections: number;
     emergencyMode: boolean;
     metrics?: any;
   } {
     return {
       ...this.connectionStatus,
-      totalConnections: Object.values(this.connectionStatus).filter(Boolean).length,
+      totalConnections: this.connectionStatus.local ? 1 : 0,
       emergencyMode: (globalThis as Record<string, unknown>).isEmergencyMode as boolean || false,
       metrics: this.getMetrics()
     };
@@ -691,26 +518,15 @@ export class SmartConnectionManager {
    */
   getMetrics(): {
     local: any;
-    supabase: any;
     healthScore: number;
   } {
     const localMetrics = this.connectionMetrics.local;
-    const supabaseMetrics = this.connectionMetrics.supabase;
 
-    // حساب النسبة المئوية للنجاح
     const localSuccessRate = localMetrics.totalAttempts > 0
       ? (localMetrics.successfulAttempts / localMetrics.totalAttempts) * 100
       : 0;
 
-    const supabaseSuccessRate = supabaseMetrics.totalAttempts > 0
-      ? (supabaseMetrics.successfulAttempts / supabaseMetrics.totalAttempts) * 100
-      : 0;
-
-    // حساب درجة الصحة الكلية (0-100)
-    const connectionHealthScore = (
-      (this.connectionStatus.local ? 50 : 0) +
-      (this.connectionStatus.supabase ? 50 : 0)
-    );
+    const connectionHealthScore = this.connectionStatus.local ? 100 : 0;
 
     return {
       local: {
@@ -722,16 +538,6 @@ export class SmartConnectionManager {
         averageLatency: `${localMetrics.averageLatency}ms`,
         lastAttemptTime: localMetrics.lastAttemptTime ? new Date(localMetrics.lastAttemptTime).toISOString() : null,
         lastFailureTime: localMetrics.lastFailureTime ? new Date(localMetrics.lastFailureTime).toISOString() : null
-      },
-      supabase: {
-        connected: this.connectionStatus.supabase,
-        totalAttempts: supabaseMetrics.totalAttempts,
-        successfulAttempts: supabaseMetrics.successfulAttempts,
-        failedAttempts: supabaseMetrics.failedAttempts,
-        successRate: `${supabaseSuccessRate.toFixed(1)}%`,
-        averageLatency: `${supabaseMetrics.averageLatency}ms`,
-        lastAttemptTime: supabaseMetrics.lastAttemptTime ? new Date(supabaseMetrics.lastAttemptTime).toISOString() : null,
-        lastFailureTime: supabaseMetrics.lastFailureTime ? new Date(supabaseMetrics.lastFailureTime).toISOString() : null
       },
       healthScore: connectionHealthScore
     };
@@ -756,7 +562,7 @@ export class SmartConnectionManager {
       
       if (value.includes('helium') || value.includes('heliumdb')) continue;
       
-      if (suffix === 'supabase' && (this.connectionStatus.supabase || (this as unknown as Record<string, boolean>).supabaseTenantError)) continue;
+      if (suffix === 'supabase') continue;
       
       if (this.dynamicConnections.has(suffix)) continue;
       
@@ -786,8 +592,7 @@ export class SmartConnectionManager {
         const latency = Date.now() - startTime;
         
         const urlObj = new URL(value);
-        const label = suffix === 'supabase' ? 'Supabase' : 
-                      (suffix === 'backup' || suffix === 'blackup') ? 'النسخ الاحتياطي' :
+        const label = (suffix === 'backup' || suffix === 'blackup') ? 'النسخ الاحتياطي' :
                       suffix.charAt(0).toUpperCase() + suffix.slice(1);
         
         this.dynamicConnections.set(suffix, {
@@ -811,11 +616,6 @@ export class SmartConnectionManager {
           };
         }
         
-        if (suffix === 'supabase' && !this.connectionStatus.supabase) {
-          this.supabasePool = newPool;
-          this.supabaseDb = db;
-          this.connectionStatus.supabase = true;
-        }
         
         if (!this.isProduction) {
           console.log(`✅ [Dynamic DB] اتصال "${label}" نجح:`, {
@@ -1011,17 +811,13 @@ export class SmartConnectionManager {
    */
   async runConnectionTest(): Promise<{
     local: { status: boolean; details?: any; error?: string };
-    supabase: { status: boolean; details?: any; error?: string };
   }> {
     const results: {
       local: { status: boolean; details?: any; error?: string };
-      supabase: { status: boolean; details?: any; error?: string };
     } = {
-      local: { status: false },
-      supabase: { status: false }
+      local: { status: false }
     };
 
-    // اختبار الاتصال المحلي
     try {
       if (this.localPool) {
         const client = await this.localPool.connect();
@@ -1045,30 +841,6 @@ export class SmartConnectionManager {
       };
     }
 
-    // اختبار اتصال Supabase
-    try {
-      if (this.supabasePool) {
-        const client = await this.supabasePool.connect();
-        const result = await client.query('SELECT version(), current_database(), current_user, now()');
-        client.release();
-        
-        results.supabase = {
-          status: true,
-          details: {
-            database: result.rows[0].current_database,
-            user: result.rows[0].current_user,
-            version: result.rows[0].version?.split(' ')[0],
-            timestamp: result.rows[0].now
-          }
-        };
-      }
-    } catch (error: any) {
-      results.supabase = {
-        status: false,
-        error: error.message
-      };
-    }
-
     return results;
   }
 
@@ -1084,10 +856,6 @@ export class SmartConnectionManager {
       closePromises.push(this.localPool.end());
     }
 
-    if (this.supabasePool) {
-      closePromises.push(this.supabasePool.end());
-    }
-
     for (const [, conn] of this.dynamicConnections) {
       if (conn.pool) {
         closePromises.push(conn.pool.end());
@@ -1097,7 +865,6 @@ export class SmartConnectionManager {
     await Promise.all(closePromises);
     
     this.connectionStatus.local = false;
-    this.connectionStatus.supabase = false;
     this.dynamicConnections.clear();
 
     console.log('✅ [Smart Connection Manager] تم إغلاق جميع الاتصالات');

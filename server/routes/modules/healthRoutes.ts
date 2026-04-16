@@ -199,7 +199,7 @@ healthRouter.post('/health/reconnect', requireAuth, async (req: Request, res: Re
     await smartConnectionManager.reconnect(target || 'both');
     const newStatus = smartConnectionManager.getConnectionStatus();
     
-    if (newStatus.local || newStatus.supabase) {
+    if (newStatus.local) {
       globalThis.isEmergencyMode = false;
     }
     

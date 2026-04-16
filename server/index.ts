@@ -385,7 +385,6 @@ app.get("/api/health", (req: Request, res: Response): void => {
       version: "2.0.0-organized",
       connections: {
         local: connectionStatus.local,
-        supabase: connectionStatus.supabase,
         emergency: connectionStatus.emergencyMode,
         total: connectionStatus.totalConnections
       }
@@ -408,13 +407,11 @@ app.get("/api/connection-health", requireAuth, (req: Request, res: Response): vo
       timestamp: new Date().toISOString(),
       connectionStatus: {
         local: connectionStatus.local,
-        supabase: connectionStatus.supabase,
         emergencyMode: connectionStatus.emergencyMode,
         totalConnections: connectionStatus.totalConnections
       },
       metrics: {
         local: metrics?.local,
-        supabase: metrics?.supabase,
         healthScore: metrics?.healthScore
       },
       recommendations: generateRecommendations(connectionStatus, metrics)
@@ -449,7 +446,6 @@ app.get("/api/health-monitor", requireAuth, (req: Request, res: Response): void 
       },
       databaseConnections: {
         local: connectionStatus.local,
-        supabase: connectionStatus.supabase,
         healthy: connectionStatus.totalConnections > 0
       },
       performanceMetrics: {
@@ -488,12 +484,12 @@ app.get("/api/health-monitor", requireAuth, (req: Request, res: Response): void 
 app.post("/api/connection/reconnect", requireAuth, async (req: Request, res: Response) => {
   try {
     const { target } = req.body;
-    const validTargets = ['local', 'supabase', 'both'];
+    const validTargets = ['local', 'both'];
     const reconnectTarget = validTargets.includes(target) ? target : 'both';
     
     console.log(`🔄 [API] Manual reconnection requested for: ${reconnectTarget}`);
     
-    await smartConnectionManager.reconnect(reconnectTarget as 'local' | 'supabase' | 'both');
+    await smartConnectionManager.reconnect(reconnectTarget as 'local' | 'both');
     
     const status = smartConnectionManager.getConnectionStatus();
     
@@ -502,7 +498,6 @@ app.post("/api/connection/reconnect", requireAuth, async (req: Request, res: Res
       message: `إعادة الاتصال ل ${reconnectTarget} اكتملت`,
       connectionStatus: {
         local: status.local,
-        supabase: status.supabase,
         totalConnections: status.totalConnections
       },
       timestamp: new Date().toISOString()
@@ -534,15 +529,10 @@ app.get("/api/connection/test", requireAuth, async (req: Request, res: Response)
           details: results.local.details,
           error: results.local.error
         },
-        supabase: {
-          connected: results.supabase.status,
-          details: results.supabase.details,
-          error: results.supabase.error
-        }
       },
       summary: {
-        allHealthy: results.local.status && results.supabase.status,
-        connectedCount: (results.local.status ? 1 : 0) + (results.supabase.status ? 1 : 0)
+        allHealthy: results.local.status,
+        connectedCount: results.local.status ? 1 : 0
       }
     });
   } catch (error: any) {
@@ -562,7 +552,7 @@ app.get("/api/connection/test", requireAuth, async (req: Request, res: Response)
 function generateRecommendations(connectionStatus: any, metrics: any): string[] {
   const recommendations: string[] = [];
   
-  if (!connectionStatus.local && !connectionStatus.supabase) {
+  if (!connectionStatus.local) {
     recommendations.push('⚠️ جميع الاتصالات معطلة - النظام في وضع الطوارئ');
     recommendations.push('تحقق من إعدادات قاعدة البيانات');
   }

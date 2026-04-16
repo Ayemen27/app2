@@ -10,7 +10,7 @@ interface HealthStatus {
     database: { status: boolean; latency?: number; error?: string };
     memory: { status: boolean; usage: number; limit: number };
     circuitBreakers: { status: string; open: number; total: number };
-    connections: { local: boolean; supabase: boolean };
+    connections: { local: boolean };
   };
   emergencyMode: boolean;
   platform: 'web' | 'android' | 'server';
@@ -92,8 +92,7 @@ class HealthMonitor {
         },
         circuitBreakers: { ...circuitBreakerCheck, status: circuitBreakerCheck.status },
         connections: {
-          local: true,
-          supabase: true
+          local: true
         }
       },
       emergencyMode: (globalThis as Record<string, unknown>).isEmergencyMode as boolean || false,

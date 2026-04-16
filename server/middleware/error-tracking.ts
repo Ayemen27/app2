@@ -77,13 +77,13 @@ export function requestLoggingMiddleware() {
     (req as TrackedRequest).startTime = Date.now();
     
     // تسجيل بداية الطلب
-    console.log(`📥 [${new Date().toLocaleTimeString('ar-SA')}] ${req.method} ${req.path} - IP: ${req.ip}`);
+    console.log(`📥 [${new Date().toLocaleTimeString('en-GB')}] ${req.method} ${req.path} - IP: ${req.ip}`);
 
     res.on('finish', () => {
       const duration = Date.now() - ((req as TrackedRequest).startTime || Date.now());
       const statusEmoji = res.statusCode >= 500 ? '🚨' : res.statusCode >= 400 ? '⚠️' : '✅';
       
-      console.log(`📤 [${new Date().toLocaleTimeString('ar-SA')}] ${statusEmoji} ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+      console.log(`📤 [${new Date().toLocaleTimeString('en-GB')}] ${statusEmoji} ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
       
       if (res.statusCode >= 400) {
         console.log(`🔍 تفاصيل إضافية: User-Agent: ${req.get('User-Agent')}, Referer: ${req.get('Referer') || 'غير محدد'}`);

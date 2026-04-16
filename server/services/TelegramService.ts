@@ -121,7 +121,7 @@ export class TelegramService {
     driveUrl?: string;
     driveUploaded?: boolean;
   }): Promise<boolean> {
-    const now = new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' });
+    const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Riyadh' });
 
     let text: string;
     if (result.success) {
@@ -181,7 +181,7 @@ export class TelegramService {
       `${typeLabel}`,
       `${notification.body}`,
       notification.project_id ? `📍 المشروع: ${notification.project_id}` : '',
-      `🕐 ${new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' })}`,
+      `🕐 ${new Date().toLocaleString('en-GB', { timeZone: 'Asia/Riyadh' })}`,
     ].filter(Boolean).join('\n');
 
     return await this.sendMessage({

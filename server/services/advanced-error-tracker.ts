@@ -262,7 +262,7 @@ export class AdvancedErrorTracker {
     console.log('🚨 نظام التتبع المتقدم للأخطاء - ADVANCED ERROR TRACKER 🚨');
     console.log('='.repeat(80));
     
-    console.log('📅 الوقت:', new Date(errorLog.timestamp).toLocaleString('ar-SA'));
+    console.log('📅 الوقت:', new Date(errorLog.timestamp).toLocaleString('en-GB'));
     console.log('🆔 معرف الخطأ:', errorLog.id);
     console.log('📍 المسار:', errorLog.path);
     console.log('🔢 رمز الحالة:', errorLog.statusCode);

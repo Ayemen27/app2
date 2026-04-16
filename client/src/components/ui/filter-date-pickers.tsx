@@ -183,7 +183,7 @@ export function FilterDateRangePicker({
             >
               <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
               <span className="truncate flex-1 font-bold">
-                {value?.from ? format(value.from, "yyyy/MM/dd", { locale: ar }) : "من"}
+                {value?.from ? format(value.from, "dd/MM/yyyy", { locale: ar }) : "من"}
               </span>
               {showClearButton && value?.from && (
                 <div 
@@ -208,7 +208,7 @@ export function FilterDateRangePicker({
             >
               <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
               <span className="truncate flex-1 font-bold">
-                {value?.to ? format(value.to, "yyyy/MM/dd", { locale: ar }) : "إلى"}
+                {value?.to ? format(value.to, "dd/MM/yyyy", { locale: ar }) : "إلى"}
               </span>
               {showClearButton && value?.to && (
                 <div 

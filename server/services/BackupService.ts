@@ -389,7 +389,7 @@ export class BackupService {
         const fileSizeMB = result.sizeBytes ? result.sizeBytes / (1024 * 1024) : 0;
         const TELEGRAM_FILE_LIMIT_MB = 50;
 
-        const now = new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' });
+        const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Riyadh' });
         const driveStatus = result.driveUploaded
           ? `✅ Google Drive`
           : `⚠️ Drive غير مرفوع`;

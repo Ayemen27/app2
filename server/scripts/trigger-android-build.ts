@@ -44,7 +44,7 @@ async function main() {
           const newLogs = logs.slice(lastLogCount);
           for (const log of newLogs) {
             const prefix = log.level === "error" ? "❌" : log.level === "warn" ? "⚠️" : log.level === "success" ? "✅" : "ℹ️";
-            const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('ar-SA') : "";
+            const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-GB') : "";
             console.log(`${prefix} [${time}] ${log.message}`);
           }
           lastLogCount = logs.length;

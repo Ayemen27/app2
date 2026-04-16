@@ -2592,7 +2592,7 @@ export class DatabaseActions {
         success: true,
         data: { workers: result, totalUnpaid, count: result.length },
         message: result.length > 0 
-          ? `${result.length} عامل لديهم مستحقات غير مدفوعة (إجمالي: ${totalUnpaid.toLocaleString('ar')} ريال)`
+          ? `${result.length} عامل لديهم مستحقات غير مدفوعة (إجمالي: ${totalUnpaid.toLocaleString('en-US')} ريال)`
           : "لا توجد مستحقات غير مدفوعة",
         action: "unpaid_balances",
       };

@@ -106,7 +106,7 @@ export class ReportGenerator {
 
       const workerInfo = [
         ['الاسم', data.worker.name, '', 'النوع', data.worker.type || '-', ''],
-        ['الأجر اليومي', `${parseFloat(data.worker.dailyWage || '0').toLocaleString('ar')} ريال`, '', 'تاريخ التقرير', new Date().toLocaleDateString('ar-SA'), ''],
+        ['الأجر اليومي', `${parseFloat(data.worker.dailyWage || '0').toLocaleString('ar')} ريال`, '', 'تاريخ التقرير', new Date().toLocaleDateString('en-GB'), ''],
         ['الهاتف', data.worker.phone || '-', '', 'حالة الحساب', data.statement.finalBalance >= 0 ? 'لا توجد مستحقات متأخرة' : 'يوجد رصيد متبقي', ''],
       ];
 
@@ -273,7 +273,7 @@ export class ReportGenerator {
 
       // ─── تذييل ───
       worksheet.addRow([]);
-      const footerRow = worksheet.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      const footerRow = worksheet.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - نظام إدارة المشاريع`, '', '', '', '', '']);
       worksheet.mergeCells(`A${footerRow.number}:F${footerRow.number}`);
       footerRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footerRow.getCell(1).alignment = { horizontal: 'center' };
@@ -419,7 +419,7 @@ export class ReportGenerator {
 
       const infos = [
         ['الاسم', data.supplier.name, '', 'الهاتف', data.supplier.phone || '-', ''],
-        ['شروط الدفع', data.supplier.paymentTerms || '-', '', 'تاريخ التقرير', new Date().toLocaleDateString('ar-SA'), ''],
+        ['شروط الدفع', data.supplier.paymentTerms || '-', '', 'تاريخ التقرير', new Date().toLocaleDateString('en-GB'), ''],
       ];
       for (const info of infos) {
         const r = ws.addRow(info);
@@ -539,7 +539,7 @@ export class ReportGenerator {
       }
 
       ws.addRow([]);
-      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - نظام إدارة المشاريع`, '', '', '', '', '']);
       ws.mergeCells(`A${footer.number}:F${footer.number}`);
       footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footer.getCell(1).alignment = { horizontal: 'center' };
@@ -611,7 +611,7 @@ export class ReportGenerator {
 
       ws.mergeCells('A2:E2');
       const h2 = ws.getCell('A2');
-      h2.value = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`;
+      h2.value = `تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}`;
       h2.font = { size: 11, color: { argb: white } };
       h2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
       h2.alignment = { horizontal: 'center' };
@@ -672,7 +672,7 @@ export class ReportGenerator {
       balRow.height = 26;
 
       ws.addRow([]);
-      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} — نظام إدارة المشاريع`, '', '', '', '']);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} — نظام إدارة المشاريع`, '', '', '', '']);
       ws.mergeCells(`A${footer.number}:E${footer.number}`);
       footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footer.getCell(1).alignment = { horizontal: 'center' };
@@ -980,7 +980,7 @@ export class ReportGenerator {
       const infoRow = worksheet.addRow([
         "عدد العمال", workerMap.size, "",
         "إجمالي الأيام", grandTotalDays, "",
-        "تاريخ التقرير", new Date().toLocaleDateString("ar-SA"),
+        "تاريخ التقرير", new Date().toLocaleDateString("en-GB"),
       ]);
       infoRow.getCell(1).font = { bold: true };
       infoRow.getCell(4).font = { bold: true };

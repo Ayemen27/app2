@@ -241,7 +241,7 @@ function DatePickerFilter({
             !value && 'text-muted-foreground'
           )}
         >
-          {value ? format(value, 'yyyy/MM/dd', { locale: ar }) : placeholder}
+          {value ? format(value, 'dd/MM/yyyy', { locale: ar }) : placeholder}
           <Calendar className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -282,9 +282,9 @@ function DateRangeFilter({
         >
           {value?.from ? (
             value.to ? (
-              `${format(value.from, 'MM/dd', { locale: ar })} - ${format(value.to, 'MM/dd', { locale: ar })}`
+              `${format(value.from, 'dd/MM', { locale: ar })} - ${format(value.to, 'dd/MM', { locale: ar })}`
             ) : (
-              format(value.from, 'yyyy/MM/dd', { locale: ar })
+              format(value.from, 'dd/MM/yyyy', { locale: ar })
             )
           ) : (
             'اختر نطاق التاريخ'
@@ -570,12 +570,12 @@ export function FilterStatsBar({
                   let displayValue = '';
                   
                   if (filter?.type === 'date' && value instanceof Date) {
-                    displayValue = format(value, 'yyyy/MM/dd', { locale: ar });
+                    displayValue = format(value, 'dd/MM/yyyy', { locale: ar });
                   } else if (filter?.type === 'date-range') {
                     if (value?.from && value?.to) {
-                      displayValue = `${format(value.from, 'MM/dd')} - ${format(value.to, 'MM/dd')}`;
+                      displayValue = `${format(value.from, 'dd/MM')} - ${format(value.to, 'dd/MM')}`;
                     } else if (value?.from) {
-                      displayValue = `من ${format(value.from, 'MM/dd')}`;
+                      displayValue = `من ${format(value.from, 'dd/MM')}`;
                     }
                   } else {
                     const option = filter?.options?.find(o => o.value === value);

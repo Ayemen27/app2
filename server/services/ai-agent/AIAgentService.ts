@@ -1114,7 +1114,7 @@ export class AIAgentService {
             if (Array.isArray(currentResult.data)) {
               processedResponse += `\n\n⚠️ ${currentResult.message}\n`;
               for (const s of currentResult.data) {
-                processedResponse += `- **${s.name}** (${s.id}) — دين: ${parseFloat(s.totalDebt || '0').toLocaleString('ar')} ريال\n`;
+                processedResponse += `- **${s.name}** (${s.id}) — دين: ${parseFloat(s.totalDebt || '0').toLocaleString('en-US')} ريال\n`;
               }
               processedResponse += `\nيرجى تحديد المورد بالمعرّف (ID) للحصول على كشف الحساب.`;
             } else {
@@ -1527,7 +1527,7 @@ export class AIAgentService {
   private n(val: any): string {
     const num = parseFloat(String(val ?? 0));
     if (isNaN(num)) return "0";
-    return num.toLocaleString("ar");
+    return num.toLocaleString("en-US");
   }
 
   private formatDashboard(data: any): string {
@@ -1940,7 +1940,7 @@ export class AIAgentService {
    * تنسيق تقرير المشاريع الشامل بشكل احترافي
    */
   private formatProjectsReport(projects: any[]): string {
-    let text = `📊 **تقرير المشاريع الشامل** — ${new Date().toLocaleDateString("ar-SA")}\n`;
+    let text = `📊 **تقرير المشاريع الشامل** — ${new Date().toLocaleDateString("en-GB")}\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     let grandTotalFunds = 0;
@@ -1964,22 +1964,22 @@ export class AIAgentService {
 
       text += `${i + 1}. ${statusEmoji} **${p.المشروع || p.name}**\n`;
       text += `   الحالة: ${p.الحالة || p.status || "نشط"}\n`;
-      if (budget > 0) text += `   الميزانية: ${budget.toLocaleString("ar")} ريال\n`;
-      text += `   إجمالي التمويل: ${funds.toLocaleString("ar")} ريال\n`;
-      if (wages > 0) text += `   ├─ أجور العمال: ${wages.toLocaleString("ar")} ريال\n`;
-      if (materials > 0) text += `   ├─ المواد: ${materials.toLocaleString("ar")} ريال\n`;
-      if (transport > 0) text += `   ├─ النقل: ${transport.toLocaleString("ar")} ريال\n`;
-      if (misc > 0) text += `   ├─ متنوعات: ${misc.toLocaleString("ar")} ريال\n`;
-      text += `   └─ إجمالي المصروفات: ${expenses.toLocaleString("ar")} ريال\n`;
-      text += `   ${balanceSign} الرصيد: **${balance.toLocaleString("ar")} ريال**\n\n`;
+      if (budget > 0) text += `   الميزانية: ${budget.toLocaleString("en-US")} ريال\n`;
+      text += `   إجمالي التمويل: ${funds.toLocaleString("en-US")} ريال\n`;
+      if (wages > 0) text += `   ├─ أجور العمال: ${wages.toLocaleString("en-US")} ريال\n`;
+      if (materials > 0) text += `   ├─ المواد: ${materials.toLocaleString("en-US")} ريال\n`;
+      if (transport > 0) text += `   ├─ النقل: ${transport.toLocaleString("en-US")} ريال\n`;
+      if (misc > 0) text += `   ├─ متنوعات: ${misc.toLocaleString("en-US")} ريال\n`;
+      text += `   └─ إجمالي المصروفات: ${expenses.toLocaleString("en-US")} ريال\n`;
+      text += `   ${balanceSign} الرصيد: **${balance.toLocaleString("en-US")} ريال**\n\n`;
     });
 
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `💰 **الإجماليات الكلية:**\n`;
-    text += `   إجمالي التمويل: **${grandTotalFunds.toLocaleString("ar")} ريال**\n`;
-    text += `   إجمالي المصروفات: **${grandTotalExpenses.toLocaleString("ar")} ريال**\n`;
+    text += `   إجمالي التمويل: **${grandTotalFunds.toLocaleString("en-US")} ريال**\n`;
+    text += `   إجمالي المصروفات: **${grandTotalExpenses.toLocaleString("en-US")} ريال**\n`;
     const grandBalance = grandTotalFunds - grandTotalExpenses;
-    text += `   ${grandBalance >= 0 ? "✅" : "⚠️"} صافي الرصيد: **${grandBalance.toLocaleString("ar")} ريال**\n`;
+    text += `   ${grandBalance >= 0 ? "✅" : "⚠️"} صافي الرصيد: **${grandBalance.toLocaleString("en-US")} ريال**\n`;
 
     return text;
   }

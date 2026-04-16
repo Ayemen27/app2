@@ -109,7 +109,7 @@ function buildDescription(action: string, tableName: string, payload?: any): str
   if (payload) {
     if (payload.transferNumber) desc += ` رقم ${payload.transferNumber}`;
     if (payload.name) desc += ` (${payload.name})`;
-    if (payload.amount) desc += ` بمبلغ ${Number(payload.amount).toLocaleString('ar-SA')}`;
+    if (payload.amount) desc += ` بمبلغ ${Number(payload.amount).toLocaleString('en-US')}`;
     if (payload.materialName) desc += ` - ${payload.materialName}`;
     if (payload.workerName) desc += ` - ${payload.workerName}`;
     if (payload.supplierName) desc += ` - ${payload.supplierName}`;

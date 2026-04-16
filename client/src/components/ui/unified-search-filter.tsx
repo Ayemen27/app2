@@ -127,12 +127,12 @@ export function UnifiedSearchFilter({
         let valueLabel = '';
         
         if (filter?.type === 'date' && value instanceof Date) {
-          valueLabel = format(value, 'yyyy/MM/dd', { locale: ar });
+          valueLabel = format(value, 'dd/MM/yyyy', { locale: ar });
         } else if (filter?.type === 'date-range') {
           if (value?.from && value?.to) {
-            valueLabel = `${format(value.from, 'MM/dd')} - ${format(value.to, 'MM/dd')}`;
+            valueLabel = `${format(value.from, 'dd/MM')} - ${format(value.to, 'dd/MM')}`;
           } else if (value?.from) {
-            valueLabel = `من ${format(value.from, 'MM/dd')}`;
+            valueLabel = `من ${format(value.from, 'dd/MM')}`;
           }
         } else {
           const option = filter?.options?.find(o => o.value === value);

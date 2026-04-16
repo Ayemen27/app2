@@ -195,7 +195,7 @@ export class FcmService {
 
       const tokens = targetUsers
         .map((u: { fcm_token: string | null }) => u.fcm_token)
-        .filter((t): t is string => !!t && t.length > 0);
+        .filter((t: string | null): t is string => !!t && t.length > 0);
 
       const skipped = userIds.length - tokens.length;
 
@@ -233,7 +233,7 @@ export class FcmService {
 
       const tokens = activeUsers
         .map((u: { fcm_token: string | null }) => u.fcm_token)
-        .filter((t): t is string => !!t && t.length > 0);
+        .filter((t: string | null): t is string => !!t && t.length > 0);
 
       if (tokens.length === 0) {
         return { sent: 0, failed: 0, skipped: 0 };

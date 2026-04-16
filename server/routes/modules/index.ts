@@ -33,7 +33,7 @@ import syncAuditRouter from './syncAuditRoutes.js';
 import webauthnRouter from './webauthnRoutes.js';
 import preferencesRouter from './preferencesRoutes.js';
 import permissionRouter from './permissionRoutes.js';
-import deploymentRouter, { deploymentPublicRouter } from './deploymentRoutes.js';
+import deploymentRouter, { deploymentPublicRouter, deploymentInternalRouter } from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
 import settlementRouter from './settlementRoutes.js';
 import inventoryRouter from './inventoryRoutes.js';
@@ -68,6 +68,9 @@ export function registerOrganizedRoutes(app: Express) {
 
   // مسارات فحص التحديث - عامة (بدون مصادقة + rate limiting)
   app.use('/api/deployment', deploymentPublicRouter);
+
+  // مسارات النشر الداخلية (localhost فقط + INTERNAL_DEPLOY_KEY — بدون جلسة مستخدم)
+  app.use('/api/deployment/internal', deploymentInternalRouter);
 
   // مسارات إدارة autocomplete - مسجلة مباشرة على المستوى الرئيسي
   registerAutocompleteAdminRoutes(app);

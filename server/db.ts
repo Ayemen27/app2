@@ -89,20 +89,7 @@ const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");
 
 let finalDbUrl = dbUrl;
 
-if (false && dbUrl.includes("supabase.co")) {
-  const projectRefMatch = dbUrl.match(/@db\.([^.]+)\.supabase\.co/);
-  const projectRef = projectRefMatch ? projectRefMatch[1] : null;
-  
-  if (projectRef) {
-    console.log(`🔧 [DB Fix] تطبيق بروتوكول Pooler للمشروع: ${projectRef}`);
-    
-    const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
-    if (urlParts) {
-      const password = urlParts[2];
-      finalDbUrl = `postgresql://postgres.${projectRef}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
-    }
-  }
-}
+// (Supabase pooler block removed — not applicable to this deployment)
 
 if (!finalDbUrl.includes("?")) {
   finalDbUrl += "?sslmode=no-verify&connect_timeout=30";

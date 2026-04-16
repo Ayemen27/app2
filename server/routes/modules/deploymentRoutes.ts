@@ -9,6 +9,24 @@ import { listAvailablePipelines, isPipelineSupported } from "../../config/pipeli
 
 const router = Router();
 const publicRouter = Router();
+const internalRouter = Router();
+
+/**
+ * Middleware: يسمح فقط بالطلبات من localhost مع مفتاح داخلي صحيح.
+ * يُستخدم بواسطة سكريبتات CLI والأدوات الداخلية بدون الحاجة لجلسة مستخدم.
+ */
+const INTERNAL_DEPLOY_KEY = process.env.INTERNAL_DEPLOY_KEY || "axion-internal-deploy-2026";
+
+function requireLocalhost(req: Request, res: Response, next: () => void) {
+  const ip = req.ip || req.socket?.remoteAddress || "";
+  const isLocal = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+  const key = req.headers["x-internal-deploy-key"] as string | undefined;
+  if (!isLocal || key !== INTERNAL_DEPLOY_KEY) {
+    res.status(403).json({ error: "الوصول مقيد بالشبكة الداخلية فقط" });
+    return;
+  }
+  next();
+}
 
 function setApkDownloadHeaders(res: Response, fileName: string, fileSize: number): void {
   res.setHeader("Content-Type", "application/vnd.android.package-archive");
@@ -621,5 +639,81 @@ router.get("/pipelines", requireAuth, asyncHandler(async (_req: Request, res: Re
   res.json({ success: true, data: pipelines });
 }));
 
+/**
+ * ─── Internal API (localhost only + INTERNAL_DEPLOY_KEY) ───────────────────
+ * POST /api/deployment/internal/start
+ * يُمكّن الأدوات الداخلية (CLI، Cron، إلخ) من تشغيل النشر داخل عملية
+ * السيرفر الرئيسي دون الحاجة لجلسة مستخدم من قاعدة البيانات.
+ */
+internalRouter.post("/start", requireLocalhost, asyncHandler(async (req: Request, res: Response) => {
+  const {
+    pipeline = "full-deploy",
+    appType,
+    environment = "production",
+    branch = "main",
+    commitMessage,
+    buildTarget = "server",
+    releaseNotes,
+  } = req.body;
+
+  if (!isPipelineSupported(pipeline)) {
+    const available = listAvailablePipelines().map(p => p.name);
+    res.status(400).json({ error: `pipeline غير صالح. المتاح: ${available.join(", ")}` });
+    return;
+  }
+
+  const ANDROID_PIPELINES = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
+  const resolvedAppType = appType || (ANDROID_PIPELINES.includes(pipeline) ? "android" : "web");
+  const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
+  const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : `Internal deploy — ${pipeline}`;
+  const safeReleaseNotes = typeof releaseNotes === "string" ? releaseNotes.substring(0, 2000) : undefined;
+
+  try {
+    const deploymentId = await deploymentEngine.startDeployment({
+      pipeline,
+      appType: resolvedAppType,
+      environment,
+      branch: safeBranch,
+      commitMessage: safeMessage,
+      triggeredBy: "internal-cli",
+      buildTarget,
+      releaseNotes: safeReleaseNotes,
+    });
+
+    console.log(`✅ [Internal Deploy] بدأ النشر | pipeline=${pipeline} | ID=${deploymentId}`);
+    res.json({ id: deploymentId, pipeline, message: "تم بدء النشر داخلياً" });
+  } catch (err: any) {
+    if (err.message?.includes("قيد التنفيذ")) {
+      res.status(409).json({ error: err.message });
+    } else {
+      throw err;
+    }
+  }
+}));
+
+internalRouter.get("/status/:id", requireLocalhost, asyncHandler(async (req: Request, res: Response) => {
+  const deployment = await deploymentEngine.getDeployment(req.params.id);
+  if (!deployment) {
+    res.status(404).json({ error: "النشر غير موجود" });
+    return;
+  }
+  const steps = Array.isArray(deployment.steps) ? deployment.steps as any[] : [];
+  const logs  = Array.isArray(deployment.logs)  ? deployment.logs  as any[] : [];
+  res.json({
+    id:          deployment.id,
+    status:      deployment.status,
+    currentStep: deployment.currentStep,
+    progress:    deployment.progress,
+    pipeline:    deployment.pipeline,
+    duration:    deployment.duration,
+    artifactUrl: deployment.artifactUrl,
+    stepsTotal:  steps.length,
+    stepsDone:   steps.filter((s: any) => s.status === "success").length,
+    stepRunning: steps.find((s: any) => s.status === "running")?.name || null,
+    stepFailed:  steps.find((s: any) => s.status === "failed")?.name || null,
+    recentLogs:  logs.slice(-20),
+  });
+}));
+
 export default router;
-export { publicRouter as deploymentPublicRouter };
+export { publicRouter as deploymentPublicRouter, internalRouter as deploymentInternalRouter };

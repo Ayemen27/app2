@@ -105,7 +105,7 @@ monitoringRouter.get("/notifications", async (_req: Request, res: Response) => {
     const recent = await db
       .select()
       .from(notifications)
-      .orderBy(desc(notifications.createdAt))
+      .orderBy(desc(notifications.created_at))
       .limit(50);
 
     const [total] = await db.select({ count: sql<number>`count(*)` }).from(notifications);

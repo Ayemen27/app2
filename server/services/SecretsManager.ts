@@ -230,10 +230,10 @@ export class SecretsManager {
     
     if (existingIndex >= 0) {
       // تحديث المفتاح الموجود
-      this.requiredSecrets[existingIndex] = { name, value, description };
+      this.requiredSecrets[existingIndex] = { name, generate: () => value, description };
     } else {
       // إضافة مفتاح جديد
-      this.requiredSecrets.push({ name, value, description });
+      this.requiredSecrets.push({ name, generate: () => value, description });
     }
     
     console.log(`✅ تم إضافة المفتاح المطلوب: ${name}`);

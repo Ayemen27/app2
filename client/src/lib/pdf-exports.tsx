@@ -5,7 +5,7 @@ import { downloadFile } from '@/utils/webview-download';
 function buildWorkerHTML(data: any, worker: any): string {
   const workerName = worker?.name || 'عامل';
   const workerType = worker?.type || 'عامل';
-  const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
+  const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString('en-US')} ر.ي` : '-';
   const reportDate = format(new Date(), 'dd/MM/yyyy');
   const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
   const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
@@ -23,9 +23,9 @@ function buildWorkerHTML(data: any, worker: any): string {
       <td style="text-align:right;padding:3px 4px;border:1px solid #CBD5E1;font-size:8px;line-height:1.2;">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل')}</td>
       <td style="width:36px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
       <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
-      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#E8EDF4;font-weight:700;">${amount.toLocaleString()}</td>
-      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#FBE2D5;font-weight:700;">${paid.toLocaleString()}</td>
-      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#F0F4F8;font-weight:700;">${balance.toLocaleString()}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#E8EDF4;font-weight:700;">${amount.toLocaleString('en-US')}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#FBE2D5;font-weight:700;">${paid.toLocaleString('en-US')}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#F0F4F8;font-weight:700;">${balance.toLocaleString('en-US')}</td>
     </tr>`;
   }).join('');
 
@@ -48,9 +48,9 @@ function buildWorkerHTML(data: any, worker: any): string {
     <tr>
       <td style="padding:3px 4px;border:1px solid #CBD5E1;font-size:9px;">${name}</td>
       <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.days.toFixed(2)}</td>
-      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.earned.toLocaleString()}</td>
-      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.paid.toLocaleString()}</td>
-      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;font-weight:700;">${(stats.earned - stats.paid).toLocaleString()}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.earned.toLocaleString('en-US')}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.paid.toLocaleString('en-US')}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;font-weight:700;">${(stats.earned - stats.paid).toLocaleString('en-US')}</td>
     </tr>
   `).join('');
 
@@ -106,11 +106,11 @@ function buildWorkerHTML(data: any, worker: any): string {
         ${rows}
         <tr>
           <td colspan="5" style="background:#2E5090;color:#fff;font-weight:800;font-size:10px;text-align:center;padding:4px;border:1px solid #1B2A4A;">الإجماليــــــات</td>
-          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString('en-US')}</td>
           <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">-</td>
-          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalEarned.toLocaleString()}</td>
-          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalPaid.toLocaleString()}</td>
-          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${finalBalance.toLocaleString()}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalEarned.toLocaleString('en-US')}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalPaid.toLocaleString('en-US')}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${finalBalance.toLocaleString('en-US')}</td>
         </tr>
       </tbody>
     </table>
@@ -118,9 +118,9 @@ function buildWorkerHTML(data: any, worker: any): string {
     <div style="margin-top:10px;">
       <table style="width:280px;border:1px solid #1B2A4A;border-collapse:collapse;">
         <tr><td colspan="2" style="background:#1B2A4A;color:#fff;text-align:center;font-weight:800;padding:4px;font-size:11px;border:1px solid #1B2A4A;">الملخص المالي</td></tr>
-        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المكتسب:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalEarned.toLocaleString()}</td></tr>
-        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المدفوع:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalPaid.toLocaleString()}</td></tr>
-        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;background:#F0F4F8;">الرصيد النهائي:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;font-weight:800;background:#F0F4F8;">${finalBalance.toLocaleString()}</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المكتسب:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalEarned.toLocaleString('en-US')}</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المدفوع:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalPaid.toLocaleString('en-US')}</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;background:#F0F4F8;">الرصيد النهائي:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;font-weight:800;background:#F0F4F8;">${finalBalance.toLocaleString('en-US')}</td></tr>
       </table>
     </div>
     <div style="text-align:center;font-size:8px;color:#7F7F7F;margin-top:12px;padding:4px;border-top:1px solid #EEE;">

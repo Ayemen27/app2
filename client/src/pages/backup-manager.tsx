@@ -380,7 +380,7 @@ export default function BackupManager() {
         {
           key: "total_rows",
           label: "إجمالي الصفوف",
-          value: logs[0]?.totalRows ? logs[0].totalRows.toLocaleString() : '-',
+          value: logs[0]?.totalRows ? logs[0].totalRows.toLocaleString('en-US') : '-',
           icon: Database,
           color: "emerald",
         },
@@ -445,7 +445,7 @@ export default function BackupManager() {
                   filename: log.filename.replace('backup-', '').replace('.json.gz', ''),
                   size: log.size + ' MB',
                   tablesCount: log.tablesCount ?? '-',
-                  totalRows: log.totalRows ? log.totalRows.toLocaleString() : '-',
+                  totalRows: log.totalRows ? log.totalRows.toLocaleString('en-US') : '-',
                   duration: formatDuration(log.durationMs),
                   date: formatDate(log.created_at),
                   status: log.status === 'success' ? 'ناجحة' : 'فاشلة',
@@ -574,7 +574,7 @@ export default function BackupManager() {
                 fields={[
                   { label: 'الحجم', value: log.size + ' MB', icon: HardDrive, color: 'info' },
                   { label: 'الجداول', value: log.tablesCount ?? '-', icon: Database, color: 'success' },
-                  { label: 'الصفوف', value: log.totalRows ? log.totalRows.toLocaleString() : '-', icon: Activity, color: 'warning' },
+                  { label: 'الصفوف', value: log.totalRows ? log.totalRows.toLocaleString('en-US') : '-', icon: Activity, color: 'warning' },
                   { label: 'المدة', value: formatDuration(log.durationMs), icon: Clock, color: 'muted' },
                   { label: 'التاريخ', value: formatDate(log.created_at), icon: Calendar, color: 'info' },
                   { label: 'المسؤول', value: getTriggeredByLabel(log.triggeredBy), icon: User, color: !log.triggeredBy || log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' || log.triggeredBy === 'unknown' ? 'muted' : 'info' },
@@ -621,7 +621,7 @@ export default function BackupManager() {
               <span className="font-mono text-xs text-primary font-bold">{selectedLog?.filename}</span>
               {selectedLog?.tablesCount && (
                 <span className="block mt-1 text-xs">
-                  {selectedLog.tablesCount} جدول | {selectedLog.totalRows?.toLocaleString()} صف | {selectedLog.size} MB
+                  {selectedLog.tablesCount} جدول | {selectedLog.totalRows?.toLocaleString('en-US')} صف | {selectedLog.size} MB
                 </span>
               )}
             </DialogDescription>

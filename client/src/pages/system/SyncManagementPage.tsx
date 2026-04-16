@@ -335,7 +335,7 @@ export default function SyncManagementPage() {
       await createProfessionalReport({
         sheetName: 'سجل التدقيق',
         reportTitle: 'تقرير تدقيق المزامنة',
-        subtitle: `${pagination.total} سجل - تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}`,
+        subtitle: `${pagination.total} سجل - تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')}`,
         columns: [
           { header: '#', key: 'id', width: 8 },
           { header: 'العملية', key: 'action', width: 12 },
@@ -675,7 +675,7 @@ function AuditLogCard({ log, isExpanded, onToggle, onDelete, isDeleting }: { log
                 {log.amount && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">المبلغ:</span>
-                    <span className="font-semibold">{Number(log.amount).toLocaleString('ar-SA')}</span>
+                    <span className="font-semibold">{Number(log.amount).toLocaleString('en-US')}</span>
                   </div>
                 )}
               </div>

@@ -62,7 +62,7 @@ export function AdminMonitoringUI() {
                       {event.message}
                     </div>
                     <span className="text-[10px] opacity-70">
-                      {new Date(event.timestamp).toLocaleTimeString('ar-SA')}
+                      {new Date(event.timestamp).toLocaleTimeString('en-GB')}
                     </span>
                   </div>
                   {event.actionTaken && (

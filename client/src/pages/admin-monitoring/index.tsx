@@ -54,7 +54,7 @@ export default function AdminMonitoring() {
           {health?.status === 'healthy' ? 'نظام مستقر' : 'تنبيه في الأداء'}
         </Badge>
         <span className="text-[10px] text-muted-foreground">
-          آخر تحديث: {new Date().toLocaleTimeString('ar-SA')}
+          آخر تحديث: {new Date().toLocaleTimeString('en-GB')}
         </span>
       </div>
       
@@ -115,7 +115,7 @@ export default function AdminMonitoring() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
                 <XAxis 
                   dataKey="timestamp" 
-                  tickFormatter={(ts) => new Date(ts).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                  tickFormatter={(ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   tickLine={false}
@@ -137,7 +137,7 @@ export default function AdminMonitoring() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                   itemStyle={{ color: 'hsl(var(--primary))' }}
-                  labelFormatter={(label) => `التوقيت: ${new Date(label).toLocaleTimeString('ar-SA')}`}
+                  labelFormatter={(label) => `التوقيت: ${new Date(label).toLocaleTimeString('en-GB')}`}
                 />
                 <Area 
                   type="monotone" 

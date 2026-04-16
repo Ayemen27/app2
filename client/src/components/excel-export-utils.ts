@@ -14,7 +14,7 @@ export {
 import { downloadExcelFile } from '@/utils/webview-download';
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('ar-SA', {
+  return new Intl.NumberFormat('en-US', {
     style: 'decimal',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0

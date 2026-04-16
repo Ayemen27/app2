@@ -1002,7 +1002,7 @@ export default function WAImportDashboard() {
                         <SelectItem value="all">جميع التواريخ</SelectItem>
                         {availableDates.map(d => (
                           <SelectItem key={d} value={d}>
-                            {d === 'unknown' ? 'بدون تاريخ' : new Date(d + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            {d === 'unknown' ? 'بدون تاريخ' : new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1114,7 +1114,7 @@ export default function WAImportDashboard() {
                 };
                 const dateLabel = dateKey === 'unknown'
                   ? 'بدون تاريخ'
-                  : new Date(dateKey + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+                  : new Date(dateKey + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
                 const groupTotal = groupCandidates.reduce((s: number, c: any) => s + parseFloat(c.amount || '0'), 0);
 
                 return (
@@ -1297,7 +1297,7 @@ export default function WAImportDashboard() {
                     </div>
                   ) : null;
 
-                  const msgDate = c.messageDate ? new Date(c.messageDate).toLocaleDateString('ar-YE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+                  const msgDate = c.messageDate ? new Date(c.messageDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
                   return (
                     <UnifiedCard
@@ -1677,13 +1677,13 @@ export default function WAImportDashboard() {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-blue-500" />
                         <span className="font-semibold text-sm" data-testid={`text-date-${day.date}`}>
-                          {new Date(day.date + 'T00:00:00').toLocaleDateString('ar-YE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                          {new Date(day.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
                         <span className="text-muted-foreground">{day.totalCount} معاملة</span>
                         <span className="font-bold text-green-600 dark:text-green-400" data-testid={`text-total-${day.date}`}>
-                          {Number(day.totalAmount).toLocaleString('ar-YE')} ر.ي
+                          {Number(day.totalAmount).toLocaleString('en-US')} ر.ي
                         </span>
                       </div>
                     </div>
@@ -1736,11 +1736,11 @@ export default function WAImportDashboard() {
                               </div>
                               <div className="flex items-center justify-between mt-1">
                                 <span>{cat.count} معاملة</span>
-                                <span className="font-bold">{Number(cat.totalAmount).toLocaleString('ar-YE')} ر.ي</span>
+                                <span className="font-bold">{Number(cat.totalAmount).toLocaleString('en-US')} ر.ي</span>
                               </div>
                               <div className="flex items-center justify-between mt-0.5 text-[10px] opacity-70">
-                                <span>المتوسط: {Number(cat.avgAmount).toLocaleString('ar-YE')}</span>
-                                <span>{Number(cat.minAmount).toLocaleString('ar-YE')} - {Number(cat.maxAmount).toLocaleString('ar-YE')}</span>
+                                <span>المتوسط: {Number(cat.avgAmount).toLocaleString('en-US')}</span>
+                                <span>{Number(cat.minAmount).toLocaleString('en-US')} - {Number(cat.maxAmount).toLocaleString('en-US')}</span>
                               </div>
                             </div>
                           );

@@ -1220,7 +1220,7 @@ function TasksSection({ wellId, tasks, isLoading }: { wellId: number; tasks: any
               )}
               <div className="text-sm text-muted-foreground flex gap-4 flex-wrap">
                 {(task.assignedTo || task.assigned_to) && <span>المكلف: {task.assignedTo || task.assigned_to}</span>}
-                {(task.estimatedCost || task.estimated_cost) && <span>التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString()} ريال</span>}
+                {(task.estimatedCost || task.estimated_cost) && <span>التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString('en-US')} ريال</span>}
               </div>
               {task.notes && <p className="text-xs text-muted-foreground">{task.notes}</p>}
             </div>
@@ -1381,11 +1381,11 @@ function AccountingSection({ wellId, tasks, isLoading }: { wellId: number; tasks
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card className="p-3 text-center">
           <p className="text-xs text-muted-foreground">التكلفة المقدرة</p>
-          <p className="text-lg font-bold" data-testid="text-total-estimated">{totalEstimated.toLocaleString()} ريال</p>
+          <p className="text-lg font-bold" data-testid="text-total-estimated">{totalEstimated.toLocaleString('en-US')} ريال</p>
         </Card>
         <Card className="p-3 text-center">
           <p className="text-xs text-muted-foreground">تم محاسبته</p>
-          <p className="text-lg font-bold" data-testid="text-total-accounted">{totalAccounted.toLocaleString()} ريال</p>
+          <p className="text-lg font-bold" data-testid="text-total-accounted">{totalAccounted.toLocaleString('en-US')} ريال</p>
         </Card>
         <Card className="p-3 text-center">
           <p className="text-xs text-muted-foreground">معلقة للمحاسبة</p>
@@ -1410,7 +1410,7 @@ function AccountingSection({ wellId, tasks, isLoading }: { wellId: number; tasks
                     </Badge>
                   </div>
                   {(task.estimatedCost || task.estimated_cost) && (
-                    <span className="text-sm text-muted-foreground">التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString()} ريال</span>
+                    <span className="text-sm text-muted-foreground">التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString('en-US')} ريال</span>
                   )}
                 </div>
                 <Button
@@ -1513,7 +1513,7 @@ function AccountingSection({ wellId, tasks, isLoading }: { wellId: number; tasks
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground flex gap-4 flex-wrap">
-                    <span>التكلفة الفعلية: {Number((task.accountDetails || task.account_details)?.amount || 0).toLocaleString()} ريال</span>
+                    <span>التكلفة الفعلية: {Number((task.accountDetails || task.account_details)?.amount || 0).toLocaleString('en-US')} ريال</span>
                     {(task.accountDetails || task.account_details)?.paymentMethod && <span>الدفع: {(task.accountDetails || task.account_details).paymentMethod}</span>}
                     {(task.accountDetails || task.account_details)?.notes && <span>ملاحظات: {(task.accountDetails || task.account_details).notes}</span>}
                   </div>

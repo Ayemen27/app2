@@ -145,7 +145,7 @@ export default function SyncComparisonPage() {
             <CardTitle className="text-sm font-medium">سجلات الخادم</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{totalServerRecords.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-blue-600">{totalServerRecords.toLocaleString('en-US')}</div>
           </CardContent>
         </Card>
 
@@ -154,7 +154,7 @@ export default function SyncComparisonPage() {
             <CardTitle className="text-sm font-medium">السجلات المحلية</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{totalLocalRecords.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-green-600">{totalLocalRecords.toLocaleString('en-US')}</div>
           </CardContent>
         </Card>
 

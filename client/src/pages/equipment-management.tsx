@@ -392,7 +392,7 @@ export function EquipmentManagement() {
   }, [queryClient]);
 
   const tabExportConfig = useMemo(() => {
-    const dateStr = new Date().toLocaleDateString('ar-SA');
+    const dateStr = new Date().toLocaleDateString('en-GB');
     const dateFile = new Date().toISOString().split('T')[0];
 
     const txMapper = (list: InventoryTransaction[]) => list.map((tx, idx) => ({
@@ -651,7 +651,7 @@ export function EquipmentManagement() {
       const success = await createProfessionalReport({
         sheetName: config.sheetName,
         reportTitle: config.title,
-        subtitle: `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-SA')}`,
+        subtitle: `تاريخ الاستخراج: ${new Date().toLocaleDateString('en-GB')}`,
         infoLines: config.excelInfoLines,
         columns: config.excelColumns,
         data,
@@ -681,7 +681,7 @@ export function EquipmentManagement() {
     try {
       const success = await generateTablePDF({
         reportTitle: config.pdfTitle,
-        subtitle: `تاريخ: ${new Date().toLocaleDateString('ar-SA')}`,
+        subtitle: `تاريخ: ${new Date().toLocaleDateString('en-GB')}`,
         infoItems: config.pdfInfoItems,
         columns: config.columns,
         data: data.map(row => {

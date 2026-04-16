@@ -103,7 +103,7 @@ export default function AnalysisDashboard() {
                     </div>
                     <p className="text-sm text-muted-foreground">{anomaly.message}</p>
                     <span className="text-xs text-muted-foreground mt-2 block">
-                      {new Date(anomaly.timestamp).toLocaleString("ar-YE")}
+                      {new Date(anomaly.timestamp).toLocaleString("en-GB")}
                     </span>
                   </div>
                 </div>

@@ -577,7 +577,7 @@ export default function DatabaseManager() {
                         {integrityData.status === 'excellent' ? 'ممتاز' : integrityData.status === 'good' ? 'جيد' : integrityData.status === 'warning' ? 'تحذير' : 'حرج'}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
-                        آخر فحص: {integrityData.timestamp ? new Date(integrityData.timestamp).toLocaleString('ar-SA') : 'الآن'}
+                        آخر فحص: {integrityData.timestamp ? new Date(integrityData.timestamp).toLocaleString('en-GB') : 'الآن'}
                       </p>
                     </div>
                   </div>
@@ -811,7 +811,7 @@ function ComparisonResults({ data, onRefresh }: { data: any; onRefresh: () => vo
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            آخر مقارنة: {new Date(data.timestamp).toLocaleString('ar-SA')}
+            آخر مقارنة: {new Date(data.timestamp).toLocaleString('en-GB')}
           </span>
           <Button variant="outline" size="sm" onClick={onRefresh} data-testid="button-refresh-compare">
             <RefreshCw className="h-3.5 w-3.5 ml-1" />

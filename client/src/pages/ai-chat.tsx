@@ -1156,7 +1156,7 @@ export default function AIChatPage() {
                             </Button>
                           )}
                           <span className="text-[10px] text-muted-foreground">
-                            {message.timestamp.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                            {message.timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       )}

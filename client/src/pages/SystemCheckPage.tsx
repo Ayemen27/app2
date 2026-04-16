@@ -252,7 +252,7 @@ export default function SystemCheckPage() {
         const expandedInfo = {
           totalRecords: totalRecords,
           tables: tableInfo,
-          timestamp: new Date().toLocaleString('ar-SA'),
+          timestamp: new Date().toLocaleString('en-GB'),
           isEmpty: totalRecords === 0
         };
         
@@ -286,7 +286,7 @@ export default function SystemCheckPage() {
           responseTime: `${responseTime}ms`,
           status: response.status,
           emergencyMode: emergencyMode ? 'مفعّل' : 'معطّل',
-          timestamp: new Date().toLocaleString('ar-SA')
+          timestamp: new Date().toLocaleString('en-GB')
         };
         
         updateCheck('server', { 
@@ -300,7 +300,7 @@ export default function SystemCheckPage() {
         details: 'استجابة غير صحيحة',
         expandedDetails: {
           status: response.status,
-          timestamp: new Date().toLocaleString('ar-SA')
+          timestamp: new Date().toLocaleString('en-GB')
         }
       });
       return 'warning';
@@ -309,7 +309,7 @@ export default function SystemCheckPage() {
         details: 'غير متاح',
         expandedDetails: {
           error: (error as Error).message,
-          timestamp: new Date().toLocaleString('ar-SA')
+          timestamp: new Date().toLocaleString('en-GB')
         }
       });
       return 'denied';
@@ -339,7 +339,7 @@ export default function SystemCheckPage() {
             const data = await response.json();
             if (data.timestamp) {
               serverBackupAvailable = true;
-              serverBackupTime = new Date(data.timestamp).toLocaleString('ar-SA');
+              serverBackupTime = new Date(data.timestamp).toLocaleString('en-GB');
               localStorage.setItem(backupKey, data.timestamp);
               
               const expandedInfo = {
@@ -362,7 +362,7 @@ export default function SystemCheckPage() {
         const backupDate = new Date(lastBackup);
         const now = new Date();
         const hoursDiff = (now.getTime() - backupDate.getTime()) / (1000 * 60 * 60);
-        const backupDateStr = backupDate.toLocaleString('ar-SA');
+        const backupDateStr = backupDate.toLocaleString('en-GB');
         
         if (hoursDiff < 24) {
           const expandedInfo = {
@@ -433,7 +433,7 @@ export default function SystemCheckPage() {
         queueCount: queueCount,
         hasLocalData: hasLocalData,
         projectsCount: projectsCount,
-        timestamp: new Date().toLocaleString('ar-SA')
+        timestamp: new Date().toLocaleString('en-GB')
       };
       
       if (emergencyMode) {
@@ -497,7 +497,7 @@ export default function SystemCheckPage() {
         totalRecords: totalRecords,
         validTables: validTables,
         totalTables: requiredTables.length,
-        timestamp: new Date().toLocaleString('ar-SA')
+        timestamp: new Date().toLocaleString('en-GB')
       };
       
       updateCheck('tables', { 

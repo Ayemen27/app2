@@ -299,14 +299,13 @@ export function calculateWellProgress(completedTasks: number, totalTasks: number
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('ar-SA', {
-    style: 'currency',
-    currency: 'SAR',
+  return new Intl.NumberFormat('en-US', {
+    style: 'decimal',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(Math.round(amount));
+  }).format(Math.round(amount)) + ' ريال';
 }
 
 export function formatNumber(num: number): string {
-  return new Intl.NumberFormat('ar-SA').format(num);
+  return new Intl.NumberFormat('en-US').format(num);
 }

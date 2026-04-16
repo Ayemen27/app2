@@ -798,7 +798,7 @@ export default function LoginPage() {
                           {updateData.latest?.releasedAt && (
                             <div className="flex justify-between">
                               <span className="text-xs font-bold text-slate-500">تاريخ الإصدار</span>
-                              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{new Date(updateData.latest.releasedAt).toLocaleDateString('ar-SA')}</span>
+                              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{new Date(updateData.latest.releasedAt).toLocaleDateString('en-GB')}</span>
                             </div>
                           )}
                         </div>

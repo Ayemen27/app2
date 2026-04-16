@@ -1497,7 +1497,7 @@ export default function WhatsAppSetupPage() {
                                 {msg.sender === 'bot' ? 'البوت' : 'أنت'}
                               </span>
                               <span className="text-[9px] text-slate-400 mr-auto" dir="ltr">
-                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : ''}
+                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : ''}
                               </span>
                             </div>
                             <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-xs">
@@ -2042,7 +2042,7 @@ export default function WhatsAppSetupPage() {
                                   {conv.userName || conv.userEmail?.split("@")[0] || conv.phoneNumber}
                                 </p>
                                 <span className="text-[12px] text-[#667781] dark:text-[#8696a0] flex-shrink-0 mr-2">
-                                  {conv.lastMessage?.timestamp ? new Date(conv.lastMessage.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
+                                  {conv.lastMessage?.timestamp ? new Date(conv.lastMessage.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between mt-0.5">
@@ -2118,7 +2118,7 @@ export default function WhatsAppSetupPage() {
                                   const isBotMsg = msg.sender === "bot";
                                   const hasImageData = msg.metadata?.type === "image" && msg.metadata?.imageBase64;
                                   const isImageMsg = msg.content?.startsWith("📷") || hasImageData;
-                                  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "";
+                                  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
                                   const prevMsg = ((convMessages as any)?.messages || [])[idx - 1];
                                   const showTail = !prevMsg || prevMsg.sender !== msg.sender;

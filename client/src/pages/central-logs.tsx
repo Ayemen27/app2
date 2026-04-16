@@ -160,35 +160,35 @@ export default function CentralLogsPage() {
       {
         key: "total",
         label: "إجمالي السجلات",
-        value: statsData?.total?.toLocaleString() || "0",
+        value: statsData?.total?.toLocaleString('en-US') || "0",
         icon: Activity,
         color: "blue" as const,
       },
       {
         key: "errors",
         label: "أخطاء",
-        value: (statsData?.byLevel?.error || 0).toLocaleString(),
+        value: (statsData?.byLevel?.error || 0).toLocaleString('en-US'),
         icon: AlertTriangle,
         color: "red" as const,
       },
       {
         key: "warnings",
         label: "تحذيرات",
-        value: (statsData?.byLevel?.warn || 0).toLocaleString(),
+        value: (statsData?.byLevel?.warn || 0).toLocaleString('en-US'),
         icon: AlertTriangle,
         color: "orange" as const,
       },
       {
         key: "info",
         label: "معلومات",
-        value: (statsData?.byLevel?.info || 0).toLocaleString(),
+        value: (statsData?.byLevel?.info || 0).toLocaleString('en-US'),
         icon: Info,
         color: "green" as const,
       },
       {
         key: "critical",
         label: "حرج",
-        value: (statsData?.byLevel?.critical || 0).toLocaleString(),
+        value: (statsData?.byLevel?.critical || 0).toLocaleString('en-US'),
         icon: AlertOctagon,
         color: "purple" as const,
       },
@@ -325,7 +325,7 @@ export default function CentralLogsPage() {
   const formatTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleString("ar-SA", {
+      return d.toLocaleString("en-GB", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -516,7 +516,7 @@ export default function CentralLogsPage() {
                               {log.amount && (
                                 <div>
                                   <span className="text-muted-foreground">المبلغ:</span>{" "}
-                                  <span className="font-medium">{parseFloat(log.amount).toLocaleString()}</span>
+                                  <span className="font-medium">{parseFloat(log.amount).toLocaleString('en-US')}</span>
                                 </div>
                               )}
                               {log.ipAddress && (
@@ -559,7 +559,7 @@ export default function CentralLogsPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between gap-4 p-4 border-t" data-testid="pagination-controls">
               <span className="text-sm text-muted-foreground" data-testid="text-pagination-info">
-                صفحة {page} من {totalPages} ({totalLogs.toLocaleString()} سجل)
+                صفحة {page} من {totalPages} ({totalLogs.toLocaleString('en-US')} سجل)
               </span>
               <div className="flex items-center gap-2">
                 <Button

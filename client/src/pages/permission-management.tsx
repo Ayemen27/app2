@@ -442,7 +442,7 @@ export default function PermissionManagementPage() {
                   fields={[
                     { label: "بواسطة", value: log.actorName || "مسؤول", icon: Users, color: "info" },
                     { label: "المستخدم المستهدف", value: log.targetName, icon: Shield, color: "default" },
-                    { label: "التاريخ", value: new Date(log.createdAt).toLocaleString("ar-SA"), icon: Clock, color: "muted" },
+                    { label: "التاريخ", value: new Date(log.createdAt).toLocaleString("en-GB"), icon: Clock, color: "muted" },
                   ]}
                   compact
                   data-testid={`card-audit-${log.id}`}

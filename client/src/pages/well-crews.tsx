@@ -82,7 +82,7 @@ function CrewLinkedWorkers({ crewId, manualWorkersCount, manualMastersCount, man
             </div>
             <div className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
               {w.work_days && <span>{fmtNum(w.work_days)} يوم</span>}
-              <span className="font-medium text-foreground">{Number(w.daily_wage_snapshot || w.worker_daily_wage || 0).toLocaleString()} ر</span>
+              <span className="font-medium text-foreground">{Number(w.daily_wage_snapshot || w.worker_daily_wage || 0).toLocaleString('en-US')} ر</span>
             </div>
           </div>
         ))}
@@ -96,7 +96,7 @@ function CrewLinkedWorkers({ crewId, manualWorkersCount, manualMastersCount, man
       {manualTotalWages > 0 && autoTotalWages > 0 && Math.abs(manualTotalWages - autoTotalWages) > 1 && (
         <div className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400" data-testid={`text-crew-wages-comparison-${crewId}`}>
           <BarChart3 className="h-2.5 w-2.5 shrink-0" />
-          <span>أجور يدوية: {manualTotalWages.toLocaleString()} ر — تلقائية: {autoTotalWages.toLocaleString()} ر</span>
+          <span>أجور يدوية: {manualTotalWages.toLocaleString('en-US')} ر — تلقائية: {autoTotalWages.toLocaleString('en-US')} ر</span>
         </div>
       )}
     </div>
@@ -384,17 +384,17 @@ export default function WellCrewsPage() {
       columns: 3,
       gap: 'sm',
       items: [
-        { key: 'wages', label: 'إجمالي الأجور', value: `${stats.totalWages.toLocaleString()} ر`, icon: Wrench, color: 'orange' },
+        { key: 'wages', label: 'إجمالي الأجور', value: `${stats.totalWages.toLocaleString('en-US')} ر`, icon: Wrench, color: 'orange' },
         { key: 'transport', label: 'رحلات النقل', value: stats.transportCount, icon: Truck, color: 'amber' },
-        { key: 'transportCost', label: 'تكلفة النقل', value: `${stats.totalTransportCost.toLocaleString()} ر`, icon: Truck, color: 'purple' },
+        { key: 'transportCost', label: 'تكلفة النقل', value: `${stats.totalTransportCost.toLocaleString('en-US')} ر`, icon: Truck, color: 'purple' },
       ]
     },
     {
       columns: 2,
       gap: 'sm',
       items: [
-        { key: 'opCosts', label: 'مصاريف تشغيلية', value: `${stats.totalOperationalCosts.toLocaleString()} ر`, icon: Zap, color: 'red' },
-        { key: 'totalCost', label: 'إجمالي تكلفة الآبار', value: `${stats.totalWellCost.toLocaleString()} ر`, icon: BarChart3, color: 'green' },
+        { key: 'opCosts', label: 'مصاريف تشغيلية', value: `${stats.totalOperationalCosts.toLocaleString('en-US')} ر`, icon: Zap, color: 'red' },
+        { key: 'totalCost', label: 'إجمالي تكلفة الآبار', value: `${stats.totalWellCost.toLocaleString('en-US')} ر`, icon: BarChart3, color: 'green' },
       ]
     }
   ], [stats]);
@@ -878,9 +878,9 @@ export default function WellCrewsPage() {
                   { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
                   { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
                   { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
-                  { label: "إجمالي الأجور", value: totalCrewWages > 0 ? `${totalCrewWages.toLocaleString()} ر` : "-", icon: Wrench, color: totalCrewWages > 0 ? "warning" as const : "muted" as const },
-                  { label: "مصاريف تشغيلية", value: opCosts.total > 0 ? `${opCosts.total.toLocaleString()} ر` : "-", icon: Zap, color: opCosts.total > 0 ? "danger" as const : "muted" as const },
-                  { label: "إجمالي تكلفة البئر", value: wellTotalCost > 0 ? `${wellTotalCost.toLocaleString()} ر` : "-", icon: BarChart3, color: wellTotalCost > 0 ? "success" as const : "muted" as const, emphasis: true },
+                  { label: "إجمالي الأجور", value: totalCrewWages > 0 ? `${totalCrewWages.toLocaleString('en-US')} ر` : "-", icon: Wrench, color: totalCrewWages > 0 ? "warning" as const : "muted" as const },
+                  { label: "مصاريف تشغيلية", value: opCosts.total > 0 ? `${opCosts.total.toLocaleString('en-US')} ر` : "-", icon: Zap, color: opCosts.total > 0 ? "danger" as const : "muted" as const },
+                  { label: "إجمالي تكلفة البئر", value: wellTotalCost > 0 ? `${wellTotalCost.toLocaleString('en-US')} ر` : "-", icon: BarChart3, color: wellTotalCost > 0 ? "success" as const : "muted" as const, emphasis: true },
                 ]}
                 actions={[
                   {
@@ -960,10 +960,10 @@ export default function WellCrewsPage() {
                               </div>
                               <div className="grid grid-cols-2 gap-x-2 text-[11px]">
                                 {totalWages > 0 && (
-                                  <span>إجمالي الأجور: <b className="text-green-600 dark:text-green-400">{totalWages.toLocaleString()} ر</b></span>
+                                  <span>إجمالي الأجور: <b className="text-green-600 dark:text-green-400">{totalWages.toLocaleString('en-US')} ر</b></span>
                                 )}
                                 {crewDues > 0 && (
-                                  <span>مستحقات الفريق: <b className="text-blue-600 dark:text-blue-400">{crewDues.toLocaleString()} ر</b></span>
+                                  <span>مستحقات الفريق: <b className="text-blue-600 dark:text-blue-400">{crewDues.toLocaleString('en-US')} ر</b></span>
                                 )}
                               </div>
                               {crew.notes && (
@@ -1015,7 +1015,7 @@ export default function WellCrewsPage() {
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-x-2 text-[11px]">
-                                <span>سعر النقل: <b className="text-foreground">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()} ر</b></span>
+                                <span>سعر النقل: <b className="text-foreground">{Number(t.transportPrice || t.transport_price || 0).toLocaleString('en-US')} ر</b></span>
                                 {!tDate && <span className="text-muted-foreground">بدون تاريخ</span>}
                               </div>
                               {t.notes && (
@@ -1035,17 +1035,17 @@ export default function WellCrewsPage() {
                         <div className="border rounded-md p-2 bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800" data-testid={`section-op-costs-${well.id}`}>
                           <div className="grid grid-cols-3 gap-x-2 text-[11px]">
                             {opCosts.transportation > 0 && (
-                              <span>مواصلات: <b className="text-red-600 dark:text-red-400">{opCosts.transportation.toLocaleString()} ر</b></span>
+                              <span>مواصلات: <b className="text-red-600 dark:text-red-400">{opCosts.transportation.toLocaleString('en-US')} ر</b></span>
                             )}
                             {opCosts.materials > 0 && (
-                              <span>مواد: <b className="text-red-600 dark:text-red-400">{opCosts.materials.toLocaleString()} ر</b></span>
+                              <span>مواد: <b className="text-red-600 dark:text-red-400">{opCosts.materials.toLocaleString('en-US')} ر</b></span>
                             )}
                             {opCosts.misc > 0 && (
-                              <span>نثريات: <b className="text-red-600 dark:text-red-400">{opCosts.misc.toLocaleString()} ر</b></span>
+                              <span>نثريات: <b className="text-red-600 dark:text-red-400">{opCosts.misc.toLocaleString('en-US')} ر</b></span>
                             )}
                           </div>
                           <div className="text-[11px] font-semibold mt-1 text-red-700 dark:text-red-300">
-                            الإجمالي: {opCosts.total.toLocaleString()} ر
+                            الإجمالي: {opCosts.total.toLocaleString('en-US')} ر
                           </div>
                         </div>
                       </>

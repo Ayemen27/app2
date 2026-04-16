@@ -147,10 +147,10 @@ const ActivityChip = memo(({
             <div className="flex items-center gap-0.5" dir="ltr">
               <Clock className="h-2.5 w-2.5 text-rose-500 flex-shrink-0" />
               <span>
-                {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
+                {new Date(activity.createdAt).toLocaleTimeString('en-GB', { 
                   hour: '2-digit', 
                   minute: '2-digit',
-                  hour12: true 
+                  hour12: false 
                 })}
               </span>
             </div>

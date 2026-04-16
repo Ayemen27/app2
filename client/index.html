@@ -3,6 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Enforce Latin (Western) numerals globally — must run before any JS module.
+      On Arabic-locale Android WebViews, bare toLocaleString() defaults to Eastern
+      Arabic numerals (١٢٣). This patch intercepts all prototype methods and
+      forces en-US as the fallback locale when no locale is explicitly provided.
+    -->
+    <script>
+      (function () {
+        var L = 'en-US';
+        var np = Number.prototype, dp = Date.prototype;
+        var nOrig = np.toLocaleString;
+        np.toLocaleString = function (l, o) { return nOrig.call(this, l || L, o); };
+        var dsOrig = dp.toLocaleString;
+        dp.toLocaleString = function (l, o) { return dsOrig.call(this, l || L, o); };
+        var ddOrig = dp.toLocaleDateString;
+        dp.toLocaleDateString = function (l, o) { return ddOrig.call(this, l || L, o); };
+        var dtOrig = dp.toLocaleTimeString;
+        dp.toLocaleTimeString = function (l, o) { return dtOrig.call(this, l || L, o); };
+      })();
+    </script>
     <meta name="theme-color" content="#3b82f6" />
     <meta name="description" content="AXION — نظام احترافي لإدارة المشاريع الإنشائية وتتبع الآبار والعمال والمالية. منصة ذكية مدعومة بالذكاء الاصطناعي." />
     <meta name="keywords" content="إدارة مشاريع, مشاريع إنشائية, تتبع آبار, إدارة عمال, محاسبة, AXION, BinarJoin" />

@@ -7,6 +7,21 @@
   src: local('Cairo'), local('Tajawal'), local('Droid Arabic Kufi'), local('Arial');
 }
 
+/*
+ * Block Arabic-Indic numeral glyphs (U+0660–U+0669) and
+ * Extended Arabic-Indic (U+06F0–U+06F9) from Cairo/Arabic fonts.
+ * Forces those code points to render via Arial which lacks these glyphs,
+ * preventing Eastern Arabic numerals (١٢٣) from appearing even if
+ * erroneously generated on Arabic-locale Android devices.
+ */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 300 700;
+  src: local('Arial'), local('Helvetica Neue'), local('sans-serif');
+  unicode-range: U+0660-U+0669, U+06F0-U+06F9;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

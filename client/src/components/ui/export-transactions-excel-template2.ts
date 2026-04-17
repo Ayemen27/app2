@@ -34,7 +34,7 @@ function gregorianToHijri(date: Date): { day: number; month: number; year: numbe
   const HIJRI_MONTHS = [
     'محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني',
     'جمادى الأولى', 'جمادى الثانية', 'رجب', 'شعبان',
-    'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'
+    'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة',
   ];
 
   const dayName = DAY_NAMES_AR[date.getDay()];
@@ -43,10 +43,14 @@ function gregorianToHijri(date: Date): { day: number; month: number; year: numbe
   let l = jd - 1948440 + 10632;
   const n = Math.floor((l - 1) / 10631);
   l = l - 10631 * n + 354;
-  const j = Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) +
+  const j =
+    Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) +
     Math.floor(l / 5670) * Math.floor((43 * l) / 15238);
-  l = l - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) -
-    Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  l =
+    l -
+    Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) -
+    Math.floor(j / 16) * Math.floor((15238 * j) / 43) +
+    29;
   const month = Math.floor((24 * l) / 709);
   const day = l - Math.floor((709 * month) / 24);
   const year = 30 * n + j - 30;
@@ -55,59 +59,62 @@ function gregorianToHijri(date: Date): { day: number; month: number; year: numbe
 }
 
 function getAccountTypeLabel(type: string, category: string): string {
-  if (type === 'income' || type === 'transfer_from_project') return 'دخل';
+  if (category === 'رصيد سابق') return 'نقل';
+  if (type === 'income' || type === 'transfer_from_project') return 'نقل';
   if (category === 'أجور عمال') return 'أجور العمال';
   if (category === 'مواصلات') return 'مواصلات';
   if (category === 'حوالات عمال') return 'تنزيلات العمال';
-  if (category === 'نثريات' || category === 'مشتريات مواد') return 'مصروفات';
+  if (category === 'نثريات') return 'مصروفات';
+  if (category === 'مشتريات مواد') return 'مصروفات';
   if (type === 'deferred') return 'آجل';
-  if (type === 'storage') return 'مخزن';
   return 'مصروفات';
 }
 
 function getEntryName(t: Transaction): string {
   if (t.category === 'رصيد سابق') return 'مرحل';
+  if (t.category === 'عهدة' && t.description) return t.description;
   if (t.workerName && t.workerName !== 'غير محدد') return t.workerName;
   if (t.description) return t.description;
   if (t.recipientName) return t.recipientName;
   return t.category || '-';
 }
 
-function applyBorder(cell: any) {
+function border(cell: any) {
   cell.border = {
-    top: { style: 'thin', color: { argb: 'FF999999' } },
+    top:    { style: 'thin', color: { argb: 'FF999999' } },
     bottom: { style: 'thin', color: { argb: 'FF999999' } },
-    left: { style: 'thin', color: { argb: 'FF999999' } },
-    right: { style: 'thin', color: { argb: 'FF999999' } },
+    left:   { style: 'thin', color: { argb: 'FF999999' } },
+    right:  { style: 'thin', color: { argb: 'FF999999' } },
   };
 }
 
-function styleCell(cell: any, options: {
-  bgColor?: string;
-  fontColor?: string;
-  bold?: boolean;
-  fontSize?: number;
-  align?: 'left' | 'center' | 'right';
-  numFmt?: string;
-  wrapText?: boolean;
-}) {
-  if (options.bgColor) {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: options.bgColor } };
+function style(
+  cell: any,
+  opts: {
+    bg?: string;
+    fc?: string;
+    bold?: boolean;
+    size?: number;
+    align?: 'left' | 'center' | 'right';
+    fmt?: string;
+    wrap?: boolean;
   }
+) {
+  if (opts.bg) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.bg } };
   cell.font = {
-    bold: options.bold ?? false,
-    size: options.fontSize ?? 10,
-    color: { argb: options.fontColor ?? 'FF000000' },
+    bold: opts.bold ?? false,
+    size: opts.size ?? 10,
+    color: { argb: opts.fc ?? 'FF000000' },
     name: 'Arial',
   };
   cell.alignment = {
-    horizontal: options.align ?? 'center',
+    horizontal: opts.align ?? 'center',
     vertical: 'middle',
     readingOrder: 2,
-    wrapText: options.wrapText ?? false,
+    wrapText: opts.wrap ?? false,
   };
-  if (options.numFmt) cell.numFmt = options.numFmt;
-  applyBorder(cell);
+  if (opts.fmt) cell.numFmt = opts.fmt;
+  border(cell);
 }
 
 export async function exportTransactionsToExcelTemplate2(
@@ -117,11 +124,11 @@ export async function exportTransactionsToExcelTemplate2(
   reportDate?: string
 ): Promise<boolean> {
   const ExcelJS = (await import('exceljs')).default;
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'AXION';
-  workbook.created = new Date();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'AXION';
+  wb.created = new Date();
 
-  const worksheet = workbook.addWorksheet('كشف المصروفات اليومي', {
+  const ws = wb.addWorksheet('كشف المصروفات اليومي', {
     views: [{ rightToLeft: true }],
     pageSetup: {
       paperSize: 9,
@@ -134,195 +141,144 @@ export async function exportTransactionsToExcelTemplate2(
     },
   });
 
-  const COL_COUNT = 7;
+  const COL = 6;
 
-  worksheet.getColumn(1).width = 14;
-  worksheet.getColumn(2).width = 16;
-  worksheet.getColumn(3).width = 20;
-  worksheet.getColumn(4).width = 10;
-  worksheet.getColumn(5).width = 14;
-  worksheet.getColumn(6).width = 14;
-  worksheet.getColumn(7).width = 26;
+  ws.getColumn(1).width = 14;
+  ws.getColumn(2).width = 16;
+  ws.getColumn(3).width = 24;
+  ws.getColumn(4).width = 10;
+  ws.getColumn(5).width = 16;
+  ws.getColumn(6).width = 30;
 
-  const dateObj = reportDate ? (() => {
-    const [y, m, d] = reportDate.split('-').map(Number);
-    return new Date(y, m - 1, d, 12, 0, 0);
-  })() : new Date();
+  const dateObj = reportDate
+    ? (() => { const [y, m, d] = reportDate.split('-').map(Number); return new Date(y, m - 1, d, 12); })()
+    : new Date();
 
   const hijri = gregorianToHijri(dateObj);
-  const gregorianFormatted = dateObj.toLocaleDateString('en-GB');
+  const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
   const hijriStr = `${hijri.day} ${hijri.monthName} ${hijri.year}`;
 
-  const GREEN_HEADER = 'FF1F7A3C';
-  const GREEN_LIGHT = 'FFD6E4D9';
-  const GREEN_ROW_INCOME = 'FFE8F5E9';
+  const GREEN  = 'FF1F7A3C';
+  const WHITE  = 'FFFFFFFF';
+  const GREY   = 'FFF5F5F5';
+  const GREEN_MUTED = 'FFD6EAD7';
+  const ORANGE_INCOME = 'FFFFF3E0';
   const SALMON = 'FFFA8072';
   const SALMON_LIGHT = 'FFFCE4D6';
-  const WHITE = 'FFFFFFFF';
-  const GREY_LIGHT = 'FFF5F5F5';
-  const DARK_GREEN = 'FF145226';
 
-  let currentRow = 1;
+  let r = 1;
 
-  // === الصف 1: عنوان التقرير ===
-  worksheet.mergeCells(currentRow, 1, currentRow, COL_COUNT);
-  const titleCell = worksheet.getRow(currentRow).getCell(1);
-  titleCell.value = `كشف مصروفات مشروع ${projectName || ''} يوم ${hijri.dayName} ${hijriStr} الموافق ${gregorianFormatted}`;
-  styleCell(titleCell, { bgColor: GREEN_HEADER, fontColor: 'FFFFFFFF', bold: true, fontSize: 12, wrapText: true });
-  worksheet.getRow(currentRow).height = 28;
-  currentRow++;
+  // ── صف 1: عنوان التقرير (أخضر داكن + أبيض) ──────────────────────────────
+  ws.mergeCells(r, 1, r, COL);
+  const titleCell = ws.getRow(r).getCell(1);
+  titleCell.value = `كشف مصروفات مشروع ${projectName || ''} يوم ${hijri.dayName} ${hijriStr} الموافق ${gFormatted}`;
+  style(titleCell, { bg: GREEN, fc: 'FFFFFFFF', bold: true, size: 12 });
+  ws.getRow(r).height = 30;
+  r++;
 
-  // === الصف 2: معلومات التاريخ ===
-  const metaRow = worksheet.getRow(currentRow);
-  metaRow.height = 22;
+  // ── صف 2: تفاصيل التاريخ ─────────────────────────────────────────────────
+  ws.getRow(r).height = 22;
 
-  worksheet.mergeCells(currentRow, 1, currentRow, 2);
-  const metaCell1 = metaRow.getCell(1);
-  metaCell1.value = `الموافق ${gregorianFormatted}`;
-  styleCell(metaCell1, { bgColor: GREEN_HEADER, fontColor: 'FFFFFFFF', bold: true, fontSize: 10 });
+  ws.mergeCells(r, 1, r, 2);
+  const d1 = ws.getRow(r).getCell(1);
+  d1.value = `الموافق ${gFormatted}`;
+  style(d1, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
 
-  worksheet.mergeCells(currentRow, 3, currentRow, 4);
-  const metaCell2 = metaRow.getCell(3);
-  metaCell2.value = `${hijri.dayName} ${hijriStr}`;
-  styleCell(metaCell2, { bgColor: GREEN_HEADER, fontColor: 'FFFFFFFF', bold: true, fontSize: 10 });
+  ws.mergeCells(r, 3, r, 4);
+  const d2 = ws.getRow(r).getCell(3);
+  d2.value = `${hijri.dayName} ${hijriStr}`;
+  style(d2, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
 
-  worksheet.mergeCells(currentRow, 5, currentRow, COL_COUNT);
-  const metaCell3 = metaRow.getCell(5);
-  metaCell3.value = `الموقع: ${projectName || ''}`;
-  styleCell(metaCell3, { bgColor: GREEN_HEADER, fontColor: 'FFFFFFFF', bold: true, fontSize: 10 });
-  currentRow++;
+  ws.mergeCells(r, 5, r, COL);
+  const d3 = ws.getRow(r).getCell(5);
+  d3.value = `الموقع: ${projectName || ''}`;
+  style(d3, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
+  r++;
 
-  // === الصف 3: رؤوس الأعمدة ===
-  const headers = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'الأجر اليومي', 'ملاحظات'];
-  const headerRow = worksheet.getRow(currentRow);
-  headers.forEach((h, i) => {
-    const cell = headerRow.getCell(i + 1);
-    cell.value = h;
-    styleCell(cell, { bgColor: GREEN_HEADER, fontColor: 'FFFFFFFF', bold: true, fontSize: 10 });
+  // ── صف 3: رؤوس الأعمدة ───────────────────────────────────────────────────
+  const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
+  ws.getRow(r).height = 22;
+  HEADERS.forEach((h, i) => {
+    const c = ws.getRow(r).getCell(i + 1);
+    c.value = h;
+    style(c, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
   });
-  headerRow.height = 22;
-  currentRow++;
+  r++;
 
-  // === بناء صفوف البيانات ===
-  // ترتيب: الرصيد المرحل أولاً، ثم الدخل، ثم المصروفات بالترتيب
-  const openingTx = transactions.filter(t => t.category === 'رصيد سابق');
-  const incomeTx = transactions.filter(t =>
-    t.category !== 'رصيد سابق' &&
-    (t.type === 'income' || t.type === 'transfer_from_project')
-  );
-  const expenseTx = transactions.filter(t =>
-    t.category !== 'رصيد سابق' &&
-    t.type !== 'income' &&
-    t.type !== 'transfer_from_project'
-  );
+  // ── ترتيب البيانات ────────────────────────────────────────────────────────
+  const opening = transactions.filter(t => t.category === 'رصيد سابق');
+  const income  = transactions.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
+  const expense = transactions.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
+  const ordered = [...opening, ...income, ...expense];
 
-  const orderedTransactions = [...openingTx, ...incomeTx, ...expenseTx];
+  let running = 0;
 
-  let runningBalance = 0;
-
-  orderedTransactions.forEach((t, idx) => {
+  ordered.forEach((t, idx) => {
     const isOpening = t.category === 'رصيد سابق';
-    const isIncome = t.type === 'income' || t.type === 'transfer_from_project';
-    const amount = t.amount || 0;
+    const isIncome  = t.type === 'income' || t.type === 'transfer_from_project';
+    const amt = t.amount || 0;
 
-    if (isIncome || isOpening) {
-      runningBalance += amount;
-    } else {
-      runningBalance -= amount;
-    }
+    if (isOpening || isIncome) running += amt;
+    else running -= amt;
 
-    const dataRow = worksheet.getRow(currentRow);
-    dataRow.height = 20;
+    const row = ws.getRow(r);
+    row.height = 20;
 
-    let rowBg = idx % 2 === 0 ? WHITE : GREY_LIGHT;
-    if (isOpening) rowBg = GREEN_LIGHT;
-    if (isIncome && !isOpening) rowBg = GREEN_ROW_INCOME;
+    let bg = idx % 2 === 0 ? WHITE : GREY;
+    if (isOpening)                bg = GREEN_MUTED;
+    if (isIncome && !isOpening)   bg = ORANGE_INCOME;
 
-    const accountType = getAccountTypeLabel(t.type, t.category);
-    const entryName = getEntryName(t);
-    const days = t.workDays ?? null;
-    const dailyWage = t.dailyWage ?? null;
-    const notes = t.notes || t.description || '';
+    const notesVal = (() => {
+      const parts: string[] = [];
+      if (t.notes && t.notes !== t.description) parts.push(t.notes);
+      if (t.dailyWage && t.dailyWage > 0) parts.push(`الأجر اليومي: ${t.dailyWage}`);
+      return parts.join(' | ') || (t.description && t.description !== getEntryName(t) ? t.description : '');
+    })();
 
     const rowData = [
-      amount,
-      accountType,
-      entryName,
-      days,
-      runningBalance,
-      dailyWage,
-      notes,
+      amt,
+      getAccountTypeLabel(t.type, t.category),
+      getEntryName(t),
+      t.workDays ?? null,
+      running,
+      notesVal,
     ];
 
     rowData.forEach((val, ci) => {
-      const cell = dataRow.getCell(ci + 1);
+      const cell = row.getCell(ci + 1);
       cell.value = val;
-      styleCell(cell, {
-        bgColor: rowBg,
+      style(cell, {
+        bg,
         bold: isOpening,
-        fontSize: 10,
-        numFmt: (ci === 0 || ci === 4 || ci === 5) && typeof val === 'number' ? '#,##0' : undefined,
-        align: ci === 2 || ci === 6 ? 'right' : 'center',
-        wrapText: ci === 6,
+        size: 10,
+        fmt: (ci === 0 || ci === 4) && typeof val === 'number' ? '#,##0' : undefined,
+        align: ci === 2 || ci === 5 ? 'right' : 'center',
+        wrap: ci === 5,
       });
     });
 
-    currentRow++;
+    r++;
   });
 
-  // === صف المبلغ المتبقي ===
-  const remainRow = worksheet.getRow(currentRow);
-  remainRow.height = 24;
+  // ── صف المبلغ المتبقي (سلموني) ───────────────────────────────────────────
+  ws.getRow(r).height = 24;
 
-  worksheet.mergeCells(currentRow, 1, currentRow, 4);
-  const remainLabel = remainRow.getCell(1);
-  remainLabel.value = 'المبلغ المتبقي';
-  styleCell(remainLabel, { bgColor: SALMON, fontColor: 'FF7B1D0B', bold: true, fontSize: 11 });
+  ws.mergeCells(r, 1, r, 4);
+  const lblCell = ws.getRow(r).getCell(1);
+  lblCell.value = 'المبلغ المتبقي';
+  style(lblCell, { bg: SALMON, fc: 'FF7B1D0B', bold: true, size: 11 });
 
-  const remainVal = remainRow.getCell(5);
-  remainVal.value = runningBalance;
-  styleCell(remainVal, { bgColor: SALMON, fontColor: 'FF7B1D0B', bold: true, fontSize: 11, numFmt: '#,##0' });
+  const valCell = ws.getRow(r).getCell(5);
+  valCell.value = running;
+  style(valCell, { bg: SALMON, fc: 'FF7B1D0B', bold: true, size: 11, fmt: '#,##0' });
 
-  worksheet.mergeCells(currentRow, 6, currentRow, COL_COUNT);
-  const remainExtra = remainRow.getCell(6);
-  remainExtra.value = '';
-  styleCell(remainExtra, { bgColor: SALMON_LIGHT, fontColor: 'FF7B1D0B', bold: true, fontSize: 11 });
-  currentRow += 2;
+  const extCell = ws.getRow(r).getCell(6);
+  extCell.value = '';
+  style(extCell, { bg: SALMON_LIGHT });
+  r++;
 
-  // === إجماليات ===
-  const summaryItems = [
-    { label: 'إجمالي الدخل', value: totals.totalIncome, color: 'FF1F7A3C', textColor: 'FFFFFFFF' },
-    { label: 'إجمالي المصروفات', value: totals.totalExpenses, color: 'FFC0392B', textColor: 'FFFFFFFF' },
-    { label: 'الرصيد الصافي', value: totals.balance, color: totals.balance >= 0 ? 'FF2E86C1' : 'FFC0392B', textColor: 'FFFFFFFF' },
-  ];
-
-  summaryItems.forEach(item => {
-    const row = worksheet.getRow(currentRow);
-    row.height = 22;
-    worksheet.mergeCells(currentRow, 1, currentRow, 5);
-    const labelCell = row.getCell(1);
-    labelCell.value = item.label;
-    styleCell(labelCell, { bgColor: item.color, fontColor: item.textColor, bold: true, fontSize: 10 });
-
-    worksheet.mergeCells(currentRow, 6, currentRow, COL_COUNT);
-    const valCell = row.getCell(6);
-    valCell.value = item.value;
-    styleCell(valCell, { bgColor: item.color, fontColor: item.textColor, bold: true, fontSize: 10, numFmt: '#,##0' });
-    currentRow++;
-  });
-
-  currentRow += 2;
-
-  // === صف التوقيع ===
-  worksheet.mergeCells(currentRow, 1, currentRow, COL_COUNT);
-  const footerRow = worksheet.getRow(currentRow);
-  footerRow.height = 30;
-  const footerCell = footerRow.getCell(1);
-  footerCell.value = `تم إنشاء هذا الكشف بتاريخ ${new Date().toLocaleDateString('en-GB')} - نظام إدارة مشاريع البناء`;
-  styleCell(footerCell, { bgColor: DARK_GREEN, fontColor: 'FFFFFFFF', fontSize: 9 });
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  const safeProjectName = (projectName || 'مشروع').replace(/[/\\?%*:|"<>]/g, '-');
-  const fileName = `كشف_مصروفات_يومي_${safeProjectName}_${reportDate || new Date().toISOString().split('T')[0]}.xlsx`;
-  return await downloadExcelFile(buffer as ArrayBuffer, fileName);
+  const buf = await wb.xlsx.writeBuffer();
+  const safeName = (projectName || 'مشروع').replace(/[/\\?%*:|"<>]/g, '-');
+  const fileName = `كشف_مصروفات_يومي_${safeName}_${reportDate || new Date().toISOString().split('T')[0]}.xlsx`;
+  return await downloadExcelFile(buf as ArrayBuffer, fileName);
 }

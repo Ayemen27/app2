@@ -104,6 +104,7 @@ export default function MaterialPurchase() {
   const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
   const [showGuardPurchaseDialog, setShowGuardPurchaseDialog] = useState(false);
   const [guardPurchaseData, setGuardPurchaseData] = useState<FinancialGuardData | null>(null);
+  const [guardEditPurchaseId, setGuardEditPurchaseId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('date') || "";
@@ -559,7 +560,7 @@ export default function MaterialPurchase() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
-    onError: async (error: any) => {
+    onError: async (error: any, variables: any) => {
       await Promise.all([
         saveAutocompleteValue('materialNames', materialName),
         saveAutocompleteValue('materialCategories', materialCategory),
@@ -570,6 +571,21 @@ export default function MaterialPurchase() {
       ]);
 
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const rd = error.responseData;
+        setGuardEditPurchaseId(variables.id);
+        setGuardPurchaseData({
+          type: rd.guardType === 'budget_overrun' ? 'overpaid_purchase' : 'large_amount',
+          title: rd.title || 'تنبيه مالي',
+          enteredAmount: rd.guardData?.totalAmount || 0,
+          suggestions: rd.suggestions || [],
+          details: rd.details || [],
+          originalData: rd._originalBody || variables.data || {},
+        });
+        setShowGuardPurchaseDialog(true);
+        return;
+      }
 
       let errorMessage = "حدث خطأ أثناء تحديث شراء المواد";
       let errorDetails: string[] = [];
@@ -1590,18 +1606,35 @@ export default function MaterialPurchase() {
         onClose={() => {
           setShowGuardPurchaseDialog(false);
           setGuardPurchaseData(null);
+          setGuardEditPurchaseId(null);
         }}
         data={guardPurchaseData}
         onConfirm={({ adjustedAmount, guardNote }) => {
           setShowGuardPurchaseDialog(false);
           const origData = guardPurchaseData?.originalData || {};
+          const editId = guardEditPurchaseId;
           setGuardPurchaseData(null);
-          addMaterialPurchaseMutation.mutate({
-            ...origData,
-            totalAmount: adjustedAmount,
-            notes: guardNote || origData.notes || '',
-            confirmGuard: true,
-          });
+          setGuardEditPurchaseId(null);
+          if (editId) {
+            updateMaterialPurchaseMutation.mutate({
+              id: editId,
+              data: {
+                ...origData,
+                totalAmount: adjustedAmount,
+                notes: guardNote || origData.notes || '',
+                confirmGuard: true,
+                guardNote,
+              },
+            });
+          } else {
+            addMaterialPurchaseMutation.mutate({
+              ...origData,
+              totalAmount: adjustedAmount,
+              notes: guardNote || origData.notes || '',
+              confirmGuard: true,
+              guardNote,
+            });
+          }
         }}
       />
     </div>

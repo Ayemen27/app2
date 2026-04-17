@@ -22,7 +22,6 @@ import { LoadingSpinner, EmptyState, secureDownloadExport } from "./utils";
 import { SingleDayReport } from "./SingleDayReport";
 import { RangeDayPage } from "./RangeDayPage";
 import { exportTransactionsToExcelTemplate2 } from "@/components/ui/export-transactions-excel-template2";
-import { exportDailyReportPdfTemplate2 } from "@/components/ui/export-daily-report-pdf-template2";
 
 export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -188,7 +187,7 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     if (carried !== 0) {
       const prevDateObj = new Date(dateStr);
       prevDateObj.setDate(prevDateObj.getDate() - 1);
-      const prevDateStr = prevDateObj.toLocaleDateString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const prevDateStr = prevDateObj.toISOString().split('T')[0];
       txs.push({
         id: 'cf',
         date: dateStr,
@@ -200,7 +199,19 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
       });
     }
     (report.fundTransfers || []).forEach((f: any) => {
-      txs.push({ id: f.id, date: f.date || dateStr, type: 'income', category: 'عهدة', amount: parseFloat(f.amount || '0'), description: `عهدة من ${f.senderName || 'غير محدد'}`, recipientName: f.senderName });
+      const noteParts: string[] = [];
+      if (f.transferType && f.transferType !== '-') noteParts.push(`نوع: ${f.transferType}`);
+      if (f.transferNumber && f.transferNumber !== '-') noteParts.push(`رقم الحوالة: ${f.transferNumber}`);
+      txs.push({
+        id: f.id,
+        date: f.date || dateStr,
+        type: 'income',
+        category: 'عهدة',
+        amount: parseFloat(f.amount || '0'),
+        description: `عهدة من ${f.senderName || 'غير محدد'}`,
+        recipientName: f.senderName,
+        notes: noteParts.join(' | ') || '',
+      });
     });
     (report.attendance || []).forEach((a: any) => {
       const paid = parseFloat(a.paidAmount || '0');
@@ -261,15 +272,10 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
 
   const handleExportPdfTemplate2 = async () => {
     if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
-    if (!dailyReport) { toast({ title: "تنبيه", description: "لا توجد بيانات للتصدير", variant: "destructive" }); return; }
     setShowPdfTemplateDialog(false);
     setIsExportingPdf(true);
     try {
-      const downloaded = await exportDailyReportPdfTemplate2(
-        buildTransactionsFromReport(dailyReport), buildTotals(dailyReport), selectedProjectName || 'المشروع', dateStr
-      );
-      if (downloaded) toast({ title: "تم التصدير بنجاح", description: "تم تصدير PDF بالقالب الثاني" });
-      else toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل", variant: "destructive" });
+      await secureDownloadExport("daily", "pdf", { project_id: projectIdForApi, date: dateStr, template: '2' }, toast);
     } catch (err: any) {
       toast({ title: "فشل التصدير", description: toUserMessage(err, "حدث خطأ أثناء التصدير"), variant: "destructive" });
     } finally {

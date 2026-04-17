@@ -39,6 +39,7 @@ import { generateMultiProjectCompareExcel } from '../../services/reports/templat
 import { generateMultiProjectCompareHTML } from '../../services/reports/templates/MultiProjectComparePDF';
 import { generateProjectComprehensiveExcel } from '../../services/reports/templates/ProjectComprehensiveExcel';
 import { generateProjectComprehensiveHTML } from '../../services/reports/templates/ProjectComprehensivePDF';
+import { generateDailyReportTemplate2HTML } from '../../services/reports/templates/DailyReportPdfTemplate2';
 import { convertHtmlToPdf } from '../../services/reports/HtmlToPdfService';
 import { safeErrorMessage } from '../../middleware/api-response';
 
@@ -1275,7 +1276,7 @@ reportRouter.get('/reports/v2/multi-project-final', async (req: Request, res: Re
 reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response) => {
   try {
     const { type } = req.params;
-    const { format, project_id, date, worker_id, dateFrom, dateTo } = req.query;
+    const { format, project_id, date, worker_id, dateFrom, dateTo, template } = req.query;
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -1319,12 +1320,20 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
       }
       const data = await reportDataService.getDailyReport(project_id as string, date as string);
-      const dailyFileBase = encodeURIComponent(`التقرير-اليومي-${data.project?.name || 'مشروع'}-${date}`);
+      const safeProjectName = data.project?.name || 'مشروع';
+      const dailyFileBase = encodeURIComponent(`التقرير-اليومي-${safeProjectName}-${date}`);
+      const template2FileBase = encodeURIComponent(`كشف-مصروفات-يومي-${safeProjectName}-${date}`);
       if (format === 'xlsx') {
         const buffer = await generateDailyReportExcel(data);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${dailyFileBase}.xlsx`);
         return res.send(Buffer.from(buffer));
+      } else if (template === '2') {
+        const html = generateDailyReportTemplate2HTML(data, date as string);
+        const pdfBuffer = await convertHtmlToPdf(html);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${template2FileBase}.pdf`);
+        return res.send(pdfBuffer);
       } else {
         const html = generateDailyReportHTML(data);
         const pdfBuffer = await convertHtmlToPdf(html);

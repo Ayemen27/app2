@@ -29,37 +29,9 @@ interface Totals {
   balance: number;
 }
 
-function gregorianToHijri(date: Date): { day: number; month: number; year: number; monthName: string; dayName: string } {
-  const DAY_NAMES_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-  const HIJRI_MONTHS = [
-    'محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني',
-    'جمادى الأولى', 'جمادى الثانية', 'رجب', 'شعبان',
-    'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة',
-  ];
-
-  const dayName = DAY_NAMES_AR[date.getDay()];
-
-  const jd = Math.floor((date.getTime() / 86400000) + 2440587.5);
-  let l = jd - 1948440 + 10632;
-  const n = Math.floor((l - 1) / 10631);
-  l = l - 10631 * n + 354;
-  const j =
-    Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) +
-    Math.floor(l / 5670) * Math.floor((43 * l) / 15238);
-  l =
-    l -
-    Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) -
-    Math.floor(j / 16) * Math.floor((15238 * j) / 43) +
-    29;
-  const month = Math.floor((24 * l) / 709);
-  const day = l - Math.floor((709 * month) / 24);
-  const year = 30 * n + j - 30;
-
-  return { day, month, year, monthName: HIJRI_MONTHS[month - 1] || '', dayName };
-}
 
 function getAccountTypeLabel(type: string, category: string): string {
-  if (category === 'رصيد سابق') return 'نقل';
+  if (category === 'رصيد سابق') return 'مرحل';
   if (type === 'income') return 'دخل';
   if (type === 'transfer_from_project') return 'دخل';
   if (category === 'أجور عمال') return 'أجور العمال';
@@ -155,9 +127,7 @@ export async function exportTransactionsToExcelTemplate2(
     ? (() => { const [y, m, d] = reportDate.split('-').map(Number); return new Date(y, m - 1, d, 12); })()
     : new Date();
 
-  const hijri = gregorianToHijri(dateObj);
   const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
-  const hijriStr = `${hijri.dayName} ${hijri.day} ${hijri.monthName} ${hijri.year}`;
 
   const GREEN        = 'FF1F7A3C';
   const WHITE        = 'FFFFFFFF';
@@ -177,13 +147,6 @@ export async function exportTransactionsToExcelTemplate2(
   titleCell.value = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
   style(titleCell, { bg: GREEN, fc: 'FFFFFFFF', bold: true, size: 12 });
   ws.getRow(r).height = 30;
-  r++;
-
-  ws.mergeCells(r, 1, r, COL);
-  const hijriCell = ws.getRow(r).getCell(1);
-  hijriCell.value = `${hijriStr}`;
-  style(hijriCell, { bg: 'FF2D9146', fc: 'FFFFFFFF', bold: false, size: 10 });
-  ws.getRow(r).height = 18;
   r++;
 
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];

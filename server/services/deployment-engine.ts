@@ -3150,6 +3150,26 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ تعذر تطبيق بعض الإصلاحات التلقائية", "warn");
     }
 
+    // قتل أي عملية Gradle قديمة وحذف ملفات القفل قبل البناء
+    this.updateStepProgress(deploymentId, "gradle-build", 15, "تنظيف قفل Gradle القديم...");
+    try {
+      await this.execWithLog(
+        deploymentId,
+        `${freshSsh} "` +
+          `pkill -f 'gradlew\\|GradleMain\\|GradleWrapperMain' 2>/dev/null || true; ` +
+          `sleep 2; ` +
+          `rm -f /home/administrator/.gradle/caches/8.11.1/fileHashes/fileHashes.lock ` +
+          `/home/administrator/.gradle/caches/8.11.1/fileHashes.lock ` +
+          `/home/administrator/.gradle/caches/8.11.1/gc.properties.lock 2>/dev/null || true; ` +
+          `echo 'GRADLE_LOCK_CLEANED'"`,
+        "Gradle Lock Cleanup",
+        20000
+      );
+      await this.addLog(deploymentId, "✅ تم تنظيف قفل Gradle القديم", "success");
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر تنظيف قفل Gradle (غير حرج)", "warn");
+    }
+
     this.updateStepProgress(deploymentId, "gradle-build", 25, "بناء Gradle (قد يستغرق 2-3 دقائق)...");
 
     const buildId = deploymentId.substring(0, 8);

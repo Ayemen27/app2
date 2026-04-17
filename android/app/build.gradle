@@ -12,11 +12,11 @@ if (versionPropsFile.exists()) {
 
 android {
     namespace "com.axion.app"
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId "com.axion.app"
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode buildVersionCode
         versionName buildVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

@@ -5,6 +5,7 @@ import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { ENV } from "./lib/env";
+import { Capacitor } from "@capacitor/core";
 
 // Add ResizeObserver polyfill/fix to prevent loop errors
 if (typeof window !== 'undefined') {
@@ -167,10 +168,15 @@ function WorkerMiscExpensesPage() {
 
 import { AppUpdateDialog } from './components/update/AppUpdateDialog';
 import { openDownloadUrl as appOpenDownloadUrl, dismissVersion as appDismissVersion } from './services/appUpdateChecker';
+import PermissionRequestDialog from './components/PermissionRequestDialog';
+import { hasAnyPendingPermission } from './services/permissionManager';
+
+const SESSION_PERMS_SHOWN_KEY = 'axion_perms_session_shown';
 
 function Router() {
   useWebSocketSync();
   const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showPermissions, setShowPermissions] = useState(false);
 
   useEffect(() => {
     const initSync = async () => {
@@ -185,11 +191,9 @@ function Router() {
           } catch (e) {
           }
 
-          try {
-            const { requestNotificationPermission, registerResumeListener } = await import('./services/notificationPermission');
-            await requestNotificationPermission();
-            registerResumeListener();
-          } catch (e) {
+          const alreadyShown = sessionStorage.getItem(SESSION_PERMS_SHOWN_KEY);
+          if (!alreadyShown && hasAnyPendingPermission()) {
+            setTimeout(() => setShowPermissions(true), 1500);
           }
 
           try {
@@ -275,6 +279,19 @@ function Router() {
           }}
         />
       )}
+
+      {showPermissions && (
+        <PermissionRequestDialog
+          onDone={() => {
+            setShowPermissions(false);
+            sessionStorage.setItem(SESSION_PERMS_SHOWN_KEY, '1');
+            import('./services/notificationPermission').then(({ registerResumeListener }) => {
+              registerResumeListener();
+            }).catch(() => {});
+          }}
+        />
+      )}
+
     <Switch>
       <Route path="/">
         <Suspense fallback={<PageLoader />}>
@@ -589,10 +606,6 @@ function Router() {
     </>
   );
 }
-
-import { initializeNativePush, requestAllPermissions } from "./services/capacitorPush";
-import { Capacitor } from "@capacitor/core";
-import { PushNotifications } from "@capacitor/push-notifications";
 
 const SystemCheckPage = lazy(() => import("./pages/SystemCheckPage"));
 const SyncManagementPage = lazy(() => import("./pages/system/SyncManagementPage"));

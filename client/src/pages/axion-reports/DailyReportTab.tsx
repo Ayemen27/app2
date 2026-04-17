@@ -37,7 +37,6 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showExcelTemplateDialog, setShowExcelTemplateDialog] = useState(false);
-  const [showPdfTemplateDialog, setShowPdfTemplateDialog] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -298,11 +297,8 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     {
       key: "export-pdf",
       icon: FileText,
-      tooltip: "تصدير PDF — اختر القالب",
-      onClick: () => {
-        if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
-        setShowPdfTemplateDialog(true);
-      },
+      tooltip: "تصدير PDF",
+      onClick: () => handleExport("pdf"),
       disabled: !projectIdForApi || isExportingPdf || isExportingXlsx,
       loading: isExportingPdf,
     },
@@ -360,7 +356,7 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
             <button
               data-testid="btn-excel-template-2"
               onClick={handleExportTemplate2}
-              disabled={isExportingXlsx || !dailyReport}
+              disabled={isExportingXlsx}
               className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 transition-all text-right disabled:opacity-50"
             >
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0 mt-0.5">
@@ -369,47 +365,6 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
               <div>
                 <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 2 — كشف يومي مفصّل</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">كشف مصروفات يومي مع رصيد تجميعي متراكم والتاريخ الهجري</div>
-              </div>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* نافذة اختيار قالب PDF */}
-      <Dialog open={showPdfTemplateDialog} onOpenChange={setShowPdfTemplateDialog}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-base font-bold flex items-center justify-center gap-2">
-              <FileText className="w-5 h-5 text-red-600" />
-              اختر قالب PDF
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 pt-2">
-            <button
-              data-testid="btn-pdf-template-1"
-              onClick={() => { setShowPdfTemplateDialog(false); handleExport("pdf"); }}
-              disabled={isExportingPdf}
-              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-all text-right disabled:opacity-50"
-            >
-              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center shrink-0 mt-0.5">
-                <FileText className="w-5 h-5 text-red-600 dark:text-red-300" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 1 — التقرير الكلاسيكي</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تقرير PDF احترافي مفصّل بالتصميم الحالي</div>
-              </div>
-            </button>
-            <button
-              data-testid="btn-pdf-template-2"
-              disabled={true}
-              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-100 bg-slate-50 dark:bg-slate-900 transition-all text-right opacity-40 cursor-not-allowed"
-            >
-              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
-                <FileText className="w-5 h-5 text-slate-400" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-slate-500">قالب 2 — كشف يومي مفصّل</div>
-                <div className="text-xs text-slate-400 mt-0.5">قريباً — سيتم إضافة هذا القالب في تحديث قادم</div>
               </div>
             </button>
           </div>

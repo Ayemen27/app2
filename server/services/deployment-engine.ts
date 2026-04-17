@@ -2748,29 +2748,58 @@ export class DeploymentEngine {
       ``,
       `echo "=== POST_SYNC_KOTLIN_OPT_IN ==="`,
       `ROOT_BUILD="$DIR/android/build.gradle"`,
-      `if [ -f "$ROOT_BUILD" ] && { ! grep -q "ExperimentalStdlibApi" "$ROOT_BUILD" || ! grep -q "^import org.jetbrains.kotlin.gradle.tasks.KotlinCompile" "$ROOT_BUILD" || grep -q "tasks.withType(org.jetbrains.kotlin" "$ROOT_BUILD"; }; then`,
+      `if [ -f "$ROOT_BUILD" ]; then`,
       `  cat > /tmp/fix_kotlin_opt_in.py << 'PYEOF'`,
-      `import sys`,
+      `import sys, re`,
       `p = sys.argv[1]`,
-      `c = open(p).read()`,
-      `imp = 'import org.jetbrains.kotlin.gradle.tasks.KotlinCompile\\n'`,
-      `c = c.replace('tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile)', 'tasks.withType(KotlinCompile)')`,
-      `if not c.startswith('import org.jetbrains.kotlin'):`,
-      `    c = imp + c`,
-      `if 'ExperimentalStdlibApi' not in c:`,
-      `    fix = '\\nsubprojects {\\n    plugins.withId(\\"kotlin-android\\") {\\n        tasks.withType(KotlinCompile).configureEach {\\n            kotlinOptions {\\n                freeCompilerArgs += [\\"-opt-in=kotlin.ExperimentalStdlibApi\\"]\\n            }\\n        }\\n    }\\n}\\n'`,
-      `    i = c.find('task clean')`,
-      `    if i >= 0:`,
-      `        c = c[:i] + fix + c[i:]`,
-      `    else:`,
-      `        c += fix`,
-      `open(p, 'w').write(c)`,
-      `print('KOTLIN_OPT_IN_FIXED')`,
+      `with open(p) as f:`,
+      `    c = f.read()`,
+      `changed = False`,
+      `# حذف import الخاطئ الذي يسبب ScriptCompilationException`,
+      `for bad in ['import org.jetbrains.kotlin.gradle.tasks.KotlinCompile\\n',`,
+      `            'import org.jetbrains.kotlin.gradle.tasks.KotlinCompile\\r\\n']:`,
+      `    if bad in c:`,
+      `        c = c.replace(bad, '')`,
+      `        changed = True`,
+      `# حذف kotlin-gradle-plugin من buildscript classpath (يسبب تعارض إصدارات)`,
+      `c = re.sub(r'\\n\\s*classpath\\s+["\']org\\.jetbrains\\.kotlin:kotlin-gradle-plugin:[^"\\']+["\']', '', c)`,
+      `# حذف subprojects block الإشكالي (يسبب MissingPropertyException)`,
+      `c = re.sub(r'\\nsubprojects\\s*\\{[\\s\\S]*?^\\}', '', c, flags=re.MULTILINE)`,
+      `with open(p, 'w') as f:`,
+      `    f.write(c.strip() + '\\n')`,
+      `if changed:`,
+      `    print('KOTLIN_BUILD_GRADLE_CLEANED')`,
+      `else:`,
+      `    print('KOTLIN_BUILD_GRADLE_OK')`,
       `PYEOF`,
       `  python3 /tmp/fix_kotlin_opt_in.py "$ROOT_BUILD" 2>/dev/null && FIXES=$((FIXES+1)) || echo "KOTLIN_OPT_IN_FIX_SKIPPED"`,
-      `else`,
-      `  echo "KOTLIN_OPT_IN_OK"`,
       `fi`,
+      ``,
+      `echo "=== POST_SYNC_GRADLE_PROPERTIES ==="`,
+      `GRADLE_PROPS="$DIR/android/gradle.properties"`,
+      `if [ -f "$GRADLE_PROPS" ]; then`,
+      `  for KEY in compileSdkVersion minSdkVersion targetSdkVersion; do`,
+      `    if ! grep -q "^$KEY=" "$GRADLE_PROPS" 2>/dev/null; then`,
+      `      case $KEY in`,
+      `        compileSdkVersion) echo "$KEY=35" >> "$GRADLE_PROPS" && echo "GRADLE_PROP_ADDED: $KEY=35" && FIXES=$((FIXES+1)) ;;`,
+      `        minSdkVersion) echo "$KEY=26" >> "$GRADLE_PROPS" && echo "GRADLE_PROP_ADDED: $KEY=26" && FIXES=$((FIXES+1)) ;;`,
+      `        targetSdkVersion) echo "$KEY=35" >> "$GRADLE_PROPS" && echo "GRADLE_PROP_ADDED: $KEY=35" && FIXES=$((FIXES+1)) ;;`,
+      `      esac`,
+      `    fi`,
+      `  done`,
+      `  echo "GRADLE_PROPS_OK"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_CAPACITOR_KOTLIN_PLUGINS ==="`,
+      `# إصلاح Capacitor plugins التي تحتاج ExperimentalStdlibApi opt-in`,
+      `OPT_IN_BLOCK='\\n# Auto-fix: opt-in required for ExperimentalStdlibApi\\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {\\n    kotlinOptions {\\n        freeCompilerArgs += [\"-opt-in=kotlin.ExperimentalStdlibApi\"]\\n    }\\n}\\n'`,
+      `for PLUGIN_BUILD in "$DIR/node_modules/@capacitor/inappbrowser/android/build.gradle" "$DIR/node_modules/@byteowls/capacitor-filesharer/android/build.gradle"; do`,
+      `  if [ -f "$PLUGIN_BUILD" ] && ! grep -q 'ExperimentalStdlibApi' "$PLUGIN_BUILD"; then`,
+      `    printf '%s' "$OPT_IN_BLOCK" >> "$PLUGIN_BUILD"`,
+      `    echo "CAPACITOR_PLUGIN_PATCHED: $PLUGIN_BUILD"`,
+      `    FIXES=$((FIXES+1))`,
+      `  fi`,
+      `done`,
       ``,
       `echo "POST_SYNC_TOTAL_FIXES=$FIXES"`,
     ].join('\n');
@@ -2827,6 +2856,22 @@ export class DeploymentEngine {
 
     if (checksResult.includes("FILE_PATHS_FIXED")) {
       await this.addLog(deploymentId, "🔧 تم إصلاح file_paths.xml للمشاركة", "success");
+    }
+
+    if (checksResult.includes("KOTLIN_BUILD_GRADLE_CLEANED")) {
+      await this.addLog(deploymentId, "🔧 تم تنظيف android/build.gradle: حذف import وsubprojects block الإشكاليين", "success");
+    } else if (checksResult.includes("KOTLIN_BUILD_GRADLE_OK")) {
+      await this.addLog(deploymentId, "✅ android/build.gradle سليم", "info");
+    }
+
+    if (checksResult.includes("GRADLE_PROP_ADDED")) {
+      const addedProps = checksResult.split('\n').filter(l => l.includes("GRADLE_PROP_ADDED:"));
+      await this.addLog(deploymentId, `🔧 تمت إضافة ${addedProps.length} خاصية لـ gradle.properties: ${addedProps.map(l => l.split(":")[1]?.trim()).join(", ")}`, "success");
+    }
+
+    const patchedPlugins = checksResult.split('\n').filter(l => l.includes("CAPACITOR_PLUGIN_PATCHED:"));
+    if (patchedPlugins.length > 0) {
+      await this.addLog(deploymentId, `🔧 تم إضافة Kotlin opt-in لـ ${patchedPlugins.length} Capacitor plugin(s): ${patchedPlugins.map(l => l.split("android/")[1]?.replace("/build.gradle", "") || "plugin").join(", ")}`, "success");
     }
 
     if (checksResult.includes("KOTLIN_OPT_IN_FIXED") || checksResult.includes("KOTLIN_OPT_IN_APPENDED")) {
@@ -3047,7 +3092,7 @@ export class DeploymentEngine {
           `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; }; ` +
           `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
             `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
-          `grep -q 'ExperimentalStdlibApi' build.gradle 2>/dev/null || { [ -f /tmp/fix_kotlin_opt_in.py ] && python3 /tmp/fix_kotlin_opt_in.py build.gradle 2>/dev/null && echo 'KOTLIN_OPT_IN_APPLIED_PREBUILD'; }; ` +
+          `{ [ -f /tmp/fix_kotlin_opt_in.py ] && python3 /tmp/fix_kotlin_opt_in.py build.gradle 2>/dev/null || true; }; ` +
           `echo 'PRE_BUILD_FIX_OK'"`,
         "Pre-build Auto-fix",
         15000

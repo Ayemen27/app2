@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 buildscript {
     repositories {
         google()
@@ -23,16 +21,6 @@ allprojects {
             force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
             force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
             force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
-        }
-    }
-}
-
-subprojects {
-    plugins.withId("kotlin-android") {
-        tasks.withType(KotlinCompile).configureEach {
-            kotlinOptions {
-                freeCompilerArgs += ["-opt-in=kotlin.ExperimentalStdlibApi"]
-            }
         }
     }
 }

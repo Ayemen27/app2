@@ -98,7 +98,13 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
 
       trackLog('GET_APP_VERSION_EMPTY', { attempt: attempt + 1, versionName, versionCode });
     } catch (err: any) {
-      trackLog('GET_APP_VERSION_FAIL', { attempt: attempt + 1, error: err?.message || String(err) });
+      const errMsg = err?.message || String(err);
+      trackLog('GET_APP_VERSION_FAIL', { attempt: attempt + 1, error: errMsg });
+      // إذا كان الخطأ "not implemented" فهذا خطأ ثابت لن تحله المحاولات اللاحقة
+      if (errMsg.includes('not implemented') || errMsg.includes('UNIMPLEMENTED')) {
+        trackLog('GET_APP_VERSION_UNIMPLEMENTED', { reason: 'plugin_not_compiled_in_apk', skipping_retries: true });
+        break;
+      }
     }
   }
 

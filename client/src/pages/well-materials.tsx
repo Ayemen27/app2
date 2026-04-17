@@ -176,15 +176,15 @@ export default function WellMaterialsPage() {
   const inventoryOptions = useMemo(() =>
     inventoryItemsData.map((item: any) => ({
       value: String(item.id),
-      label: `${item.name} (${item.unit || 'وحدة'}) - متاح: ${Number(item.currentStock ?? item.current_stock ?? 0).toLocaleString('en-US')}`,
+      label: `${item.name} (${item.unit || 'وحدة'}) - متاح: ${Number(item.total_remaining ?? 0).toLocaleString('en-US')}`,
     })), [inventoryItemsData]);
 
   const deductInventoryMutation = useMutation({
     mutationFn: async ({ wellId, item_id, quantity, notes }: { wellId: number; item_id: string; quantity: string; notes: string }) =>
       apiRequest(`/api/wells/${wellId}/deduct-inventory`, 'POST', { item_id: Number(item_id), quantity: Number(quantity), notes }),
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       toast({ title: 'تم الخصم من المخزن بنجاح' });
-      queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stock'] });
       setShowDeductDialog(false);
       setDeductForm({ item_id: '', quantity: '', notes: '' });
     },

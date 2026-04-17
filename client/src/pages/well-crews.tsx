@@ -580,7 +580,6 @@ export default function WellCrewsPage() {
       apiRequest(`/api/wells/crews/${crewId}/workers/${linkId}`, 'PUT', { work_days: Number(work_days) }),
     onSuccess: () => {
       refetchCrewWorkers();
-      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
     },
     onError: (error: any) => toast({ title: 'خطأ', description: toUserMessage(error), variant: 'destructive' }),
   });
@@ -1252,11 +1251,14 @@ export default function WellCrewsPage() {
                           step="0.5"
                           min="0"
                           className="h-6 w-16 text-xs px-1"
-                          value={w.work_days || ''}
+                          defaultValue={w.work_days || ''}
                           placeholder="أيام"
                           data-testid={`input-worker-days-${w.id}`}
-                          onChange={(e) => {
-                            updateCrewWorkerMutation.mutate({ crewId: editingCrew.id, linkId: w.id, work_days: e.target.value });
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val !== (w.work_days || '')) {
+                              updateCrewWorkerMutation.mutate({ crewId: editingCrew.id, linkId: w.id, work_days: val });
+                            }
                           }}
                         />
                         <span className="text-muted-foreground text-[10px]">

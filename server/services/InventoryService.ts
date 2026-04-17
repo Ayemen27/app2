@@ -287,7 +287,7 @@ export class InventoryService {
   static async issueFromStock(data: {
     itemId: number;
     quantity: number;
-    toProjectId: string;
+    toProjectId: string | null;
     transactionDate: string;
     performedBy?: string | null;
     notes?: string | null;

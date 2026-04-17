@@ -977,37 +977,6 @@ async function recalculateCrewTotals(crewId: number): Promise<void> {
   }).where(eq(wellWorkCrews.id, crewId));
 }
 
-// GET /api/wells/crews/:crewId/workers - جلب عمال طاقم محدد
-wellRouter.get('/crews/:crewId/workers', async (req: Request, res: Response) => {
-  try {
-    const crewId = parseInt(req.params.crewId);
-    if (isNaN(crewId)) return res.status(400).json({ success: false, message: 'معرف الطاقم غير صالح' });
-
-    const crewWorkers = await db
-      .select({
-        id: wellCrewWorkers.id,
-        crew_id: wellCrewWorkers.crew_id,
-        worker_id: wellCrewWorkers.worker_id,
-        daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
-        work_days: wellCrewWorkers.work_days,
-        crew_type: wellCrewWorkers.crew_type,
-        notes: wellCrewWorkers.notes,
-        created_at: wellCrewWorkers.created_at,
-        worker_name: workers.name,
-        worker_type: workers.type,
-        worker_daily_wage: workers.dailyWage,
-      })
-      .from(wellCrewWorkers)
-      .leftJoin(workers, eq(wellCrewWorkers.worker_id, workers.id))
-      .where(eq(wellCrewWorkers.crew_id, crewId));
-
-    res.json({ success: true, data: crewWorkers });
-  } catch (error: any) {
-    console.error('Error fetching crew workers:', error);
-    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: 'فشل في جلب عمال الطاقم' });
-  }
-});
-
 // POST /api/wells/crews/:crewId/workers - ربط عامل بطاقم
 wellRouter.post('/crews/:crewId/workers', async (req: Request, res: Response) => {
   try {
@@ -1166,7 +1135,7 @@ wellRouter.post('/:wellId/deduct-inventory', async (req: Request, res: Response)
     const result = await InventoryService.issueFromStock({
       itemId: Number(item_id),
       quantity: Number(quantity),
-      toProjectId: well.project_id || 'well-consumption',
+      toProjectId: well.project_id || null,
       transactionDate: new Date().toISOString().split('T')[0],
       performedBy: user?.user_id || null,
       notes: notes || `استهلاك في بئر #${wellId}`,

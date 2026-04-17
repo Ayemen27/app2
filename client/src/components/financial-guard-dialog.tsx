@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Shield, Lightbulb, DollarSign, CheckCircle2, XCircle, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Shield, Lightbulb, DollarSign, CheckCircle2, XCircle, ShieldAlert, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 export type GuardType = 'negative_balance' | 'overpaid_purchase' | 'large_amount';
@@ -44,6 +44,8 @@ interface FinancialGuardDialogProps {
   }) => void;
   data: FinancialGuardData | null;
 }
+
+const MIN_NOTE_LENGTH = 10;
 
 export function FinancialGuardDialog({ open, onClose, onConfirm, data }: FinancialGuardDialogProps) {
   const [selectedSuggestion, setSelectedSuggestion] = useState<string>("");
@@ -137,7 +139,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
   const handleConfirm = () => {
     if (!data) return;
     if (isNegativeOverride) {
-      if (overrideReason.trim().length < 10) return;
+      if (overrideReason.trim().length < MIN_NOTE_LENGTH) return;
       onConfirm({
         selectedSuggestion: 'negative_override',
         adjustedAmount: data.enteredAmount,
@@ -147,6 +149,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
       return;
     }
     if (!selectedSuggestion) return;
+    if (guardNote.trim().length < MIN_NOTE_LENGTH) return;
     onConfirm({
       selectedSuggestion,
       adjustedAmount,
@@ -158,28 +161,47 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
   if (!data) return null;
 
   const selectedSug = data.suggestions.find(s => s.id === selectedSuggestion);
-  const canConfirmSuggestion = selectedSuggestion && selectedSug?.action !== 'cancel' && adjustedAmount > 0;
-  const canConfirmOverride = isNegativeOverride && overrideReason.trim().length >= 10;
+  const noteIsValid = guardNote.trim().length >= MIN_NOTE_LENGTH;
+  const canConfirmSuggestion = !!(selectedSuggestion && selectedSug?.action !== 'cancel' && adjustedAmount > 0 && noteIsValid);
+  const canConfirmOverride = isNegativeOverride && overrideReason.trim().length >= MIN_NOTE_LENGTH;
   const canConfirm = canConfirmSuggestion || canConfirmOverride;
 
   const resultingBalanceAfterOverride = (data.currentBalance ?? 0) - (data.enteredAmount ?? 0);
 
+  const guardTypeColors: Record<GuardType, { bg: string; border: string; icon: string }> = {
+    negative_balance: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', icon: 'text-red-600' },
+    overpaid_purchase: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', icon: 'text-amber-600' },
+    large_amount: { bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-200 dark:border-orange-800', icon: 'text-orange-600' },
+  };
+
+  const colors = guardTypeColors[data.type] || guardTypeColors.large_amount;
+
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-md max-h-[90vh] overflow-y-auto"
+        dir="rtl"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-amber-600">
-            <Shield className="h-5 w-5" />
-            {data.title}
+          <DialogTitle className={`flex items-center gap-2 ${colors.icon}`}>
+            <Shield className="h-5 w-5 shrink-0" />
+            <span>{data.title}</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1.5 text-sm">
+          <div className={`${colors.bg} border ${colors.border} rounded-lg p-3 space-y-1.5 text-sm`}>
             {data.details.map((detail, i) => (
-              <div key={i} className="flex justify-between">
-                <span className="text-muted-foreground">{detail.label}:</span>
-                <span className={`font-semibold ${detail.color || ''}`}>{detail.value}</span>
+              <div key={i} className="flex justify-between items-center gap-2">
+                <span className="text-muted-foreground shrink-0">{detail.label}:</span>
+                <span className={`font-semibold text-left tabular-nums ${detail.color || ''}`}>{detail.value}</span>
               </div>
             ))}
           </div>
@@ -187,7 +209,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
           {!isNegativeOverride && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Lightbulb className="h-4 w-4 text-blue-500" />
+                <Lightbulb className="h-4 w-4 text-blue-500 shrink-0" />
                 <span>اختر الإجراء المناسب:</span>
               </div>
 
@@ -198,7 +220,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
                   className={`w-full text-right p-3 rounded-lg border-2 transition-all ${
                     selectedSuggestion === suggestion.id
                       ? 'border-primary bg-primary/5'
-                      : 'border-muted hover:border-primary/50'
+                      : 'border-muted hover:border-primary/50 hover:bg-muted/30'
                   }`}
                   data-testid={`suggestion-${suggestion.id}`}
                 >
@@ -219,7 +241,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
 
           {showAmountInput && !isNegativeOverride && (
             <div className="space-y-1.5 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
-              <Label htmlFor="guard-amount" className="flex items-center gap-1.5">
+              <Label htmlFor="guard-amount" className="flex items-center gap-1.5 text-sm">
                 <DollarSign className="h-3.5 w-3.5" />
                 المبلغ المعدّل
               </Label>
@@ -237,15 +259,36 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
 
           {selectedSuggestion && selectedSug?.action !== 'cancel' && !isNegativeOverride && (
             <div className="space-y-1.5">
-              <Label htmlFor="guard-note">ملاحظة (تلقائية — يمكنك تعديلها)</Label>
+              <Label htmlFor="guard-note" className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                  سبب التأكيد (إلزامي)
+                </span>
+                <span className={`text-xs tabular-nums ${noteIsValid ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  {guardNote.trim().length}/{MIN_NOTE_LENGTH}+
+                </span>
+              </Label>
               <Textarea
                 id="guard-note"
                 value={guardNote}
                 onChange={(e) => setGuardNote(e.target.value)}
-                className="h-20 resize-none text-xs"
+                className={`h-20 resize-none text-xs transition-colors ${
+                  guardNote.trim().length > 0 && !noteIsValid
+                    ? 'border-amber-400 focus:border-amber-500'
+                    : noteIsValid
+                    ? 'border-green-400 focus:border-green-500'
+                    : ''
+                }`}
                 dir="rtl"
+                placeholder="اكتب سبب الموافقة على هذا التنبيه..."
                 data-testid="input-guard-note"
               />
+              {guardNote.trim().length > 0 && !noteIsValid && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  يجب أن لا يقل السبب عن {MIN_NOTE_LENGTH} أحرف ({guardNote.trim().length}/{MIN_NOTE_LENGTH})
+                </p>
+              )}
             </div>
           )}
 
@@ -296,34 +339,48 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
               <div className="bg-red-100 dark:bg-red-950/40 rounded-md p-2.5 text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-red-700/70 dark:text-red-300/70">المبلغ:</span>
-                  <span className="font-bold text-red-800 dark:text-red-300">{formatCurrency(data.enteredAmount)}</span>
+                  <span className="font-bold text-red-800 dark:text-red-300 tabular-nums">{formatCurrency(data.enteredAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-red-700/70 dark:text-red-300/70">الرصيد الحالي:</span>
-                  <span className="font-bold">{formatCurrency(data.currentBalance ?? 0)}</span>
+                  <span className="font-bold tabular-nums">{formatCurrency(data.currentBalance ?? 0)}</span>
                 </div>
                 <div className="flex justify-between border-t border-red-200 dark:border-red-700 pt-1">
                   <span className="text-red-700/70 dark:text-red-300/70">الرصيد بعد التحويل:</span>
-                  <span className="font-black text-red-700 dark:text-red-400">{formatCurrency(resultingBalanceAfterOverride)}</span>
+                  <span className="font-black text-red-700 dark:text-red-400 tabular-nums">{formatCurrency(resultingBalanceAfterOverride)}</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="override-reason" className="text-red-700 dark:text-red-400 font-semibold text-xs flex items-center gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  سبب السماح بالرصيد السالب (إلزامي)
+                <Label htmlFor="override-reason" className="text-red-700 dark:text-red-400 font-semibold text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    سبب السماح بالرصيد السالب (إلزامي)
+                  </span>
+                  <span className={`tabular-nums ${overrideReason.trim().length >= MIN_NOTE_LENGTH ? 'text-green-600' : ''}`}>
+                    {overrideReason.trim().length}/{MIN_NOTE_LENGTH}+
+                  </span>
                 </Label>
                 <Textarea
                   id="override-reason"
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
                   placeholder="اذكر السبب بوضوح — مثال: سلفة طارئة بموافقة المدير للحالة الإنسانية..."
-                  className="h-24 resize-none text-sm border-red-300 dark:border-red-700 focus:border-red-500 bg-white dark:bg-red-950/30"
+                  className={`h-24 resize-none text-sm transition-colors ${
+                    overrideReason.trim().length > 0 && overrideReason.trim().length < MIN_NOTE_LENGTH
+                      ? 'border-amber-400 focus:border-amber-500'
+                      : overrideReason.trim().length >= MIN_NOTE_LENGTH
+                      ? 'border-green-400 focus:border-green-500'
+                      : 'border-red-300 dark:border-red-700'
+                  } bg-white dark:bg-red-950/30`}
                   dir="rtl"
                   data-testid="input-override-reason"
                 />
-                {overrideReason.trim().length > 0 && overrideReason.trim().length < 10 && (
-                  <p className="text-xs text-red-500">السبب يجب أن لا يقل عن 10 أحرف ({overrideReason.trim().length}/10)</p>
+                {overrideReason.trim().length > 0 && overrideReason.trim().length < MIN_NOTE_LENGTH && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    السبب يجب أن لا يقل عن {MIN_NOTE_LENGTH} أحرف ({overrideReason.trim().length}/{MIN_NOTE_LENGTH})
+                  </p>
                 )}
               </div>
 
@@ -338,15 +395,19 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
           )}
         </div>
 
-        <DialogFooter className="flex gap-2 sm:gap-2">
-          <Button variant="outline" onClick={onClose} data-testid="button-guard-cancel">
+        <DialogFooter className="flex gap-2 sm:gap-2 pt-2 border-t">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            data-testid="button-guard-cancel"
+          >
             إلغاء
           </Button>
           {isNegativeOverride ? (
             <Button
               onClick={handleConfirm}
               disabled={!canConfirmOverride}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
               data-testid="button-override-confirm"
             >
               <ShieldAlert className="h-4 w-4 ml-1" />
@@ -356,7 +417,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
             <Button
               onClick={handleConfirm}
               disabled={!canConfirmSuggestion}
-              className="bg-primary"
+              className="bg-primary disabled:opacity-50"
               data-testid="button-guard-confirm"
             >
               <Shield className="h-4 w-4 ml-1" />

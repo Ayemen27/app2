@@ -1688,8 +1688,8 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     if (confirmGuard) {
       const gNote = String(req.body.guardNote || '').trim();
-      if (gNote.length < 5) {
-        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      if (gNote.length < 10) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (10 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[WorkerTransferGuard] OVERRIDE PATCH for transfer ${transferId}: ${gNote}`);

@@ -714,8 +714,8 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
 
     if (confirmGuardPurchase) {
       const gNote = String(req.body.guardNote || '').trim();
-      if (gNote.length < 5) {
-        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      if (gNote.length < 10) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (10 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       validation.data.notes = ((validation.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[ProjectMaterialGuard] OVERRIDE by user for project ${project_id}: ${gNote}`);

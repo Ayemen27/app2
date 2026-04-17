@@ -1321,6 +1321,7 @@ export default function WorkerAccountsPage() {
                 amount: adjustedAmount,
                 notes: guardNote || formData.notes,
                 confirmGuard: true,
+                guardNote,
               } as any,
             });
           } else {
@@ -1329,6 +1330,7 @@ export default function WorkerAccountsPage() {
               amount: adjustedAmount,
               notes: guardNote || formData.notes,
               confirmGuard: true,
+              guardNote,
             } as any);
           }
         }}

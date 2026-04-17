@@ -4376,7 +4376,7 @@ function DailyExpensesContent() {
           if (editId) {
             updateMaterialPurchaseMutation.mutate({
               id: editId,
-              data: { ...origData, totalAmount: adjustedAmount, notes: guardNote || origData.notes || '', confirmGuard: true },
+              data: { ...origData, totalAmount: adjustedAmount, notes: guardNote || origData.notes || '', confirmGuard: true, guardNote },
             });
           } else {
             addMaterialPurchaseMutation.mutate({
@@ -4384,6 +4384,7 @@ function DailyExpensesContent() {
               totalAmount: adjustedAmount,
               notes: guardNote || origData.notes || '',
               confirmGuard: true,
+              guardNote,
             });
           }
         }}

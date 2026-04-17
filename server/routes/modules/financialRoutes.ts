@@ -1305,8 +1305,8 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
 
     if (confirmGuard) {
       const gNote = String(req.body.guardNote || '').trim();
-      if (gNote.length < 5) {
-        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      if (gNote.length < 10) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (10 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       validationResult.data.notes = ((validationResult.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[FinancialTransferGuard] OVERRIDE by user for worker ${validationResult.data.worker_id}: ${gNote}`);
@@ -2188,8 +2188,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
 
     if (confirmGuardPurchase) {
       const gNote = String(req.body.guardNote || '').trim();
-      if (gNote.length < 5) {
-        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      if (gNote.length < 10) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (10 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       purchaseData.notes = ((purchaseData.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).toString().trim();
       console.log(`[FinancialMaterialGuard] OVERRIDE by user for project ${purchaseData.project_id}: ${gNote}`);
@@ -2467,8 +2467,8 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
     if (confirmGuardPatch) {
       const gNote = String(req.body.guardNote || '').trim();
-      if (gNote.length < 5) {
-        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      if (gNote.length < 10) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (10 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       validatedWithoutInventory.notes = ((validatedWithoutInventory.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[FinancialMaterialPatchGuard] OVERRIDE for purchase ${purchaseId}: ${gNote}`);

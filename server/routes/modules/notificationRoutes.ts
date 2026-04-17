@@ -23,6 +23,10 @@ export const notificationRouter = express.Router();
 // تطبيق المصادقة على جميع مسارات الإشعارات
 notificationRouter.use(requireAuth);
 
+// راوتر مستقل لمسار /api/push/token (يُثبَّت على /api في index.ts)
+export const pushTokenRouter = express.Router();
+pushTokenRouter.use(requireAuth);
+
 /**
  * 📥 جلب الإشعارات - استخدام NotificationService الحقيقي
  * GET /api/notifications
@@ -32,7 +36,7 @@ notificationRouter.use(requireAuth);
  * 🔑 تسجيل توكن الإشعارات وتحديث حالة التفعيل
  * POST /api/push/token
  */
-notificationRouter.post('/push/token', async (req: Request, res: Response) => {
+const handlePushToken = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
     const user_id = getAuthUser(req)?.user_id || "unknown";
@@ -58,7 +62,10 @@ notificationRouter.post('/push/token', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في تسجيل توكن الإشعارات:', error);
     res.status(500).json({ success: false, message: "فشل في تسجيل التوكن" });
   }
-});
+};
+
+notificationRouter.post('/push/token', handlePushToken);
+pushTokenRouter.post('/push/token', handlePushToken);
 
 notificationRouter.get('/', async (req: Request, res: Response) => {
   try {

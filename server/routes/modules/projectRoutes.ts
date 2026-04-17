@@ -179,9 +179,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع للتاريخ: ${effectiveDate}`);
     const startTimeFetch = Date.now();
 
+    const timestampCols = ['transfer_date'];
     const safeDateFilter = (col: string) => {
       const allowedCols = ['transfer_date', 'date', 'purchase_date'];
       if (!allowedCols.includes(col)) throw new Error('Invalid column name');
+      if (timestampCols.includes(col)) {
+        return sql`${sql.raw(col)} IS NOT NULL AND ${sql.raw(col)}::date = ${effectiveDate}::date`;
+      }
       return sql`COALESCE(NULLIF(${sql.raw(col)}, ''), '1970-01-01') = ${effectiveDate}`;
     };
 

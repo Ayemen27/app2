@@ -18,7 +18,7 @@ import sshRouter from './sshRoutes.js';
 import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
-import notificationRouter from './notificationRoutes.js';
+import notificationRouter, { pushTokenRouter } from './notificationRoutes.js';
 import { reportRouter } from './reportRoutes.js';
 import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
@@ -138,6 +138,7 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
   app.use('/api/admin/notifications', notificationRouter);
+  app.use('/api', pushTokenRouter);
 
   // مسارات المزامنة المتقدمة
   app.use('/api/sync', syncRouter);

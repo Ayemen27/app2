@@ -2745,6 +2745,29 @@ export class DeploymentEngine {
       `  echo "FILE_PATHS_OK"`,
       `fi`,
       ``,
+      ``,
+      `echo "=== POST_SYNC_KOTLIN_OPT_IN ==="`,
+      `ROOT_BUILD="$DIR/android/build.gradle"`,
+      `if [ -f "$ROOT_BUILD" ] && ! grep -q "ExperimentalStdlibApi" "$ROOT_BUILD"; then`,
+      `  cat > /tmp/fix_kotlin_opt_in.py << 'PYEOF'`,
+      `import sys`,
+      `p = sys.argv[1]`,
+      `c = open(p).read()`,
+      `fix = '\\nsubprojects {\\n    plugins.withId(\\"kotlin-android\\") {\\n        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {\\n            kotlinOptions {\\n                freeCompilerArgs += [\\"-opt-in=kotlin.ExperimentalStdlibApi\\"]\\n            }\\n        }\\n    }\\n}\\n'`,
+      `i = c.find('task clean')`,
+      `if i >= 0:`,
+      `    c = c[:i] + fix + c[i:]`,
+      `    open(p, 'w').write(c)`,
+      `    print('KOTLIN_OPT_IN_FIXED')`,
+      `else:`,
+      `    open(p, 'a').write(fix)`,
+      `    print('KOTLIN_OPT_IN_APPENDED')`,
+      `PYEOF`,
+      `  python3 /tmp/fix_kotlin_opt_in.py "$ROOT_BUILD" 2>/dev/null && FIXES=$((FIXES+1)) || echo "KOTLIN_OPT_IN_FIX_SKIPPED"`,
+      `else`,
+      `  echo "KOTLIN_OPT_IN_OK"`,
+      `fi`,
+      ``,
       `echo "POST_SYNC_TOTAL_FIXES=$FIXES"`,
     ].join('\n');
 
@@ -2800,6 +2823,12 @@ export class DeploymentEngine {
 
     if (checksResult.includes("FILE_PATHS_FIXED")) {
       await this.addLog(deploymentId, "🔧 تم إصلاح file_paths.xml للمشاركة", "success");
+    }
+
+    if (checksResult.includes("KOTLIN_OPT_IN_FIXED") || checksResult.includes("KOTLIN_OPT_IN_APPENDED")) {
+      await this.addLog(deploymentId, "🔧 تم تطبيق إصلاح Kotlin ExperimentalStdlibApi في android/build.gradle", "success");
+    } else if (checksResult.includes("KOTLIN_OPT_IN_OK")) {
+      await this.addLog(deploymentId, "✅ android/build.gradle يحتوي على إصلاح Kotlin opt-in", "info");
     }
 
     if (checksResult.includes("MANIFEST_MISSING")) {
@@ -3014,11 +3043,12 @@ export class DeploymentEngine {
           `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; }; ` +
           `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
             `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
+          `grep -q 'ExperimentalStdlibApi' build.gradle 2>/dev/null || { [ -f /tmp/fix_kotlin_opt_in.py ] && python3 /tmp/fix_kotlin_opt_in.py build.gradle 2>/dev/null && echo 'KOTLIN_OPT_IN_APPLIED_PREBUILD'; }; ` +
           `echo 'PRE_BUILD_FIX_OK'"`,
         "Pre-build Auto-fix",
         15000
       );
-      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, MainActivity, Keystore", "success");
+      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, MainActivity, Keystore, Kotlin opt-in", "success");
     } catch {
       await this.addLog(deploymentId, "⚠️ تعذر تطبيق بعض الإصلاحات التلقائية", "warn");
     }

@@ -1,0 +1,40 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.7.2"
+        classpath "com.google.gms:google-services:4.4.2"
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+        }
+    }
+}
+
+subprojects {
+    plugins.withId("kotlin-android") {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                freeCompilerArgs += ["-opt-in=kotlin.ExperimentalStdlibApi"]
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

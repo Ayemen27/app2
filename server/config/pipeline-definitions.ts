@@ -102,7 +102,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   },
   "preflight-check": {
     name: "preflight-check",
-    timeoutMs: 60000,
+    timeoutMs: 180000,
   },
   "sync-version": {
     name: "sync-version",

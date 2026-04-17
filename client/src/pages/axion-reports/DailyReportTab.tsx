@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,6 +21,7 @@ import type { DailyReportData } from "@shared/report-types";
 import { LoadingSpinner, EmptyState, secureDownloadExport } from "./utils";
 import { SingleDayReport } from "./SingleDayReport";
 import { RangeDayPage } from "./RangeDayPage";
+import { exportTransactionsToExcelTemplate2 } from "@/components/ui/export-transactions-excel-template2";
 
 export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -34,6 +36,8 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
   const [lastFetchedKey, setLastFetchedKey] = useState("");
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [showExcelTemplateDialog, setShowExcelTemplateDialog] = useState(false);
+  const [showPdfTemplateDialog, setShowPdfTemplateDialog] = useState(false);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -171,6 +175,82 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     }
   };
 
+  const handleExportTemplate2 = async () => {
+    if (!projectIdForApi) {
+      toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
+      return;
+    }
+    if (!dailyReport) {
+      toast({ title: "تنبيه", description: "لا توجد بيانات للتصدير", variant: "destructive" });
+      return;
+    }
+    setShowExcelTemplateDialog(false);
+    setIsExportingXlsx(true);
+    try {
+      const transactions: any[] = [];
+
+      // الرصيد المرحل
+      const carried = dailyReport.totals?.carriedForwardBalance || (dailyReport as any).carriedForwardBalance || 0;
+      if (carried !== 0) {
+        transactions.push({ id: 'cf', date: dateStr, type: 'income', category: 'رصيد سابق', amount: Math.abs(Number(carried)), description: 'رصيد مرحل' });
+      }
+
+      // العهدة / التحويلات الواردة
+      (dailyReport.fundTransfers || []).forEach((f: any) => {
+        transactions.push({ id: f.id, date: f.date || dateStr, type: 'income', category: 'عهدة', amount: parseFloat(f.amount || '0'), description: `عهدة من ${f.senderName || 'غير محدد'}`, recipientName: f.senderName });
+      });
+
+      // حضور العمال
+      (dailyReport.attendance || []).forEach((a: any) => {
+        const paid = parseFloat(a.paidAmount || '0');
+        const payable = parseFloat(a.payableAmount || '0');
+        transactions.push({ id: a.id, date: a.date || dateStr, type: paid === 0 && payable > 0 ? 'deferred' : 'expense', category: 'أجور عمال', amount: paid, description: a.workDescription || 'أجر يومي', workerName: a.workerName || a.worker_name || 'غير محدد', workDays: parseFloat(a.workDays || a.work_days || '0') || undefined, dailyWage: parseFloat(a.dailyWage || a.daily_wage || '0') || undefined });
+      });
+
+      // المواد
+      (dailyReport.materials || []).forEach((m: any) => {
+        const pType = m.purchaseType || 'نقد';
+        const isCash = pType === 'نقد' || pType === 'نقداً';
+        if (!isCash) return;
+        const paid = parseFloat(m.paidAmount || '0');
+        const total = parseFloat(m.totalAmount || '0');
+        transactions.push({ id: m.id, date: m.date || dateStr, type: 'expense', category: 'مشتريات مواد', amount: paid > 0 ? paid : total, description: `شراء ${m.materialName || 'مادة'}`, notes: m.supplier || m.supplierName });
+      });
+
+      // المواصلات
+      (dailyReport.transport || []).forEach((t: any) => {
+        transactions.push({ id: t.id, date: t.date || dateStr, type: 'expense', category: 'مواصلات', amount: parseFloat(t.amount || '0'), description: t.description || 'مصروف مواصلات', notes: t.description });
+      });
+
+      // المصاريف المتنوعة
+      (dailyReport.miscExpenses || []).forEach((e: any) => {
+        transactions.push({ id: e.id, date: e.date || dateStr, type: 'expense', category: 'نثريات', amount: parseFloat(e.amount || '0'), description: e.description || 'مصروف متنوع', notes: e.description });
+      });
+
+      // حوالات العمال
+      (dailyReport.workerTransfers || []).forEach((wt: any) => {
+        transactions.push({ id: wt.id, date: wt.date || dateStr, type: 'expense', category: 'حوالات عمال', amount: parseFloat(wt.amount || '0'), description: wt.notes || 'حوالة للعامل', workerName: wt.workerName || wt.worker_name || 'غير محدد', notes: wt.notes });
+      });
+
+      const totals = {
+        totalIncome: parseFloat(String(dailyReport.totals?.totalFundTransfers || 0)) + Math.abs(Number(carried)),
+        totalExpenses: parseFloat(String(dailyReport.totals?.totalExpenses || 0)),
+        balance: parseFloat(String(dailyReport.totals?.balance || 0)),
+      };
+
+      const downloaded = await exportTransactionsToExcelTemplate2(transactions, totals, selectedProjectName || 'المشروع', dateStr);
+      if (downloaded) {
+        toast({ title: "تم التصدير بنجاح", description: "تم تصدير التقرير بالقالب الثاني" });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "فشل التصدير", description: toUserMessage(err, "حدث خطأ أثناء التصدير"), variant: "destructive" });
+    } finally {
+      setIsExportingXlsx(false);
+    }
+  };
+
   const filterConfig: FilterConfig[] = [
     { key: "specificDate", label: "التاريخ", type: "date" },
     { key: "dateRange", label: "فترة زمنية", type: "date-range" },
@@ -207,16 +287,22 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     {
       key: "export-excel",
       icon: FileSpreadsheet,
-      tooltip: "تصدير Excel",
-      onClick: () => handleExport("xlsx"),
+      tooltip: "تصدير Excel — اختر القالب",
+      onClick: () => {
+        if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
+        setShowExcelTemplateDialog(true);
+      },
       disabled: !projectIdForApi || isExportingXlsx || isExportingPdf,
       loading: isExportingXlsx,
     },
     {
       key: "export-pdf",
       icon: FileText,
-      tooltip: "تصدير PDF",
-      onClick: () => handleExport("pdf"),
+      tooltip: "تصدير PDF — اختر القالب",
+      onClick: () => {
+        if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
+        setShowPdfTemplateDialog(true);
+      },
       disabled: !projectIdForApi || isExportingPdf || isExportingXlsx,
       loading: isExportingPdf,
     },
@@ -246,6 +332,90 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
 
   return (
     <div className="space-y-4">
+
+      {/* نافذة اختيار قالب Excel */}
+      <Dialog open={showExcelTemplateDialog} onOpenChange={setShowExcelTemplateDialog}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base font-bold flex items-center justify-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-green-600" />
+              اختر قالب Excel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              data-testid="btn-excel-template-1"
+              onClick={() => { setShowExcelTemplateDialog(false); handleExport("xlsx"); }}
+              disabled={isExportingXlsx}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all text-right disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0 mt-0.5">
+                <FileSpreadsheet className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 1 — الكلاسيكي</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تقرير مفصّل بأقسام منفصلة — العهدة، أجور العمال، المواد، التحويلات</div>
+              </div>
+            </button>
+            <button
+              data-testid="btn-excel-template-2"
+              onClick={handleExportTemplate2}
+              disabled={isExportingXlsx || !dailyReport}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 transition-all text-right disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0 mt-0.5">
+                <FileSpreadsheet className="w-5 h-5 text-green-700 dark:text-green-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 2 — كشف يومي مفصّل</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">كشف مصروفات يومي مع رصيد تجميعي متراكم والتاريخ الهجري</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* نافذة اختيار قالب PDF */}
+      <Dialog open={showPdfTemplateDialog} onOpenChange={setShowPdfTemplateDialog}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base font-bold flex items-center justify-center gap-2">
+              <FileText className="w-5 h-5 text-red-600" />
+              اختر قالب PDF
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              data-testid="btn-pdf-template-1"
+              onClick={() => { setShowPdfTemplateDialog(false); handleExport("pdf"); }}
+              disabled={isExportingPdf}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-all text-right disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center shrink-0 mt-0.5">
+                <FileText className="w-5 h-5 text-red-600 dark:text-red-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 1 — التقرير الكلاسيكي</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تقرير PDF احترافي مفصّل بالتصميم الحالي</div>
+              </div>
+            </button>
+            <button
+              data-testid="btn-pdf-template-2"
+              disabled={true}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-100 bg-slate-50 dark:bg-slate-900 transition-all text-right opacity-40 cursor-not-allowed"
+            >
+              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
+                <FileText className="w-5 h-5 text-slate-400" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-500">قالب 2 — كشف يومي مفصّل</div>
+                <div className="text-xs text-slate-400 mt-0.5">قريباً — سيتم إضافة هذا القالب في تحديث قادم</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}

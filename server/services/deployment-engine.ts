@@ -2822,7 +2822,7 @@ export class DeploymentEngine {
       ``,
       `echo "=== POST_SYNC_CAPACITOR_KOTLIN_PLUGINS ==="`,
       `# إصلاح Capacitor plugins التي تحتاج ExperimentalStdlibApi opt-in`,
-      `for PLUGIN_BUILD in "$DIR/node_modules/@capacitor/inappbrowser/android/build.gradle" "$DIR/node_modules/@byteowls/capacitor-filesharer/android/build.gradle"; do`,
+      `for PLUGIN_BUILD in "$DIR/node_modules/@capacitor/inappbrowser/android/build.gradle"; do`,
       `  if [ -f "$PLUGIN_BUILD" ] && ! grep -q 'ExperimentalStdlibApi' "$PLUGIN_BUILD"; then`,
       `    printf '\\n// Auto-fix: opt-in required for ExperimentalStdlibApi\\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {\\n    kotlinOptions {\\n        freeCompilerArgs += ["-opt-in=kotlin.ExperimentalStdlibApi"]\\n    }\\n}\\n' >> "$PLUGIN_BUILD"`,
       `    echo "CAPACITOR_PLUGIN_PATCHED: $PLUGIN_BUILD"`,

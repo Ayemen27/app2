@@ -15,7 +15,7 @@ android {
     compileSdk 35
     defaultConfig {
         applicationId "com.axion.app"
-        minSdk 23
+        minSdk 26
         targetSdk 34
         versionCode buildVersionCode
         versionName buildVersionName
@@ -42,14 +42,7 @@ android {
     }
 }
 
-repositories {
-    flatDir {
-        dirs 'libs'
-    }
-}
-
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')

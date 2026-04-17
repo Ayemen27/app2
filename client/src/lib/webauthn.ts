@@ -13,6 +13,19 @@ function isNativePlatform(): boolean {
   }
 }
 
+/**
+ * يتحقق من أن إضافة NativeBiometric مُجمَّعة في APK وجاهزة للاستخدام.
+ * إذا كانت الإضافة غير متوفرة (not compiled / not implemented)،
+ * ترجع false بدلاً من رمي استثناء "not implemented on android".
+ */
+function isNativeBiometricAvailable(): boolean {
+  try {
+    return isNativePlatform() && Capacitor.isPluginAvailable('NativeBiometric');
+  } catch {
+    return false;
+  }
+}
+
 function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -40,13 +53,21 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
 
 export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
+    if (!isNativeBiometricAvailable()) {
+      if (import.meta.env.DEV) {
+        console.warn('[Biometric] NativeBiometric plugin is not compiled into the APK — skipping check.');
+      }
+      return false;
+    }
     try {
       if (import.meta.env.DEV) console.log('[Biometric] Checking native biometric availability...');
       const result = await NativeBiometric.isAvailable();
       if (import.meta.env.DEV) console.log('[Biometric] isAvailable result:', JSON.stringify(result));
       return result.isAvailable;
     } catch (err: any) {
-      console.error('[Biometric] Native isAvailable error:', err?.message || err, err?.code);
+      if (import.meta.env.DEV) {
+        console.error('[Biometric] Native isAvailable error:', err?.message || err, err?.code);
+      }
       return false;
     }
   }
@@ -103,13 +124,15 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
     }
 
     if (isNativePlatform()) {
-      try {
-        const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
-        if (creds?.username) {
-          localStorage.setItem('biometric_credential_registered', 'true');
-          return true;
+      if (isNativeBiometricAvailable()) {
+        try {
+          const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
+          if (creds?.username) {
+            localStorage.setItem('biometric_credential_registered', 'true');
+            return true;
+          }
+        } catch {
         }
-      } catch {
       }
       return false;
     }
@@ -142,6 +165,9 @@ export async function loginWithBiometric(email?: string): Promise<any> {
 }
 
 async function registerBiometricNative(accessToken: string): Promise<{ success: boolean; message: string }> {
+  if (!isNativeBiometricAvailable()) {
+    throw new Error('إضافة البصمة غير مُدمجة في هذا الإصدار من التطبيق');
+  }
   const available = await NativeBiometric.isAvailable();
   if (!available.isAvailable) {
     throw new Error('البصمة غير متاحة على هذا الجهاز');
@@ -187,6 +213,9 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
 }
 
 async function loginWithBiometricNative(email?: string): Promise<any> {
+  if (!isNativeBiometricAvailable()) {
+    throw new Error('إضافة البصمة غير مُدمجة في هذا الإصدار من التطبيق');
+  }
   await NativeBiometric.verifyIdentity({
     reason: 'تسجيل الدخول بالبصمة',
     title: 'تسجيل الدخول',

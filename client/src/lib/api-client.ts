@@ -58,7 +58,7 @@ async function getValidTokenWithRefresh(): Promise<string | null> {
 
 async function checkNetworkOnNative(): Promise<boolean> {
   try {
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Network')) {
       const { Network } = await import('@capacitor/network');
       const status = await Network.getStatus();
       return status.connected;

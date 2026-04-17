@@ -57,11 +57,27 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
     return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
 
-  const bridgeReady = await waitForCapacitorBridge(5000);
-  trackLog('GET_APP_VERSION_BRIDGE', { bridgeReady });
+  /*
+   * نتحقق أولاً من توافر إضافة App عبر Capacitor.isPluginAvailable
+   * قبل أي محاولة استدعاء. إذا لم تكن الإضافة مُجمَّعة في APK
+   * فلا جدوى من المحاولات المتعددة ونعود مباشرة بقيم unknown.
+   */
+  const appPluginAvailable = Capacitor.isPluginAvailable('App');
+  trackLog('GET_APP_VERSION_BRIDGE', { bridgeReady: appPluginAvailable });
 
-  const MAX_ATTEMPTS = 4;
-  const DELAYS = [0, 500, 1000, 2000];
+  if (!appPluginAvailable) {
+    trackLog('GET_APP_VERSION_UNIMPLEMENTED', {
+      reason: 'plugin_not_available_via_capacitor',
+      skipping_retries: true,
+    });
+    trackLog('GET_APP_VERSION_ALL_FAILED', { attempts: 0 });
+    return { versionName: '0.0.0', versionCode: 0, unknown: true };
+  }
+
+  await waitForCapacitorBridge(5000);
+
+  const MAX_ATTEMPTS = 3;
+  const DELAYS = [0, 500, 1500];
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
@@ -100,9 +116,8 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
     } catch (err: any) {
       const errMsg = err?.message || String(err);
       trackLog('GET_APP_VERSION_FAIL', { attempt: attempt + 1, error: errMsg });
-      // إذا كان الخطأ "not implemented" فهذا خطأ ثابت لن تحله المحاولات اللاحقة
       if (errMsg.includes('not implemented') || errMsg.includes('UNIMPLEMENTED')) {
-        trackLog('GET_APP_VERSION_UNIMPLEMENTED', { reason: 'plugin_not_compiled_in_apk', skipping_retries: true });
+        trackLog('GET_APP_VERSION_UNIMPLEMENTED', { reason: 'plugin_runtime_error', skipping_retries: true });
         break;
       }
     }
@@ -233,6 +248,7 @@ async function tryCopyToClipboard(fullUrl: string): Promise<boolean> {
 
 async function tryCapacitorBrowser(fullUrl: string): Promise<boolean> {
   try {
+    if (!Capacitor.isPluginAvailable('Browser')) return false;
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url: fullUrl, windowName: '_system' });
     return true;
@@ -361,6 +377,7 @@ const NOTIFIED_VERSION_KEY = 'app_update_notified_version';
 
 async function showUpdateNotification(info: UpdateInfo) {
   if (!Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isPluginAvailable('LocalNotifications')) return;
 
   const alreadyNotified = localStorage.getItem(NOTIFIED_VERSION_KEY);
   if (alreadyNotified === String(info.latest.versionCode)) return;
@@ -371,9 +388,7 @@ async function showUpdateNotification(info: UpdateInfo) {
     const permResult = await LocalNotifications.checkPermissions();
     if (permResult.display !== 'granted') {
       const reqResult = await LocalNotifications.requestPermissions();
-      if (reqResult.display !== 'granted') {
-        return;
-      }
+      if (reqResult.display !== 'granted') return;
     }
 
     await LocalNotifications.schedule({
@@ -403,6 +418,7 @@ async function showUpdateNotification(info: UpdateInfo) {
 
 async function createUpdateNotificationChannel() {
   if (!Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isPluginAvailable('LocalNotifications')) return;
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     await LocalNotifications.createChannel({
@@ -453,19 +469,21 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
 
   if (!resumeListenerAdded) {
     resumeListenerAdded = true;
-    try {
-      const { App } = await import('@capacitor/app');
-      App.addListener('appStateChange', async ({ isActive }) => {
-        if (!isActive || !activeCallbacks) return;
-        const fresh = await checkForUpdate(true);
-        if (fresh?.updateAvailable) {
-          if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
-          activeCallbacks.onUpdateAvailable(fresh);
-          showUpdateNotification(fresh);
-        }
-      });
-    } catch (e: any) {
-      trackLog('INIT_UPDATE_CHECKER_LISTENER_ERROR', { error: e?.message || String(e) });
+    if (Capacitor.isPluginAvailable('App')) {
+      try {
+        const { App } = await import('@capacitor/app');
+        App.addListener('appStateChange', async ({ isActive }) => {
+          if (!isActive || !activeCallbacks) return;
+          const fresh = await checkForUpdate(true);
+          if (fresh?.updateAvailable) {
+            if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
+            activeCallbacks.onUpdateAvailable(fresh);
+            showUpdateNotification(fresh);
+          }
+        });
+      } catch (e: any) {
+        trackLog('INIT_UPDATE_CHECKER_LISTENER_ERROR', { error: e?.message || String(e) });
+      }
     }
   }
   trackLog('INIT_UPDATE_CHECKER_DONE', { success: true });

@@ -16,8 +16,13 @@ class SQLiteStorage {
   async initialize() {
     if (this._initialized && this.db) return;
     const platform = Capacitor.getPlatform();
-    
+
     if (platform === 'web') {
+      return;
+    }
+
+    if (!Capacitor.isPluginAvailable('CapacitorSQLite')) {
+      console.warn('[SQLite] CapacitorSQLite plugin not available in this build — skipping native DB init');
       return;
     }
 

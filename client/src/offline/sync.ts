@@ -17,7 +17,7 @@ import { Capacitor } from '@capacitor/core';
 
 async function isNetworkAvailable(): Promise<boolean> {
   try {
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Network')) {
       const { Network } = await import('@capacitor/network');
       const status = await Network.getStatus();
       return status.connected;
@@ -541,7 +541,7 @@ async function _initSyncListenerAsync(): Promise<void> {
   }, 30000);
 
   try {
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('App')) {
       const { App } = await import('@capacitor/app');
       App.addListener('appStateChange', async ({ isActive }) => {
         if (isActive) {

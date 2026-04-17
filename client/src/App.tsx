@@ -199,13 +199,16 @@ function Router() {
             });
 
             try {
-              const { LocalNotifications } = await import('@capacitor/local-notifications');
-              await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
-                const extra = action.notification?.extra;
-                if (extra?.type === 'app_update' && extra?.downloadUrl) {
-                  openDownloadUrl(extra.downloadUrl);
-                }
-              });
+              const { Capacitor } = await import('@capacitor/core');
+              if (Capacitor.isPluginAvailable('LocalNotifications')) {
+                const { LocalNotifications } = await import('@capacitor/local-notifications');
+                await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+                  const extra = action.notification?.extra;
+                  if (extra?.type === 'app_update' && extra?.downloadUrl) {
+                    openDownloadUrl(extra.downloadUrl);
+                  }
+                });
+              }
             } catch (notifErr) {
             }
 

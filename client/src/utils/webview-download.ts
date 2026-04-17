@@ -1,12 +1,14 @@
 import { ENV } from "@/lib/env";
 import { Capacitor } from '@capacitor/core';
 
+// ─── كشف المنصة ──────────────────────────────────────────────────────────────
+
 export function isCapacitorNative(): boolean {
-  try {
-    return Capacitor.isNativePlatform();
-  } catch {
-    return false;
-  }
+  try { return Capacitor.isNativePlatform(); } catch { return false; }
+}
+
+function isPluginReady(name: string): boolean {
+  try { return isCapacitorNative() && Capacitor.isPluginAvailable(name); } catch { return false; }
 }
 
 const KNOWN_ANDROID_BROWSERS = [
@@ -72,18 +74,20 @@ declare global {
   }
 }
 
+// ─── أدوات مساعدة ─────────────────────────────────────────────────────────────
+
 function getMimeType(fileName: string, fallback: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
   const map: Record<string, string> = {
-    pdf: 'application/pdf',
+    pdf:  'application/pdf',
     xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    xls: 'application/vnd.ms-excel',
-    csv: 'text/csv',
+    xls:  'application/vnd.ms-excel',
+    csv:  'text/csv',
     html: 'text/html',
     json: 'application/json',
-    txt: 'text/plain',
-    png: 'image/png',
-    jpg: 'image/jpeg',
+    txt:  'text/plain',
+    png:  'image/png',
+    jpg:  'image/jpeg',
     jpeg: 'image/jpeg',
   };
   return ext ? (map[ext] || fallback) : fallback;
@@ -102,118 +106,110 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-let _debugMode = true; // Enabled by default for better troubleshooting as per T002
-export function enableDownloadDebug(enable: boolean = true) {
+// ─── تتبع الأخطاء ─────────────────────────────────────────────────────────────
+
+let _debugMode = true;
+
+export function enableDownloadDebug(enable = true) {
   _debugMode = enable;
 }
 
 const lastErrors: Record<string, string> = {};
 
 function debugLog(method: string, status: string, detail?: string) {
-  const msg = `[DL] ${method}: ${status}${detail ? ' - ' + detail : ''}`;
+  const msg = `[DL] ${method}: ${status}${detail ? ' — ' + detail : ''}`;
   console.log(msg);
   if (status === 'ERROR' || status === 'UPLOAD_FAILED' || status === 'SKIP') {
     lastErrors[method] = detail || status;
   }
-  if (_debugMode && (status === 'ERROR' || status === 'UPLOAD_FAILED')) {
-    // Only alert on actual failures in debug mode to avoid annoying the user during normal operation
-    // but keep console logs for everything
-    try { 
-      // Use toast instead of alert if possible, but alert is more reliable in broken WebViews
-      console.warn(`Download Error in ${method}: ${detail}`);
-    } catch {}
-  }
 }
 
+// ─── طرق التصدير — مرتبة من الأفضل إلى الأقل ─────────────────────────────────
+
+/**
+ * الطريقة 1: FileSharer (Capacitor native — الأفضل والأسرع)
+ * تعمل على Android وiOS. تعرض قائمة المشاركة الأصلية.
+ */
 async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+  // التحقق من توافر الإضافة الأصلية في APK أولاً
+  if (!isPluginReady('FileSharer')) {
+    debugLog('FileSharer', 'SKIP', 'plugin not compiled in APK');
+    return false;
+  }
+
   try {
-    const mod = await import('@byteowls/capacitor-filesharer');
-    const FileSharer = mod.FileSharer;
+    const { FileSharer } = await import('@byteowls/capacitor-filesharer');
     if (!FileSharer || typeof FileSharer.share !== 'function') {
       debugLog('FileSharer', 'SKIP', 'plugin not available');
       return false;
     }
 
-    const base64Data = await blobToBase64(blob);
-    const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
-    const contentType = getMimeType(sanitizedName, mimeType);
+    const base64Data   = await blobToBase64(blob);
+    const sanitized    = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const contentType  = getMimeType(sanitized, mimeType);
 
-    debugLog('FileSharer', 'START', `${sanitizedName} (${blob.size} bytes)`);
+    debugLog('FileSharer', 'START', `${sanitized} (${blob.size} bytes)`);
 
-    // Add 10s timeout as per T002
-    const sharePromise = FileSharer.share({
-      filename: sanitizedName,
-      contentType: contentType,
-      base64Data: base64Data,
-    });
-
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT: FileSharer took too long (10s)')), 10000)
-    );
-
-    await Promise.race([sharePromise, timeoutPromise]);
+    await Promise.race([
+      FileSharer.share({ filename: sanitized, contentType, base64Data }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT: FileSharer > 15s')), 15000)
+      ),
+    ]);
 
     debugLog('FileSharer', 'OK');
     return true;
   } catch (err: any) {
     const msg = String(err?.message || err || '');
     debugLog('FileSharer', 'ERROR', msg);
-    if (msg.includes('cancel') || msg.includes('Cancel') || msg.includes('dismiss') || msg.includes('USER_CANCELLED')) {
-      return true;
-    }
+    // إلغاء المستخدم يُعدّ نجاحاً (لم يحدث خطأ تقني)
+    if (/cancel|Cancel|dismiss|USER_CANCELLED/i.test(msg)) return true;
     return false;
   }
 }
 
+/**
+ * الطريقة 2: Capacitor Filesystem + Share
+ * تكتب الملف في الـ Cache ثم تعرض قائمة المشاركة.
+ * تعمل بدون صلاحيات على Android 10+ (Directory.Cache لا يحتاج إذناً).
+ */
 async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+  if (!isPluginReady('Filesystem') || !isPluginReady('Share')) {
+    debugLog('CapFS+Share', 'SKIP', 'Filesystem or Share plugin not compiled in APK');
+    return false;
+  }
+
   try {
-    const fsMod = await import('@capacitor/filesystem');
-    const shareMod = await import('@capacitor/share');
-    const Filesystem = fsMod.Filesystem;
-    const Directory = fsMod.Directory;
-    const Share = shareMod.Share;
-
-    if (!Filesystem || !Share) {
-      debugLog('CapFS+Share', 'SKIP', 'plugins not available');
-      return false;
-    }
-
-    // Check permissions explicitly as per T002
-    try {
-      const status = await Filesystem.checkPermissions();
-      if (status.publicStorage !== 'granted') {
-        debugLog('CapFS', 'PERMISSION_REQUEST');
-        const req = await Filesystem.requestPermissions();
-        if (req.publicStorage !== 'granted') {
-          debugLog('CapFS', 'ERROR', 'Storage permission denied');
-          // We can still try writing to Cache directory as it usually doesn't need publicStorage permission
-        }
-      }
-    } catch (e) {
-      debugLog('CapFS', 'PERMISSION_ERROR', String(e));
-    }
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share }                 = await import('@capacitor/share');
 
     const base64Data = await blobToBase64(blob);
-    const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const sanitized  = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
 
-    debugLog('CapFS', 'WRITING', sanitizedName);
+    debugLog('CapFS', 'WRITING', sanitized);
 
+    /*
+     * نستخدم Directory.Cache لأنه:
+     * - لا يحتاج صلاحيات على Android 10+ (API 29+)
+     * - لا يحتاج صلاحيات على Android 13+ (API 33+) حيث تغيّرت نماذج الإذن
+     * - آمن ومناسب للملفات المؤقتة كالتقارير
+     */
     await Filesystem.writeFile({
-      path: sanitizedName,
+      path: sanitized,
       data: base64Data,
       directory: Directory.Cache,
     });
 
-    const uriResult = await Filesystem.getUri({
+    const { uri } = await Filesystem.getUri({
       directory: Directory.Cache,
-      path: sanitizedName,
+      path: sanitized,
     });
 
-    debugLog('CapFS', 'URI', uriResult.uri);
+    debugLog('CapFS', 'URI', uri);
 
     await Share.share({
-      title: fileName,
-      url: uriResult.uri,
+      title:       fileName,
+      url:         uri,
       dialogTitle: `مشاركة: ${fileName}`,
     });
 
@@ -222,49 +218,82 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
   } catch (err: any) {
     const msg = String(err?.message || err || '');
     debugLog('CapFS+Share', 'ERROR', msg);
-    if (msg.includes('canceled') || msg.includes('dismissed') || msg.includes('cancel')) {
-      return true;
-    }
+    if (/cancel|dismiss/i.test(msg)) return true;
     return false;
   }
 }
 
+/**
+ * الطريقة 3: Web Share API (navigator.share)
+ * تعمل في المتصفحات الحديثة وبعض WebViews.
+ */
 async function tryWebShareAPI(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
     if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
       debugLog('WebShare', 'SKIP', 'API not available');
       return false;
     }
-    const file = new File([blob], fileName, { type: mimeType });
+    const file      = new File([blob], fileName, { type: mimeType });
     const shareData = { files: [file] };
     if (!navigator.canShare(shareData)) {
       debugLog('WebShare', 'SKIP', 'canShare=false');
       return false;
     }
-
     debugLog('WebShare', 'START', fileName);
     await navigator.share({ files: [file], title: fileName });
     debugLog('WebShare', 'OK');
     return true;
   } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      debugLog('WebShare', 'CANCELLED');
-      return true;
-    }
+    if (err?.name === 'AbortError') { debugLog('WebShare', 'CANCELLED'); return true; }
     debugLog('WebShare', 'ERROR', String(err?.message || err));
     return false;
   }
 }
 
+/**
+ * الطريقة 4: Android/iOS Native Bridge (طريقة Java/Swift المُضمَّنة)
+ */
+async function tryNativeBridge(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+  try {
+    const base64 = await blobToBase64(blob);
+
+    if (hasAndroidBridge()) {
+      debugLog('AndroidBridge', 'START', fileName);
+      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, mimeType); return true; }
+      if (window.Android?.downloadFile)       { window.Android.downloadFile(base64, fileName, mimeType);       return true; }
+      if (window.Android?.shareFile)          { window.Android.shareFile(base64, fileName, mimeType);          return true; }
+    }
+
+    if (hasIOSBridge()) {
+      debugLog('iOSBridge', 'START', fileName);
+      window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType });
+      return true;
+    }
+
+    debugLog('NativeBridge', 'SKIP', 'no bridge available');
+    return false;
+  } catch (err: any) {
+    debugLog('NativeBridge', 'ERROR', String(err?.message || err));
+    return false;
+  }
+}
+
+/**
+ * الطريقة 5: Server Proxy — رفع الملف للسيرفر ثم فتح رابط التحميل
+ * يُستخدم كخيار احتياطي في WebViews التي لا تدعم الطرق السابقة.
+ */
 async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
     const base64Data = await blobToBase64(blob);
-
     debugLog('ServerProxy', 'UPLOADING', `${fileName} (${blob.size} bytes)`);
 
     const response = await fetch(ENV.getApiUrl('/api/temp-download'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-request-nonce': crypto.randomUUID(),
+        'x-request-timestamp': new Date().toISOString(),
+      },
       credentials: 'include',
       body: JSON.stringify({ base64Data, fileName, mimeType }),
     });
@@ -284,15 +313,13 @@ async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: st
     debugLog('ServerProxy', 'URL_READY', fullUrl);
 
     if (isMobileWebView()) {
-      debugLog('ServerProxy', 'MOBILE_REDIRECT', 'using window.location for download');
+      // في WebView نستخدم iframe مخفي لتحفيز التحميل
       const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
+      iframe.style.cssText = 'display:none;position:fixed;left:-9999px;';
       iframe.src = fullUrl;
       document.body.appendChild(iframe);
-
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(r => setTimeout(r, 3000));
       try { document.body.removeChild(iframe); } catch {}
-
       debugLog('ServerProxy', 'IFRAME_DONE');
       return true;
     }
@@ -306,139 +333,102 @@ async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: st
     document.body.removeChild(link);
     debugLog('ServerProxy', 'BROWSER_CLICK_DONE');
     return true;
-  } catch (error: any) {
-    debugLog('ServerProxy', 'ERROR', String(error?.message || error));
+  } catch (err: any) {
+    debugLog('ServerProxy', 'ERROR', String(err?.message || err));
     return false;
   }
 }
 
+/**
+ * الطريقة 6: تحميل المتصفح التقليدي (createObjectURL)
+ */
 function downloadForBrowser(blob: Blob, fileName: string): boolean {
   try {
-    const url = URL.createObjectURL(blob);
+    const url  = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
+    link.href     = url;
     link.download = fileName;
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    debugLog('BrowserDownload', 'OK');
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
 
+// ─── الدالة الرئيسية للتصدير ──────────────────────────────────────────────────
+
+/**
+ * downloadFile — نقطة دخول موحّدة لتصدير الملفات
+ *
+ * تجرّب الطرق بالترتيب التالي:
+ *  Capacitor Native → FileSharer → CapFS+Share → NativeBridge → WebShare → ServerProxy → Browser
+ *
+ * متوافقة مع:
+ *  - Android 10 – 15 (Capacitor + WebView)
+ *  - iOS 15+ (Capacitor + WebView)
+ *  - متصفحات سطح المكتب الحديثة
+ */
 export async function downloadFile(
   blob: Blob,
   fileName: string,
-  mimeType?: string
+  mimeType?: string,
 ): Promise<boolean> {
-  const type = mimeType || blob.type || 'application/octet-stream';
-  const onMobile = isMobileWebView();
+  const type        = mimeType || blob.type || 'application/octet-stream';
   const onCapacitor = isCapacitorNative();
-  const onMobileDevice = isMobileDevice();
+  const onMobile    = isMobileWebView();
+  const onDevice    = isMobileDevice();
 
   if (blob.size === 0) {
-    throw new Error('الملف فارغ - لم يتم إنشاء التقرير بشكل صحيح');
+    throw new Error('الملف فارغ — لم يتم إنشاء التقرير بشكل صحيح');
   }
 
-  // Clear previous errors for this session
-  Object.keys(lastErrors).forEach(key => delete lastErrors[key]);
+  // مسح أخطاء الجلسة السابقة
+  Object.keys(lastErrors).forEach(k => delete lastErrors[k]);
 
+  // ── تطبيق Capacitor (Android / iOS) ──
   if (onCapacitor) {
-    try {
-      const r = await tryFileSharer(blob, fileName, type);
-      if (r) return true;
-    } catch (e: any) {
-      debugLog('FileSharer', 'ERROR', String(e?.message || e));
-    }
+    // 1. FileSharer — الأسرع والأكثر موثوقية
+    if (await tryFileSharer(blob, fileName, type)) return true;
 
-    try {
-      const r = await tryCapacitorFsShare(blob, fileName, type);
-      if (r) return true;
-    } catch (e: any) {
-      debugLog('CapFS+Share', 'ERROR', String(e?.message || e));
-    }
+    // 2. Filesystem + Share — بديل موثوق بدون صلاحيات
+    if (await tryCapacitorFsShare(blob, fileName, type)) return true;
   }
 
-  if (hasAndroidBridge()) {
-    try {
-      const base64 = await blobToBase64(blob);
-      if (window.Android?.downloadBase64File) { window.Android.downloadBase64File(base64, fileName, type); return true; }
-      if (window.Android?.downloadFile) { window.Android.downloadFile(base64, fileName, type); return true; }
-      if (window.Android?.shareFile) { window.Android.shareFile(base64, fileName, type); return true; }
-    } catch (e: any) {
-      debugLog('AndroidBridge', 'ERROR', String(e?.message || e));
-    }
+  // ── Native Bridge المضمّن (Java / Swift) ──
+  if (hasAndroidBridge() || hasIOSBridge()) {
+    if (await tryNativeBridge(blob, fileName, type)) return true;
   }
 
-  if (hasIOSBridge()) {
-    try {
-      const base64 = await blobToBase64(blob);
-      window.webkit?.messageHandlers?.downloadFile?.postMessage({ base64, fileName, mimeType: type });
-      return true;
-    } catch (e: any) {
-      debugLog('iOSBridge', 'ERROR', String(e?.message || e));
-    }
+  // ── Web Share API (متصفحات حديثة + بعض WebViews) ──
+  if (onMobile || onDevice) {
+    if (await tryWebShareAPI(blob, fileName, type)) return true;
   }
 
-  if (onMobile || onMobileDevice) {
-    try {
-      const r = await tryWebShareAPI(blob, fileName, type);
-      if (r) return true;
-    } catch (e: any) {
-      debugLog('WebShare', 'ERROR', String(e?.message || e));
-    }
-  }
-
+  // ── Server Proxy (WebView احتياطي) ──
   if (onMobile) {
-    try {
-      const r = await tryServerProxyDownload(blob, fileName, type);
-      if (r) return true;
-    } catch (e: any) {
-      debugLog('ServerProxy', 'ERROR', String(e?.message || e));
-    }
+    if (await tryServerProxyDownload(blob, fileName, type)) return true;
   }
 
-  try {
-    const browserResult = downloadForBrowser(blob, fileName);
-    if (browserResult) return true;
-  } catch (e: any) {
-    debugLog('BrowserDownload', 'ERROR', String(e?.message || e));
-  }
+  // ── تحميل المتصفح التقليدي ──
+  if (downloadForBrowser(blob, fileName)) return true;
 
-  // Construct a detailed error message as per T002
+  // ── فشلت جميع الطرق ──
   const errorDetails = Object.entries(lastErrors)
-    .map(([method, err]) => `• ${method}: ${err}`)
+    .map(([m, e]) => `• ${m}: ${e}`)
     .join('\n');
 
-  const detailedMsg = `فشل تصدير الملف بعدة محاولات:\n${errorDetails}\n\nيرجى التحقق من صلاحيات التطبيق أو تجربة متصفح آخر.`;
-  
-  console.error('Download Failed:', lastErrors);
-  throw new Error(detailedMsg);
+  console.error('[DL] All download methods failed:', lastErrors);
+  throw new Error(
+    `فشل تصدير الملف بعد تجربة جميع الطرق المتاحة:\n${errorDetails}\n\nيرجى التحقق من صلاحيات التطبيق أو تجربة متصفح آخر.`
+  );
 }
 
-export function exportDiagnostics() {
-  const capabilities = getDownloadCapabilities();
-  const ua = navigator.userAgent;
-  
-  return {
-    timestamp: new Date().toISOString(),
-    capabilities,
-    userAgent: ua,
-    platform: Capacitor.getPlatform(),
-    isNative: isCapacitorNative(),
-    lastSessionErrors: { ...lastErrors },
-    checks: {
-      hasAndroidBridge: hasAndroidBridge(),
-      hasIOSBridge: hasIOSBridge(),
-      hasShareAPI: hasShareAPI(),
-      windowAndroid: !!window.Android,
-      windowWebkit: !!window.webkit,
-    }
-  };
-}
+// ─── دوال مساعدة مُصدَّرة ────────────────────────────────────────────────────
 
 export async function downloadExcelFile(buffer: ArrayBuffer | Buffer, fileName: string): Promise<boolean> {
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -452,17 +442,43 @@ export async function downloadPdfFile(buffer: ArrayBuffer | Buffer, fileName: st
 
 export function getDownloadCapabilities() {
   return {
-    isWebView: isMobileWebView(),
-    isCapacitor: isCapacitorNative(),
-    isMobile: isMobileDevice(),
-    hasNativeBridge: hasAndroidBridge() || hasIOSBridge(),
-    hasShareAPI: hasShareAPI(),
-    recommendedMethod: isCapacitorNative()
-      ? 'filesharer'
-      : hasAndroidBridge() || hasIOSBridge()
-        ? 'native-bridge'
-        : isMobileWebView()
-          ? 'webshare'
-          : 'browser',
+    isWebView:          isMobileWebView(),
+    isCapacitor:        isCapacitorNative(),
+    isMobile:           isMobileDevice(),
+    hasNativeBridge:    hasAndroidBridge() || hasIOSBridge(),
+    hasShareAPI:        hasShareAPI(),
+    fileSharerReady:    isPluginReady('FileSharer'),
+    filesystemReady:    isPluginReady('Filesystem'),
+    sharePluginReady:   isPluginReady('Share'),
+    recommendedMethod:
+      isPluginReady('FileSharer')    ? 'filesharer'      :
+      isPluginReady('Filesystem')    ? 'capacitor-fs'    :
+      hasAndroidBridge()             ? 'android-bridge'  :
+      hasIOSBridge()                 ? 'ios-bridge'      :
+      hasShareAPI()                  ? 'webshare'        :
+                                       'browser',
+  };
+}
+
+export function exportDiagnostics() {
+  return {
+    timestamp:         new Date().toISOString(),
+    capabilities:      getDownloadCapabilities(),
+    userAgent:         navigator.userAgent,
+    platform:          Capacitor.getPlatform(),
+    isNative:          isCapacitorNative(),
+    lastSessionErrors: { ...lastErrors },
+    pluginChecks: {
+      FileSharer:  isPluginReady('FileSharer'),
+      Filesystem:  isPluginReady('Filesystem'),
+      Share:       isPluginReady('Share'),
+    },
+    bridgeChecks: {
+      hasAndroidBridge: hasAndroidBridge(),
+      hasIOSBridge:     hasIOSBridge(),
+      hasShareAPI:      hasShareAPI(),
+      windowAndroid:    !!window.Android,
+      windowWebkit:     !!window.webkit,
+    },
   };
 }

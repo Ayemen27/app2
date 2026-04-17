@@ -3,88 +3,94 @@ import { authFetch } from '@/lib/auth-token-store';
 import { PushNotifications, PermissionStatus, Token } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 
+function isPluginReady(name: string): boolean {
+  try { return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable(name); } catch { return false; }
+}
+
 export const requestAllPermissions = async () => {
   if (!Capacitor.isNativePlatform()) return;
 
-  try {
-    const pushPerm = await PushNotifications.requestPermissions();
-    console.log('[Push] Push permission status:', pushPerm.receive);
-  } catch (err) {
-    console.error('[Push] Failed to request push permissions:', err);
-  }
-
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-    const localPerm = await LocalNotifications.requestPermissions();
-    console.log('[Push] Local notification permission:', localPerm.display);
-
+  // Push Notifications
+  if (isPluginReady('PushNotifications')) {
     try {
-      const exactSetting = await LocalNotifications.checkExactNotificationSetting();
-      if (exactSetting.exact_alarm !== 'granted') {
-        await LocalNotifications.changeExactNotificationSetting();
-      }
-    } catch (exactErr) {
-      console.warn('[Push] Could not check exact alarm setting:', exactErr);
+      const pushPerm = await PushNotifications.requestPermissions();
+      console.log('[Push] Push permission status:', pushPerm.receive);
+    } catch (err) {
+      console.warn('[Push] Failed to request push permissions:', err);
     }
-  } catch (localErr) {
-    console.warn('[Push] Local notifications not available:', localErr);
   }
 
-  try {
-    const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
-    const bioResult = await NativeBiometric.isAvailable();
-    console.log('[Biometric] Available:', bioResult.isAvailable, '| Type:', bioResult.biometryType);
-  } catch (bioErr) {
-    console.warn('[Biometric] Not available on this device:', bioErr);
+  // Local Notifications
+  if (isPluginReady('LocalNotifications')) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const localPerm = await LocalNotifications.requestPermissions();
+      console.log('[Push] Local notification permission:', localPerm.display);
+      try {
+        const exactSetting = await LocalNotifications.checkExactNotificationSetting();
+        if (exactSetting.exact_alarm !== 'granted') {
+          await LocalNotifications.changeExactNotificationSetting();
+        }
+      } catch (exactErr) {
+        console.warn('[Push] Could not check exact alarm setting:', exactErr);
+      }
+    } catch (localErr) {
+      console.warn('[Push] Local notifications not available:', localErr);
+    }
+  }
+
+  // Biometric — فحص التوافر فقط (لا يتطلب صلاحية)
+  if (isPluginReady('NativeBiometric')) {
+    try {
+      const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+      const bioResult = await NativeBiometric.isAvailable();
+      console.log('[Biometric] Available:', bioResult.isAvailable, '| Type:', bioResult.biometryType);
+    } catch (bioErr) {
+      console.warn('[Biometric] Not available on this device:', bioErr);
+    }
   }
 };
 
 /**
- * Native Push Notifications Service using Capacitor
- * Handles registration, permissions, and listeners for Android/iOS
+ * تهيئة خدمة الإشعارات الأصلية عبر Capacitor FCM
  */
 export const initializeNativePush = async (user_id: string) => {
-  if (!Capacitor.isNativePlatform()) {
+  if (!Capacitor.isNativePlatform()) return;
+
+  // إنشاء قنوات الإشعارات (LocalNotifications)
+  if (isPluginReady('LocalNotifications')) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+      await LocalNotifications.createChannel({
+        id: 'default', name: 'الإشعارات العامة',
+        description: 'الإشعارات الرئيسية لتطبيق AXION',
+        importance: 4, visibility: 1, vibration: true, sound: 'default',
+      });
+
+      await LocalNotifications.createChannel({
+        id: 'high_priority', name: 'إشعارات الأولوية العالية',
+        description: 'تنبيهات السلامة والطوارئ',
+        importance: 5, visibility: 1, vibration: true, sound: 'default',
+      });
+
+      await LocalNotifications.createChannel({
+        id: 'financial', name: 'الإشعارات المالية',
+        description: 'إشعارات الرواتب والتحويلات المالية',
+        importance: 4, visibility: 1, vibration: true, sound: 'default',
+      });
+    } catch (channelErr) {
+      console.warn('[Push] Failed to create notification channels:', channelErr);
+    }
+  }
+
+  // تسجيل FCM (PushNotifications)
+  if (!isPluginReady('PushNotifications')) {
+    console.warn('[Push] PushNotifications plugin not available in this APK');
     return;
   }
 
   try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-
-    try {
-      await LocalNotifications.createChannel({
-        id: 'default',
-        name: 'الإشعارات العامة',
-        description: 'الإشعارات الرئيسية لتطبيق AXION',
-        importance: 4,
-        visibility: 1,
-        vibration: true,
-        sound: 'default',
-      });
-
-      await LocalNotifications.createChannel({
-        id: 'high_priority',
-        name: 'إشعارات الأولوية العالية',
-        description: 'تنبيهات السلامة والطوارئ',
-        importance: 5,
-        visibility: 1,
-        vibration: true,
-        sound: 'default',
-      });
-
-      await LocalNotifications.createChannel({
-        id: 'financial',
-        name: 'الإشعارات المالية',
-        description: 'إشعارات الرواتب والتحويلات المالية',
-        importance: 4,
-        visibility: 1,
-        vibration: true,
-        sound: 'default',
-      });
-    } catch (channelErr) {
-      console.warn('[Push] Failed to create notification channel:', channelErr);
-    }
-
     let permStatus: PermissionStatus = await PushNotifications.checkPermissions();
 
     if (permStatus.receive === 'prompt') {
@@ -92,7 +98,7 @@ export const initializeNativePush = async (user_id: string) => {
     }
 
     if (permStatus.receive !== 'granted') {
-      console.warn('[Push] Notification permission denied - registration skipped');
+      console.warn('[Push] Notification permission denied — registration skipped');
       return;
     }
 
@@ -109,19 +115,15 @@ export const initializeNativePush = async (user_id: string) => {
             'x-request-nonce': crypto.randomUUID(),
             'x-request-timestamp': new Date().toISOString(),
           },
-          body: JSON.stringify({
-            token: token.value,
-            platform: Capacitor.getPlatform(),
-            user_id,
-          }),
+          body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform(), user_id }),
         });
         if (response.ok) {
-          console.log('[Push] FCM token registered successfully with backend');
+          console.log('[Push] FCM token registered successfully');
         } else {
           console.warn('[Push] Backend rejected FCM token:', response.status);
         }
       } catch (err) {
-        console.error('[Push] Failed to save FCM token to backend:', err);
+        console.error('[Push] Failed to save FCM token:', err);
       }
     });
 
@@ -130,34 +132,30 @@ export const initializeNativePush = async (user_id: string) => {
     });
 
     await PushNotifications.addListener('pushNotificationReceived', async (notification: any) => {
-      console.log('[Push] Notification received in foreground:', notification.title);
+      console.log('[Push] Foreground notification:', notification.title);
 
+      if (!isPluginReady('LocalNotifications')) return;
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
-        const channelId = notification.data?.channelId || 'default';
         await LocalNotifications.schedule({
-          notifications: [
-            {
-              title: notification.title || 'إشعار جديد',
-              body: notification.body || '',
-              id: Math.floor(Math.random() * 100000),
-              schedule: { at: new Date(Date.now() + 100) },
-              extra: notification.data || {},
-              channelId,
-            },
-          ],
+          notifications: [{
+            title:     notification.title || 'إشعار جديد',
+            body:      notification.body  || '',
+            id:        Math.floor(Math.random() * 100000),
+            schedule:  { at: new Date(Date.now() + 100) },
+            extra:     notification.data || {},
+            channelId: notification.data?.channelId || 'default',
+          }],
         });
       } catch (err) {
-        console.error('[Push] Error showing local notification from push:', err);
+        console.error('[Push] Error showing local notification:', err);
       }
     });
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (notification: any) => {
       console.log('[Push] Notification tapped:', notification.notification?.title);
       const deepLink = notification.notification?.data?.url;
-      if (deepLink) {
-        console.log('[Push] Deep link from notification:', deepLink);
-      }
+      if (deepLink) console.log('[Push] Deep link:', deepLink);
     });
 
   } catch (error) {
@@ -165,12 +163,9 @@ export const initializeNativePush = async (user_id: string) => {
   }
 };
 
-/**
- * إلغاء تسجيل FCM token عند تسجيل الخروج
- */
 export const unregisterPushToken = async () => {
   if (!Capacitor.isNativePlatform()) return;
-
+  if (!isPluginReady('PushNotifications')) return;
   try {
     await PushNotifications.unregister();
     console.log('[Push] FCM token unregistered');

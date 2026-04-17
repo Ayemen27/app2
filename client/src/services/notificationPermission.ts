@@ -2,38 +2,37 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { initializeNativePush } from './capacitorPush';
 
-const PERM_LAST_ASKED_KEY = 'push_permission_last_asked_at';
+const PERM_LAST_ASKED_KEY  = 'push_permission_last_asked_at';
 const PERM_DENIED_COUNT_KEY = 'push_permission_denied_count';
-const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const ASK_COOLDOWN_MS      = 24 * 60 * 60 * 1000;
 
 type PermissionState = 'granted' | 'prompt' | 'denied' | 'cooldown';
 
 let resumeListenerRegistered = false;
 
+function isPluginReady(name: string): boolean {
+  try { return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable(name); } catch { return false; }
+}
+
 function getCurrentUserId(): string {
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return '';
-    const parsed = JSON.parse(raw);
-    return parsed?.id ? String(parsed.id) : '';
-  } catch {
-    return '';
-  }
+    return JSON.parse(raw)?.id ? String(JSON.parse(raw).id) : '';
+  } catch { return ''; }
 }
 
 async function getPermissionState(): Promise<PermissionState> {
   if (!Capacitor.isNativePlatform()) return 'denied';
+  if (!isPluginReady('PushNotifications')) return 'denied';
 
   try {
     const status = await PushNotifications.checkPermissions();
     if (status.receive === 'granted') return 'granted';
-    if (status.receive === 'prompt') return 'prompt';
+    if (status.receive === 'prompt')  return 'prompt';
 
     const lastAsked = localStorage.getItem(PERM_LAST_ASKED_KEY);
-    if (lastAsked) {
-      const elapsed = Date.now() - parseInt(lastAsked, 10);
-      if (elapsed < ASK_COOLDOWN_MS) return 'cooldown';
-    }
+    if (lastAsked && Date.now() - parseInt(lastAsked, 10) < ASK_COOLDOWN_MS) return 'cooldown';
 
     return 'denied';
   } catch {
@@ -43,6 +42,7 @@ async function getPermissionState(): Promise<PermissionState> {
 
 async function requestNotificationPermission(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false;
+  if (!isPluginReady('PushNotifications')) return false;
 
   try {
     const state = await getPermissionState();
@@ -57,13 +57,11 @@ async function requestNotificationPermission(): Promise<boolean> {
     if (state === 'prompt') {
       const result = await PushNotifications.requestPermissions();
       localStorage.setItem(PERM_LAST_ASKED_KEY, Date.now().toString());
-
       if (result.receive === 'granted') {
         localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
         await initializeNativePush(getCurrentUserId());
         return true;
       }
-
       incrementDeniedCount();
       return false;
     }
@@ -74,7 +72,7 @@ async function requestNotificationPermission(): Promise<boolean> {
     }
 
     return false;
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -96,12 +94,18 @@ async function registerResumeListener() {
   if (resumeListenerRegistered) return;
   if (!Capacitor.isNativePlatform()) return;
 
+  // التحقق من توافر إضافة App قبل الاستماع لأحداث دورة الحياة
+  if (!isPluginReady('App')) {
+    console.warn('[NotifPerm] App plugin not available — resume listener skipped');
+    return;
+  }
+
   resumeListenerRegistered = true;
 
   const { App } = await import('@capacitor/app');
   App.addListener('appStateChange', async ({ isActive }) => {
     if (!isActive) return;
-
+    if (!isPluginReady('PushNotifications')) return;
     try {
       const status = await PushNotifications.checkPermissions();
       if (status.receive === 'granted') {

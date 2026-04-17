@@ -18,7 +18,6 @@ const config: CapacitorConfig = {
   appId: 'com.axion.app',
   appName: 'AXION',
   webDir: 'www',
-  bundledWebRuntime: false,
   android: {
     allowMixedContent: !isProduction,
   },

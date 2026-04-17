@@ -46,9 +46,15 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- Storage — Android ≤ 12 (API 32) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"  android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- Storage — Android 13+ (API 33+): granular media permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"  />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"  />
 
     <!-- Android 13+ Push Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

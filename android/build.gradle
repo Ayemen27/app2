@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
     repositories {
         google()
@@ -27,7 +29,7 @@ allprojects {
 
 subprojects {
     plugins.withId("kotlin-android") {
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        tasks.withType(KotlinCompile).configureEach {
             kotlinOptions {
                 freeCompilerArgs += ["-opt-in=kotlin.ExperimentalStdlibApi"]
             }

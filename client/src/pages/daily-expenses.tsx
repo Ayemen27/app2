@@ -41,6 +41,8 @@ import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
+import { exportTransactionsToExcelTemplate2 } from "@/components/ui/export-transactions-excel-template2";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -110,6 +112,7 @@ function DailyExpensesContent() {
     });
   }, [toast]);
   const [isExporting, setIsExporting] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
   const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
@@ -2560,18 +2563,182 @@ function DailyExpensesContent() {
     toast
   ]);
 
+  // دالة تصدير القالب الثاني
+  const handleExportToExcelTemplate2 = useCallback(async () => {
+    setIsExporting(true);
+    setShowTemplateSelector(false);
+    try {
+      const transactions: any[] = [];
+
+      const carriedAmount = cleanNumber(carriedForward);
+      if (carriedAmount !== 0) {
+        transactions.push({
+          id: 'previous-balance',
+          date: selectedDate || new Date().toISOString().split('T')[0],
+          type: 'income',
+          category: 'رصيد سابق',
+          amount: Math.abs(carriedAmount),
+          description: carriedAmount > 0 ? 'رصيد مرحل (موجب)' : 'عجز مرحل (سالب)',
+          projectName: projects.find((p: any) => p.id === selectedProjectId)?.name || 'غير محدد',
+        });
+      }
+
+      filteredFundTransfers.forEach((transfer: any) => {
+        transactions.push({
+          id: transfer.id,
+          date: transfer.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: 'income',
+          category: 'عهدة',
+          amount: cleanNumber(transfer.amount),
+          description: `عهدة من ${transfer.senderName || 'غير محدد'}`,
+          recipientName: transfer.senderName,
+        });
+      });
+
+      safeProjectTransfers.forEach((transfer: any) => {
+        const isIncoming = transfer.toProjectId === selectedProjectId;
+        const fromProject = projects.find((p: any) => p.id === transfer.fromProjectId);
+        const toProject = projects.find((p: any) => p.id === transfer.toProjectId);
+        transactions.push({
+          id: transfer.id,
+          date: transfer.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: isIncoming ? 'transfer_from_project' : 'expense',
+          category: isIncoming ? 'ترحيل وارد' : 'ترحيل صادر',
+          amount: cleanNumber(transfer.amount),
+          description: isIncoming
+            ? `أموال واردة من: ${fromProject?.name || 'مشروع آخر'}`
+            : `ترحيل إلى ${toProject?.name || 'مشروع آخر'}`,
+        });
+      });
+
+      filteredAttendance.forEach((record: any) => {
+        const worker = workers.find((w: any) => w.id === record.worker_id);
+        const paidAmount = cleanNumber(record.paidAmount);
+        const payableAmount = cleanNumber(record.payableAmount);
+        const isDeferred = paidAmount === 0 && payableAmount > 0;
+        transactions.push({
+          id: record.id,
+          date: record.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: isDeferred ? 'deferred' : 'expense',
+          category: 'أجور عمال',
+          amount: paidAmount,
+          description: record.workDescription || 'أجر يومي',
+          workerName: worker?.name || 'غير محدد',
+          workDays: cleanNumber(record.workDays) || undefined,
+          dailyWage: cleanNumber(record.dailyWage) || undefined,
+          payableAmount: payableAmount || undefined,
+        });
+      });
+
+      filteredTransportation.forEach((expense: any) => {
+        transactions.push({
+          id: expense.id,
+          date: expense.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: 'expense',
+          category: 'مواصلات',
+          amount: cleanNumber(expense.amount),
+          description: expense.description || 'مصروف مواصلات',
+          notes: expense.description,
+        });
+      });
+
+      filteredMaterialPurchases.forEach((purchase: any) => {
+        const material = materials.find((m: any) => m.id === purchase.material_id);
+        const pType = purchase.purchaseType || 'نقد';
+        const isCash = pType === 'نقد';
+        const isStorage = pType === 'مخزن' || pType === 'توريد' || pType === 'مخزني';
+        let transactionType = 'deferred';
+        let transactionAmount = 0;
+        if (isCash) { transactionType = 'expense'; transactionAmount = cleanNumber(purchase.paidAmount) > 0 ? cleanNumber(purchase.paidAmount) : cleanNumber(purchase.totalAmount); }
+        else if (isStorage) { transactionType = 'storage'; transactionAmount = cleanNumber(purchase.totalAmount); }
+        transactions.push({
+          id: purchase.id,
+          date: purchase.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: transactionType,
+          category: isStorage ? 'توريد مخزن' : 'مشتريات مواد',
+          amount: transactionAmount,
+          description: `شراء ${material?.name || 'مادة'}`,
+          notes: purchase.supplier || purchase.supplierName,
+        });
+      });
+
+      filteredWorkerTransfers.forEach((transfer: any) => {
+        const worker = workers.find((w: any) => w.id === transfer.worker_id);
+        transactions.push({
+          id: transfer.id,
+          date: transfer.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: 'expense',
+          category: 'حوالات عمال',
+          amount: cleanNumber(transfer.amount),
+          description: transfer.notes || 'حوالة للعامل',
+          workerName: worker?.name || 'غير محدد',
+          notes: transfer.notes,
+        });
+      });
+
+      filteredMiscExpenses.forEach((expense: any) => {
+        transactions.push({
+          id: expense.id,
+          date: expense.date || selectedDate || new Date().toISOString().split('T')[0],
+          type: 'expense',
+          category: 'نثريات',
+          amount: cleanNumber(expense.amount),
+          description: expense.description || 'مصروف متنوع',
+          notes: expense.description,
+        });
+      });
+
+      const exportTotals = {
+        totalIncome: totalsValue.totalIncome || 0,
+        totalExpenses: totalsValue.totalCashExpenses || totalsValue.totalExpenses || 0,
+        balance: totalsValue.remainingBalance || totalsValue.totalBalance || 0,
+      };
+
+      const currentProjectName = isAllProjects
+        ? 'جميع المشاريع'
+        : projects.find((p: any) => p.id === selectedProjectId)?.name || 'المشروع';
+
+      const downloadResult = await exportTransactionsToExcelTemplate2(
+        transactions,
+        exportTotals,
+        currentProjectName,
+        selectedDate || undefined
+      );
+
+      if (downloadResult) {
+        toast({ title: "تم التصدير بنجاح", description: `تم تصدير ${transactions.length} عملية بالقالب الثاني` });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "فشل التصدير", description: "حدث خطأ أثناء تصدير البيانات", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [
+    filteredFundTransfers, filteredAttendance, filteredTransportation,
+    filteredMaterialPurchases, filteredWorkerTransfers, filteredMiscExpenses,
+    safeProjectTransfers, workers, materials, projects,
+    selectedProjectId, selectedDate, isAllProjects, toast, carriedForward, totalsValue
+  ]);
+
+  const handleExportWithTemplate1 = useCallback(async () => {
+    setShowTemplateSelector(false);
+    await handleExportToExcel();
+  }, [handleExportToExcel]);
+
   // تكوين أزرار الإجراءات
   const actionsConfig: ActionButton[] = useMemo(() => [
     {
       key: 'export',
       icon: FileSpreadsheet,
       label: 'تصدير Excel',
-      onClick: handleExportToExcel,
+      onClick: () => setShowTemplateSelector(true),
       variant: 'outline',
       loading: isExporting,
-      tooltip: 'تصدير البيانات المعروضة إلى ملف Excel',
+      tooltip: 'اختر قالب التصدير إلى Excel',
     }
-  ], [isExporting, handleExportToExcel]);
+  ], [isExporting]);
 
   // حساب مؤشرات البيانات المتوفرة مع معالجة آمنة
   const dataIndicators = {
@@ -2588,6 +2755,45 @@ function DailyExpensesContent() {
 
   return (
     <div className="p-4 slide-in space-y-4">
+
+      {/* نافذة اختيار قالب التصدير */}
+      <Dialog open={showTemplateSelector} onOpenChange={setShowTemplateSelector}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base font-bold">اختر قالب التصدير</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              data-testid="button-export-template-1"
+              onClick={handleExportWithTemplate1}
+              disabled={isExporting}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all text-right disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0 mt-0.5">
+                <FileSpreadsheet className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 1 — الكلاسيكي</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تقرير مفصّل بأقسام منفصلة (العهدة، أجور العمال، المواد، التحويلات)</div>
+              </div>
+            </button>
+            <button
+              data-testid="button-export-template-2"
+              onClick={handleExportToExcelTemplate2}
+              disabled={isExporting}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 transition-all text-right disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0 mt-0.5">
+                <FileSpreadsheet className="w-5 h-5 text-green-700 dark:text-green-300" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">قالب 2 — كشف يومي مفصّل</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">كشف مصروفات يومي مع رصيد تجميعي متراكم والتاريخ الهجري</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* لوحة الإحصائيات والفلترة الموحدة */}
       <UnifiedFilterDashboard

@@ -1499,9 +1499,9 @@ export function useDailyExpenses() {
           suggestions,
           details: [
             { label: 'العامل', value: gd?.workerName || '' },
-            { label: 'الرصيد الحالي', value: `${gd?.currentBalance ?? 0}`, color: (gd?.currentBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' },
-            { label: 'مبلغ التحويل', value: `${gd?.transferAmount ?? 0}`, color: 'text-amber-600' },
-            { label: 'الرصيد بعد التحويل', value: `${gd?.resultingBalance ?? 0}`, color: 'text-red-600 font-bold' },
+            { label: 'الرصيد الحالي', value: formatCurrency(gd?.currentBalance ?? 0), color: (gd?.currentBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' },
+            { label: 'مبلغ التحويل', value: formatCurrency(gd?.transferAmount ?? 0), color: 'text-amber-600' },
+            { label: 'الرصيد بعد التحويل', value: formatCurrency(gd?.resultingBalance ?? 0), color: 'text-red-600 font-bold' },
           ],
           originalData: {
             worker_id: workerTransferWorkerId,

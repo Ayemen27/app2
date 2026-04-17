@@ -111,7 +111,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
       return `⚠️ تنبيه الحارس المالي: تحويل ${formatCurrency(amount)} | الرصيد قبل: ${formatCurrency(balance)} | الرصيد بعد: ${formatCurrency(resultBalance)} | ${suggestion.label}`;
     }
     if (data.type === 'overpaid_purchase') {
-      return `⚠️ تنبيه الحارس المالي: المبلغ المدفوع (${formatCurrency(amount)}) ${amount > (data.totalInvoice ?? 0) ? 'يتجاوز' : 'أقل من'} إجمالي الفاتورة (${formatCurrency(data.totalInvoice ?? 0)}) | ${suggestion.label}`;
+      return `⚠️ تنبيه الحارس المالي: مشتريات بقيمة ${formatCurrency(amount)} | ${suggestion.label}`;
     }
     if (data.type === 'large_amount') {
       return `⚠️ تنبيه: مبلغ كبير ${formatCurrency(amount)} | ${suggestion.label}`;

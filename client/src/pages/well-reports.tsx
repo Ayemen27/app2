@@ -9,6 +9,7 @@ import { ArrowLeft, FileSpreadsheet, FileText, Download, Loader2, BarChart3, Use
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
+import { downloadFile, downloadExcelFile } from "@/utils/webview-download";
 
 type ReportType = 'comprehensive' | 'wells_only' | 'crews_only' | 'solar_only';
 type ExportFormat = 'xlsx' | 'pdf';
@@ -58,32 +59,23 @@ export default function WellReports() {
     setExporting(format);
     try {
       const url = `/api/wells/reports/export?project_id=${selectedProjectId}&format=${format}&report_type=${reportType}`;
+      const projectName = currentProject?.name || 'report';
+
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'فشل في تصدير التقرير');
+      }
 
       if (format === 'xlsx') {
-        const response = await fetch(url, { credentials: 'include' });
-        if (!response.ok) throw new Error('فشل في تصدير التقرير');
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `تقرير-الآبار-${currentProject?.name || 'report'}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(a);
+        const arrayBuffer = await response.arrayBuffer();
+        await downloadExcelFile(arrayBuffer, `تقرير-الآبار-${projectName}.xlsx`);
         toast({ title: 'تم تصدير التقرير بنجاح', description: 'ملف Excel جاهز للتحميل' });
       } else {
-        const response = await fetch(url, { credentials: 'include' });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'فشل في تصدير التقرير');
-        }
         const html = await response.text();
         const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-        const blobUrl = window.URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
-        toast({ title: 'تم فتح التقرير', description: 'يمكنك الطباعة أو حفظه كـ PDF' });
+        await downloadFile(blob, `تقرير-الآبار-${projectName}.html`, 'text/html; charset=utf-8');
+        toast({ title: 'تم تحميل التقرير', description: 'يمكنك فتحه وطباعته أو حفظه كـ PDF' });
       }
     } catch (error: any) {
       toast({ title: 'خطأ في التصدير', description: toUserMessage(error), variant: 'destructive' });

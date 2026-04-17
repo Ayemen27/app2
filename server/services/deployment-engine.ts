@@ -3546,6 +3546,20 @@ export class DeploymentEngine {
     ].join(" && ");
 
     try {
+      // دائماً نسخ الـ keystore من المسار الآمن أولاً (يتجاوز الـ keystore المعطوب من git)
+      try {
+        await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp -f \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_RESTORED_FROM_SAFE' && break; fi; done"`,
+          "Restore Keystore from Safe Location",
+          15000
+        );
+        await this.addLog(deploymentId, "✅ تم استعادة Keystore من المسار الآمن (تجاوز git)", "success");
+        autoFixes.push("keystore-safe-restore");
+      } catch (restoreErr: any) {
+        await this.addLog(deploymentId, `⚠️ تعذر استعادة Keystore من المسار الآمن: ${restoreErr.message}`, "warn");
+      }
+
       const output = await this.execWithLog(
         deploymentId,
         `${sshCmd} "${readinessChecks}"`,

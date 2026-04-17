@@ -3445,15 +3445,13 @@ export class DeploymentEngine {
     ];
 
     try {
-      const searchLines = envFiles.map(f =>
-        `[ -f "${f}" ] && grep -E "^KEYSTORE_PASSWORD=|^KEYSTORE_ALIAS=|^KEYSTORE_KEY_PASSWORD=" "${f}" 2>/dev/null || true`
+      const catLines = envFiles.map(f =>
+        `([ -f "${f}" ] && cat "${f}" 2>/dev/null || true)`
       ).join("; ");
-
-      const pm2EnvCmd = `pm2 env 0 2>/dev/null | grep -iE "KEYSTORE_PASSWORD|KEYSTORE_ALIAS" || true`;
 
       const raw = await this.execWithLog(
         deploymentId,
-        `${sshCmd} "${searchLines}; ${pm2EnvCmd}"`,
+        `${sshCmd} "${catLines}"`,
         "Keystore Password Discovery",
         20000
       );

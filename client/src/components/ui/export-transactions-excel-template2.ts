@@ -60,12 +60,13 @@ function gregorianToHijri(date: Date): { day: number; month: number; year: numbe
 
 function getAccountTypeLabel(type: string, category: string): string {
   if (category === 'رصيد سابق') return 'نقل';
-  if (type === 'income' || type === 'transfer_from_project') return 'نقل';
+  if (type === 'income') return 'دخل';
+  if (type === 'transfer_from_project') return 'دخل';
   if (category === 'أجور عمال') return 'أجور العمال';
   if (category === 'مواصلات') return 'مواصلات';
   if (category === 'حوالات عمال') return 'تنزيلات العمال';
   if (category === 'نثريات') return 'مصروفات';
-  if (category === 'مشتريات مواد') return 'مصروفات';
+  if (category === 'مشتريات مواد') return 'مشتريات';
   if (type === 'deferred') return 'آجل';
   return 'مصروفات';
 }
@@ -156,19 +157,21 @@ export async function exportTransactionsToExcelTemplate2(
 
   const hijri = gregorianToHijri(dateObj);
   const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
-  const hijriStr = `${hijri.day} ${hijri.monthName} ${hijri.year}`;
+  const hijriStr = `${hijri.dayName} ${hijri.day} ${hijri.monthName} ${hijri.year}`;
 
-  const GREEN  = 'FF1F7A3C';
-  const WHITE  = 'FFFFFFFF';
-  const GREY   = 'FFF5F5F5';
-  const GREEN_MUTED = 'FFD6EAD7';
-  const ORANGE_INCOME = 'FFFFF3E0';
-  const SALMON = 'FFFA8072';
+  const GREEN        = 'FF1F7A3C';
+  const WHITE        = 'FFFFFFFF';
+  const GREY         = 'FFF5F5F5';
+  const GREEN_MUTED  = 'FFD6EAD7';
+  const RED_MUTED    = 'FFFCE4E4';
+  const INCOME_BG    = 'FFDAEAF5';
+  const TRANSFER_BG  = 'FFFFF0CC';
+  const MATERIAL_BG  = 'FFEEE8F8';
+  const SALMON       = 'FFFA8072';
   const SALMON_LIGHT = 'FFFCE4D6';
 
   let r = 1;
 
-  // ── صف 1: عنوان التقرير ───────────────────────────────────────────────────
   ws.mergeCells(r, 1, r, COL);
   const titleCell = ws.getRow(r).getCell(1);
   titleCell.value = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
@@ -176,7 +179,13 @@ export async function exportTransactionsToExcelTemplate2(
   ws.getRow(r).height = 30;
   r++;
 
-  // ── صف 2: رؤوس الأعمدة ───────────────────────────────────────────────────
+  ws.mergeCells(r, 1, r, COL);
+  const hijriCell = ws.getRow(r).getCell(1);
+  hijriCell.value = `${hijriStr}`;
+  style(hijriCell, { bg: 'FF2D9146', fc: 'FFFFFFFF', bold: false, size: 10 });
+  ws.getRow(r).height = 18;
+  r++;
+
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
   ws.getRow(r).height = 22;
   HEADERS.forEach((h, i) => {
@@ -186,7 +195,6 @@ export async function exportTransactionsToExcelTemplate2(
   });
   r++;
 
-  // ── ترتيب البيانات ────────────────────────────────────────────────────────
   const opening = transactions.filter(t => t.category === 'رصيد سابق');
   const income  = transactions.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
   const expense = transactions.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
@@ -195,19 +203,28 @@ export async function exportTransactionsToExcelTemplate2(
   let running = 0;
 
   ordered.forEach((t, idx) => {
-    const isOpening = t.category === 'رصيد سابق';
-    const isIncome  = t.type === 'income' || t.type === 'transfer_from_project';
-    const amt = t.amount || 0;
+    const isOpening        = t.category === 'رصيد سابق';
+    const isNegOpening     = isOpening && t.type === 'expense';
+    const isTransferProj   = t.type === 'transfer_from_project';
+    const isRegIncome      = !isOpening && t.type === 'income' && !isTransferProj;
+    const isMaterial       = t.category === 'مشتريات مواد';
+    const amt              = t.amount || 0;
 
-    if (isOpening || isIncome) running += amt;
+    if (isOpening && !isNegOpening) running += amt;
+    else if (isOpening && isNegOpening) running -= amt;
+    else if (t.type === 'income' || t.type === 'transfer_from_project') running += amt;
     else running -= amt;
 
     const row = ws.getRow(r);
     row.height = 20;
 
-    let bg = idx % 2 === 0 ? WHITE : GREY;
-    if (isOpening)                bg = GREEN_MUTED;
-    if (isIncome && !isOpening)   bg = ORANGE_INCOME;
+    let bg: string;
+    if (isOpening && !isNegOpening)  bg = GREEN_MUTED;
+    else if (isNegOpening)            bg = RED_MUTED;
+    else if (isTransferProj)          bg = TRANSFER_BG;
+    else if (isRegIncome)             bg = INCOME_BG;
+    else if (isMaterial)              bg = MATERIAL_BG;
+    else                              bg = idx % 2 === 0 ? WHITE : GREY;
 
     const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
 
@@ -223,9 +240,11 @@ export async function exportTransactionsToExcelTemplate2(
     rowData.forEach((val, ci) => {
       const cell = row.getCell(ci + 1);
       cell.value = val;
+      const isRunningNeg = ci === 4 && running < 0;
       style(cell, {
         bg,
         bold: isOpening,
+        fc: isRunningNeg ? 'FFCC0000' : undefined,
         size: 10,
         fmt: (ci === 0 || ci === 4) && typeof val === 'number' ? '#,##0' : undefined,
         align: ci === 2 || ci === 5 ? 'right' : 'center',
@@ -236,7 +255,6 @@ export async function exportTransactionsToExcelTemplate2(
     r++;
   });
 
-  // ── صف المبلغ المتبقي (سلموني) ───────────────────────────────────────────
   ws.getRow(r).height = 24;
 
   ws.mergeCells(r, 1, r, 4);
@@ -246,7 +264,7 @@ export async function exportTransactionsToExcelTemplate2(
 
   const valCell = ws.getRow(r).getCell(5);
   valCell.value = running;
-  style(valCell, { bg: SALMON, fc: 'FF7B1D0B', bold: true, size: 11, fmt: '#,##0' });
+  style(valCell, { bg: SALMON, fc: running < 0 ? 'FFCC0000' : 'FF7B1D0B', bold: true, size: 11, fmt: '#,##0' });
 
   const extCell = ws.getRow(r).getCell(6);
   extCell.value = '';

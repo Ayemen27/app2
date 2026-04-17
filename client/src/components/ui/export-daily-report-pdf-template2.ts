@@ -45,11 +45,13 @@ function gregorianToHijri(date: Date): { day: number; month: number; year: numbe
 
 function getAccountType(type: string, category: string): string {
   if (category === 'رصيد سابق') return 'نقل';
-  if (type === 'income' || type === 'transfer_from_project') return 'نقل';
+  if (type === 'income') return 'دخل';
+  if (type === 'transfer_from_project') return 'دخل';
   if (category === 'أجور عمال') return 'أجور العمال';
   if (category === 'مواصلات') return 'مواصلات';
   if (category === 'حوالات عمال') return 'تنزيلات العمال';
-  if (category === 'نثريات' || category === 'مشتريات مواد') return 'مصروفات';
+  if (category === 'مشتريات مواد') return 'مشتريات';
+  if (category === 'نثريات') return 'مصروفات';
   return 'مصروفات';
 }
 
@@ -66,6 +68,21 @@ function fmt(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+function getRowBg(t: Transaction, idx: number): string {
+  const isOpening      = t.category === 'رصيد سابق';
+  const isNegOpening   = isOpening && t.type === 'expense';
+  const isTransferProj = t.type === 'transfer_from_project';
+  const isRegIncome    = !isOpening && t.type === 'income' && !isTransferProj;
+  const isMaterial     = t.category === 'مشتريات مواد';
+
+  if (isOpening && !isNegOpening) return '#d6ead7';
+  if (isNegOpening)               return '#fce4e4';
+  if (isTransferProj)             return '#fff0cc';
+  if (isRegIncome)                return '#daeaf5';
+  if (isMaterial)                 return '#eee8f8';
+  return idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
+}
+
 export async function exportDailyReportPdfTemplate2(
   transactions: Transaction[],
   _totals: Totals,
@@ -78,7 +95,7 @@ export async function exportDailyReportPdfTemplate2(
 
   const hijri = gregorianToHijri(dateObj);
   const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
-  const hijriStr = `${hijri.day} ${hijri.monthName} ${hijri.year}`;
+  const hijriStr = `${hijri.dayName} ${hijri.day} ${hijri.monthName} ${hijri.year}`;
 
   const opening = transactions.filter(t => t.category === 'رصيد سابق');
   const income  = transactions.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
@@ -88,20 +105,19 @@ export async function exportDailyReportPdfTemplate2(
   let running = 0;
 
   const rows = ordered.map((t, idx) => {
-    const isOpening = t.category === 'رصيد سابق';
-    const isIncome  = t.type === 'income' || t.type === 'transfer_from_project';
-    const amt = t.amount || 0;
+    const isOpening    = t.category === 'رصيد سابق';
+    const isNegOpening = isOpening && t.type === 'expense';
+    const amt          = t.amount || 0;
 
-    if (isOpening || isIncome) running += amt;
+    if (isOpening && !isNegOpening) running += amt;
+    else if (isNegOpening)          running -= amt;
+    else if (t.type === 'income' || t.type === 'transfer_from_project') running += amt;
     else running -= amt;
 
-    let bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
-    if (isOpening) bg = '#d6ead7';
-    if (isIncome && !isOpening) bg = '#fff3e0';
-
+    const bg      = getRowBg(t, idx);
+    const fontW   = isOpening ? 'bold' : 'normal';
+    const runColor = running < 0 ? '#c0392b' : '#145226';
     const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
-
-    const fontW = isOpening ? 'bold' : 'normal';
 
     return `
       <tr style="background:${bg};">
@@ -109,7 +125,7 @@ export async function exportDailyReportPdfTemplate2(
         <td style="text-align:center;">${getAccountType(t.type, t.category)}</td>
         <td style="text-align:right;">${getEntryName(t)}</td>
         <td style="text-align:center;">${t.workDays ?? ''}</td>
-        <td style="text-align:center;font-weight:bold;color:${running < 0 ? '#c0392b' : '#145226'};">${fmt(running)}</td>
+        <td style="text-align:center;font-weight:bold;color:${runColor};">${fmt(running)}</td>
         <td style="text-align:right;font-size:10px;">${notesVal}</td>
       </tr>`;
   }).join('');
@@ -123,15 +139,23 @@ export async function exportDailyReportPdfTemplate2(
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Arial', sans-serif; background:#fff; direction:rtl; }
   .page { width:794px; padding:16px; }
-
-  /* عنوان التقرير */
   .title-row {
     background:#1f7a3c; color:#fff; text-align:center;
     font-size:13px; font-weight:bold; padding:10px 8px;
     border:1px solid #999;
   }
-
-  /* الجدول */
+  .hijri-row {
+    background:#2d9146; color:#fff; text-align:center;
+    font-size:11px; padding:5px 8px;
+    border:1px solid #999; border-top:none;
+  }
+  .legend {
+    display:flex; gap:12px; flex-wrap:wrap;
+    padding:6px 8px; font-size:9px; border:1px solid #ccc; border-top:none;
+    background:#fafafa;
+  }
+  .legend-item { display:flex; align-items:center; gap:4px; }
+  .legend-box { width:12px; height:12px; border:1px solid #aaa; display:inline-block; }
   table {
     width:100%; border-collapse:collapse;
     margin-top:0; font-size:11px;
@@ -145,9 +169,6 @@ export async function exportDailyReportPdfTemplate2(
     padding:6px 5px; border:1px solid #ccc;
     font-size:11px; vertical-align:middle;
   }
-  tr:hover { background:#f0f0f0 !important; }
-
-  /* صف المبلغ المتبقي */
   .remain-row td {
     background:#fa8072 !important;
     color:#7b1d0b;
@@ -159,10 +180,15 @@ export async function exportDailyReportPdfTemplate2(
 </head>
 <body>
 <div class="page">
-  <div class="title-row">
-    كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}
+  <div class="title-row">كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}</div>
+  <div class="hijri-row">${hijriStr}</div>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-box" style="background:#d6ead7;"></span> رصيد مرحل موجب</span>
+    <span class="legend-item"><span class="legend-box" style="background:#fce4e4;"></span> رصيد مرحل سالب</span>
+    <span class="legend-item"><span class="legend-box" style="background:#daeaf5;"></span> دخل (عهدة/أموال واردة)</span>
+    <span class="legend-item"><span class="legend-box" style="background:#fff0cc;"></span> ترحيل بين مشاريع</span>
+    <span class="legend-item"><span class="legend-box" style="background:#eee8f8;"></span> مشتريات مواد</span>
   </div>
-
   <table>
     <thead>
       <tr>
@@ -178,7 +204,7 @@ export async function exportDailyReportPdfTemplate2(
       ${rows}
       <tr class="remain-row">
         <td colspan="4" style="text-align:center;">المبلغ المتبقي</td>
-        <td style="text-align:center;">${fmt(running)}</td>
+        <td style="text-align:center;color:${running < 0 ? '#c0392b' : '#7b1d0b'};">${fmt(running)}</td>
         <td></td>
       </tr>
     </tbody>
@@ -188,7 +214,7 @@ export async function exportDailyReportPdfTemplate2(
 </html>`;
 
   const safeProject = (projectName || 'مشروع').replace(/[/\\?%*:|"<>]/g, '-');
-  const fileName = `كشف_مصروفات_يومي_${safeProject}_${reportDate || new Date().toISOString().split('T')[0]}.pdf`;
+  const fileName = `كشف_مصروفات_يومي_${safeProject}_${reportDate || new Date().toISOString().split('T')[0]}`;
 
   return generatePDF({ html, filename: fileName, format: 'A4', orientation: 'portrait' });
 }

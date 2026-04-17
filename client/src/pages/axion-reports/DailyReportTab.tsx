@@ -178,9 +178,26 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
 
   const buildTransactionsFromReport = (report: DailyReportData): any[] => {
     const txs: any[] = [];
-    const carried = (report.totals as any)?.carriedForwardBalance || (report as any).carriedForwardBalance || 0;
+    const carried = Number(
+      (report as any).carryForwardBalance ??
+      (report.totals as any)?.carryForwardBalance ??
+      (report as any).carriedForwardBalance ??
+      (report.totals as any)?.carriedForwardBalance ??
+      0
+    );
     if (carried !== 0) {
-      txs.push({ id: 'cf', date: dateStr, type: 'income', category: 'رصيد سابق', amount: Math.abs(Number(carried)), description: 'رصيد مرحل' });
+      const prevDateObj = new Date(dateStr);
+      prevDateObj.setDate(prevDateObj.getDate() - 1);
+      const prevDateStr = prevDateObj.toLocaleDateString('ar-SA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      txs.push({
+        id: 'cf',
+        date: dateStr,
+        type: carried >= 0 ? 'income' : 'expense',
+        category: 'رصيد سابق',
+        amount: Math.abs(carried),
+        description: 'رصيد مرحل',
+        notes: `مرحل من تاريخ ${prevDateStr}`,
+      });
     }
     (report.fundTransfers || []).forEach((f: any) => {
       txs.push({ id: f.id, date: f.date || dateStr, type: 'income', category: 'عهدة', amount: parseFloat(f.amount || '0'), description: `عهدة من ${f.senderName || 'غير محدد'}`, recipientName: f.senderName });
@@ -210,7 +227,13 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
   };
 
   const buildTotals = (report: DailyReportData) => {
-    const carried = Math.abs(Number((report.totals as any)?.carriedForwardBalance || (report as any).carriedForwardBalance || 0));
+    const carried = Math.abs(Number(
+      (report as any).carryForwardBalance ??
+      (report.totals as any)?.carryForwardBalance ??
+      (report as any).carriedForwardBalance ??
+      (report.totals as any)?.carriedForwardBalance ??
+      0
+    ));
     return {
       totalIncome: parseFloat(String(report.totals?.totalFundTransfers || 0)) + carried,
       totalExpenses: parseFloat(String(report.totals?.totalExpenses || 0)),

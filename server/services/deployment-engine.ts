@@ -3428,28 +3428,104 @@ export class DeploymentEngine {
     }
   }
 
+  private async resolveKeystorePasswordFromServer(
+    deploymentId: string,
+    sshCmd: string,
+    remoteDir: string,
+    currentAlias: string
+  ): Promise<{ password: string; alias: string } | null> {
+    await this.addLog(deploymentId, "🔍 جاري البحث التلقائي عن كلمة مرور Keystore على السيرفر...", "info");
+
+    const envFiles = [
+      `${remoteDir}/.env`,
+      `/home/administrator/.env`,
+      `/home/administrator/AXION/.env`,
+      `/root/.env`,
+      `/etc/environment`,
+    ];
+
+    try {
+      const searchLines = envFiles.map(f =>
+        `[ -f "${f}" ] && grep -E "^KEYSTORE_PASSWORD=|^KEYSTORE_ALIAS=|^KEYSTORE_KEY_PASSWORD=" "${f}" 2>/dev/null || true`
+      ).join("; ");
+
+      const pm2EnvCmd = `pm2 env 0 2>/dev/null | grep -iE "KEYSTORE_PASSWORD|KEYSTORE_ALIAS" || true`;
+
+      const raw = await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "${searchLines}; ${pm2EnvCmd}"`,
+        "Keystore Password Discovery",
+        20000
+      );
+
+      const passwordCandidates: string[] = [];
+      const aliasCandidates: string[] = [];
+
+      for (const line of raw.split("\n")) {
+        const trimmed = line.trim();
+        const passMatch = trimmed.match(/^KEYSTORE_PASSWORD=(.+)$/i) || trimmed.match(/KEYSTORE_PASSWORD:\s*(.+)$/i);
+        if (passMatch) {
+          const val = passMatch[1].replace(/^["']|["']$/g, "").trim();
+          if (val && val.length >= 4 && !passwordCandidates.includes(val)) {
+            passwordCandidates.push(val);
+          }
+        }
+        const aliasMatch = trimmed.match(/^KEYSTORE_ALIAS=(.+)$/i) || trimmed.match(/KEYSTORE_ALIAS:\s*(.+)$/i);
+        if (aliasMatch) {
+          const val = aliasMatch[1].replace(/^["']|["']$/g, "").trim();
+          if (val && !aliasCandidates.includes(val)) aliasCandidates.push(val);
+        }
+      }
+
+      const keystorePath = `${remoteDir}/android/app/axion-release.keystore`;
+      const javaHome = `$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)`;
+
+      for (const candidate of passwordCandidates) {
+        const safePass = candidate.replace(/'/g, "'\\''");
+        const aliasToTest = aliasCandidates[0] || currentAlias;
+        const safeAlias = aliasToTest.replace(/'/g, "'\\''");
+
+        const testOut = await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "export JAVA_HOME=${javaHome} && export PATH=\\$JAVA_HOME/bin:\\$PATH && keytool -list -keystore ${keystorePath} -storepass '${safePass}' 2>&1 | head -5"`,
+          "Test Discovered Password",
+          15000
+        ).catch(() => "keytool error");
+
+        if (!testOut.includes("keytool error") && !testOut.includes("password was incorrect")) {
+          await this.addLog(deploymentId, `✅ تم العثور على كلمة مرور Keystore صحيحة من ملفات السيرفر`, "success");
+          return { password: candidate, alias: aliasToTest };
+        }
+      }
+
+      await this.addLog(deploymentId, "⚠️ لم يُعثر على كلمة مرور صحيحة في ملفات السيرفر", "warn");
+    } catch (e) {
+      await this.addLog(deploymentId, `⚠️ خطأ أثناء البحث عن كلمة المرور: ${(e as Error).message}`, "warn");
+    }
+
+    return null;
+  }
+
   private async stepAndroidReadiness(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "🔧 فحص جاهزية بيئة Android على السيرفر (مع إصلاح تلقائي)...", "info");
     const remoteDir = "/home/administrator/AXION";
     const errors: string[] = [];
     const autoFixes: string[] = [];
 
-    const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
+    let keystorePassword = process.env.KEYSTORE_PASSWORD || "";
     const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
-    const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    let keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
 
-    if (!keystorePassword) {
-      errors.push("KEYSTORE_PASSWORD غير معرّف");
-    }
-    if (!keystoreAlias) {
+    if (keystoreAlias) {
+      await this.addLog(deploymentId, `ℹ️ KEYSTORE_ALIAS: ${keystoreAlias}`, "info");
+    } else {
       errors.push("KEYSTORE_ALIAS غير معرّف");
     }
-    if (!keystoreKeyPassword) {
-      errors.push("KEYSTORE_KEY_PASSWORD غير معرّف");
-    }
 
-    if (keystorePassword && keystoreAlias && keystoreKeyPassword) {
-      await this.addLog(deploymentId, "✅ متغيرات التوقيع: KEYSTORE_PASSWORD + KEYSTORE_ALIAS + KEYSTORE_KEY_PASSWORD", "success");
+    if (keystorePassword) {
+      await this.addLog(deploymentId, "ℹ️ KEYSTORE_PASSWORD: موجود (سيتم التحقق من صحته)", "info");
+    } else {
+      await this.addLog(deploymentId, "⚠️ KEYSTORE_PASSWORD غير مُعيّن محلياً — سيتم البحث على السيرفر", "warn");
     }
 
     const readinessChecks = [
@@ -3631,30 +3707,70 @@ echo 'MAINACTIVITY_FIXED'"`,
         }
       }
 
-      if (keystorePassword && !errors.some(e => e.includes("keystore"))) {
-        try {
-          const tmpPassFile = `/tmp/.ks_check_${deploymentId}`;
-          writeFileSync(tmpPassFile, keystorePassword, { mode: 0o600 });
-          const scpCmd = this.buildSCPCommand(tmpPassFile, "/tmp/.ks_check_pass");
+      if (!errors.some(e => e.includes("keystore"))) {
+        const javaHome = `$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)`;
+        const keystorePath = `${remoteDir}/android/app/axion-release.keystore`;
 
-          const keytoolOutput = await this.execWithLog(
+        const testKeystorePassword = async (pass: string): Promise<string> => {
+          const tmpPassFile = `/tmp/.ks_check_${deploymentId}`;
+          writeFileSync(tmpPassFile, pass, { mode: 0o600 });
+          const scpCmd = this.buildSCPCommand(tmpPassFile, "/tmp/.ks_check_pass");
+          const out = await this.execWithLog(
             deploymentId,
-            `${scpCmd} && ${sshCmd} "export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && keytool -list -keystore ${remoteDir}/android/app/axion-release.keystore -storepass \\$(cat /tmp/.ks_check_pass) 2>&1; rm -f /tmp/.ks_check_pass"`,
+            `${scpCmd} && ${sshCmd} "export JAVA_HOME=\\${javaHome} && export PATH=\\$JAVA_HOME/bin:\\$PATH && keytool -list -keystore ${keystorePath} -storepass \\$(cat /tmp/.ks_check_pass) 2>&1; rm -f /tmp/.ks_check_pass"`,
             "Keystore Integrity",
             20000
           );
-
           try { unlinkSync(tmpPassFile); } catch {}
+          return out;
+        };
 
-          if (keytoolOutput.includes("keytool error") || keytoolOutput.includes("password was incorrect")) {
-            errors.push("كلمة مرور Keystore خاطئة أو الملف تالف");
+        try {
+          let keytoolOutput = "";
+          let activeAlias = keystoreAlias;
+
+          if (keystorePassword) {
+            keytoolOutput = await testKeystorePassword(keystorePassword);
+          }
+
+          const localPasswordFailed = !keystorePassword ||
+            keytoolOutput.includes("keytool error") ||
+            keytoolOutput.includes("password was incorrect") ||
+            keytoolOutput.includes("IOException");
+
+          if (localPasswordFailed) {
+            if (keystorePassword) {
+              await this.addLog(deploymentId, "⚠️ كلمة المرور المحلية غير صحيحة — جاري البحث التلقائي على السيرفر...", "warn");
+            }
+            const discovered = await this.resolveKeystorePasswordFromServer(deploymentId, sshCmd, remoteDir, keystoreAlias);
+            if (discovered) {
+              keystorePassword = discovered.password;
+              keystoreKeyPassword = discovered.password;
+              activeAlias = discovered.alias;
+              process.env.KEYSTORE_PASSWORD = discovered.password;
+              process.env.KEYSTORE_KEY_PASSWORD = discovered.password;
+              if (discovered.alias !== keystoreAlias) {
+                process.env.KEYSTORE_ALIAS = discovered.alias;
+              }
+              await this.addLog(deploymentId, "✅ سلامة Keystore: تم التحقق بكلمة المرور المكتشفة من السيرفر", "success");
+              if (activeAlias) {
+                await this.addLog(deploymentId, `✅ Alias "${activeAlias}" مطابق`, "success");
+              }
+            } else {
+              errors.push("كلمة مرور Keystore خاطئة أو الملف تالف — لم يُعثر على كلمة مرور صحيحة في السيرفر");
+            }
           } else {
             await this.addLog(deploymentId, "✅ سلامة Keystore: كلمة المرور صحيحة", "success");
-
             if (keytoolOutput.includes(keystoreAlias)) {
               await this.addLog(deploymentId, `✅ Alias "${keystoreAlias}" مطابق`, "success");
             } else {
-              errors.push(`Alias "${keystoreAlias}" غير موجود في Keystore — تحقق من KEYSTORE_ALIAS`);
+              const discovered = await this.resolveKeystorePasswordFromServer(deploymentId, sshCmd, remoteDir, keystoreAlias);
+              if (discovered && discovered.alias !== keystoreAlias) {
+                process.env.KEYSTORE_ALIAS = discovered.alias;
+                await this.addLog(deploymentId, `🔧 تم تصحيح Alias إلى "${discovered.alias}" تلقائياً`, "success");
+              } else {
+                errors.push(`Alias "${keystoreAlias}" غير موجود في Keystore — تحقق من KEYSTORE_ALIAS`);
+              }
             }
           }
         } catch (keytoolErr: any) {

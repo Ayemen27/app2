@@ -22,6 +22,7 @@ import { LoadingSpinner, EmptyState, secureDownloadExport } from "./utils";
 import { SingleDayReport } from "./SingleDayReport";
 import { RangeDayPage } from "./RangeDayPage";
 import { exportTransactionsToExcelTemplate2 } from "@/components/ui/export-transactions-excel-template2";
+import { exportDailyReportPdfTemplate2 } from "@/components/ui/export-daily-report-pdf-template2";
 
 export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -175,79 +176,81 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     }
   };
 
+  const buildTransactionsFromReport = (report: DailyReportData): any[] => {
+    const txs: any[] = [];
+    const carried = (report.totals as any)?.carriedForwardBalance || (report as any).carriedForwardBalance || 0;
+    if (carried !== 0) {
+      txs.push({ id: 'cf', date: dateStr, type: 'income', category: 'رصيد سابق', amount: Math.abs(Number(carried)), description: 'رصيد مرحل' });
+    }
+    (report.fundTransfers || []).forEach((f: any) => {
+      txs.push({ id: f.id, date: f.date || dateStr, type: 'income', category: 'عهدة', amount: parseFloat(f.amount || '0'), description: `عهدة من ${f.senderName || 'غير محدد'}`, recipientName: f.senderName });
+    });
+    (report.attendance || []).forEach((a: any) => {
+      const paid = parseFloat(a.paidAmount || '0');
+      const payable = parseFloat(a.payableAmount || '0');
+      txs.push({ id: a.id, date: a.date || dateStr, type: paid === 0 && payable > 0 ? 'deferred' : 'expense', category: 'أجور عمال', amount: paid, description: a.workDescription || 'أجر يومي', workerName: a.workerName || a.worker_name || 'غير محدد', workDays: parseFloat(a.workDays || a.work_days || '0') || undefined, dailyWage: parseFloat(a.dailyWage || a.daily_wage || '0') || undefined, notes: a.notes || a.workDescription || '' });
+    });
+    (report.materials || []).forEach((m: any) => {
+      const isCash = (m.purchaseType || 'نقد') === 'نقد' || m.purchaseType === 'نقداً';
+      if (!isCash) return;
+      const paid = parseFloat(m.paidAmount || '0');
+      const total = parseFloat(m.totalAmount || '0');
+      txs.push({ id: m.id, date: m.date || dateStr, type: 'expense', category: 'مشتريات مواد', amount: paid > 0 ? paid : total, description: `شراء ${m.materialName || 'مادة'}`, notes: m.notes || m.materialName || m.supplier || m.supplierName || '' });
+    });
+    (report.transport || []).forEach((t: any) => {
+      txs.push({ id: t.id, date: t.date || dateStr, type: 'expense', category: 'مواصلات', amount: parseFloat(t.amount || '0'), description: t.description || 'مصروف مواصلات', notes: t.notes || t.description || '' });
+    });
+    (report.miscExpenses || []).forEach((e: any) => {
+      txs.push({ id: e.id, date: e.date || dateStr, type: 'expense', category: 'نثريات', amount: parseFloat(e.amount || '0'), description: e.description || 'مصروف متنوع', notes: e.notes || e.description || '' });
+    });
+    (report.workerTransfers || []).forEach((wt: any) => {
+      txs.push({ id: wt.id, date: wt.date || dateStr, type: 'expense', category: 'حوالات عمال', amount: parseFloat(wt.amount || '0'), description: wt.notes || 'حوالة للعامل', workerName: wt.workerName || wt.worker_name || 'غير محدد', notes: wt.notes || wt.description || '' });
+    });
+    return txs;
+  };
+
+  const buildTotals = (report: DailyReportData) => {
+    const carried = Math.abs(Number((report.totals as any)?.carriedForwardBalance || (report as any).carriedForwardBalance || 0));
+    return {
+      totalIncome: parseFloat(String(report.totals?.totalFundTransfers || 0)) + carried,
+      totalExpenses: parseFloat(String(report.totals?.totalExpenses || 0)),
+      balance: parseFloat(String(report.totals?.balance || 0)),
+    };
+  };
+
   const handleExportTemplate2 = async () => {
-    if (!projectIdForApi) {
-      toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
-      return;
-    }
-    if (!dailyReport) {
-      toast({ title: "تنبيه", description: "لا توجد بيانات للتصدير", variant: "destructive" });
-      return;
-    }
+    if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
+    if (!dailyReport) { toast({ title: "تنبيه", description: "لا توجد بيانات للتصدير", variant: "destructive" }); return; }
     setShowExcelTemplateDialog(false);
     setIsExportingXlsx(true);
     try {
-      const transactions: any[] = [];
-
-      // الرصيد المرحل
-      const carried = dailyReport.totals?.carriedForwardBalance || (dailyReport as any).carriedForwardBalance || 0;
-      if (carried !== 0) {
-        transactions.push({ id: 'cf', date: dateStr, type: 'income', category: 'رصيد سابق', amount: Math.abs(Number(carried)), description: 'رصيد مرحل' });
-      }
-
-      // العهدة / التحويلات الواردة
-      (dailyReport.fundTransfers || []).forEach((f: any) => {
-        transactions.push({ id: f.id, date: f.date || dateStr, type: 'income', category: 'عهدة', amount: parseFloat(f.amount || '0'), description: `عهدة من ${f.senderName || 'غير محدد'}`, recipientName: f.senderName });
-      });
-
-      // حضور العمال
-      (dailyReport.attendance || []).forEach((a: any) => {
-        const paid = parseFloat(a.paidAmount || '0');
-        const payable = parseFloat(a.payableAmount || '0');
-        transactions.push({ id: a.id, date: a.date || dateStr, type: paid === 0 && payable > 0 ? 'deferred' : 'expense', category: 'أجور عمال', amount: paid, description: a.workDescription || 'أجر يومي', workerName: a.workerName || a.worker_name || 'غير محدد', workDays: parseFloat(a.workDays || a.work_days || '0') || undefined, dailyWage: parseFloat(a.dailyWage || a.daily_wage || '0') || undefined });
-      });
-
-      // المواد
-      (dailyReport.materials || []).forEach((m: any) => {
-        const pType = m.purchaseType || 'نقد';
-        const isCash = pType === 'نقد' || pType === 'نقداً';
-        if (!isCash) return;
-        const paid = parseFloat(m.paidAmount || '0');
-        const total = parseFloat(m.totalAmount || '0');
-        transactions.push({ id: m.id, date: m.date || dateStr, type: 'expense', category: 'مشتريات مواد', amount: paid > 0 ? paid : total, description: `شراء ${m.materialName || 'مادة'}`, notes: m.supplier || m.supplierName });
-      });
-
-      // المواصلات
-      (dailyReport.transport || []).forEach((t: any) => {
-        transactions.push({ id: t.id, date: t.date || dateStr, type: 'expense', category: 'مواصلات', amount: parseFloat(t.amount || '0'), description: t.description || 'مصروف مواصلات', notes: t.description });
-      });
-
-      // المصاريف المتنوعة
-      (dailyReport.miscExpenses || []).forEach((e: any) => {
-        transactions.push({ id: e.id, date: e.date || dateStr, type: 'expense', category: 'نثريات', amount: parseFloat(e.amount || '0'), description: e.description || 'مصروف متنوع', notes: e.description });
-      });
-
-      // حوالات العمال
-      (dailyReport.workerTransfers || []).forEach((wt: any) => {
-        transactions.push({ id: wt.id, date: wt.date || dateStr, type: 'expense', category: 'حوالات عمال', amount: parseFloat(wt.amount || '0'), description: wt.notes || 'حوالة للعامل', workerName: wt.workerName || wt.worker_name || 'غير محدد', notes: wt.notes });
-      });
-
-      const totals = {
-        totalIncome: parseFloat(String(dailyReport.totals?.totalFundTransfers || 0)) + Math.abs(Number(carried)),
-        totalExpenses: parseFloat(String(dailyReport.totals?.totalExpenses || 0)),
-        balance: parseFloat(String(dailyReport.totals?.balance || 0)),
-      };
-
-      const downloaded = await exportTransactionsToExcelTemplate2(transactions, totals, selectedProjectName || 'المشروع', dateStr);
-      if (downloaded) {
-        toast({ title: "تم التصدير بنجاح", description: "تم تصدير التقرير بالقالب الثاني" });
-      } else {
-        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل", variant: "destructive" });
-      }
+      const downloaded = await exportTransactionsToExcelTemplate2(
+        buildTransactionsFromReport(dailyReport), buildTotals(dailyReport), selectedProjectName || 'المشروع', dateStr
+      );
+      if (downloaded) toast({ title: "تم التصدير بنجاح", description: "تم تصدير التقرير بالقالب الثاني" });
+      else toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل", variant: "destructive" });
     } catch (err: any) {
       toast({ title: "فشل التصدير", description: toUserMessage(err, "حدث خطأ أثناء التصدير"), variant: "destructive" });
     } finally {
       setIsExportingXlsx(false);
+    }
+  };
+
+  const handleExportPdfTemplate2 = async () => {
+    if (!projectIdForApi) { toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" }); return; }
+    if (!dailyReport) { toast({ title: "تنبيه", description: "لا توجد بيانات للتصدير", variant: "destructive" }); return; }
+    setShowPdfTemplateDialog(false);
+    setIsExportingPdf(true);
+    try {
+      const downloaded = await exportDailyReportPdfTemplate2(
+        buildTransactionsFromReport(dailyReport), buildTotals(dailyReport), selectedProjectName || 'المشروع', dateStr
+      );
+      if (downloaded) toast({ title: "تم التصدير بنجاح", description: "تم تصدير PDF بالقالب الثاني" });
+      else toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "فشل التصدير", description: toUserMessage(err, "حدث خطأ أثناء التصدير"), variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -401,11 +404,9 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
             </button>
             <button
               data-testid="btn-pdf-template-2"
-              onClick={() => {
-                setShowPdfTemplateDialog(false);
-                toast({ title: "قريباً", description: "PDF القالب 2 سيكون متاحاً في تحديث قادم" });
-              }}
-              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 transition-all text-right"
+              onClick={handleExportPdfTemplate2}
+              disabled={isExportingPdf}
+              className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950 transition-all text-right disabled:opacity-50"
             >
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0 mt-0.5">
                 <FileText className="w-5 h-5 text-green-700 dark:text-green-300" />

@@ -168,34 +168,15 @@ export async function exportTransactionsToExcelTemplate2(
 
   let r = 1;
 
-  // ── صف 1: عنوان التقرير (أخضر داكن + أبيض) ──────────────────────────────
+  // ── صف 1: عنوان التقرير ───────────────────────────────────────────────────
   ws.mergeCells(r, 1, r, COL);
   const titleCell = ws.getRow(r).getCell(1);
-  titleCell.value = `كشف مصروفات مشروع ${projectName || ''} يوم ${hijri.dayName} ${hijriStr} الموافق ${gFormatted}`;
+  titleCell.value = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
   style(titleCell, { bg: GREEN, fc: 'FFFFFFFF', bold: true, size: 12 });
   ws.getRow(r).height = 30;
   r++;
 
-  // ── صف 2: تفاصيل التاريخ ─────────────────────────────────────────────────
-  ws.getRow(r).height = 22;
-
-  ws.mergeCells(r, 1, r, 2);
-  const d1 = ws.getRow(r).getCell(1);
-  d1.value = `الموافق ${gFormatted}`;
-  style(d1, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
-
-  ws.mergeCells(r, 3, r, 4);
-  const d2 = ws.getRow(r).getCell(3);
-  d2.value = `${hijri.dayName} ${hijriStr}`;
-  style(d2, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
-
-  ws.mergeCells(r, 5, r, COL);
-  const d3 = ws.getRow(r).getCell(5);
-  d3.value = `الموقع: ${projectName || ''}`;
-  style(d3, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
-  r++;
-
-  // ── صف 3: رؤوس الأعمدة ───────────────────────────────────────────────────
+  // ── صف 2: رؤوس الأعمدة ───────────────────────────────────────────────────
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
   ws.getRow(r).height = 22;
   HEADERS.forEach((h, i) => {
@@ -228,12 +209,7 @@ export async function exportTransactionsToExcelTemplate2(
     if (isOpening)                bg = GREEN_MUTED;
     if (isIncome && !isOpening)   bg = ORANGE_INCOME;
 
-    const notesVal = (() => {
-      const parts: string[] = [];
-      if (t.notes && t.notes !== t.description) parts.push(t.notes);
-      if (t.dailyWage && t.dailyWage > 0) parts.push(`الأجر اليومي: ${t.dailyWage}`);
-      return parts.join(' | ') || (t.description && t.description !== getEntryName(t) ? t.description : '');
-    })();
+    const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
 
     const rowData = [
       amt,

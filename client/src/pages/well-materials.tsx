@@ -17,7 +17,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock, ArrowUpDown, Trash2, FileText } from "lucide-react";
+import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock, ArrowUpDown, Trash2, FileText, Package } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 
 const INSTALLATION_STATUSES = [
@@ -157,6 +157,38 @@ export default function WellMaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ["wells-full-data", selectedProjectId] });
     },
     onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف البئر"), variant: "destructive" }); }
+  });
+
+  // ---- خصم المخزن ----
+  const [showDeductDialog, setShowDeductDialog] = useState(false);
+  const [deductingWell, setDeductingWell] = useState<any>(null);
+  const [deductForm, setDeductForm] = useState({ item_id: '', quantity: '', notes: '' });
+
+  const { data: inventoryItemsData = [] } = useQuery<any[]>({
+    queryKey: ['/api/inventory/stock'],
+    queryFn: async () => {
+      const res = await apiRequest('/api/inventory/stock');
+      return res.data || res || [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const inventoryOptions = useMemo(() =>
+    inventoryItemsData.map((item: any) => ({
+      value: String(item.id),
+      label: `${item.name} (${item.unit || 'وحدة'}) - متاح: ${Number(item.currentStock ?? item.current_stock ?? 0).toLocaleString('en-US')}`,
+    })), [inventoryItemsData]);
+
+  const deductInventoryMutation = useMutation({
+    mutationFn: async ({ wellId, item_id, quantity, notes }: { wellId: number; item_id: string; quantity: string; notes: string }) =>
+      apiRequest(`/api/wells/${wellId}/deduct-inventory`, 'POST', { item_id: Number(item_id), quantity: Number(quantity), notes }),
+    onSuccess: (_, vars) => {
+      toast({ title: 'تم الخصم من المخزن بنجاح' });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+      setShowDeductDialog(false);
+      setDeductForm({ item_id: '', quantity: '', notes: '' });
+    },
+    onError: (error: any) => toast({ title: 'خطأ', description: toUserMessage(error, 'فشل في الخصم من المخزن'), variant: 'destructive' }),
   });
 
   const handleFilterChange = useCallback((key: string, value: any) => {
@@ -612,6 +644,12 @@ export default function WellMaterialsPage() {
                     color: "blue",
                   },
                   {
+                    icon: Package,
+                    label: "خصم من المخزن",
+                    onClick: () => { setDeductingWell(well); setShowDeductDialog(true); },
+                    color: "green",
+                  },
+                  {
                     icon: ArrowUpDown,
                     label: "تغيير الحالة",
                     onClick: () => {},
@@ -649,6 +687,71 @@ export default function WellMaterialsPage() {
           }}
         />
       )}
+
+      <Dialog open={showDeductDialog} onOpenChange={(open) => { if (!open) { setShowDeductDialog(false); setDeductingWell(null); setDeductForm({ item_id: '', quantity: '', notes: '' }); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-deduct-dialog-title">
+              خصم مادة من المخزن — بئر #{deductingWell?.wellNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">المادة *</Label>
+              <SearchableSelect
+                value={deductForm.item_id}
+                onValueChange={(v) => setDeductForm(f => ({ ...f, item_id: v }))}
+                options={inventoryOptions}
+                placeholder="اختر مادة من المخزن..."
+                searchPlaceholder="ابحث باسم المادة..."
+                data-testid="select-deduct-item"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">الكمية *</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={deductForm.quantity}
+                onChange={(e) => setDeductForm(f => ({ ...f, quantity: e.target.value }))}
+                placeholder="0"
+                data-testid="input-deduct-quantity"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">ملاحظات</Label>
+              <Input
+                value={deductForm.notes}
+                onChange={(e) => setDeductForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="سبب الصرف..."
+                data-testid="input-deduct-notes"
+              />
+            </div>
+            {deductForm.item_id && deductForm.quantity && (
+              <div className="text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2">
+                سيتم خصم <b>{Number(deductForm.quantity).toLocaleString('en-US')}</b> وحدة من المخزن باستخدام نظام FIFO (الأقدم أولاً).
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" size="sm" onClick={() => { setShowDeductDialog(false); setDeductingWell(null); setDeductForm({ item_id: '', quantity: '', notes: '' }); }} data-testid="button-cancel-deduct">
+              إلغاء
+            </Button>
+            <Button
+              size="sm"
+              disabled={!deductForm.item_id || !deductForm.quantity || Number(deductForm.quantity) <= 0 || deductInventoryMutation.isPending}
+              onClick={() => {
+                if (!deductingWell || !deductForm.item_id || !deductForm.quantity) return;
+                deductInventoryMutation.mutate({ wellId: deductingWell.id, ...deductForm });
+              }}
+              data-testid="button-confirm-deduct"
+            >
+              {deductInventoryMutation.isPending ? <><Loader className="h-3 w-3 animate-spin ml-1" /> جاري...</> : 'تأكيد الخصم'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

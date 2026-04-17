@@ -938,6 +938,253 @@ wellRouter.post('/crews/rebuild-totals', async (req: Request, res: Response) => 
 });
 
 // ============================================================
+// إدارة عمال الفريق - /api/wells/crews/:crewId/workers
+// ============================================================
+
+async function recalculateCrewTotals(crewId: number): Promise<void> {
+  const linkedWorkers = await db
+    .select({
+      worker_id: wellCrewWorkers.worker_id,
+      daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+      work_days: wellCrewWorkers.work_days,
+    })
+    .from(wellCrewWorkers)
+    .where(eq(wellCrewWorkers.crew_id, crewId));
+
+  if (linkedWorkers.length === 0) return;
+
+  let totalWorkersCnt = 0;
+  let totalMastersCnt = 0;
+  let totalWages = 0;
+  let maxWorkDays = 0;
+
+  for (const lw of linkedWorkers) {
+    const workerRows = await db.select({ type: workers.type }).from(workers).where(eq(workers.id, lw.worker_id)).limit(1);
+    const isMaster = workerRows.length > 0 && (workerRows[0].type === 'معلم' || workerRows[0].type === 'مشرف');
+    if (isMaster) totalMastersCnt++; else totalWorkersCnt++;
+    const wage = parseFloat(lw.daily_wage_snapshot || '0');
+    const days = parseFloat(lw.work_days || '0');
+    totalWages += wage * days;
+    if (days > maxWorkDays) maxWorkDays = days;
+  }
+
+  await db.update(wellWorkCrews).set({
+    workersCount: totalWorkersCnt.toString(),
+    mastersCount: totalMastersCnt.toString(),
+    totalWages: totalWages.toString(),
+    workDays: maxWorkDays.toString(),
+    updated_at: new Date(),
+  }).where(eq(wellWorkCrews.id, crewId));
+}
+
+// GET /api/wells/crews/:crewId/workers - جلب عمال طاقم محدد
+wellRouter.get('/crews/:crewId/workers', async (req: Request, res: Response) => {
+  try {
+    const crewId = parseInt(req.params.crewId);
+    if (isNaN(crewId)) return res.status(400).json({ success: false, message: 'معرف الطاقم غير صالح' });
+
+    const crewWorkers = await db
+      .select({
+        id: wellCrewWorkers.id,
+        crew_id: wellCrewWorkers.crew_id,
+        worker_id: wellCrewWorkers.worker_id,
+        daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+        work_days: wellCrewWorkers.work_days,
+        crew_type: wellCrewWorkers.crew_type,
+        notes: wellCrewWorkers.notes,
+        created_at: wellCrewWorkers.created_at,
+        worker_name: workers.name,
+        worker_type: workers.type,
+        worker_daily_wage: workers.dailyWage,
+      })
+      .from(wellCrewWorkers)
+      .leftJoin(workers, eq(wellCrewWorkers.worker_id, workers.id))
+      .where(eq(wellCrewWorkers.crew_id, crewId));
+
+    res.json({ success: true, data: crewWorkers });
+  } catch (error: any) {
+    console.error('Error fetching crew workers:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: 'فشل في جلب عمال الطاقم' });
+  }
+});
+
+// POST /api/wells/crews/:crewId/workers - ربط عامل بطاقم
+wellRouter.post('/crews/:crewId/workers', async (req: Request, res: Response) => {
+  try {
+    const crewId = parseInt(req.params.crewId);
+    if (isNaN(crewId)) {
+      return res.status(400).json({ success: false, message: 'معرف الطاقم غير صالح' });
+    }
+
+    const { worker_id, work_days, notes } = req.body;
+    if (!worker_id) {
+      return res.status(400).json({ success: false, message: 'worker_id مطلوب' });
+    }
+
+    const crew = await WellService.getCrewById(crewId);
+    if (!crew) {
+      return res.status(404).json({ success: false, message: 'طاقم العمل غير موجود' });
+    }
+
+    const well = await WellService.getWellById(crew.well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+    }
+
+    // جلب أجر العامل الحالي كـ snapshot
+    const [workerRow] = await db.select({ dailyWage: workers.dailyWage, type: workers.type })
+      .from(workers).where(eq(workers.id, worker_id)).limit(1);
+
+    if (!workerRow) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
+    }
+
+    const [newLink] = await db.insert(wellCrewWorkers).values({
+      crew_id: crewId,
+      worker_id,
+      daily_wage_snapshot: workerRow.dailyWage,
+      work_days: work_days ? String(work_days) : null,
+      crew_type: crew.crewType || null,
+      notes: notes || null,
+    }).returning();
+
+    // إعادة حساب إجماليات الطاقم
+    await recalculateCrewTotals(crewId);
+
+    res.status(201).json({ success: true, data: newLink, message: 'تم ربط العامل بالطاقم بنجاح' });
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(409).json({ success: false, message: 'هذا العامل مرتبط بالطاقم بالفعل' });
+    }
+    console.error('Error adding crew worker:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKER_ADD_ERROR', message: 'فشل في ربط العامل بالطاقم' });
+  }
+});
+
+// PUT /api/wells/crews/:crewId/workers/:linkId - تحديث بيانات عامل في الطاقم
+wellRouter.put('/crews/:crewId/workers/:linkId', async (req: Request, res: Response) => {
+  try {
+    const crewId = parseInt(req.params.crewId);
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(crewId) || isNaN(linkId)) {
+      return res.status(400).json({ success: false, message: 'معرف غير صالح' });
+    }
+
+    const { work_days, notes } = req.body;
+
+    const crew = await WellService.getCrewById(crewId);
+    if (!crew) return res.status(404).json({ success: false, message: 'الطاقم غير موجود' });
+
+    const well = await WellService.getWellById(crew.well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+    }
+
+    const updateData: any = {};
+    if (work_days !== undefined) updateData.work_days = String(work_days);
+    if (notes !== undefined) updateData.notes = notes;
+
+    const [updated] = await db.update(wellCrewWorkers)
+      .set(updateData)
+      .where(eq(wellCrewWorkers.id, linkId))
+      .returning();
+
+    await recalculateCrewTotals(crewId);
+
+    res.json({ success: true, data: updated, message: 'تم تحديث بيانات العامل' });
+  } catch (error: any) {
+    console.error('Error updating crew worker:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKER_UPDATE_ERROR', message: 'فشل في تحديث العامل' });
+  }
+});
+
+// DELETE /api/wells/crews/:crewId/workers/:linkId - إلغاء ربط عامل من طاقم
+wellRouter.delete('/crews/:crewId/workers/:linkId', async (req: Request, res: Response) => {
+  try {
+    const crewId = parseInt(req.params.crewId);
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(crewId) || isNaN(linkId)) {
+      return res.status(400).json({ success: false, message: 'معرف غير صالح' });
+    }
+
+    const crew = await WellService.getCrewById(crewId);
+    if (!crew) return res.status(404).json({ success: false, message: 'الطاقم غير موجود' });
+
+    const well = await WellService.getWellById(crew.well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+    }
+
+    await db.delete(wellCrewWorkers).where(eq(wellCrewWorkers.id, linkId));
+    await recalculateCrewTotals(crewId);
+
+    res.json({ success: true, message: 'تم إلغاء ربط العامل من الطاقم' });
+  } catch (error: any) {
+    console.error('Error removing crew worker:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKER_DELETE_ERROR', message: 'فشل في إلغاء ربط العامل' });
+  }
+});
+
+// ============================================================
+// خصم المواد من المخزن لبئر معين - /api/wells/:wellId/deduct-inventory
+// ============================================================
+
+wellRouter.post('/:wellId/deduct-inventory', async (req: Request, res: Response) => {
+  try {
+    const wellId = parseInt(req.params.wellId);
+    if (isNaN(wellId)) {
+      return res.status(400).json({ success: false, message: 'معرف البئر غير صالح' });
+    }
+
+    const { item_id, quantity, notes } = req.body;
+    if (!item_id || !quantity || Number(quantity) <= 0) {
+      return res.status(400).json({ success: false, message: 'item_id والكمية مطلوبان ويجب أن تكون الكمية أكبر من 0' });
+    }
+
+    const well = await WellService.getWellById(wellId);
+    if (!well) return res.status(404).json({ success: false, message: 'البئر غير موجود' });
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+    }
+
+    const user = getAuthUser(req);
+    const { InventoryService } = await import('../../services/InventoryService.js');
+
+    const result = await InventoryService.issueFromStock({
+      itemId: Number(item_id),
+      quantity: Number(quantity),
+      toProjectId: well.project_id || 'well-consumption',
+      transactionDate: new Date().toISOString().split('T')[0],
+      performedBy: user?.user_id || null,
+      notes: notes || `استهلاك في بئر #${wellId}`,
+    });
+
+    res.json({ success: true, data: result, message: `تم خصم ${quantity} وحدة من المخزن بنجاح` });
+  } catch (error: any) {
+    console.error('Error deducting from inventory for well:', error);
+    const isStock = error?.message?.includes('أكبر من المتاح') || error?.message?.includes('الكمية');
+    res.status(isStock ? 400 : 500).json({
+      success: false,
+      error: 'INVENTORY_DEDUCTION_ERROR',
+      message: error?.message || 'فشل في الخصم من المخزن'
+    });
+  }
+});
+
+// ============================================================
 // مكونات الطاقة الشمسية (Solar Components) - /api/wells/:wellId/solar-components
 // ============================================================
 

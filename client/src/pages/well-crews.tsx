@@ -178,6 +178,7 @@ export default function WellCrewsPage() {
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [newWorkerForm, setNewWorkerForm] = useState({ worker_id: '', work_days: '' });
 
   const emptyCrewForm = {
     crewType: "", teamName: "", workersCount: 0, mastersCount: 0,
@@ -530,11 +531,74 @@ export default function WellCrewsPage() {
     },
   });
 
+  // ---- عمال الفريق ----
+  const { data: allWorkersData } = useQuery<any[]>({
+    queryKey: ['/api/workers'],
+    queryFn: async () => {
+      const res = await apiRequest('/api/workers');
+      return res.data || res || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: editingCrewWorkers = [], refetch: refetchCrewWorkers } = useQuery<CrewWorkerData[]>({
+    queryKey: ['/api/wells/crews', editingCrew?.id, 'workers'],
+    queryFn: async () => {
+      if (!editingCrew?.id) return [];
+      const res = await apiRequest(`/api/wells/crews/${editingCrew.id}/workers`);
+      return res.data || [];
+    },
+    enabled: !!editingCrew?.id,
+    staleTime: 0,
+  });
+
+  const addCrewWorkerMutation = useMutation({
+    mutationFn: async ({ crewId, worker_id, work_days }: { crewId: number; worker_id: string; work_days: string }) =>
+      apiRequest(`/api/wells/crews/${crewId}/workers`, 'POST', { worker_id, work_days: Number(work_days) || null }),
+    onSuccess: () => {
+      setNewWorkerForm({ worker_id: '', work_days: '' });
+      refetchCrewWorkers();
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      toast({ title: 'تم ربط العامل بالطاقم' });
+    },
+    onError: (error: any) => toast({ title: 'خطأ', description: toUserMessage(error, 'فشل في ربط العامل'), variant: 'destructive' }),
+  });
+
+  const removeCrewWorkerMutation = useMutation({
+    mutationFn: async ({ crewId, linkId }: { crewId: number; linkId: number }) =>
+      apiRequest(`/api/wells/crews/${crewId}/workers/${linkId}`, 'DELETE'),
+    onSuccess: () => {
+      refetchCrewWorkers();
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      toast({ title: 'تم إلغاء ربط العامل' });
+    },
+    onError: (error: any) => toast({ title: 'خطأ', description: toUserMessage(error, 'فشل في إلغاء ربط العامل'), variant: 'destructive' }),
+  });
+
+  const updateCrewWorkerMutation = useMutation({
+    mutationFn: async ({ crewId, linkId, work_days }: { crewId: number; linkId: number; work_days: string }) =>
+      apiRequest(`/api/wells/crews/${crewId}/workers/${linkId}`, 'PUT', { work_days: Number(work_days) }),
+    onSuccess: () => {
+      refetchCrewWorkers();
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => toast({ title: 'خطأ', description: toUserMessage(error), variant: 'destructive' }),
+  });
+
+  const workerOptions = useMemo(() => {
+    if (!allWorkersData) return [];
+    const linkedIds = new Set(editingCrewWorkers.map(w => w.worker_id));
+    return allWorkersData
+      .filter((w: any) => !linkedIds.has(w.id || w.worker_id))
+      .map((w: any) => ({ value: w.id || w.worker_id, label: `${w.name} - ${w.type || ''}` }));
+  }, [allWorkersData, editingCrewWorkers]);
+
   const resetCrewForm = () => {
     setCrewForm(emptyCrewForm);
     setEditingCrew(null);
     setSelectedWellId(null);
     setShowCrewForm(false);
+    setNewWorkerForm({ worker_id: '', work_days: '' });
   };
 
   const resetTransportForm = () => {
@@ -1065,7 +1129,7 @@ export default function WellCrewsPage() {
       )}
 
       <Dialog open={showCrewForm} onOpenChange={(open) => { if (!open) resetCrewForm(); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle data-testid="text-crew-form-title">
               {editingCrew ? "تعديل فريق عمل" : "إضافة فريق عمل جديد"}
@@ -1168,6 +1232,98 @@ export default function WellCrewsPage() {
               />
             </div>
           </div>
+          {editingCrew && (
+            <div className="border rounded-lg p-3 space-y-2 bg-muted/20">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <Users className="h-3 w-3" /> ربط العمال بالطاقم ({editingCrewWorkers.length})
+              </p>
+              {editingCrewWorkers.length > 0 && (
+                <div className="space-y-1">
+                  {editingCrewWorkers.map((w) => (
+                    <div key={w.id} className="flex items-center justify-between gap-2 text-xs px-2 py-1 rounded bg-background border" data-testid={`row-crew-worker-${w.id}`}>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">{w.worker_name || 'غير معروف'}</span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 mr-1">{w.worker_type || '-'}</Badge>
+                        <span className="text-muted-foreground mr-1">{Number(w.daily_wage_snapshot || w.worker_daily_wage || 0).toLocaleString('en-US')} ر/يوم</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          className="h-6 w-16 text-xs px-1"
+                          value={w.work_days || ''}
+                          placeholder="أيام"
+                          data-testid={`input-worker-days-${w.id}`}
+                          onChange={(e) => {
+                            updateCrewWorkerMutation.mutate({ crewId: editingCrew.id, linkId: w.id, work_days: e.target.value });
+                          }}
+                        />
+                        <span className="text-muted-foreground text-[10px]">
+                          = {(Number(w.daily_wage_snapshot || w.worker_daily_wage || 0) * Number(w.work_days || 0)).toLocaleString('en-US')} ر
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-destructive hover:bg-destructive/10"
+                          onClick={() => removeCrewWorkerMutation.mutate({ crewId: editingCrew.id, linkId: w.id })}
+                          disabled={removeCrewWorkerMutation.isPending}
+                          data-testid={`button-remove-worker-${w.id}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="text-xs font-semibold text-green-700 dark:text-green-400 px-2">
+                    إجمالي الأجور: {editingCrewWorkers.reduce((s, w) => s + Number(w.daily_wage_snapshot || w.worker_daily_wage || 0) * Number(w.work_days || 0), 0).toLocaleString('en-US')} ر
+                  </div>
+                </div>
+              )}
+              <div className="flex items-end gap-2 pt-1">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">إضافة عامل</Label>
+                  <SearchableSelect
+                    value={newWorkerForm.worker_id}
+                    onValueChange={(v) => setNewWorkerForm(f => ({ ...f, worker_id: v }))}
+                    options={workerOptions}
+                    placeholder="اختر عاملاً..."
+                    searchPlaceholder="ابحث باسم العامل..."
+                    data-testid="select-new-crew-worker"
+                  />
+                </div>
+                <div className="w-20 space-y-1">
+                  <Label className="text-xs">الأيام</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    className="h-9"
+                    placeholder="0"
+                    value={newWorkerForm.work_days}
+                    onChange={(e) => setNewWorkerForm(f => ({ ...f, work_days: e.target.value }))}
+                    data-testid="input-new-crew-worker-days"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="h-9"
+                  disabled={!newWorkerForm.worker_id || addCrewWorkerMutation.isPending}
+                  onClick={() => {
+                    if (!newWorkerForm.worker_id) return;
+                    addCrewWorkerMutation.mutate({
+                      crewId: editingCrew.id,
+                      worker_id: newWorkerForm.worker_id,
+                      work_days: newWorkerForm.work_days,
+                    });
+                  }}
+                  data-testid="button-add-crew-worker"
+                >
+                  {addCrewWorkerMutation.isPending ? <Loader className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="outline" size="sm" onClick={resetCrewForm} data-testid="button-cancel-crew">إلغاء</Button>
             <Button

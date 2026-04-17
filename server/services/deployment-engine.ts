@@ -324,6 +324,36 @@ export class DeploymentEngine {
         const runningStep = steps.find(s => s.status === "running");
         const stepStartedAt = runningStep?.startedAt ? new Date(runningStep.startedAt).getTime() : 0;
         const effectiveAge = stepStartedAt > 0 ? Date.now() - stepStartedAt : deploymentAge;
+
+        // فحص مبكر: إذا كانت currentStep مكتملة بالفعل في قائمة الخطوات
+        // هذا يحدث عندما يتوقف الخادم بعد اكتمال خطوة وقبل بدء التالية
+        const currentStepEntry = steps.find(s => s.name === d.currentStep);
+        const isCurrentStepAlreadyDone = currentStepEntry?.status === "success";
+
+        if (isCurrentStepAlreadyDone) {
+          const currentStepIdx = steps.findIndex(s => s.name === d.currentStep);
+          const hasRemainingSteps = steps.some((s, idx) => idx > currentStepIdx && s.status === "pending");
+
+          if (hasRemainingSteps) {
+            console.log(`[RecoverySupervisor] ▶️ Step "${d.currentStep}" already done — resuming pipeline from next step (deployment #${d.buildNumber})`);
+            await this.addLog(d.id, `▶️ الخطوة "${d.currentStep}" مكتملة — استئناف خط النشر تلقائياً من الخطوة التالية...`, "info");
+            const config: DeploymentConfig = {
+              pipeline: d.pipeline as Pipeline,
+              appType: d.appType as "web" | "android",
+              environment: (d.environment as "production" | "staging") || "production",
+              branch: d.branch || "main",
+              version: d.version || undefined,
+              triggeredBy: d.triggeredBy || undefined,
+              buildTarget: ((d as any).buildTarget as "server" | "local") || "server",
+              deployerToken: (d as any).deployerToken || undefined,
+            };
+            this.runPipeline(d.id, config, currentStepIdx + 1, true).catch(err => {
+              console.error(`[RecoverySupervisor] Resume error for ${d.id}:`, err);
+            });
+            continue;
+          }
+        }
+
         const isRemote = this.isRemoteStep(d.currentStep || '');
         let verified: "success" | "still_running" | "unknown" = "unknown";
 
@@ -2792,10 +2822,9 @@ export class DeploymentEngine {
       ``,
       `echo "=== POST_SYNC_CAPACITOR_KOTLIN_PLUGINS ==="`,
       `# إصلاح Capacitor plugins التي تحتاج ExperimentalStdlibApi opt-in`,
-      `OPT_IN_BLOCK='\\n# Auto-fix: opt-in required for ExperimentalStdlibApi\\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {\\n    kotlinOptions {\\n        freeCompilerArgs += [\"-opt-in=kotlin.ExperimentalStdlibApi\"]\\n    }\\n}\\n'`,
       `for PLUGIN_BUILD in "$DIR/node_modules/@capacitor/inappbrowser/android/build.gradle" "$DIR/node_modules/@byteowls/capacitor-filesharer/android/build.gradle"; do`,
       `  if [ -f "$PLUGIN_BUILD" ] && ! grep -q 'ExperimentalStdlibApi' "$PLUGIN_BUILD"; then`,
-      `    printf '%s' "$OPT_IN_BLOCK" >> "$PLUGIN_BUILD"`,
+      `    printf '\\n# Auto-fix: opt-in required for ExperimentalStdlibApi\\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {\\n    kotlinOptions {\\n        freeCompilerArgs += ["-opt-in=kotlin.ExperimentalStdlibApi"]\\n    }\\n}\\n' >> "$PLUGIN_BUILD"`,
       `    echo "CAPACITOR_PLUGIN_PATCHED: $PLUGIN_BUILD"`,
       `    FIXES=$((FIXES+1))`,
       `  fi`,

@@ -1,6 +1,17 @@
 import { MOBILE_CRITICAL_ROUTES, CORS_CHECK_ROUTES, CORS_ORIGINS_TO_TEST, REQUIRED_CORS_HEADERS, REQUIRED_CORS_METHODS, type RouteCheck } from "../config/mobile-critical-routes";
 import https from "https";
 import tls from "tls";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
+
+export interface InternalProbeConfig {
+  sshCommand: string;
+  internalBaseUrl: string;
+  envPrefix?: string;
+  env?: Record<string, string>;
+}
 
 export interface CheckResult {
   path: string;
@@ -135,6 +146,150 @@ async function loginForToken(baseUrl: string): Promise<{ token: string | null; s
     }
   }
 
+  return { token: null, error: errors.join(" | ") };
+}
+
+function isJsonContentType(ct: string | null | undefined): boolean {
+  if (!ct) return false;
+  return /\bapplication\/(?:[\w.+-]+\+)?json\b/i.test(ct);
+}
+
+function looksLikeApiResponse(body: string): boolean {
+  if (!body || body.length === 0) return false;
+  const trimmed = body.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return false;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return true;
+    return typeof parsed === "object" && parsed !== null;
+  } catch {
+    return false;
+  }
+}
+
+async function checkRouteInternal(probe: InternalProbeConfig, route: RouteCheck, authToken: string | null): Promise<CheckResult> {
+  const start = Date.now();
+  const result: CheckResult = {
+    path: route.path,
+    method: route.method,
+    group: route.group,
+    description: route.description,
+    passed: false,
+    expectedStatus: route.expectedStatus,
+    critical: route.critical,
+    requiresAuth: route.requiresAuth,
+  };
+
+  try {
+    const headers: string[] = [
+      `-H 'Content-Type: application/json'`,
+      `-H 'x-client-platform: native'`,
+      `-H 'Accept: application/json'`,
+    ];
+    if (route.requiresAuth && authToken) {
+      headers.push(`-H 'Authorization: Bearer ${authToken.replace(/'/g, "'\\''")}'`);
+    }
+
+    let dataPipe = "";
+    if (route.body && (route.method === "POST" || route.method === "PATCH")) {
+      const b64 = Buffer.from(JSON.stringify(route.body), "utf8").toString("base64");
+      dataPipe = `echo '${b64}' | base64 -d | `;
+      headers.push(`--data-binary @-`);
+    }
+
+    const url = `${probe.internalBaseUrl}${route.path}`;
+    const timeoutSec = Math.max(5, Math.ceil((route.timeout ?? 15000) / 1000));
+    const remoteCmd = `${dataPipe}curl -sS -o /tmp/_pbrc_body.txt -w '%{http_code}|%{content_type}' --max-time ${timeoutSec} -X ${route.method} ${headers.join(" ")} '${url}'; echo; cat /tmp/_pbrc_body.txt 2>/dev/null | head -c 2000`;
+    const fullCmd = `${probe.envPrefix ? probe.envPrefix + " " : ""}${probe.sshCommand} ${JSON.stringify(remoteCmd)}`;
+
+    const execEnv = probe.env ? { ...process.env, ...probe.env } : process.env;
+    const { stdout } = await execAsync(fullCmd, { timeout: (route.timeout ?? 15000) + 10000, maxBuffer: 1024 * 1024, env: execEnv });
+    result.latencyMs = Date.now() - start;
+
+    const lines = stdout.split("\n");
+    const meta = lines[0] || "";
+    const body = lines.slice(1).join("\n");
+    const [codeStr, contentType] = meta.split("|");
+    const status = parseInt(codeStr, 10);
+
+    if (!Number.isFinite(status) || status === 0) {
+      result.isInfraFailure = true;
+      result.error = `Internal probe: invalid response (curl meta: "${meta}")`;
+      return result;
+    }
+
+    result.statusCode = status;
+
+    const INFRA_CODES = [502, 503, 504, 520, 521, 522, 523, 524];
+    if (INFRA_CODES.includes(status)) {
+      result.isInfraFailure = true;
+      result.error = `Infrastructure error (internal): HTTP ${status}`;
+      return result;
+    }
+
+    if (status === 429) {
+      result.passed = true;
+      result.isRateLimited = true;
+      result.error = `Rate limited (429) — route exists but throttled`;
+      return result;
+    }
+
+    if (route.requiresAuth && !authToken) {
+      result.passed = false;
+      result.error = "AUTH_REQUIRED: Cannot test — no auth token obtained";
+      return result;
+    }
+
+    const ctIsJson = isJsonContentType(contentType);
+    const bodyIsJson = looksLikeApiResponse(body);
+
+    if (!ctIsJson && !bodyIsJson) {
+      result.isInfraFailure = true;
+      result.error = `Non-JSON response (content-type: "${contentType || "missing"}") — likely intermediary error page`;
+      return result;
+    }
+
+    result.passed = route.expectedStatus.includes(status);
+    if (!result.passed) {
+      result.error = `Expected ${route.expectedStatus.join("|")} but got ${status} (internal)`;
+    }
+  } catch (err: any) {
+    result.latencyMs = Date.now() - start;
+    result.isInfraFailure = true;
+    result.error = `Internal probe failed: ${err.message?.slice(0, 200) || "unknown"}`;
+  }
+
+  return result;
+}
+
+async function loginForTokenInternal(probe: InternalProbeConfig): Promise<{ token: string | null; source?: string; error?: string }> {
+  const credSources = [
+    { name: "service", email: process.env.PREBUILD_SERVICE_EMAIL, password: process.env.PREBUILD_SERVICE_PASSWORD },
+    { name: "test", email: process.env.PREBUILD_TEST_EMAIL || process.env.DEFAULT_ADMIN_EMAIL, password: process.env.PREBUILD_TEST_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD },
+  ].filter(c => c.email && c.password) as { name: string; email: string; password: string }[];
+
+  if (credSources.length === 0) {
+    return { token: null, error: "NO_CREDENTIALS: Set PREBUILD_SERVICE_EMAIL/PASSWORD or PREBUILD_TEST_PASSWORD or DEFAULT_ADMIN_PASSWORD" };
+  }
+
+  const errors: string[] = [];
+  for (const cred of credSources) {
+    try {
+      const payload = JSON.stringify({ email: cred.email, password: cred.password });
+      const b64 = Buffer.from(payload, "utf8").toString("base64");
+      const remoteCmd = `echo '${b64}' | base64 -d | curl -sS --max-time 15 -X POST -H 'Content-Type: application/json' -H 'x-client-platform: native' -H 'Accept: application/json' --data-binary @- '${probe.internalBaseUrl}/api/auth/login'`;
+      const fullCmd = `${probe.envPrefix ? probe.envPrefix + " " : ""}${probe.sshCommand} ${JSON.stringify(remoteCmd)}`;
+      const execEnv = probe.env ? { ...process.env, ...probe.env } : process.env;
+      const { stdout } = await execAsync(fullCmd, { timeout: 25000, maxBuffer: 256 * 1024, env: execEnv });
+      let data: any;
+      try { data = JSON.parse(stdout); } catch { errors.push(`[${cred.name}] LOGIN_NON_JSON`); continue; }
+      const token = data?.token || data?.accessToken || null;
+      if (!token) { errors.push(`[${cred.name}] LOGIN_NO_TOKEN`); continue; }
+      return { token, source: `${cred.name}-internal` };
+    } catch (err: any) {
+      errors.push(`[${cred.name}] LOGIN_ERROR: ${err.message?.slice(0, 100)}`);
+    }
+  }
   return { token: null, error: errors.join(" | ") };
 }
 
@@ -354,6 +509,7 @@ async function checkCsp(baseUrl: string): Promise<CspCheckResult> {
 export interface PrebuildOptions {
   deployerToken?: string;
   maxRetries?: number;
+  internalProbe?: InternalProbeConfig;
 }
 
 export async function runPrebuildChecks(baseUrl: string, optionsOrRetries?: PrebuildOptions | number): Promise<PrebuildReport> {
@@ -389,7 +545,10 @@ export async function runPrebuildChecks(baseUrl: string, optionsOrRetries?: Preb
     const hostname = new URL(baseUrl).hostname;
     report.sslCheck = await checkSsl(hostname);
 
-    const authResult = await loginForToken(baseUrl);
+    const useInternal = !!options.internalProbe;
+    const authResult = useInternal
+      ? await loginForTokenInternal(options.internalProbe!)
+      : await loginForToken(baseUrl);
     let authToken = authResult.token;
     let authSource = authResult.source || "none";
 
@@ -407,8 +566,16 @@ export async function runPrebuildChecks(baseUrl: string, optionsOrRetries?: Preb
       console.log(`[PrebuildChecker] Auth source: ${authSource}`);
     }
 
+    if (useInternal) {
+      console.log(`[PrebuildChecker] Using INTERNAL probe via SSH → ${options.internalProbe!.internalBaseUrl} (source of truth, bypasses CDN/Edge)`);
+    }
+
     const routeResults = await Promise.all(
-      MOBILE_CRITICAL_ROUTES.map((route) => checkRoute(baseUrl, route, authToken))
+      MOBILE_CRITICAL_ROUTES.map((route) =>
+        useInternal
+          ? checkRouteInternal(options.internalProbe!, route, authToken)
+          : checkRoute(baseUrl, route, authToken)
+      )
     );
     report.routeChecks = routeResults;
 

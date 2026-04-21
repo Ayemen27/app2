@@ -2139,8 +2139,27 @@ export class DeploymentEngine {
         }
 
         const { runPrebuildChecks } = await import("./prebuild-route-checker");
+
+        let internalProbe: { sshCommand: string; internalBaseUrl: string; env?: Record<string, string> } | undefined;
+        try {
+          await this.ensureKnownHosts();
+          const sshCmd = this.buildSSHCommand();
+          const internalPort = process.env.APP_INTERNAL_PORT || "6000";
+          const env: Record<string, string> = {};
+          if (process.env.SSH_PASSWORD) env.SSHPASS = process.env.SSH_PASSWORD;
+          internalProbe = {
+            sshCommand: sshCmd,
+            internalBaseUrl: `http://localhost:${internalPort}`,
+            env,
+          };
+          await this.addLog(deploymentId, `🔒 الفحص الداخلي مُفعّل عبر SSH → localhost:${internalPort} (مصدر الحقيقة، يتجاوز CDN/Edge)`, "info");
+        } catch (probeErr: any) {
+          await this.addLog(deploymentId, `⚠️ تعذر تفعيل الفحص الداخلي (${probeErr.message?.slice(0, 120)}) — التراجع للفحص الخارجي عبر HTTPS`, "warn");
+        }
+
         const report = await runPrebuildChecks(baseUrl, {
           deployerToken: config?.deployerToken,
+          internalProbe,
         });
 
         const failedRoutes = report.routeChecks.filter(r => !r.passed);

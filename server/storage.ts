@@ -999,7 +999,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     try {
-      return await db.transaction(async (tx) => {
+      return await db.transaction(async (tx: any) => {
         const [fromProject] = await tx
           .select()
           .from(projects)

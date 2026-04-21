@@ -51,11 +51,11 @@ export async function initializeInstrumentation() {
     try {
       if (isPluginAvailable('Device')) {
         const { Device } = await import('@capacitor/device');
-        deviceInfo = await Device.getInfo().catch(() => ({}));
+        deviceInfo = (await Device.getInfo().catch(() => ({}))) as Record<string, unknown>;
       }
       if (isPluginAvailable('App')) {
         const { App } = await import('@capacitor/app');
-        appInfo = await App.getInfo().catch(() => ({}));
+        appInfo = (await App.getInfo().catch(() => ({}))) as Record<string, unknown>;
       }
     } catch (e) {
       console.warn('[instrumentation] Failed to get native device/app info:', e);

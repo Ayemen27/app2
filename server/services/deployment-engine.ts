@@ -2512,8 +2512,8 @@ export class DeploymentEngine {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}" (محاولة ${attempt}/${maxRetries})...`, "info");
-        const sedCmd = `sed -i '/^  axion:/,/^  [a-z]/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
-        const verifyCmd = `awk '/^  axion:/,/^  [a-z]/{if(/pm2_name:/) print}' ${inventoryPath}`;
+        const sedCmd = `sed -i '/^  axion:$/,/^  [a-z][a-z0-9_-]*:$/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
+        const verifyCmd = `awk '/^  axion:$/{f=1; next} f && /^  [a-z][a-z0-9_-]*:$/{f=0} f && /pm2_name:/{print}' ${inventoryPath}`;
         const { stdout } = await execAsync(
           `${sshCmd} "${sedCmd} && ${verifyCmd}"`,
           { timeout: 10000, env: this.getSSHExecEnv() }

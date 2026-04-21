@@ -100,9 +100,23 @@ git check-ignore android/app/axion-release.keystore
 
 | البند | الحالة |
 |---|---|
-| `.gitignore` يستثني keystore و google-services.json | ✅ تم (هذه الجلسة) |
-| توليد keystore جديد | ⏳ يحتاج تنفيذك يدوياً |
-| تدوير Firebase API keys | ⏳ يحتاج تنفيذك في Google Cloud Console |
-| مسح تاريخ Git | ⏳ يحتاج إذنك الصريح وتنفيذ منفصل (تدميري) |
+| `.gitignore` يستثني keystore و google-services.json | ✅ تم |
+| توليد keystore جديد على السيرفر | ✅ تم (2026-04-21) |
+| Replit Secrets محدّثة (`KEYSTORE_PASSWORD`, `KEYSTORE_KEY_PASSWORD`) | ✅ تم |
+| إضافة SHA-1 الجديد إلى Firebase | ✅ تم |
+| تقييد Google Cloud API keys بـ SHA-1 الجديد | ✅ تم |
+| تدوير `FIREBASE_SERVICE_ACCOUNT_KEY` | ⏳ يحتاج تنفيذك |
+| مسح تاريخ Git | ⏳ يحتاج إذنك الصريح (تدميري) |
+| تنظيف Git index من keystore tracked files | ⏳ يحتاج إذنك الصريح (تدميري) |
+
+## معلومات keystore الجديد (2026-04-21)
+
+- **Package name:** `com.axion.app`
+- **Alias:** `axion-release`
+- **SHA-1:** `7A:14:D0:2E:37:A2:70:4D:5C:59:DE:67:26:CF:0A:7D:B9:AE:CF:76`
+- **صلاحية:** حتى 2053-09-06 (27 سنة)
+- **خوارزمية:** RSA 4096-bit
+- **مكان السيرفر:** `/home/administrator/.axion-keystore/axion-release.keystore`
+- **النسخة الاحتياطية للقديم:** `/home/administrator/.axion-keystore/backups/axion-release.OLD-LEAKED.*.keystore`
 
 عند الجاهزية لتنفيذ مسح Git، اطلب صراحة: **"امسح الأسرار من تاريخ git"** وسيتم إنشاء مهمة منفصلة لتنفيذها بأمان.

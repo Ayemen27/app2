@@ -1,5 +1,13 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-21)
+- **أمن JWT**: توحيد TTL = 14 يوم في `server/auth/jwt-utils.ts` (كان 90 يوم في بعض المسارات).
+- **تسرّب ذاكرة Cache**: إضافة `destroy()` + الاحتفاظ بمرجع `setInterval` + `unref()` في `server/services/MemoryCacheService.ts`، وتنظيفه عند الإغلاق في `server/index.ts`.
+- **Race condition في تحويلات المشاريع**: لفّ `createProjectFundTransfer` بـ `db.transaction` مع `.for('update')` row locks في `server/storage.ts`.
+- **getWorkersWithMultipleProjects**: استبدال الـ stub بتنفيذ حقيقي عبر CTE + window function.
+- **NotificationQueueWorker**: ربطه بدورة حياة الخادم في `server/index.ts` (start/stop)، معطّل افتراضياً لأن جدول `notification_queue` غير موجود في DB ولا معرّف في `shared/schema.ts` (تفعيل صريح: `NOTIFICATIONS_WORKER_ENABLED=true`).
+- **ترقية حزم**: `drizzle-orm`, `axios`, `nodemailer` إلى أحدث إصدار.
+
 ## Overview
 This Node.js application is a professional AI Agent Workspace designed for construction project management. Its primary purpose is to enhance decision-making through data analysis, streamline operations, and improve communication efficiency within construction projects. Key capabilities include WhatsApp integration for user interaction, an advanced AI agent for database operations and queries, comprehensive reporting, and a granular project permission system. The project aims to deliver a state-of-the-art, AI-powered platform for the construction industry.
 

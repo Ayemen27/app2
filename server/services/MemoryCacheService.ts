@@ -26,10 +26,25 @@ class MemoryCacheService {
   private tagIndex = new Map<string, Set<string>>();
   private metrics: CacheMetrics = { hits: 0, misses: 0, evictions: 0, invalidations: 0 };
   private maxSize: number;
+  private evictionTimer: NodeJS.Timeout | null = null;
 
   constructor(maxSize = 500) {
     this.maxSize = maxSize;
-    setInterval(() => this.evictExpired(), 60_000);
+    this.evictionTimer = setInterval(() => this.evictExpired(), 60_000);
+    if (typeof this.evictionTimer.unref === 'function') {
+      this.evictionTimer.unref();
+    }
+  }
+
+  /**
+   * Stop the background eviction timer. Call on graceful shutdown.
+   */
+  destroy(): void {
+    if (this.evictionTimer) {
+      clearInterval(this.evictionTimer);
+      this.evictionTimer = null;
+    }
+    this.clear();
   }
 
   get<T>(key: string): T | null {

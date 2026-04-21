@@ -793,6 +793,8 @@ import { closePdfBrowser } from "./services/reports/HtmlToPdfService";
 import { CentralLogService } from "./services/CentralLogService";
 
 import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
+import { notificationQueueWorker } from "./services/NotificationQueueWorker";
+import { appCache } from "./services/MemoryCacheService";
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('⚠️ [UnhandledRejection] Unhandled promise rejection:', reason);
@@ -834,6 +836,16 @@ const activeIntervals: NodeJS.Timeout[] = [];
       getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
     } else {
       console.log(`⏸️ [WhatsAppBot] البوت معطل (env=${process.env.NODE_ENV}, WHATSAPP_BOT_ENABLED=${process.env.WHATSAPP_BOT_ENABLED || 'unset'}) — يعمل فقط في production أو عند WHATSAPP_BOT_ENABLED=true`);
+    }
+
+    const notificationsWorkerEnabled = process.env.NOTIFICATIONS_WORKER_ENABLED === 'true';
+    if (notificationsWorkerEnabled) {
+      notificationQueueWorker.start().catch(err =>
+        console.error('❌ [NotificationQueueWorker] Startup error:', err)
+      );
+      console.log('🚀 [NotificationQueueWorker] تم بدء معالج طابور الإشعارات');
+    } else {
+      console.log('⏸️ [NotificationQueueWorker] معطل افتراضياً (جدول notification_queue غير موجود في DB) — للتفعيل: NOTIFICATIONS_WORKER_ENABLED=true بعد إنشاء الجدول');
     }
 
     startNonceCleanup();
@@ -995,6 +1007,20 @@ const activeIntervals: NodeJS.Timeout[] = [];
         console.log('✅ [Shutdown] WhatsApp bot stopped');
       } catch (err) {
         console.error('❌ [Shutdown] Error stopping WhatsApp bot:', err);
+      }
+
+      try {
+        notificationQueueWorker.stop();
+        console.log('✅ [Shutdown] Notification queue worker stopped');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error stopping notification worker:', err);
+      }
+
+      try {
+        appCache.destroy();
+        console.log('✅ [Shutdown] In-memory cache destroyed');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error destroying cache:', err);
       }
 
       try {

@@ -994,40 +994,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProjectFundTransfer(transfer: InsertProjectFundTransfer): Promise<ProjectFundTransfer> {
+    if (transfer.fromProjectId === transfer.toProjectId) {
+      throw new Error('لا يمكن ترحيل الأموال إلى نفس المشروع');
+    }
+
     try {
-      // التحقق من أن المشروعين مختلفين
-      if (transfer.fromProjectId === transfer.toProjectId) {
-        throw new Error('لا يمكن ترحيل الأموال إلى نفس المشروع');
-      }
+      return await db.transaction(async (tx) => {
+        const [fromProject] = await tx
+          .select()
+          .from(projects)
+          .where(eq(projects.id, transfer.fromProjectId))
+          .for('update');
 
-      // التحقق من وجود المشروعين
-      const fromProject = await this.getProject(transfer.fromProjectId);
-      const toProject = await this.getProject(transfer.toProjectId);
-      
-      if (!fromProject) {
-        throw new Error('المشروع المرسل غير موجود');
-      }
-      if (!toProject) {
-        throw new Error('المشروع المستلم غير موجود');
-      }
+        const [toProject] = await tx
+          .select()
+          .from(projects)
+          .where(eq(projects.id, transfer.toProjectId))
+          .for('update');
 
-      // إنشاء عملية الترحيل
-      const [newTransfer] = await db
-        .insert(projectFundTransfers)
-        .values(transfer)
-        .returning();
-      
-      if (!newTransfer) {
-        throw new Error('فشل في إنشاء عملية الترحيل');
-      }
-      
-      // تحديث الملخصات اليومية للمشروعين
-      if (transfer.transferDate) {
-        await this.updateDailySummaryForDate(transfer.fromProjectId, transfer.transferDate);
-        await this.updateDailySummaryForDate(transfer.toProjectId, transfer.transferDate);
-      }
-      
-      return newTransfer;
+        if (!fromProject) throw new Error('المشروع المرسل غير موجود');
+        if (!toProject) throw new Error('المشروع المستلم غير موجود');
+
+        const [newTransfer] = await tx
+          .insert(projectFundTransfers)
+          .values(transfer)
+          .returning();
+
+        if (!newTransfer) {
+          throw new Error('فشل في إنشاء عملية الترحيل');
+        }
+
+        if (transfer.transferDate) {
+          await this.updateDailySummaryForDate(transfer.fromProjectId, transfer.transferDate);
+          await this.updateDailySummaryForDate(transfer.toProjectId, transfer.transferDate);
+        }
+
+        return newTransfer;
+      });
     } catch (error) {
       console.error('Error creating project fund transfer:', error);
       throw error;
@@ -2226,7 +2229,50 @@ export class DatabaseStorage implements IStorage {
 
   // Multi-project worker management
   async getWorkersWithMultipleProjects(): Promise<{worker: Worker, projects: Project[], totalBalance: string}[]> {
-    return [];
+    try {
+      const result = await db.execute(sql`
+        WITH worker_projects AS (
+          SELECT
+            wa.worker_id,
+            COUNT(DISTINCT wa.project_id) AS project_count,
+            ARRAY_AGG(DISTINCT wa.project_id) AS project_ids,
+            COALESCE(
+              SUM(safe_numeric(wa.actual_wage) - safe_numeric(wa.paid_amount)),
+              0
+            ) AS balance
+          FROM worker_attendance wa
+          WHERE wa.is_present = true AND wa.project_id IS NOT NULL
+          GROUP BY wa.worker_id
+          HAVING COUNT(DISTINCT wa.project_id) > 1
+        )
+        SELECT
+          w.*,
+          wp.balance::text AS total_balance,
+          COALESCE(
+            (
+              SELECT json_agg(row_to_json(p))
+              FROM projects p
+              WHERE p.id = ANY(wp.project_ids)
+            ),
+            '[]'::json
+          ) AS projects
+        FROM worker_projects wp
+        JOIN workers w ON w.id = wp.worker_id
+        ORDER BY wp.project_count DESC, w.name ASC
+      `);
+
+      return (result.rows || []).map((row: any) => {
+        const { total_balance, projects: projectsJson, ...workerFields } = row;
+        return {
+          worker: workerFields as Worker,
+          projects: (projectsJson || []) as Project[],
+          totalBalance: String(total_balance ?? '0'),
+        };
+      });
+    } catch (error) {
+      console.error('[getWorkersWithMultipleProjects] Error:', error);
+      return [];
+    }
   }
 
   async getWorkerMultiProjectStatement(worker_id: string, dateFrom?: string, dateTo?: string): Promise<{

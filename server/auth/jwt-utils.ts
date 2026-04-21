@@ -38,10 +38,13 @@ export const JWT_CONFIG = {
   accessTokenSecret: ACCESS_SECRET,
   refreshTokenSecret: REFRESH_SECRET,
   accessTokenExpiry: '15m',
-  refreshTokenExpiry: '7d',
+  refreshTokenExpiry: '14d',
   issuer: 'construction-management-app-v2',
   algorithm: 'HS256' as const,
-};
+} as const;
+
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
+const REFRESH_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export interface JWTPayload {
   userId: string;
@@ -105,8 +108,8 @@ export async function generateTokenPair(
 ): Promise<TokenPair> {
   const sessionId = crypto.randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + ACCESS_TOKEN_TTL_MS);
+  const refreshExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_TTL_MS);
 
   const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
   const refreshPayload = { userId, email, sessionId, type: 'refresh' as const };

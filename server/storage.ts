@@ -587,11 +587,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjects(): Promise<Project[]> {
-    return await db.select().from(projectsTable);
+    // 🪦 إخفاء السجلات المحذوفة ناعماً
+    return await db.select().from(projectsTable).where(sql`deleted_at IS NULL`);
   }
 
   async getProject(id: string): Promise<Project | undefined> {
-    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    const [project] = await db.select().from(projectsTable)
+      .where(and(eq(projectsTable.id, id), sql`deleted_at IS NULL`));
     return project || undefined;
   }
 
@@ -629,21 +631,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<void> {
-    await db.delete(projectsTable).where(eq(projectsTable.id, id));
+    // 🪦 Soft delete — يبقى السجل لكن يُخفى من القراءات ويُرسَل كـ tombstone للعملاء
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('projects', id);
   }
 
   // Workers
   async getWorkers(): Promise<Worker[]> {
-    return await db.select().from(workers);
+    return await db.select().from(workers).where(sql`deleted_at IS NULL`);
   }
 
   async getWorker(id: string): Promise<Worker | undefined> {
-    const [worker] = await db.select().from(workers).where(eq(workers.id, id));
+    const [worker] = await db.select().from(workers)
+      .where(and(eq(workers.id, id), sql`deleted_at IS NULL`));
     return worker || undefined;
   }
 
   async getWorkerByName(name: string): Promise<Worker | undefined> {
-    const [worker] = await db.select().from(workers).where(eq(workers.name, name.trim()));
+    const [worker] = await db.select().from(workers)
+      .where(and(eq(workers.name, name.trim()), sql`deleted_at IS NULL`));
     return worker || undefined;
   }
 
@@ -692,7 +698,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWorker(id: string): Promise<void> {
     try {
-      await db.delete(workers).where(eq(workers.id, id));
+      const { softDelete } = await import('./sync/soft-delete');
+      await softDelete('workers', id);
     } catch (error) {
       console.error('Error deleting worker:', error);
       throw new Error('فشل في حذف العامل');
@@ -944,9 +951,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFundTransfer(id: string): Promise<void> {
     const [transfer] = await db.select().from(fundTransfers).where(eq(fundTransfers.id, id));
-    
-    await db.delete(fundTransfers).where(eq(fundTransfers.id, id));
-    
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('fund_transfers', id);
     if (transfer) {
       const transferDate = new Date(transfer.transferDate).toISOString().split('T')[0];
       await this.updateDailySummaryForDate(transfer.project_id, transferDate);
@@ -1062,8 +1068,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProjectFundTransfer(id: string): Promise<void> {
     const [transfer] = await db.select().from(projectFundTransfers).where(eq(projectFundTransfers.id, id));
-    
-    await db.delete(projectFundTransfers).where(eq(projectFundTransfers.id, id));
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('project_fund_transfers', id);
     
     if (transfer) {
       // تحديث الملخصات اليومية للمشروعين
@@ -1200,8 +1206,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWorkerAttendance(id: string): Promise<void> {
     const [attendance] = await db.select().from(workerAttendance).where(eq(workerAttendance.id, id));
-    
-    await db.delete(workerAttendance).where(eq(workerAttendance.id, id));
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('worker_attendance', id);
     
     if (attendance) {
       await this.updateDailySummaryForDate(attendance.project_id, attendance.date);
@@ -1210,7 +1216,7 @@ export class DatabaseStorage implements IStorage {
 
   // Materials
   async getMaterials(): Promise<Material[]> {
-    return await db.select().from(materials);
+    return await db.select().from(materials).where(sql`deleted_at IS NULL`);
   }
 
   async createMaterial(material: InsertMaterial): Promise<Material> {
@@ -1493,8 +1499,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMaterialPurchase(id: string): Promise<void> {
     const [purchase] = await db.select().from(materialPurchases).where(eq(materialPurchases.id, id));
-    
-    await db.delete(materialPurchases).where(eq(materialPurchases.id, id));
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('material_purchases', id);
     
     if (purchase) {
       await this.updateDailySummaryForDate(purchase.project_id, purchase.purchaseDate);
@@ -1964,7 +1970,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteWorkerTransfer(id: string): Promise<void> {
-    await db.delete(workerTransfers).where(eq(workerTransfers.id, id));
+    const { softDelete } = await import('./sync/soft-delete');
+    await softDelete('worker_transfers', id);
   }
 
   async getAllWorkerTransfers(): Promise<WorkerTransfer[]> {
@@ -2892,7 +2899,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWorkerMiscExpense(id: string): Promise<void> {
     try {
-      await db.delete(workerMiscExpenses).where(eq(workerMiscExpenses.id, id));
+      const { softDelete } = await import('./sync/soft-delete');
+      await softDelete('worker_misc_expenses', id);
     } catch (error) {
       console.error('Error deleting worker misc expense:', error);
       throw error;
@@ -3217,7 +3225,9 @@ export class DatabaseStorage implements IStorage {
         notes: suppliers.notes,
         is_active: suppliers.is_active,
         created_at: suppliers.created_at,
-      }).from(suppliers).orderBy(suppliers.name);
+      }).from(suppliers)
+        .where(sql`deleted_at IS NULL`)
+        .orderBy(suppliers.name);
     } catch (error) {
       console.error('Error getting suppliers:', error);
       return [];
@@ -3287,7 +3297,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplier(id: string): Promise<void> {
     try {
-      await db.delete(suppliers).where(eq(suppliers.id, id));
+      const { softDelete } = await import('./sync/soft-delete');
+      await softDelete('suppliers', id);
     } catch (error) {
       console.error('Error deleting supplier:', error);
       throw error;
@@ -3384,7 +3395,8 @@ export class DatabaseStorage implements IStorage {
     try {
       const oldResult = await db.select().from(supplierPayments).where(eq(supplierPayments.id, id)).limit(1);
       const oldPayment = oldResult[0];
-      await db.delete(supplierPayments).where(eq(supplierPayments.id, id));
+      const { softDelete } = await import('./sync/soft-delete');
+      await softDelete('supplier_payments', id);
       if (oldPayment?.projectId && oldPayment?.paymentDate) {
         const { markInvalid } = await import('./services/SummaryRebuildService');
         const oldDate = String(oldPayment.paymentDate).substring(0, 10);
@@ -4309,8 +4321,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWellTask(id: number): Promise<void> {
     try {
-      await db.delete(wellTasks)
-        .where(eq(wellTasks.id, id));
+      const { softDelete } = await import('./sync/soft-delete');
+      await softDelete('well_tasks', id);
     } catch (error) {
       console.error('Error deleting well task:', error);
       throw error;

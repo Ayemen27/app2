@@ -209,8 +209,11 @@ export async function performInitialDataPull(): Promise<boolean> {
               percentage: Math.min(100, Math.round((processedTables / totalTables) * 100))
             } 
           });
-          await smartSave(idbStore, records);
-          totalSaved += records.length;
+          // 🪦 reconcile = حذف السجلات التي لم تعد موجودة على السيرفر (soft-deleted)
+          const { smartReconcile } = await import('./storage-factory');
+          const { saved, removed } = await smartReconcile(idbStore, records as any[]);
+          totalSaved += saved;
+          if (removed > 0) console.log(`[sync] 🪦 ${idbStore}: حُذف ${removed} سجلاً (tombstones)`);
         }
       }
     }

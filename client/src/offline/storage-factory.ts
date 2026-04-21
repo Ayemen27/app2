@@ -170,6 +170,66 @@ export async function smartCount(tableName: string): Promise<number> {
   }
 }
 
+/**
+ * 🪦 smartReconcile - مزامنة جدول كامل مع السيرفر:
+ *  - يضيف/يحدّث السجلات الواردة
+ *  - يحذف من المحلي أي سجل غير موجود في الاستجابة (= soft-deleted على السيرفر)
+ *  - يحترم السجلات المحلية المعلّقة (_pendingSync) فلا يلمسها
+ */
+export async function smartReconcile(tableName: string, serverRecords: any[]): Promise<{ saved: number; removed: number }> {
+  await ensureInitialized();
+  const incomingIds = new Set(
+    (serverRecords || [])
+      .filter((r: any) => r && (r.id || r.key))
+      .map((r: any) => (r.id || r.key).toString())
+  );
+  let saved = 0;
+  let removed = 0;
+
+  if (isNative()) {
+    const existing = await nativeStorage.getAll(tableName);
+    for (const rec of existing) {
+      if (!rec) continue;
+      const id = (rec.id || rec.key)?.toString();
+      if (id && !incomingIds.has(id) && !rec._pendingSync) {
+        await nativeStorage.delete(tableName, id);
+        removed++;
+      }
+    }
+    for (const record of (serverRecords || [])) {
+      if (record && (record.id || record.key)) {
+        await nativeStorage.set(tableName, (record.id || record.key).toString(), record);
+        saved++;
+      }
+    }
+    return { saved, removed };
+  }
+
+  const db = await getIDB();
+  if (!db.objectStoreNames.contains(tableName)) return { saved: 0, removed: 0 };
+  try {
+    const tx = db.transaction(tableName as any, 'readwrite');
+    const store = tx.objectStore(tableName as any);
+    const allLocal = await store.getAll();
+    for (const rec of allLocal) {
+      if (!rec) continue;
+      const id = (rec.id || rec.key)?.toString();
+      if (id && !incomingIds.has(id) && !rec._pendingSync) {
+        try { store.delete(id); removed++; } catch {}
+      }
+    }
+    for (const record of (serverRecords || [])) {
+      if (record && (record.id || record.key)) {
+        try { store.put(record); saved++; } catch {}
+      }
+    }
+    await tx.done;
+  } catch (e) {
+    console.warn('[smartReconcile] error:', e);
+  }
+  return { saved, removed };
+}
+
 export async function smartSave(tableName: string, records: any[]): Promise<number> {
   if (!records || records.length === 0) return 0;
   await ensureInitialized();

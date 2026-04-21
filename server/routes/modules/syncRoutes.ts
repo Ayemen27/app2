@@ -845,8 +845,11 @@ const ALLOWED_BATCH_TABLES: Record<string, string> = {
 const TABLES_WITHOUT_PROJECT_ID = new Set(['project_types', 'autocomplete_data']);
 
 syncRouter.post('/batch', async (req: Request, res: Response) => {
-  if (!isAdmin(req)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
+  // ملاحظة: لا نمنع غير المسؤولين على مستوى المسار - فحص الصلاحيات يتم
+  // لكل عملية على حدة داخل الحلقة (انظر الكتلة 870-885 و 945-965).
+  // المستخدمون الميدانيون يحتاجون هذا المسار لرفع بيانات مشاريعهم.
+  if (!getAuthUser(req)) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
   }
 
   const parsed = batchRequestSchema.safeParse(req.body);
@@ -925,6 +928,9 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       const payload = op.payload as Record<string, any> | undefined;
       const opStartTime = Date.now();
 
+      // SAVEPOINT لكل عملية: فشل عملية واحدة لا يلغي بقية الدفعة
+      await client.query(`SAVEPOINT op_${i}`);
+      try {
       if (!action || !endpoint) {
         throw new Error(`عملية ${i} غير صالحة: action و endpoint مطلوبان`);
       }
@@ -1178,9 +1184,33 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       } else {
         throw new Error(`عملية ${i}: action غير مدعوم: ${action}`);
       }
+        await client.query(`RELEASE SAVEPOINT op_${i}`);
+      } catch (opError: unknown) {
+        const errMsg = opError instanceof Error ? opError.message : String(opError);
+        try { await client.query(`ROLLBACK TO SAVEPOINT op_${i}`); } catch {}
+        console.warn(`[Sync-Batch] فشل العملية ${i} (${op.action} ${op.endpoint}): ${errMsg}`);
+        results.push({
+          index: i,
+          success: false,
+          error: errMsg,
+          action: op.action,
+          endpoint: op.endpoint,
+        });
+        auditPromises.push(SyncAuditService.logOperation({
+          user_id: userId, userName, action: 'batch_op_failed',
+          endpoint: op.endpoint || '', tableName: 'sync_batch',
+          status: 'failed', errorMessage: errMsg,
+          ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+          syncType: 'batch',
+        }).catch(() => {}) as Promise<void>);
+      }
     }
 
     await client.query('COMMIT');
+
+    // إحصائيات الدفعة
+    const successCount = results.filter((r: any) => r.success).length;
+    const failedCount = results.length - successCount;
 
     for (const [pid, fromDate] of batchInvalidations) {
       SummaryRebuildService.markInvalid(pid, fromDate).catch(e =>
@@ -1193,14 +1223,18 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     });
 
     const duration = Date.now() - startTime;
-    console.log(`[Sync-Batch] اكتملت الدفعة بنجاح (${operations.length} عملية في ${duration}ms)`);
+    console.log(`[Sync-Batch] اكتملت الدفعة (${successCount} نجاح / ${failedCount} فشل من ${operations.length} في ${duration}ms)`);
 
     return res.status(200).json({
       success: true,
-      message: `تم تنفيذ ${operations.length} عملية بنجاح`,
+      message: failedCount === 0
+        ? `تم تنفيذ ${operations.length} عملية بنجاح`
+        : `تم تنفيذ ${successCount} عملية بنجاح، فشلت ${failedCount}`,
       results,
       metadata: {
         operationsCount: operations.length,
+        successCount,
+        failedCount,
         duration,
         timestamp: Date.now(),
       }

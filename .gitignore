@@ -42,3 +42,13 @@ wa-import-data/
 
 # جلسة واتساب
 auth_info_baileys/
+
+# Android signing keys (NEVER commit)
+*.keystore
+*.jks
+android/app/axion-release.keystore
+administrator/.axion-keystore/
+
+# Firebase service accounts and config
+google-services.json
+firebase-service-account*.json

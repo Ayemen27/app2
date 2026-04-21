@@ -193,7 +193,6 @@
     "ts-morph": "^26.0.0",
     "uuid": "^13.0.0",
     "vaul": "^1.1.2",
-    "vitest": "^2.1.9",
     "wouter": "^3.7.1",
     "ws": "^8.18.3",
     "zod": "^4.3.6",
@@ -217,7 +216,7 @@
     "@types/react": "^19.1.11",
     "@types/react-dom": "^19.1.7",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^4.3.2",
+    "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.9.4",
     "compression": "^1.8.1",
@@ -229,7 +228,8 @@
     "terser-webpack-plugin": "^5.3.14",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
-    "vite": "^5.4.21"
+    "vite": "^8.0.9",
+    "vitest": "^4.1.5"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

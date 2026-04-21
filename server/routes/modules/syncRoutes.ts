@@ -43,6 +43,34 @@ async function getTableDateColumns(table: string): Promise<string[]> {
   return cols;
 }
 
+const HEAVY_COLUMNS_BY_TABLE: Record<string, string[]> = {
+  material_purchases: ['invoice_photo'],
+};
+
+const TABLE_SELECT_COLS_CACHE = new Map<string, string>();
+
+async function getPullSelectClause(table: string): Promise<string> {
+  if (TABLE_SELECT_COLS_CACHE.has(table)) return TABLE_SELECT_COLS_CACHE.get(table)!;
+  const heavy = HEAVY_COLUMNS_BY_TABLE[table];
+  if (!heavy || heavy.length === 0) {
+    TABLE_SELECT_COLS_CACHE.set(table, '*');
+    return '*';
+  }
+  const result = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
+    [table]
+  );
+  const all = result.rows.map((r: { column_name: string }) => r.column_name);
+  const filtered = all.filter(c => !heavy.includes(c));
+  if (filtered.length === 0) {
+    TABLE_SELECT_COLS_CACHE.set(table, '*');
+    return '*';
+  }
+  const clause = filtered.map(c => `"${c}"`).join(', ');
+  TABLE_SELECT_COLS_CACHE.set(table, clause);
+  return clause;
+}
+
 function isTransientError(error: any): boolean {
   const msg = String(error?.message || error || '').toLowerCase();
   const code = error?.code || '';
@@ -170,7 +198,8 @@ async function fetchTableDataPaginated(opts: FetchTableOptions): Promise<FetchTa
       paramIndex++;
     }
 
-    let query = `SELECT * FROM "${table}"`;
+    const selectClause = await getPullSelectClause(table);
+    let query = `SELECT ${selectClause} FROM "${table}"`;
     if (conditions.length > 0) {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }

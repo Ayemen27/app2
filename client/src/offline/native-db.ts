@@ -138,6 +138,8 @@ class SQLiteStorage {
         [id.toString(), JSON.stringify(data)]
       );
     } catch (e) {
+      console.error(`[NativeDB] set(${table}, ${id}) فشل:`, e);
+      throw e;
     }
   }
 
@@ -148,6 +150,7 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT data FROM ${table}`);
       return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
     } catch (e) {
+      console.error(`[NativeDB] getAll(${table}) فشل:`, e);
       return [];
     }
   }
@@ -158,6 +161,8 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id]);
     } catch (e) {
+      console.error(`[NativeDB] delete(${table}, ${id}) فشل:`, e);
+      throw e;
     }
   }
 
@@ -167,6 +172,8 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table}`, []);
     } catch (e) {
+      console.error(`[NativeDB] clearTable(${table}) فشل:`, e);
+      throw e;
     }
   }
 
@@ -177,6 +184,7 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT COUNT(*) as cnt FROM ${table}`);
       return res.values && res.values.length > 0 ? (res.values[0].cnt || 0) : 0;
     } catch (e) {
+      console.error(`[NativeDB] count(${table}) فشل:`, e);
       return 0;
     }
   }

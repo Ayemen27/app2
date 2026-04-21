@@ -2,6 +2,8 @@
  * أداة حل التضارعات عند المزامنة
  */
 
+import { canonicalStringify } from './canonical-json';
+
 export interface ConflictResolutionStrategy {
   strategy: 'last-write-wins' | 'server-wins' | 'client-wins' | 'merge';
   metadata?: Record<string, any>;
@@ -52,28 +54,33 @@ export function resolveConflictMerge(
   serverTimestamp: number
 ): any {
   
-  const merged: any = { ...serverData };
   const newer = clientTimestamp > serverTimestamp ? 'client' : 'server';
+  // الكائن "الأحدث" يفوز بالحقول المتعارضة، لكن نحافظ على البنية المتداخلة
+  // (deep merge بدل shallow) — هذا يحلّ مشكلة استبدال كائنات متداخلة كاملة.
+  if (newer === 'client') {
+    return deepMergeConflict(serverData, clientData);
+  }
+  return deepMergeConflict(clientData, serverData);
+}
 
-  // حاول دمج الحقول المختلفة
-  for (const key in clientData) {
-    if (!(key in serverData)) {
-      // حقل جديد في العميل، أضفه
-      merged[key] = clientData[key];
-    } else if (clientData[key] === serverData[key]) {
-      // نفس القيمة، لا تضارع
-      continue;
+function deepMergeConflict(base: any, winner: any): any {
+  if (base === null || base === undefined) return winner;
+  if (winner === null || winner === undefined) return base;
+  if (typeof base !== 'object' || typeof winner !== 'object') return winner;
+  if (Array.isArray(base) || Array.isArray(winner)) return winner;
+  const out: any = { ...base };
+  for (const key of Object.keys(winner)) {
+    const wv = winner[key];
+    if (wv === undefined) continue;
+    const bv = base[key];
+    if (bv && wv && typeof bv === 'object' && typeof wv === 'object'
+        && !Array.isArray(bv) && !Array.isArray(wv)) {
+      out[key] = deepMergeConflict(bv, wv);
     } else {
-      // تضارع في الحقل، اختر الأحدث
-      if (newer === 'client') {
-        merged[key] = clientData[key];
-      } else {
-        merged[key] = serverData[key];
-      }
+      out[key] = wv;
     }
   }
-
-  return merged;
+  return out;
 }
 
 /**
@@ -83,9 +90,9 @@ export function detectConflict(clientData: any, serverData: any): boolean {
   const clientKeys = Object.keys(clientData || {});
   const serverKeys = Object.keys(serverData || {});
   const allKeys = Array.from(new Set([...clientKeys, ...serverKeys]));
-  
+
   for (const key of allKeys) {
-    if (JSON.stringify(clientData?.[key]) !== JSON.stringify(serverData?.[key])) {
+    if (canonicalStringify(clientData?.[key]) !== canonicalStringify(serverData?.[key])) {
       return true;
     }
   }
@@ -103,7 +110,7 @@ export function getConflictingFields(clientData: any, serverData: any): string[]
   const allKeys = Array.from(new Set([...clientKeys, ...serverKeys]));
 
   for (const key of allKeys) {
-    if (JSON.stringify(clientData?.[key]) !== JSON.stringify(serverData?.[key])) {
+    if (canonicalStringify(clientData?.[key]) !== canonicalStringify(serverData?.[key])) {
       conflicts.push(key);
     }
   }

@@ -77,28 +77,8 @@ class SQLiteStorage {
       );
     `);
 
-    const ALL_STORES = [
-      'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
-      'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
-      'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
-      'supplierPayments', 'transportationExpenses', 'workerTransfers',
-      'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
-      'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
-      'securityPolicies', 'securityPolicyImplementations',
-      'securityPolicySuggestions', 'securityPolicyViolations',
-      'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
-      'wellTasks', 'wellExpenses', 'wellAuditLogs',
-      'wellTaskAccounts', 'notifications',
-      'notificationReadStates',
-      'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-      'reportTemplates', 'backupLogs', 'backupSettings',
-      'equipment', 'equipmentMovements',
-      'wellWorkCrews', 'wellCrewWorkers', 'wellSolarComponents',
-      'wellTransportDetails', 'wellReceptions',
-      'authRequestNonces', 'workerSettlements', 'workerSettlementLines',
-      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
-      'deadLetterQueue', 'localAuditLog'
-    ];
+    const { ALL_SYNC_STORES } = await import('@shared/sync-tables');
+    const ALL_STORES = ALL_SYNC_STORES;
 
     for (const store of ALL_STORES) {
       await this.db.execute(`

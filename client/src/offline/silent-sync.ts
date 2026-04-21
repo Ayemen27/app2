@@ -10,8 +10,19 @@ import type { ConflictData } from './conflict-resolver';
 import { endpointToStore } from './store-registry';
 import { isCurrentTabLeader } from './sync-leader';
 import { isSyncEngineActive } from './sync';
+import { withMutex, SYNC_LOCKS, MutexBusyError } from './sync-mutex';
 
 let _isSyncing = false;
+
+// 📡 بثّ تقدم المزامنة الحقيقي (يستهلكه sync-progress-tracker)
+function emitSyncProgress(done: number, total: number, phase: 'start' | 'tick' | 'end' = 'tick') {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('sync:progress', {
+      detail: { done, total, phase, percent: total > 0 ? Math.round((done / total) * 100) : 0 },
+    }));
+  } catch {}
+}
 
 const SYNC_CONFIG = {
   maxRetries: 8,
@@ -38,8 +49,16 @@ export async function runSilentSync() {
   if (isSyncEngineActive()) return;
   _isSyncing = true;
   try {
-    await _executeSilentSync();
+    // قفل عبر التبويبات: لو هناك تبويب آخر يقوم بالـ flush، نتخطى بدون انتظار
+    await withMutex(SYNC_LOCKS.OUTBOX_FLUSH, async () => {
+      await _executeSilentSync();
+    }, { ifAvailable: true });
   } catch (err) {
+    if (err instanceof MutexBusyError) {
+      // تبويب آخر يعالج — طبيعي
+      return;
+    }
+    console.warn('[silent-sync] خطأ غير متوقع:', err);
   } finally {
     _isSyncing = false;
   }
@@ -259,8 +278,14 @@ async function _executeSilentSync() {
     }
   }
 
+  const totalOps = readyItems.length;
+  let doneOps = 0;
+  emitSyncProgress(0, totalOps, 'start');
+
   for (const [batchId, batchItems] of batches) {
     await processBatch(batchId, batchItems);
+    doneOps += batchItems.length;
+    emitSyncProgress(doneOps, totalOps, 'tick');
   }
 
   for (const item of unbatched) {
@@ -405,8 +430,13 @@ async function _executeSilentSync() {
       }
     } catch (error: any) {
       await markItemFailed(item.id, error.message || String(error), 'unknown');
+    } finally {
+      doneOps += 1;
+      emitSyncProgress(doneOps, totalOps, 'tick');
     }
   }
+
+  emitSyncProgress(totalOps, totalOps, 'end');
 }
 
 async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): Promise<void> {

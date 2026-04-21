@@ -45,6 +45,15 @@ export function SyncProgressTracker() {
     };
     window.addEventListener('offline-mutation-queued', handleMutationQueued);
 
+    // 📡 تقدم حقيقي من silent-sync (لا محاكاة)
+    const handleSyncProgress = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { percent: number; phase: string };
+      if (!detail) return;
+      setProgress(detail.percent);
+      if (detail.phase === 'start') setStatus('syncing');
+    };
+    window.addEventListener('sync:progress', handleSyncProgress);
+
     if (!navigator.onLine) {
       setStatus('offline');
     }
@@ -54,6 +63,7 @@ export function SyncProgressTracker() {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
       window.removeEventListener('offline-mutation-queued', handleMutationQueued);
+      window.removeEventListener('sync:progress', handleSyncProgress);
     };
   }, [status, checkPendingQueue]);
 
@@ -75,16 +85,9 @@ export function SyncProgressTracker() {
         return;
       }
 
-      const total = queue.length;
-      let processed = 0;
-
-      const progressInterval = setInterval(() => {
-        processed = Math.min(processed + 1, total);
-        setProgress(Math.round((processed / total) * 100));
-      }, 500);
-
+      // التقدم الفعلي يأتي عبر event 'sync:progress' من silent-sync
+      // (لا حاجة لمحاكاة بـ setInterval)
       await runSilentSync();
-      clearInterval(progressInterval);
 
       setProgress(100);
       setStatus('completed');

@@ -1,33 +1,13 @@
 import { SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
+import { ALL_SYNC_STORES, type SyncStoreName } from '@shared/sync-tables';
 
 export function kebabToCamel(str: string): string {
   return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
-export const ALL_STORES = [
-  'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
-  'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
-  'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
-  'supplierPayments', 'transportationExpenses', 'workerTransfers',
-  'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
-  'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
-  'securityPolicies', 'securityPolicyImplementations',
-  'securityPolicySuggestions', 'securityPolicyViolations',
-  'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
-  'wellTasks', 'wellExpenses', 'wellAuditLogs',
-  'wellTaskAccounts', 'notifications',
-  'notificationReadStates',
-  'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-  'reportTemplates', 'backupLogs', 'backupSettings',
-  'equipment', 'equipmentMovements',
-  'wellWorkCrews', 'wellCrewWorkers', 'wellSolarComponents',
-  'wellTransportDetails', 'wellReceptions',
-  'authRequestNonces', 'workerSettlements', 'workerSettlementLines',
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
-  'deadLetterQueue', 'localAuditLog',
-] as const;
+export const ALL_STORES = ALL_SYNC_STORES;
 
-export type StoreName = (typeof ALL_STORES)[number];
+export type StoreName = SyncStoreName;
 
 const ENDPOINT_TO_STORE_MAP: Record<string, StoreName> = {
   '/api/fund-transfers': 'fundTransfers',

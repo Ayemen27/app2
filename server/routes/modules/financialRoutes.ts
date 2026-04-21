@@ -87,6 +87,11 @@ financialRouter.use((req, res, next) => {
  * GET /api/financial-summary
  */
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
+function parseAmount(v: unknown, fallback = 0): number {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : fallback;
+}
 
 financialRouter.get('/financial-summary', async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -423,7 +428,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       const result = await txDb.insert(fundTransfers).values(transferData).returning();
       const record = result[0];
       await FinancialLedgerService.recordFundTransferWithClient(
-        client, record.project_id, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
+        client, record.project_id, parseAmount(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
       );
       return result;
     });
@@ -544,7 +549,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       const record = result[0];
       await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'fund_transfers', transferId, 'تعديل تحويل عهدة', getAuthUser(req)?.user_id);
       await FinancialLedgerService.recordFundTransferWithClient(
-        client, record.project_id, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
+        client, record.project_id, parseAmount(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
       );
       return result;
     });
@@ -916,7 +921,7 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
       const result = await txDb.insert(projectFundTransfers).values(validationResult.data).returning();
       const record = result[0];
       await FinancialLedgerService.recordProjectTransferWithClient(
-        client, record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
+        client, record.fromProjectId, record.toProjectId, parseAmount(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
       );
       return result;
     });
@@ -1090,7 +1095,7 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
       const record = result[0];
       await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'project_fund_transfers', id, 'تعديل تحويل مشروع', getAuthUser(req)?.user_id);
       await FinancialLedgerService.recordProjectTransferWithClient(
-        client, record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
+        client, record.fromProjectId, record.toProjectId, parseAmount(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
       );
       return result;
     }).catch(e => {
@@ -1223,7 +1228,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
     console.log('✅ [API] نجح validation تحويل العامل');
 
     const confirmGuard = req.body.confirmGuard === true;
-    const transferAmount = parseFloat(validationResult.data.amount || '0');
+    const transferAmount = parseAmount(validationResult.data.amount);
 
     if (!confirmGuard && transferAmount > 0 && validationResult.data.worker_id && validationResult.data.project_id) {
       try {
@@ -1237,8 +1242,8 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
            WHERE wb.worker_id = $1`,
           [validationResult.data.worker_id]
         );
-        const currentBalance = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].total_balance || '0') : 0;
-        const totalEarned = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].total_earned || '0') : 0;
+        const currentBalance = balanceResult.rows.length > 0 ? parseAmount(balanceResult.rows[0].total_balance) : 0;
+        const totalEarned = balanceResult.rows.length > 0 ? parseAmount(balanceResult.rows[0].total_earned) : 0;
         const resultingBalance = currentBalance - transferAmount;
 
         if (resultingBalance < 0) {
@@ -1311,7 +1316,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       validationResult.data.notes = ((validationResult.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[FinancialTransferGuard] OVERRIDE by user for worker ${validationResult.data.worker_id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
-        const adj = parseFloat(req.body.adjustedAmount);
+        const adj = parseAmount(req.body.adjustedAmount);
         if (!Number.isFinite(adj) || adj < 0) {
           return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
         }
@@ -1324,7 +1329,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       const result = await txDb.insert(workerTransfers).values(validationResult.data).returning();
       const record = result[0];
       await FinancialLedgerService.recordWorkerTransferWithClient(
-        client, record.project_id, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
+        client, record.project_id, parseAmount(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
       );
       return result;
     });
@@ -1438,7 +1443,7 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
       const result = await txDb.insert(workerMiscExpenses).values(validationResult.data).returning();
       const r = result[0];
       await FinancialLedgerService.recordMiscExpenseWithClient(
-        client, r.project_id, parseFloat(r.amount), r.date, r.id, getAuthUser(req)?.user_id
+        client, r.project_id, parseAmount(r.amount), r.date, r.id, getAuthUser(req)?.user_id
       );
       return result;
     });
@@ -1957,7 +1962,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
     
     // حساب المبالغ تلقائياً بناءً على نوع الشراء
-    const totalAmount = Math.round(parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString();
+    const totalAmount = Math.round(parseAmount(validated.quantity) * parseAmount(validated.unitPrice)).toString();
     let paidAmount = "0";
     let remainingAmount = "0";
 
@@ -1996,7 +2001,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً
-    const parsedTotalAmount = parseFloat(String(purchaseData.totalAmount));
+    const parsedTotalAmount = parseAmount(purchaseData.totalAmount);
     if (parsedTotalAmount < 0) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -2040,7 +2045,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           [validated.project_id]
         );
         const projectName = projectResult.rows[0]?.name || '';
-        const projectBudget = parseFloat(projectResult.rows[0]?.budget || '0');
+        const projectBudget = parseAmount(projectResult.rows[0]?.budget);
 
         if (projectBudget > 0) {
           const spentResult = await pool.query(
@@ -2048,7 +2053,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
              FROM material_purchases WHERE project_id = $1`,
             [validated.project_id]
           );
-          const totalSpent = parseFloat(spentResult.rows[0]?.total_spent || '0');
+          const totalSpent = parseAmount(spentResult.rows[0]?.total_spent);
           const afterPurchase = totalSpent + parsedTotalAmount;
           const usagePercent = (afterPurchase / projectBudget) * 100;
 
@@ -2082,7 +2087,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
            WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0`,
           [validated.project_id]
         );
-        const avgAmount = parseFloat(avgResult.rows[0]?.avg_amount || '0');
+        const avgAmount = parseAmount(avgResult.rows[0]?.avg_amount);
         const purchaseCount = parseInt(avgResult.rows[0]?.purchase_count || '0');
 
         if (purchaseCount >= 3 && avgAmount > 0 && parsedTotalAmount > avgAmount * 5) {
@@ -2194,7 +2199,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       purchaseData.notes = ((purchaseData.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).toString().trim();
       console.log(`[FinancialMaterialGuard] OVERRIDE by user for project ${purchaseData.project_id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
-        const adj = parseFloat(req.body.adjustedAmount);
+        const adj = parseAmount(req.body.adjustedAmount);
         if (!Number.isFinite(adj) || adj < 0) {
           return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
         }
@@ -2240,7 +2245,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       if (shouldAddToInventory) {
         const rawQty = parseInt(String(p.quantity || '1'), 10);
         const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
-        const totalAmountVal = parseFloat(p.total_amount || '0');
+        const totalAmountVal = parseAmount(p.total_amount);
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
         const eqInsert = await client.query(
@@ -2266,9 +2271,9 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           materialName: p.material_name || '',
           materialCategory: p.material_category || null,
           unit: p.unit || p.material_unit || 'قطعة',
-          quantity: parseFloat(p.quantity || '0'),
-          unitPrice: parseFloat(p.unit_price || '0'),
-          totalAmount: parseFloat(p.total_amount || '0'),
+          quantity: parseAmount(p.quantity),
+          unitPrice: parseAmount(p.unit_price),
+          totalAmount: parseAmount(p.total_amount),
           purchaseDate: p.purchase_date,
           supplierId: p.supplier_id || null,
           projectId: p.project_id || null,
@@ -2282,7 +2287,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
 
     const p = newPurchase[0];
     await FinancialLedgerService.recordMaterialPurchase(
-      p.project_id, parseFloat(p.total_amount || '0'), p.purchase_date, p.id, p.purchase_type || 'نقد', getAuthUser(req)?.user_id
+      p.project_id, parseAmount(p.total_amount), p.purchase_date, p.id, p.purchase_type || 'نقد', getAuthUser(req)?.user_id
     );
 
     try {
@@ -2403,20 +2408,20 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
     // ═══════════════ حارس PATCH المشتريات المالي ═══════════════
     const confirmGuardPatch = req.body.confirmGuard === true;
-    const newTotalAmount = validated.totalAmount !== undefined ? parseFloat(String(validated.totalAmount)) : 0;
+    const newTotalAmount = validated.totalAmount !== undefined ? parseAmount(validated.totalAmount) : 0;
     if (!confirmGuardPatch && newTotalAmount > 0 && existing.project_id) {
       try {
         const guardWarnings: any[] = [];
         const projResult = await pool.query(`SELECT name, COALESCE(budget, 0) as budget FROM projects WHERE id = $1`, [existing.project_id]);
         const pName = projResult.rows[0]?.name || '';
-        const pBudget = parseFloat(projResult.rows[0]?.budget || '0');
+        const pBudget = parseAmount(projResult.rows[0]?.budget);
 
         if (pBudget > 0) {
           const spentResult = await pool.query(
             `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
             [existing.project_id, purchaseId]
           );
-          const totalSpentExcluding = parseFloat(spentResult.rows[0]?.total_spent || '0');
+          const totalSpentExcluding = parseAmount(spentResult.rows[0]?.total_spent);
           const afterPatch = totalSpentExcluding + newTotalAmount;
           if (afterPatch > pBudget) {
             guardWarnings.push({
@@ -2432,7 +2437,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
           `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0`,
           [existing.project_id, purchaseId]
         );
-        const avgAmt = parseFloat(avgResult.rows[0]?.avg_amount || '0');
+        const avgAmt = parseAmount(avgResult.rows[0]?.avg_amount);
         const cnt = parseInt(avgResult.rows[0]?.cnt || '0');
         if ((cnt >= 3 && avgAmt > 0 && newTotalAmount > avgAmt * 5) || newTotalAmount >= 500000) {
           guardWarnings.push({
@@ -2473,7 +2478,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       validatedWithoutInventory.notes = ((validatedWithoutInventory.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[FinancialMaterialPatchGuard] OVERRIDE for purchase ${purchaseId}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
-        const adj = parseFloat(req.body.adjustedAmount);
+        const adj = parseAmount(req.body.adjustedAmount);
         if (!Number.isFinite(adj) || adj < 0) {
           return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح.' });
         }
@@ -2503,7 +2508,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       if (shouldAddToInventory && !alreadyHasEquipment) {
         const rawQty = parseInt(String(mp.quantity || '1'), 10);
         const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
-        const totalAmountVal = parseFloat(mp.totalAmount || '0');
+        const totalAmountVal = parseAmount(mp.totalAmount);
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
         const [newEquipment] = await tx.insert(equipment).values({
@@ -2548,9 +2553,9 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
           materialName: mp.materialName || '',
           materialCategory: mp.materialCategory || null,
           unit: mp.unit || mp.materialUnit || 'قطعة',
-          quantity: parseFloat(mp.quantity || '0'),
-          unitPrice: parseFloat(mp.unitPrice || '0'),
-          totalAmount: parseFloat(mp.totalAmount || '0'),
+          quantity: parseAmount(mp.quantity),
+          unitPrice: parseAmount(mp.unitPrice),
+          totalAmount: parseAmount(mp.totalAmount),
           purchaseDate: mp.purchaseDate,
           supplierId: mp.supplierId || null,
           projectId: mp.project_id || null,
@@ -2563,7 +2568,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     const mp = updated[0];
     await FinancialLedgerService.findAndReverseBySource('material_purchases', purchaseId, 'تعديل مشتراة', getAuthUser(req)?.user_id);
     await FinancialLedgerService.recordMaterialPurchase(
-      mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
+      mp.project_id, parseAmount(mp.totalAmount), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
     );
 
     try {
@@ -2763,7 +2768,7 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
 
       const te = result[0];
       await FinancialLedgerService.recordTransportExpenseWithClient(
-        client, te.project_id, parseFloat(te.amount || '0'), te.date, te.id, getAuthUser(req)?.user_id
+        client, te.project_id, parseAmount(te.amount), te.date, te.id, getAuthUser(req)?.user_id
       );
 
       return result;
@@ -2882,7 +2887,7 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
       const tu = result[0];
       await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'transportation_expenses', req.params.id, 'تعديل نفقة نقل', getAuthUser(req)?.user_id);
       await FinancialLedgerService.recordTransportExpenseWithClient(
-        client, tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, getAuthUser(req)?.user_id
+        client, tu.project_id, parseAmount(tu.amount), tu.date, tu.id, getAuthUser(req)?.user_id
       );
 
       return result;
@@ -3060,7 +3065,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       [project_id, cleanExcelDate]
     ).then(r => r.rows);
 
-    const totalWorkDays = attendanceRecords.reduce((sum: any, record: any) => sum + (parseFloat(record.work_days || record.workDays || '0')), 0);
+    const totalWorkDays = attendanceRecords.reduce((sum: any, record: any) => sum + (parseAmount(record.work_days || record.workDays)), 0);
 
     if (summary.length === 0) {
       return res.json({
@@ -3084,12 +3089,12 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       success: true,
       data: {
         date: data.date,
-        workerWages: parseFloat(data.totalWorkerWages || '0'),
+        workerWages: parseAmount(data.totalWorkerWages),
         workDays: totalWorkDays,
-        materialCosts: parseFloat(data.totalMaterialCosts || '0'),
-        transportation: parseFloat(data.totalTransportationCosts || '0'),
-        miscExpenses: parseFloat(data.totalWorkerMiscExpenses || '0'),
-        total: parseFloat(data.totalExpenses || '0')
+        materialCosts: parseAmount(data.totalMaterialCosts),
+        transportation: parseAmount(data.totalTransportationCosts),
+        miscExpenses: parseAmount(data.totalWorkerMiscExpenses),
+        total: parseAmount(data.totalExpenses)
       },
       message: 'تم جلب مصاريف اليوم بنجاح',
       processingTime: Date.now() - startTime
@@ -3144,8 +3149,8 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
 
     // حساب المتبقي لكل سجل
     const detailedRecords = attendanceRecords.map((record: any) => {
-      const actualWage = parseFloat(record.actualWage || '0');
-      const paidAmount = parseFloat(record.paidAmount || '0');
+      const actualWage = parseAmount(record.actualWage);
+      const paidAmount = parseAmount(record.paidAmount);
       const remainingAmount = actualWage - paidAmount;
       
       return {
@@ -3221,7 +3226,7 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
     }
 
     // حساب الإجمالي
-    const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseAmount(t.amount), 0);
 
     res.json({
       success: true,
@@ -3229,7 +3234,7 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
         transfers: transfers.map((t: any) => ({
           id: t.id,
           date: t.transferDate,
-          amount: parseFloat(t.amount || '0'),
+          amount: parseAmount(t.amount),
           description: t.notes || '',
           method: t.transferMethod || ''
         })),
@@ -3324,10 +3329,10 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     let totalPaid = 0;
 
     const attendanceData = attendanceRecords.map((record: any) => {
-      const workDays = parseFloat(record.workDays || '0');
-      const dailyWage = parseFloat(record.dailyWage || worker.dailyWage || '0');
-      const actualWage = record.actualWage != null ? parseFloat(String(record.actualWage)) : parseFloat((workDays * dailyWage).toFixed(2));
-      const paidAmount = parseFloat(record.paidAmount || '0');
+      const workDays = parseAmount(record.workDays);
+      const dailyWage = parseAmount(record.dailyWage || worker.dailyWage);
+      const actualWage = record.actualWage != null ? parseAmount(record.actualWage) : parseAmount((workDays * dailyWage).toFixed(2));
+      const paidAmount = parseAmount(record.paidAmount);
       const remainingAmount = actualWage - paidAmount;
 
       totalWorkDays += workDays;
@@ -3368,7 +3373,7 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
     let totalTransfers = 0;
     transferRecords.forEach((t: any) => {
-      totalTransfers += parseFloat(t.amount || '0');
+      totalTransfers += parseAmount(t.amount);
     });
 
     res.json({
@@ -3378,7 +3383,7 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
           id: worker.id,
           name: worker.name,
           type: worker.type || '',
-          dailyWage: parseFloat(worker.dailyWage || '0')
+          dailyWage: parseAmount(worker.dailyWage)
         },
         attendance: attendanceData,
         summary: {
@@ -3464,9 +3469,9 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
     let cashTotal = 0, creditTotal = 0, storageTotal = 0, totalPaid = 0, totalDebt = 0;
     
     purchasesList.forEach((p: any) => {
-      const totalAmount = parseFloat(p.totalAmount || '0');
-      const paidAmount = parseFloat(p.paidAmount || '0');
-      const remainingAmount = parseFloat(p.remainingAmount || '0');
+      const totalAmount = parseAmount(p.totalAmount);
+      const paidAmount = parseAmount(p.paidAmount);
+      const remainingAmount = parseAmount(p.remainingAmount);
       
       if (p.purchaseType === 'نقد') {
         cashTotal += totalAmount;
@@ -3491,7 +3496,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
         totalDebt: Math.round(totalDebt).toString(),
         totalPaid: Math.round(totalPaid).toString(),
         remainingDebt: Math.round(totalDebt).toString(),
-        activeSuppliers: suppliersList.filter((s: any) => parseFloat(s.totalDebt || '0') > 0).length
+        activeSuppliers: suppliersList.filter((s: any) => parseAmount(s.totalDebt) > 0).length
       },
       processingTime: duration
     });
@@ -3787,8 +3792,8 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     for (const r of cumulativeResult.rows) {
       const pid = r.project_id;
-      const funds = parseFloat(r.cumulative_funds) || 0;
-      const expenses = parseFloat(r.cumulative_expenses) || 0;
+      const funds = parseAmount(r.cumulative_funds) || 0;
+      const expenses = parseAmount(r.cumulative_expenses) || 0;
       allProjectIds.add(pid);
       projectNameMap[pid] = r.project_name;
       cumulativeMap[pid] = {
@@ -3807,8 +3812,8 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     let todayTotalFunds = 0, todayTotalExpenses = 0;
     for (const s of summariesResult.rows) {
-      todayTotalFunds += parseFloat(s.total_fund_transfers) || 0;
-      todayTotalExpenses += parseFloat(s.total_expenses) || 0;
+      todayTotalFunds += parseAmount(s.total_fund_transfers) || 0;
+      todayTotalExpenses += parseAmount(s.total_expenses) || 0;
     }
     const carriedForwardAll = totalCumBalance - todayTotalFunds + todayTotalExpenses;
 
@@ -3860,7 +3865,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       return sendSuccess(res, { summaries: summariesResult.rows, globalTotals, dataFreshness, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
     }
 
-    function num(v: any) { return parseFloat(v) || 0; }
+    function num(v: any) { return parseAmount(v) || 0; }
 
     const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([
       pool.query(

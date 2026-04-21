@@ -44,6 +44,23 @@ export interface ActionResult {
 
 export class DatabaseActions {
 
+  private validateQuerySafety(query: string): { safe: boolean; reason?: string; normalized?: string } {
+    if (!query || typeof query !== "string") return { safe: false, reason: "empty_query" };
+    if (query.length > 5000) return { safe: false, reason: "too_long" };
+    // إزالة التعليقات
+    let n = query.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ").trim();
+    // الفاصلة المنقوطة في النهاية فقط
+    if (n.endsWith(";")) n = n.slice(0, -1).trim();
+    if (n.includes(";")) return { safe: false, reason: "multiple_statements", normalized: n };
+    // يجب أن يبدأ بـ SELECT أو WITH ... SELECT
+    if (!/^(select|with)\b/i.test(n)) return { safe: false, reason: "not_select", normalized: n };
+    // كلمات محظورة
+    const forbidden = /\b(into|update|insert|delete|drop|alter|truncate|grant|revoke|execute|call|copy|set|reset|pg_sleep|pg_read|pg_ls|pg_stat_file|current_setting|set_config|lo_import|lo_export)\b/i;
+    if (forbidden.test(n)) return { safe: false, reason: "forbidden_keyword", normalized: n };
+    if (/\\copy/i.test(n)) return { safe: false, reason: "forbidden_keyword", normalized: n };
+    return { safe: true, normalized: n };
+  }
+
   private safeParseNum(val: any, fallback: number = 0): number {
     if (val === null || val === undefined) return fallback;
     const str = String(val).replace(/,/g, '').trim();
@@ -1315,33 +1332,16 @@ export class DatabaseActions {
 
   async executeRawSelect(query: string): Promise<ActionResult> {
     try {
-      const trimmed = query.trim();
-      const normalized = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
-      
-      if (!/^SELECT\s/i.test(normalized)) {
+      const safety = this.validateQuerySafety(query);
+      if (!safety.safe) {
         return {
           success: false,
-          message: "يُسمح فقط باستعلامات SELECT للقراءة. لا يمكن تنفيذ استعلامات تعديلية من هذا الأمر.",
+          message: `استعلام غير آمن: ${safety.reason}`,
           action: "raw_select",
         };
       }
 
-      const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|INTO)\b/i;
-      if (forbidden.test(normalized)) {
-        return {
-          success: false,
-          message: "الاستعلام يحتوي على أوامر تعديلية غير مسموحة. استخدم فقط SELECT للقراءة.",
-          action: "raw_select",
-        };
-      }
-
-      if (DatabaseActions.DANGEROUS_PG_FUNCTIONS.test(normalized)) {
-        return {
-          success: false,
-          message: "الاستعلام يحتوي على دوال PostgreSQL غير مسموحة لأسباب أمنية.",
-          action: "raw_select",
-        };
-      }
+      const normalized = safety.normalized!;
 
       const BLOCKED_SCHEMAS = /\b(pg_catalog|information_schema|pg_toast)\b/i;
       if (BLOCKED_SCHEMAS.test(normalized)) {
@@ -1349,7 +1349,7 @@ export class DatabaseActions {
       }
 
       for (const table of DatabaseActions.SENSITIVE_TABLES) {
-        if (new RegExp(`\\b${table}\\b`, 'i').test(normalized)) {
+        if (new RegExp(`\\b${table}\\b`, "i").test(normalized)) {
           return { success: false, message: "الوصول إلى هذا الجدول محظور.", action: "raw_select" };
         }
       }
@@ -1357,8 +1357,8 @@ export class DatabaseActions {
       const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? normalized : `${normalized} LIMIT 500`;
       const client = await pool.connect();
       try {
-        await client.query('SET statement_timeout = 10000');
-        await client.query('SET TRANSACTION READ ONLY');
+        await client.query('SET LOCAL statement_timeout = "5s"');
+        await client.query('SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = "5s"');
         const result = await client.query(limitedQuery);
         return {
           success: true,
@@ -1382,32 +1382,16 @@ export class DatabaseActions {
   // ==================== استعلام SQL مخصص (للمسؤول فقط) ====================
 
   async executeCustomQuery(query: string, _confirmed: boolean = false): Promise<ActionResult> {
-    const normalized = query.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
-
-    if (!/^SELECT\s/i.test(normalized)) {
+    const safety = this.validateQuerySafety(query);
+    if (!safety.safe) {
       return {
         success: false,
-        message: "لأسباب أمنية، يُسمح فقط باستعلامات SELECT للقراءة عبر واجهة الذكاء الاصطناعي.",
+        message: `استعلام غير آمن: ${safety.reason}`,
         action: "execute_sql",
       };
     }
 
-    const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|INTO)\b/i;
-    if (forbidden.test(normalized)) {
-      return {
-        success: false,
-        message: "الاستعلام يحتوي على أوامر غير مسموحة. استخدم فقط SELECT للقراءة.",
-        action: "execute_sql",
-      };
-    }
-
-    if (DatabaseActions.DANGEROUS_PG_FUNCTIONS.test(normalized)) {
-      return {
-        success: false,
-        message: "الاستعلام يحتوي على دوال PostgreSQL غير مسموحة لأسباب أمنية.",
-        action: "execute_sql",
-      };
-    }
+    const normalized = safety.normalized!;
 
     const BLOCKED_SCHEMAS = /\b(pg_catalog|information_schema|pg_toast)\b/i;
     if (BLOCKED_SCHEMAS.test(normalized)) {
@@ -1415,7 +1399,7 @@ export class DatabaseActions {
     }
 
     for (const table of DatabaseActions.SENSITIVE_TABLES) {
-      if (new RegExp(`\\b${table}\\b`, 'i').test(normalized)) {
+      if (new RegExp(`\\b${table}\\b`, "i").test(normalized)) {
         return { success: false, message: "الوصول إلى هذا الجدول محظور.", action: "execute_sql" };
       }
     }
@@ -1423,8 +1407,8 @@ export class DatabaseActions {
     const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? normalized : `${normalized} LIMIT 500`;
     const client = await pool.connect();
     try {
-      await client.query('SET statement_timeout = 10000');
-      await client.query('SET TRANSACTION READ ONLY');
+      await client.query('SET LOCAL statement_timeout = "5s"');
+      await client.query('SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = "5s"');
       const result = await client.query(limitedQuery);
       return {
         success: true,

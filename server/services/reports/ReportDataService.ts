@@ -299,7 +299,10 @@ export class ReportDataService {
       .reduce((s, m) => s + (m.paidAmount > 0 ? m.paidAmount : m.totalAmount), 0);
     const totalTransport = transport.reduce((s, t) => s + t.amount, 0);
     const totalMiscExpenses = miscExpenses.reduce((s, e) => s + e.amount, 0);
-    const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
+    // استبعاد حوالات التصفية لأنها تُحسب بشكل منفصل في worker_settlement_lines (تجنّب الازدواج)
+    const totalWorkerTransfers = workerTransfersList
+      .filter(t => t.transferMethod !== 'settlement')
+      .reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
     const totalProjectTransfersOut = projectFundTransfersOutData
       .filter((f: any) => !f.transferReason || (f.transferReason !== 'legacy_worker_rebalance' && f.transferReason !== 'settlement'))

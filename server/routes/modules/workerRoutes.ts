@@ -2381,15 +2381,34 @@ workerRouter.post('/worker-project-wages', async (req: Request, res: Response) =
 
     const [newWage] = await db.insert(workerProjectWages).values(wageData).returning();
 
-    const { attendanceUpdated } = await recalculateAttendanceAndBalances(
-      newWage.worker_id,
-      newWage.project_id,
-      newWage.effectiveFrom,
-      newWage.effectiveTo || undefined
-    );
+    let attendanceUpdated = 0;
+    let recalcError: string | null = null;
+    try {
+      const result = await recalculateAttendanceAndBalances(
+        newWage.worker_id,
+        newWage.project_id,
+        newWage.effectiveFrom,
+        newWage.effectiveTo || undefined
+      );
+      attendanceUpdated = result.attendanceUpdated;
+      if (attendanceUpdated > 0) {
+        console.log(`✅ [POST ProjectWage] تم إعادة حساب ${attendanceUpdated} سجل حضور بعد إنشاء أجر مشروع جديد`);
+      }
+    } catch (recalcErr: any) {
+      recalcError = recalcErr?.message || 'فشل غير معروف';
+      console.error('🔴 [POST ProjectWage] فشل إعادة حساب الحضور بعد حفظ سجل الأجر:', recalcErr);
+    }
 
-    if (attendanceUpdated > 0) {
-      console.log(`✅ [POST ProjectWage] تم إعادة حساب ${attendanceUpdated} سجل حضور بعد إنشاء أجر مشروع جديد`);
+    if (recalcError) {
+      // استجابة صادقة: السجل حُفظ لكن إعادة الحساب فشلت — يجب إعلام المستخدم بصراحة
+      return res.status(207).json({
+        success: true,
+        partialFailure: true,
+        data: newWage,
+        attendanceRecordsUpdated: 0,
+        warnings: [`تم حفظ سجل الأجر لكن فشلت إعادة حساب سجلات الحضور: ${recalcError}. يرجى التواصل مع الإدارة لإعادة الحساب يدوياً.`],
+        message: 'تم حفظ سجل الأجر — لكن إعادة حساب الحضور فشلت'
+      });
     }
 
     res.status(201).json({
@@ -2467,13 +2486,25 @@ workerRouter.patch('/worker-project-wages/:id', async (req: Request, res: Respon
         ? (oldEffectiveTo && effectiveTo ? (oldEffectiveTo > effectiveTo ? oldEffectiveTo : effectiveTo) : null)
         : effectiveTo;
 
-      const { attendanceUpdated } = await recalculateAttendanceAndBalances(
-        oldWage.worker_id,
-        oldWage.project_id,
-        recalcFrom,
-        recalcTo || undefined
-      );
-      attendanceUpdatedCount = attendanceUpdated;
+      try {
+        const { attendanceUpdated } = await recalculateAttendanceAndBalances(
+          oldWage.worker_id,
+          oldWage.project_id,
+          recalcFrom,
+          recalcTo || undefined
+        );
+        attendanceUpdatedCount = attendanceUpdated;
+      } catch (recalcErr: any) {
+        console.error('🔴 [PATCH ProjectWage] فشل إعادة حساب الحضور بعد تحديث سجل الأجر:', recalcErr);
+        return res.status(207).json({
+          success: true,
+          partialFailure: true,
+          data: updated,
+          attendanceRecordsUpdated: 0,
+          warnings: [`تم تحديث سجل الأجر لكن فشلت إعادة حساب سجلات الحضور: ${recalcErr?.message || 'فشل غير معروف'}. يرجى إعادة الحساب يدوياً.`],
+          message: 'تم تحديث سجل الأجر — لكن إعادة حساب الحضور فشلت'
+        });
+      }
     }
 
     res.json({
@@ -2511,15 +2542,27 @@ workerRouter.delete('/worker-project-wages/:id', async (req: Request, res: Respo
     const deletedWage = existing[0];
     await db.delete(workerProjectWages).where(eq(workerProjectWages.id, id));
 
-    const { attendanceUpdated } = await recalculateAttendanceAndBalances(
-      deletedWage.worker_id,
-      deletedWage.project_id,
-      deletedWage.effectiveFrom,
-      deletedWage.effectiveTo || undefined
-    );
-
-    if (attendanceUpdated > 0) {
-      console.log(`✅ [DELETE ProjectWage] تم إعادة حساب ${attendanceUpdated} سجل حضور بعد حذف أجر المشروع`);
+    let attendanceUpdated = 0;
+    try {
+      const result = await recalculateAttendanceAndBalances(
+        deletedWage.worker_id,
+        deletedWage.project_id,
+        deletedWage.effectiveFrom,
+        deletedWage.effectiveTo || undefined
+      );
+      attendanceUpdated = result.attendanceUpdated;
+      if (attendanceUpdated > 0) {
+        console.log(`✅ [DELETE ProjectWage] تم إعادة حساب ${attendanceUpdated} سجل حضور بعد حذف أجر المشروع`);
+      }
+    } catch (recalcErr: any) {
+      console.error('🔴 [DELETE ProjectWage] فشل إعادة حساب الحضور بعد حذف سجل الأجر:', recalcErr);
+      return res.status(207).json({
+        success: true,
+        partialFailure: true,
+        attendanceRecordsUpdated: 0,
+        warnings: [`تم حذف سجل الأجر لكن فشلت إعادة حساب سجلات الحضور: ${recalcErr?.message || 'فشل غير معروف'}. يرجى إعادة الحساب يدوياً.`],
+        message: 'تم حذف سجل الأجر — لكن إعادة حساب الحضور فشلت'
+      });
     }
 
     res.json({

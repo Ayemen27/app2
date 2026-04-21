@@ -28,7 +28,7 @@ export interface AuthenticatedRequest extends Request {
 // Rate Limiting للطلبات العامة - تم رفعه لضمان السرعة
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5000,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
@@ -102,6 +102,21 @@ export const sensitiveOperationsRateLimit = rateLimit({
     success: false,
     message: 'تم تجاوز الحد المسموح للعمليات الحساسة، يرجى المحاولة بعد 5 دقائق',
     retryAfter: 5 * 60
+  }
+});
+
+// Rate Limiting لاستعادة كلمة المرور
+export const passwordResetRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      message: "تم تجاوز الحد المسموح لطلبات إعادة تعيين كلمة المرور، يرجى المحاولة بعد 15 دقيقة",
+      retryAfter: 15 * 60
+    });
   }
 });
 

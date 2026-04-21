@@ -22,7 +22,7 @@ import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE_OPTIONS } from '
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
-import { requireAuth, AuthenticatedRequest, authRateLimit, refreshRateLimit } from '../../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest, authRateLimit, refreshRateLimit, passwordResetRateLimit } from '../../middleware/auth.js';
 import { requireFreshRequest } from '../../middleware/replay-protection.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
@@ -1212,7 +1212,7 @@ authRouter.get('/me', requireAuth, (req: any, res: Response) => {
  * 🔑 نسيت كلمة المرور
  * POST /api/auth/forgot-password
  */
-authRouter.post('/forgot-password', authRateLimit, async (req: Request, res: Response) => {
+authRouter.post('/forgot-password', passwordResetRateLimit, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -1243,7 +1243,7 @@ authRouter.post('/forgot-password', authRateLimit, async (req: Request, res: Res
  * 🔐 إعادة تعيين كلمة المرور
  * POST /api/auth/reset-password
  */
-authRouter.post('/reset-password', authRateLimit, requireFreshRequest({ windowSec: 60 }), async (req: Request, res: Response) => {
+authRouter.post('/reset-password', passwordResetRateLimit, requireFreshRequest({ windowSec: 60 }), async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
     

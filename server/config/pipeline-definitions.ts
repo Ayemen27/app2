@@ -140,8 +140,8 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   },
   "restart-pm2": {
     name: "restart-pm2",
-    timeoutMs: 60000,
-    retryPolicy: { maxRetries: 2, delayMs: 3000 },
+    timeoutMs: 240000,
+    retryPolicy: { maxRetries: 1, delayMs: 5000 },
   },
   "post-deploy-smoke": {
     name: "post-deploy-smoke",

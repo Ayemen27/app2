@@ -456,7 +456,7 @@ const ALLOWED_PREBUILD_HOSTS = (process.env.PREBUILD_ALLOWED_HOSTS || "localhost
 
 router.post("/prebuild-check", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const { runPrebuildChecks } = await import("../../services/prebuild-route-checker.js");
-  let baseUrl = process.env.PRODUCTION_URL || "";
+  let baseUrl = process.env.PRODUCTION_DOMAIN || "";
 
   if (req.body.baseUrl && typeof req.body.baseUrl === "string") {
     try {

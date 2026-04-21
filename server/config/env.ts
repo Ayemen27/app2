@@ -60,6 +60,21 @@ if (isProduction && !process.env.JWT_ACCESS_SECRET) {
   process.exit(1);
 }
 
+if (isProduction && !process.env.JWT_REFRESH_SECRET) {
+  console.error('🚨 [ENV FATAL] JWT_REFRESH_SECRET مفقود في بيئة الإنتاج (يجب أن يكون قيمة مستقلة عن JWT_ACCESS_SECRET)');
+  process.exit(1);
+}
+
+if (isProduction && process.env.JWT_REFRESH_SECRET === process.env.JWT_ACCESS_SECRET) {
+  console.error('🚨 [ENV FATAL] JWT_REFRESH_SECRET == JWT_ACCESS_SECRET — تسريب أحدهما يكسر النظامين. يجب أن يكونا قيمتين مختلفتين.');
+  process.exit(1);
+}
+
+if (isProduction && process.env.SESSION_SECRET && process.env.SESSION_SECRET === process.env.JWT_ACCESS_SECRET) {
+  console.error('🚨 [ENV FATAL] SESSION_SECRET == JWT_ACCESS_SECRET — خطر أمني: تسريب أحدهما يكسر التشفير والمصادقة معاً. يجب فصلهما.');
+  process.exit(1);
+}
+
 export const ENV: ServerEnvConfig = Object.freeze({
   NODE_ENV,
   runtime,
@@ -70,7 +85,7 @@ export const ENV: ServerEnvConfig = Object.freeze({
   DATABASE_URL: db.url,
   DATABASE_SOURCE: db.source,
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || '',
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || process.env.JWT_ACCESS_SECRET || '',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || (isProduction ? '' : process.env.JWT_ACCESS_SECRET || ''),
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || '',
 });
 

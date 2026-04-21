@@ -70,8 +70,9 @@ The system features a consistent design with a professional navy/blue palette, E
 ### Environment Variables — No Hardcoded Secrets
 All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced exclusively from environment variables. **No hardcoded fallbacks** for critical config:
 - `SSH_HOST`, `SSH_USER` → throw if missing
-- `PRODUCTION_URL`, `PRODUCTION_DOMAIN` → empty string fallback (non-critical) or throw (SSH/deploy)
-- `SESSION_SECRET` → throw if missing (encryption.ts)
+- `PRODUCTION_DOMAIN` → empty string fallback (non-critical) or throw (SSH/deploy). **`PRODUCTION_URL` تم إلغاؤه — استخدم `PRODUCTION_DOMAIN` فقط** (تم التوحيد 2026-04-21).
+- `SESSION_SECRET` → throw if missing (encryption.ts), **يجب أن يكون مختلفاً عن `JWT_ACCESS_SECRET`** (يفشل التشغيل في الإنتاج إن تطابقا)
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` → throw if missing in production. **يجب أن يكونا قيمتين مختلفتين** (يفشل التشغيل إن تطابقا)
 - `ALLOWED_DOMAIN_SUFFIXES` → env var, no hardcoded domain list
 
 ### Required Environment Variables
@@ -80,14 +81,24 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 | `SSH_HOST` | Server | SSH deployment target IP |
 | `SSH_USER` | Server | SSH username |
 | `SSH_PASSWORD` / `SSHPASS` | Server | SSH authentication |
-| `PRODUCTION_URL` | Server | Full production URL with protocol |
-| `PRODUCTION_DOMAIN` | Server | Production domain with protocol |
+| `PRODUCTION_DOMAIN` | Server | Full production URL with protocol (الموحّد الوحيد) |
 | `VITE_PRODUCTION_DOMAIN` | Client | Client-side production domain |
 | `VITE_PRODUCTION_HOSTS` | Client | Comma-separated production hostnames |
 | `ALLOWED_DOMAIN_SUFFIXES` | Server | CORS allowed domain suffixes |
-| `SESSION_SECRET` | Server | Encryption key — required, no fallback |
+| `SESSION_SECRET` | Server | Encryption key — مطلوب، يجب أن يختلف عن JWT_ACCESS_SECRET |
+| `JWT_ACCESS_SECRET` | Server | JWT access token signing key — مطلوب في الإنتاج |
+| `JWT_REFRESH_SECRET` | Server | JWT refresh token signing key — مطلوب في الإنتاج، يجب أن يختلف عن JWT_ACCESS_SECRET |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Server | Service Account JSON موحّد — يستخدمه FCM **و** GoogleDriveService (تم التوحيد 2026-04-21، لا حاجة لـ GOOGLE_DRIVE_CREDENTIALS) |
 | `DB_NAME`, `DB_USER` | Server | Database health check params |
 | `DATABASE_URL_CENTRAL` | Server | Primary database connection |
+
+### توحيدات حديثة (2026-04-21)
+- **توحيد Service Account**: `GoogleDriveService` يقرأ الآن `FIREBASE_SERVICE_ACCOUNT_KEY` كأولوية، ثم `GOOGLE_DRIVE_CREDENTIALS` كـ legacy fallback. يُنصح بحذف `GOOGLE_DRIVE_CREDENTIALS` من Replit Secrets (محلي + إنتاج).
+- **توحيد Domain**: حُذف `PRODUCTION_URL` من الكود (deployment-engine.ts، deploymentRoutes.ts، deploymentPayloadBuilder.ts). يُنصح بحذفه من Secrets الإنتاج.
+- **حماية أمنية صارمة في `server/config/env.ts`**: التشغيل يفشل في الإنتاج إذا:
+  - `JWT_REFRESH_SECRET` مفقود أو يساوي `JWT_ACCESS_SECRET`
+  - `SESSION_SECRET` يساوي `JWT_ACCESS_SECRET`
+- **اختبار Drive API**: `testConnection` نجح بعد تفعيل Drive API على Cloud Console — متصل بـ `firebase-adminsdk-fbsvc@app2-eb4df.iam.gserviceaccount.com` بـ scope `drive.file`.
 
 ### Error Handling Policy
 - All `catch {}` blocks in critical paths log errors via `console.warn/error`

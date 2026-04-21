@@ -31,7 +31,7 @@ export class DeploymentPayloadBuilder {
   static buildConsoleUrl(deploymentId: string): string {
     const baseUrl =
       process.env.APP_BASE_URL ||
-      process.env.PRODUCTION_URL ||
+      process.env.PRODUCTION_DOMAIN ||
       "";
     return `${baseUrl}/deployment-console?id=${deploymentId}`;
   }

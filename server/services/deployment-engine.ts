@@ -155,12 +155,12 @@ export class DeploymentEngine {
 
   private resolveBaseUrl(config?: DeploymentConfig): string {
     if (config?.environment === "staging") {
-      const stagingUrl = process.env.STAGING_URL || process.env.PRODUCTION_URL;
-      if (!stagingUrl) throw new Error("STAGING_URL أو PRODUCTION_URL غير مُعيّن في متغيرات البيئة");
+      const stagingUrl = process.env.STAGING_URL || process.env.PRODUCTION_DOMAIN;
+      if (!stagingUrl) throw new Error("STAGING_URL أو PRODUCTION_DOMAIN غير مُعيّن في متغيرات البيئة");
       return stagingUrl;
     }
-    const prodUrl = process.env.PRODUCTION_URL;
-    if (!prodUrl) throw new Error("PRODUCTION_URL غير مُعيّن في متغيرات البيئة");
+    const prodUrl = process.env.PRODUCTION_DOMAIN;
+    if (!prodUrl) throw new Error("PRODUCTION_DOMAIN غير مُعيّن في متغيرات البيئة");
     return prodUrl;
   }
 
@@ -4574,9 +4574,9 @@ echo 'MAINACTIVITY_FIXED'"`,
       if (!latest) return null;
 
       let downloadUrl: string | null = null;
-      if (latest.id && process.env.PRODUCTION_URL) {
+      if (latest.id && process.env.PRODUCTION_DOMAIN) {
         const token = this.generateDownloadToken(latest.id);
-        downloadUrl = `${process.env.PRODUCTION_URL}/api/deployment/app/download/${latest.id}?token=${token}`;
+        downloadUrl = `${process.env.PRODUCTION_DOMAIN}/api/deployment/app/download/${latest.id}?token=${token}`;
       }
 
       return {

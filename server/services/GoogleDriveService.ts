@@ -41,7 +41,11 @@ export class GoogleDriveService {
   }
 
   private static createAuth(): any {
-    const credentialsStr = process.env.GOOGLE_DRIVE_CREDENTIALS;
+    const unifiedKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    const legacyKey = process.env.GOOGLE_DRIVE_CREDENTIALS;
+    const credentialsStr = unifiedKey || legacyKey;
+    const source = unifiedKey ? 'FIREBASE_SERVICE_ACCOUNT_KEY (موحّد)' : (legacyKey ? 'GOOGLE_DRIVE_CREDENTIALS (legacy)' : null);
+
     if (credentialsStr) {
       try {
         const credentials = JSON.parse(credentialsStr);
@@ -49,7 +53,10 @@ export class GoogleDriveService {
           credentials,
           scopes: ['https://www.googleapis.com/auth/drive.file'],
         });
-        console.log('🔑 [GoogleDriveService] استخدام Service Account');
+        console.log(`🔑 [GoogleDriveService] استخدام Service Account من: ${source}`);
+        if (legacyKey && unifiedKey) {
+          console.warn('⚠️ [GoogleDriveService] GOOGLE_DRIVE_CREDENTIALS موجود لكن مُتجاهَل (FIREBASE_SERVICE_ACCOUNT_KEY له الأولوية). يمكنك حذف GOOGLE_DRIVE_CREDENTIALS بأمان.');
+        }
         return auth;
       } catch (e: any) {
         console.warn('⚠️ [GoogleDriveService] فشل قراءة Service Account:', e.message);

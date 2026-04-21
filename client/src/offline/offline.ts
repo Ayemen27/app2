@@ -96,6 +96,15 @@ export async function queueForSync(
   payload: Record<string, any>
 ): Promise<string> {
   payload = normalizeDateFields(payload);
+
+  // 🕐 ختم HLC على كل عملية offline (للمزامنة الموزّعة وحل النزاعات)
+  try {
+    const { newHlc } = await import('./hlc-client');
+    if (!payload._hlc) {
+      payload = { ...payload, _hlc: newHlc() };
+    }
+  } catch { /* HLC اختياري */ }
+
   const idempotencyKey = generateIdempotencyKey(action, endpoint, payload);
 
   const existingItems = await smartGetAll('syncQueue');

@@ -35,12 +35,24 @@ const TABLE_COLUMN_CACHE = new Map<string, string[]>();
 async function getTableDateColumns(table: string): Promise<string[]> {
   if (TABLE_COLUMN_CACHE.has(table)) return TABLE_COLUMN_CACHE.get(table)!;
   const result = await pool.query(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name IN ('updated_at', 'created_at')`,
+    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name IN ('updated_at', 'created_at', 'deleted_at', 'hlc_timestamp')`,
     [table]
   );
   const cols = result.rows.map((r: { column_name: string }) => r.column_name);
   TABLE_COLUMN_CACHE.set(table, cols);
   return cols;
+}
+
+/** هل الجدول يدعم tombstones (لديه deleted_at) */
+export async function tableHasTombstone(table: string): Promise<boolean> {
+  const cols = await getTableDateColumns(table);
+  return cols.includes('deleted_at');
+}
+
+/** هل الجدول يدعم HLC */
+export async function tableHasHlc(table: string): Promise<boolean> {
+  const cols = await getTableDateColumns(table);
+  return cols.includes('hlc_timestamp');
 }
 
 const HEAVY_COLUMNS_BY_TABLE: Record<string, string[]> = {
@@ -164,29 +176,45 @@ async function fetchTableDataPaginated(opts: FetchTableOptions): Promise<FetchTa
     const conditions: string[] = [];
     let deltaApplied = false;
 
+    const cols = await getTableDateColumns(table);
+    const hasTombstone = cols.includes('deleted_at');
+
     if (lastSyncTime) {
       const parsed = new Date(lastSyncTime);
       if (isNaN(parsed.getTime())) {
         return { table, rows: [], error: 'Invalid lastSyncTime' };
       }
       const isoTime = parsed.toISOString();
-      const cols = await getTableDateColumns(table);
+      // 🪦 incremental: نضمّن المحذوفات (tombstones) ليعرف العميل أنّ هناك ما يحذفه محلياً
       if (cols.includes('updated_at') && cols.includes('created_at')) {
-        conditions.push(`(updated_at > $${paramIndex} OR created_at > $${paramIndex})`);
+        conditions.push(
+          `(updated_at > $${paramIndex} OR created_at > $${paramIndex}${hasTombstone ? ` OR deleted_at > $${paramIndex}` : ''})`
+        );
         params.push(isoTime);
         paramIndex++;
         deltaApplied = true;
       } else if (cols.includes('updated_at')) {
-        conditions.push(`updated_at > $${paramIndex}`);
+        conditions.push(
+          hasTombstone
+            ? `(updated_at > $${paramIndex} OR deleted_at > $${paramIndex})`
+            : `updated_at > $${paramIndex}`
+        );
         params.push(isoTime);
         paramIndex++;
         deltaApplied = true;
       } else if (cols.includes('created_at')) {
-        conditions.push(`created_at > $${paramIndex}`);
+        conditions.push(
+          hasTombstone
+            ? `(created_at > $${paramIndex} OR deleted_at > $${paramIndex})`
+            : `created_at > $${paramIndex}`
+        );
         params.push(isoTime);
         paramIndex++;
         deltaApplied = true;
       }
+    } else if (hasTombstone) {
+      // 🆕 full pull: استثنِ المحذوفات (لا حاجة لإرسالها للعميل في تحميل أول)
+      conditions.push(`deleted_at IS NULL`);
     }
 
     const pk = await getTablePrimaryKey(table);

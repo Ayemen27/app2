@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { runWellExpansionMigrations } from "./run-well-expansion-migrations";
 import { runInventoryMigrations } from "./run-inventory-migrations";
 import { applyJournalConstraints } from "../migrations/add-journal-constraints";
+import { applyHlcTombstoneMigration } from "../migrations/add-hlc-tombstones";
 
 const MIGRATION_LOCK_ID = 900100;
 
@@ -34,6 +35,7 @@ export async function runAllStartupMigrations(): Promise<void> {
     await runWellExpansionMigrations();
     await runInventoryMigrations();
     await applyJournalConstraints();
+    await applyHlcTombstoneMigration(pool);
     await db.execute(sql`ALTER TABLE build_deployments ADD COLUMN IF NOT EXISTS release_notes TEXT`);
 
     await client.query(`

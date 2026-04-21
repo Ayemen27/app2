@@ -107,8 +107,9 @@ git check-ignore android/app/axion-release.keystore
 | تقييد Google Cloud API keys بـ SHA-1 الجديد | ✅ تم |
 | تحديث `google-services.json` المحلي + رفعه للسيرفر في `/home/administrator/.axion-secrets/` | ✅ تم |
 | إضافة fallback في deployment-engine لاستعادة `google-services.json` من المسار الآمن | ✅ تم |
-| تدوير `FIREBASE_SERVICE_ACCOUNT_KEY` (Service Account جديد، Firebase Admin يُهيَّأ بنجاح) | ✅ تم |
-| **حذف Service Account القديم من Google Cloud IAM** | ⏳ يحتاج تنفيذك (الخطوة الحاسمة لإبطاله) |
+| تدوير `FIREBASE_SERVICE_ACCOUNT_KEY` (المفتاح النشط: `d908ac5e...`) | ✅ تم |
+| **حذف جميع Service Account Keys القديمة من Google Cloud IAM** | ✅ تم — لم يبقَ سوى المفتاح النشط |
+| الخادم يعمل بالمفتاح الجديد (Firebase Admin مُهيَّأ بنجاح) | ✅ مؤكَّد من السجلات |
 | مسح تاريخ Git | ⏳ يحتاج إذنك الصريح (تدميري) |
 | تنظيف Git index من keystore tracked files | ⏳ يحتاج إذنك الصريح (تدميري) |
 

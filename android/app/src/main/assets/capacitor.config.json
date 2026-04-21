@@ -9,8 +9,8 @@
                 "androidScheme": "https",
                 "hostname": "localhost",
                 "allowNavigation": [
-                        "https://axion.binarjoinanalytic.info",
-                        "*.binarjoinanalytic.info"
+                        "https://axion.binarjoinanelytic.info",
+                        "*.binarjoinanelytic.info"
                 ],
                 "cleartext": true
         },

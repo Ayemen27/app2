@@ -92,7 +92,7 @@ export async function initializeInstrumentation() {
   const instrumentations = [
     new FetchInstrumentation({
       propagateTraceHeaderCorsUrls: [
-        /https?:\/\/.*binarjoinanalytic\.info/,
+        /https?:\/\/.*binarjoinanelytic\.info/,
         /https?:\/\/.*axion\.app/,
       ],
     }),

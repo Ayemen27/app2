@@ -19,11 +19,11 @@ function isAllowedDomain(origin: string, allowedHost: string): boolean {
 }
 
 const STATIC_ALLOWED_ORIGINS = new Set([
-  'https://axion.binarjoinanalytic.info',
-  'https://binarjoinanalytic.info',
+  'https://axion.binarjoinanelytic.info',
+  'https://binarjoinanelytic.info',
 ]);
 
-const ALLOWED_DOMAIN_SUFFIXES = ['binarjoinanalytic.info'];
+const ALLOWED_DOMAIN_SUFFIXES = ['binarjoinanelytic.info'];
 
 function isOriginAllowed(origin: string, isDev: boolean): boolean {
   if (!origin || origin === 'null') return true;
@@ -53,15 +53,15 @@ function isOriginAllowed(origin: string, isDev: boolean): boolean {
 describe('CORS Origin Validation - Regression Tests', () => {
   describe('Allowed origins (should pass)', () => {
     it('allows exact production domain', () => {
-      expect(isOriginAllowed('https://axion.binarjoinanalytic.info', false)).toBe(true);
+      expect(isOriginAllowed('https://axion.binarjoinanelytic.info', false)).toBe(true);
     });
 
     it('allows exact base domain', () => {
-      expect(isOriginAllowed('https://binarjoinanalytic.info', false)).toBe(true);
+      expect(isOriginAllowed('https://binarjoinanelytic.info', false)).toBe(true);
     });
 
     it('allows legitimate subdomain', () => {
-      expect(isOriginAllowed('https://api.binarjoinanalytic.info', false)).toBe(true);
+      expect(isOriginAllowed('https://api.binarjoinanelytic.info', false)).toBe(true);
     });
 
     it('allows capacitor origin', () => {
@@ -98,12 +98,12 @@ describe('CORS Origin Validation - Regression Tests', () => {
   });
 
   describe('Blocked origins - Spoofing attacks (must reject)', () => {
-    it('rejects domain prefix spoofing (evil-binarjoinanalytic.info)', () => {
-      expect(isOriginAllowed('https://evil-binarjoinanalytic.info', false)).toBe(false);
+    it('rejects domain prefix spoofing (evil-binarjoinanelytic.info)', () => {
+      expect(isOriginAllowed('https://evil-binarjoinanelytic.info', false)).toBe(false);
     });
 
-    it('rejects domain suffix spoofing (binarjoinanalytic.info.evil.com)', () => {
-      expect(isOriginAllowed('https://binarjoinanalytic.info.evil.com', false)).toBe(false);
+    it('rejects domain suffix spoofing (binarjoinanelytic.info.evil.com)', () => {
+      expect(isOriginAllowed('https://binarjoinanelytic.info.evil.com', false)).toBe(false);
     });
 
     it('rejects localhost spoofing (localhost.evil.com)', () => {
@@ -119,11 +119,11 @@ describe('CORS Origin Validation - Regression Tests', () => {
     });
 
     it('rejects attacker domain with target as path', () => {
-      expect(isOriginAllowed('https://evil.com/binarjoinanalytic.info', false)).toBe(false);
+      expect(isOriginAllowed('https://evil.com/binarjoinanelytic.info', false)).toBe(false);
     });
 
     it('rejects similar domain name', () => {
-      expect(isOriginAllowed('https://binarjoinanalytic.info.attacker.com', false)).toBe(false);
+      expect(isOriginAllowed('https://binarjoinanelytic.info.attacker.com', false)).toBe(false);
     });
 
     it('rejects replit.dev in production mode', () => {

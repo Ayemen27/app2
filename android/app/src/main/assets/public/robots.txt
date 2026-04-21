@@ -25,4 +25,4 @@ Disallow: /suppliers-pro
 Disallow: /customers
 Disallow: /local-db
 
-Sitemap: https://app2.binarjoinanalytic.info/sitemap.xml
+Sitemap: https://app2.binarjoinanelytic.info/sitemap.xml

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
-const API_BASE = process.env.VITE_API_BASE || 'https://axion.binarjoinanalytic.info';
+const API_BASE = process.env.VITE_API_BASE || 'https://axion.binarjoinanelytic.info';
 
 async function apiGet(path: string, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };

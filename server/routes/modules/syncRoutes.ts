@@ -15,8 +15,33 @@ import { SYNCABLE_TABLES } from '../../../shared/schema.js';
 import { getAuthUser, isAdmin, getUserDisplayName } from '../../internal/auth-user.js';
 import { projectAccessService } from '../../services/ProjectAccessService.js';
 import { z } from 'zod';
+import { tombstonePurgeService } from '../../sync/tombstone-purge';
 
 export const syncRouter = express.Router();
+
+/**
+ * 📊 إحصائيات الـ Tombstones
+ * GET /api/sync/tombstone-stats
+ */
+syncRouter.get('/tombstone-stats', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+  try {
+    const stats = await tombstonePurgeService.getStats();
+    return res.status(200).json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [Sync] Error fetching tombstone stats:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tombstone stats'
+    });
+  }
+});
 
 syncRouter.use(requireAuth);
 syncRouter.use(syncRateLimit);

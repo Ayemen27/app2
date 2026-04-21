@@ -1,3 +1,4 @@
+import { intelligentMonitor } from './intelligent-monitor';
 import {
   getPendingSyncQueue, removeSyncQueueItem, markItemInFlight,
   markItemFailed, markItemDuplicateResolved, logSyncResult,
@@ -21,7 +22,14 @@ function emitSyncProgress(done: number, total: number, phase: 'start' | 'tick' |
     window.dispatchEvent(new CustomEvent('sync:progress', {
       detail: { done, total, phase, percent: total > 0 ? Math.round((done / total) * 100) : 0 },
     }));
-  } catch {}
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'Failed to emit sync progress event',
+      metadata: { error: err }
+    });
+  }
 }
 
 const SYNC_CONFIG = {
@@ -214,12 +222,38 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
         });
       }
     } else {
+      const statusCode = response?.status;
+      if (statusCode === 401 || statusCode === 403) {
+        const { stopSyncListener } = await import('./sync');
+        stopSyncListener();
+        window.dispatchEvent(new CustomEvent('sync:auth-required'));
+        intelligentMonitor.logEvent({
+          type: 'auth',
+          severity: 'high',
+          message: 'Silent batch sync stopped: Authentication required (401/403)',
+          metadata: { status: statusCode }
+        });
+        return;
+      }
       const errMsg = response?.message || response?.error || 'فشل الدفعة';
       throw new Error(errMsg);
     }
   } catch (error: any) {
     const statusCode = extractStatusCode(error);
     const errorMsg = error?.message || String(error);
+
+    if (statusCode === 401 || statusCode === 403) {
+      const { stopSyncListener } = await import('./sync');
+      stopSyncListener();
+      window.dispatchEvent(new CustomEvent('sync:auth-required'));
+      intelligentMonitor.logEvent({
+        type: 'auth',
+        severity: 'high',
+        message: 'Silent batch sync stopped: Authentication required (401/403)',
+        metadata: { status: statusCode }
+      });
+      return;
+    }
 
     for (const item of itemsToSend) {
       if (!isRetryableError(statusCode) && statusCode > 0) {
@@ -340,6 +374,19 @@ async function _executeSilentSync() {
         const statusCode = extractStatusCode(apiError);
         const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
+        if (statusCode === 401 || statusCode === 403) {
+          const { stopSyncListener } = await import('./sync');
+          stopSyncListener();
+          window.dispatchEvent(new CustomEvent('sync:auth-required'));
+          intelligentMonitor.logEvent({
+            type: 'auth',
+            severity: 'high',
+            message: 'Silent sync stopped: Authentication required (401/403)',
+            metadata: { status: statusCode }
+          });
+          return;
+        }
+
         if (statusCode === 409) {
           await markItemDuplicateResolved(item.id, errorMsg);
           await updateLocalItemSyncStatus(item, true);
@@ -407,6 +454,19 @@ async function _executeSilentSync() {
         });
 
       } else {
+        const statusCode = response?.status;
+        if (statusCode === 401 || statusCode === 403) {
+          const { stopSyncListener } = await import('./sync');
+          stopSyncListener();
+          window.dispatchEvent(new CustomEvent('sync:auth-required'));
+          intelligentMonitor.logEvent({
+            type: 'auth',
+            severity: 'high',
+            message: 'Silent sync stopped: Authentication required (401/403)',
+            metadata: { status: statusCode }
+          });
+          return;
+        }
         const errMsg = response?.message || response?.error || 'استجابة غير ناجحة';
         const nextRetryAt = Date.now() + calculateBackoffDelay(item.retries + 1);
         await markItemFailed(item.id, errMsg, 'server');
@@ -430,6 +490,12 @@ async function _executeSilentSync() {
       }
     } catch (error: any) {
       await markItemFailed(item.id, error.message || String(error), 'unknown');
+      intelligentMonitor.logEvent({
+        type: 'sync',
+        severity: 'medium',
+        message: 'Silent sync operation failed unexpectedly',
+        metadata: { error: error, itemId: item.id }
+      });
     } finally {
       doneOps += 1;
       emitSyncProgress(doneOps, totalOps, 'tick');
@@ -451,7 +517,13 @@ async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): 
       localItem._isLocal = !synced;
       await smartPut(storeName, localItem);
     }
-  } catch {
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'Failed to update local item sync status in silent sync',
+      metadata: { error: err, itemId: item.id }
+    });
   }
 }
 
@@ -464,18 +536,39 @@ export function initSilentSyncObserver(intervalMs = 30000) {
   }
 
   if (isCurrentTabLeader()) {
-    runSilentSync().catch(() => {});
+    runSilentSync().catch(err => {
+      intelligentMonitor.logEvent({
+        type: 'sync',
+        severity: 'medium',
+        message: 'Initial silent sync failed',
+        metadata: { error: err }
+      });
+    });
   }
 
   _intervalId = setInterval(() => {
     if (navigator.onLine && isCurrentTabLeader()) {
-      runSilentSync().catch(() => {});
+      runSilentSync().catch(err => {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'low',
+          message: 'Interval silent sync failed',
+          metadata: { error: err }
+        });
+      });
     }
   }, intervalMs);
 
   _onlineHandler = () => {
     if (isCurrentTabLeader()) {
-      runSilentSync().catch(() => {});
+      runSilentSync().catch(err => {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'medium',
+          message: 'Online-triggered silent sync failed',
+          metadata: { error: err }
+        });
+      });
     }
   };
   window.addEventListener('online', _onlineHandler);

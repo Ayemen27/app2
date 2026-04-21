@@ -1,3 +1,4 @@
+import { intelligentMonitor } from './intelligent-monitor';
 import { Capacitor } from '@capacitor/core';
 
 const CHANNEL_NAME = 'binarjoin-sync-leader';
@@ -26,7 +27,13 @@ function generateTabId(): string {
 function broadcast(msg: LeaderMessage) {
   try {
     channel?.postMessage(msg);
-  } catch {
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'Failed to broadcast leader message',
+      metadata: { error: err, message: msg }
+    });
   }
 }
 
@@ -155,7 +162,14 @@ function startLocalStorageHeartbeat() {
     if (isLeader) {
       try {
         localStorage.setItem(LS_LEADER_KEY, JSON.stringify({ tabId, timestamp: Date.now() }));
-      } catch {}
+      } catch (err) {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'low',
+          message: 'Failed to update localStorage leader heartbeat',
+          metadata: { error: err }
+        });
+      }
     }
   }, HEARTBEAT_INTERVAL);
 }
@@ -173,7 +187,14 @@ function startLocalStorageWatchdog() {
           leaderChangeCallbacks.forEach(cb => cb(true));
         }
       }
-    } catch {}
+    } catch (err) {
+      intelligentMonitor.logEvent({
+        type: 'sync',
+        severity: 'low',
+        message: 'LocalStorage watchdog failed',
+        metadata: { error: err }
+      });
+    }
   }, HEARTBEAT_TIMEOUT);
 }
 
@@ -203,7 +224,14 @@ export function initLeaderElection(): void {
     startLocalStorageWatchdog();
     window.addEventListener('beforeunload', () => {
       if (isLeader) {
-        try { localStorage.removeItem(LS_LEADER_KEY); } catch {}
+        try { localStorage.removeItem(LS_LEADER_KEY); } catch (err) {
+          intelligentMonitor.logEvent({
+            type: 'sync',
+            severity: 'low',
+            message: 'Failed to remove localStorage leader key on unload',
+            metadata: { error: err }
+          });
+        }
       }
     });
     leaderChangeCallbacks.forEach(cb => cb(isLeader));
@@ -236,7 +264,13 @@ export function destroyLeaderElection(): void {
   stopWatchdog();
   try {
     channel?.close();
-  } catch {
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'Failed to close leader election channel',
+      metadata: { error: err }
+    });
   }
   channel = null;
 }

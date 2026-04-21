@@ -7,6 +7,7 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc, or } from 'drizzle-orm';
 import { db, pool } from '../../db';
+import { storage } from '../../storage';
 import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance,
   fundTransfers, transportationExpenses, dailyExpenseSummaries,
@@ -63,17 +64,15 @@ projectRouter.get('/', async (req: Request, res: Response) => {
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
-    let projectsList;
+    let projectsList: any[];
     if (isAdminUser) {
-      projectsList = await db.select().from(projects).orderBy(projects.created_at);
+      projectsList = await storage.getProjects();
     } else {
       const ids = accessReq.accessibleProjectIds ?? [];
       if (ids.length === 0) {
         projectsList = [];
       } else {
-        projectsList = await db.select().from(projects)
-          .where(inArray(projects.id, ids))
-          .orderBy(projects.created_at);
+        projectsList = await storage.getProjects(ids);
       }
     }
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);

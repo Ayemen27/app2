@@ -60,6 +60,8 @@ export type InsertMetric = z.infer<typeof insertMetricSchema>;
 
 // Helper to add sync flags to any table
 export const syncFields = {
+  hlcTimestamp: text('hlc_timestamp'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
@@ -320,9 +322,6 @@ export const projectTypes = pgTable("project_types", {
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
     project_types_last_modified_by_fkey: foreignKey({ name: "project_types_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
   }));
@@ -348,9 +347,6 @@ export const projects = pgTable("projects", {
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
   ...syncFields,
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
   idxProjectsCreatedAt: index("idx_projects_created_at").on(table.created_at),
     projects_last_modified_by_fkey: foreignKey({ name: "projects_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
@@ -405,9 +401,6 @@ export const wells = pgTable("wells", {
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
     wells_last_modified_by_fkey: foreignKey({ name: "wells_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
   }));
@@ -423,9 +416,7 @@ export const fundTransfers = pgTable("fund_transfers", {
   transferDate: timestamp("transfer_date").notNull(),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   idxFundTransfersProjectDate: index("idx_fund_transfers_project_date").on(table.project_id, table.transferDate),
@@ -461,9 +452,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   crew_type: varchar("crew_type", { length: 255 }), // welding, steel_installation, panel_installation
   team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   description: text("description"),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -490,9 +479,7 @@ export const suppliers = pgTable("suppliers", {
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   created_by: varchar("created_by"),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   uniqueSupplierPerUser: uniqueIndex("suppliers_name_created_by_unique").on(table.name, table.created_by),
@@ -507,9 +494,7 @@ export const materials = pgTable("materials", {
   category: text("category").notNull(), // حديد، أسمنت، رمل، etc
   unit: text("unit").notNull(), // طن، كيس، متر مكعب، etc
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
@@ -544,9 +529,7 @@ export const materialPurchases = pgTable("material_purchases", {
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   description: text("description"),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -570,9 +553,7 @@ export const supplierPayments = pgTable("supplier_payments", {
   referenceNumber: text("reference_number"), // رقم المرجع أو الشيك
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 }, (table) => ({
   idxSupplierPaymentsSupplierId: index("idx_supplier_payments_supplier_id").on(table.supplier_id),
   idxSupplierPaymentsProjectId: index("idx_supplier_payments_project_id").on(table.project_id),
@@ -598,9 +579,7 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   crew_type: varchar("crew_type", { length: 255 }),
   team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   idxTransportExpensesProjectDate: index("idx_transport_expenses_project_date").on(table.project_id, table.date),
@@ -626,14 +605,11 @@ export const workerTransfers = pgTable("worker_transfers", {
   transferMethod: text("transfer_method").notNull(), // "hawaleh" | "bank" | "cash"
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
-  description: text("description"),
-  updated_at: timestamp("updated_at").defaultNow(),
-  batchId: varchar("batch_id"),
   allocationSourceProject: varchar("allocation_source_project"),
+  batchId: varchar("batch_id"),
+  created_by: varchar("created_by"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
   idxWorkerTransfersProjectDate: index("idx_worker_transfers_project_date").on(table.project_id, table.transferDate),
   idxWorkerTransfersBatchId: index("idx_worker_transfers_batch_id").on(table.batchId),
@@ -678,9 +654,7 @@ export const workerBalances = pgTable("worker_balances", {
   currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default('0').notNull(),
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 }, (table) => ({
   idxWorkerBalancesWorkerProject: uniqueIndex("idx_worker_balances_worker_project").on(table.worker_id, table.project_id),
   worker_balances_worker_id_fkey: foreignKey({ name: "worker_balances_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade"),
@@ -741,9 +715,7 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   description: text("description"),
 }, (table) => ({
   uniqueProjectDate: uniqueIndex("unique_project_date").on(table.project_id, table.date),
@@ -758,9 +730,7 @@ export const workerTypes = pgTable("worker_types", {
   usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
   lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 });
 
 // Autocomplete data table (بيانات الإكمال التلقائي)
@@ -772,9 +742,7 @@ export const autocompleteData = pgTable("autocomplete_data", {
   usageCount: integer("usage_count").default(1).notNull(),
   lastUsed: timestamp("last_used").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 }, (table) => ({
   idxAutocompleteUserCategory: index("idx_autocomplete_user_category").on(table.user_id, table.category, table.usageCount),
 }));
@@ -792,9 +760,7 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   crew_type: varchar("crew_type", { length: 255 }),
   team_name: text("team_name"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   idxWorkerMiscExpensesProjectDate: index("idx_worker_misc_expenses_project_date").on(table.project_id, table.date),
@@ -958,10 +924,11 @@ export const securityPolicies = pgTable("security_policies", {
   approvedAt: timestamp("approved_at"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
-});
+  ...syncFields,
+}, (table) => ({
+  idxSecurityPoliciesPolicyId: index("idx_security_policies_policy_id").on(table.policyId),
+  idxSecurityPoliciesCategory: index("idx_security_policies_category").on(table.category),
+}));
 
 // Security Policy Suggestions (اقتراحات سياسات الأمان)
 export const securityPolicySuggestions = pgTable("security_policy_suggestions", {
@@ -985,10 +952,11 @@ export const securityPolicySuggestions = pgTable("security_policy_suggestions", 
   implementedAt: timestamp("implemented_at"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
-});
+  ...syncFields,
+}, (table) => ({
+  idxSecurityPolicySuggestionsStatus: index("idx_security_policy_suggestions_status").on(table.status),
+  idxSecurityPolicySuggestionsPriority: index("idx_security_policy_suggestions_priority").on(table.priority),
+}));
 
 // Security Policy Implementations (تنفيذ سياسات الأمان)
 export const securityPolicyImplementations = pgTable("security_policy_implementations", {
@@ -1007,10 +975,11 @@ export const securityPolicyImplementations = pgTable("security_policy_implementa
   nextReview: timestamp("next_review"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
-});
+  ...syncFields,
+}, (table) => ({
+  idxSecurityPolicyImplementationsPolicyId: index("idx_security_policy_implementations_policy_id").on(table.policyId),
+  idxSecurityPolicyImplementationsStatus: index("idx_security_policy_implementations_status").on(table.status),
+}));
 
 // Security Policy Violations (انتهاكات سياسات الأمان)
 export const securityPolicyViolations = pgTable("security_policy_violations", {
@@ -1029,10 +998,11 @@ export const securityPolicyViolations = pgTable("security_policy_violations", {
   resolvedBy: varchar("resolved_by"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
-});
+  ...syncFields,
+}, (table) => ({
+  idxSecurityPolicyViolationsPolicyId: index("idx_security_policy_violations_policy_id").on(table.policyId),
+  idxSecurityPolicyViolationsStatus: index("idx_security_policy_violations_status").on(table.status),
+}));
 
 // User Project Permissions table (صلاحيات المستخدمين على المشاريع)
 export const userProjectPermissions = pgTable("user_project_permissions", {
@@ -1046,9 +1016,7 @@ export const userProjectPermissions = pgTable("user_project_permissions", {
   assignedBy: varchar("assigned_by"),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 });
 
 // Permission Audit Logs table (سجل تغييرات الصلاحيات)
@@ -1064,9 +1032,7 @@ export const permissionAuditLogs = pgTable("permission_audit_logs", {
   userAgent: text("user_agent"),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 });
 
 // Schema definitions for forms
@@ -1611,9 +1577,7 @@ export const wellTasks = pgTable("well_tasks", {
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 }, (table) => ({
   idxWellTasksWellId: index("idx_well_tasks_well_id").on(table.well_id),
 }));
@@ -1650,9 +1614,7 @@ export const wellExpenses = pgTable("well_expenses", {
   createdBy: varchar("created_by", { length: 255 }).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   notes: text("notes"),
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 }, (table) => ({
   idxWellExpensesWellId: index("idx_well_expenses_well_id").on(table.well_id),
 }));
@@ -1686,9 +1648,7 @@ export const materialCategories = pgTable("material_categories", {
   description: text("description"),
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(), // استخدام الاسم الموحد
-  isLocal: boolean("is_local").default(false),
-  synced: boolean("synced").default(true),
-  pendingSync: boolean("pending_sync").default(false),
+  ...syncFields,
 });
 
 // Insert Schemas for Wells Tracking System
@@ -1768,6 +1728,7 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
     well_work_crews_created_by_fkey: foreignKey({ name: "well_work_crews_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
     well_work_crews_well_id_fkey: foreignKey({ name: "well_work_crews_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
@@ -1783,6 +1744,7 @@ export const wellCrewWorkers = pgTable("well_crew_workers", {
   crew_type: varchar("crew_type", { length: 50 }),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
   wellCrewWorkersCrewWorkerIdx: uniqueIndex("well_crew_workers_crew_worker_idx").on(table.crew_id, table.worker_id),
     well_crew_workers_crew_id_fkey: foreignKey({ name: "well_crew_workers_crew_id_fkey", columns: [table.crew_id], foreignColumns: [wellWorkCrews.id] }).onDelete("cascade"),
@@ -1819,6 +1781,7 @@ export const wellSolarComponents = pgTable("well_solar_components", {
   createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
     well_solar_components_created_by_fkey: foreignKey({ name: "well_solar_components_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
     well_solar_components_well_id_fkey: foreignKey({ name: "well_solar_components_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
@@ -1836,6 +1799,7 @@ export const wellTransportDetails = pgTable("well_transport_details", {
   notes: text("notes"),
   createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
     well_transport_details_created_by_fkey: foreignKey({ name: "well_transport_details_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
     well_transport_details_well_id_fkey: foreignKey({ name: "well_transport_details_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
@@ -1855,6 +1819,7 @@ export const wellReceptions = pgTable("well_receptions", {
   notes: text("notes"),
   createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
     well_receptions_created_by_fkey: foreignKey({ name: "well_receptions_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
     well_receptions_received_by_fkey: foreignKey({ name: "well_receptions_received_by_fkey", columns: [table.receivedBy], foreignColumns: [users.id] }),
@@ -1921,6 +1886,7 @@ export const equipment = pgTable("equipment", {
   project_id: varchar("project_id"),
   imageUrl: text("image_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
   idxEquipmentCode: index("idx_equipment_code").on(table.code),
     equipment_project_id_fkey: foreignKey({ name: "equipment_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] })
@@ -1937,6 +1903,7 @@ export const equipmentMovements = pgTable("equipment_movements", {
   reason: text("reason"),
   performedBy: text("performed_by"),
   notes: text("notes"),
+  ...syncFields,
 }, (table) => ({
   idxEquipmentMovementsEquipmentId: index("idx_equipment_movements_equipment_id").on(table.equipmentId),
     equipment_movements_equipment_id_fkey: foreignKey({ name: "equipment_movements_equipment_id_fkey", columns: [table.equipmentId], foreignColumns: [equipment.id] }),
@@ -2395,6 +2362,7 @@ export const workerSettlements = pgTable("worker_settlements", {
   notes: text("notes"),
   createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
   idxWorkerSettlementsDate: index("idx_worker_settlements_date").on(table.settlementDate),
   idxWorkerSettlementsProject: index("idx_worker_settlements_project").on(table.settlementProjectId),
@@ -2414,6 +2382,7 @@ export const workerSettlementLines = pgTable("worker_settlement_lines", {
   balanceBefore: decimal("balance_before", { precision: 15, scale: 2 }).default('0').notNull(),
   balanceAfter: decimal("balance_after", { precision: 15, scale: 2 }).default('0').notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 }, (table) => ({
   idxWorkerSettlementLinesSettlement: index("idx_worker_settlement_lines_settlement").on(table.settlementId),
   idxWorkerSettlementLinesWorker: index("idx_worker_settlement_lines_worker").on(table.workerId),

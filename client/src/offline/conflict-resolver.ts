@@ -3,6 +3,7 @@
  */
 
 import { canonicalStringify } from './canonical-json';
+import * as performanceMonitor from './performance-monitor';
 
 export interface ConflictResolutionStrategy {
   strategy: 'last-write-wins' | 'server-wins' | 'client-wins' | 'merge';
@@ -198,4 +199,6 @@ export async function logConflict(
   
   // يمكن إرسال البيانات إلى خادم logging
   // await fetch('/api/logs/conflicts', { method: 'POST', body: JSON.stringify(log) });
+
+  performanceMonitor.recordConflict(resolution);
 }

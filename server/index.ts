@@ -794,6 +794,7 @@ import { CentralLogService } from "./services/CentralLogService";
 
 import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
 import { notificationQueueWorker } from "./services/NotificationQueueWorker";
+import { tombstonePurgeService } from "./sync/tombstone-purge";
 import { appCache } from "./services/MemoryCacheService";
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -847,6 +848,11 @@ const activeIntervals: NodeJS.Timeout[] = [];
     } else {
       console.log('⏸️ [NotificationQueueWorker] معطل افتراضياً (جدول notification_queue غير موجود في DB) — للتفعيل: NOTIFICATIONS_WORKER_ENABLED=true بعد إنشاء الجدول');
     }
+
+    // Tombstone Purge Service
+    tombstonePurgeService.start().catch(err =>
+      console.error('❌ [TombstonePurge] Startup error:', err)
+    );
 
     startNonceCleanup();
 
@@ -1014,6 +1020,13 @@ const activeIntervals: NodeJS.Timeout[] = [];
         console.log('✅ [Shutdown] Notification queue worker stopped');
       } catch (err) {
         console.error('❌ [Shutdown] Error stopping notification worker:', err);
+      }
+
+      try {
+        tombstonePurgeService.stop();
+        console.log('✅ [Shutdown] Tombstone purge service stopped');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error stopping tombstone purge service:', err);
       }
 
       try {

@@ -47,6 +47,18 @@ export interface PerformanceMetrics {
     deletes: number;
     failedOps: number;
   };
+  conflicts: {
+    total: number;
+    lww: number;
+    merge: number;
+    serverWins: number;
+    clientWins: number;
+  };
+  payloadSize: {
+    lastPushBytes: number;
+    lastPullBytes: number;
+    totalBytes: number;
+  };
   timing: {
     lastSyncDuration?: number;
   };
@@ -55,6 +67,43 @@ export interface PerformanceMetrics {
 const metrics: PerformanceMetrics[] = [];
 const MAX_METRICS_HISTORY = 100;
 let lastSyncStartTime: number | null = null;
+
+const conflictStats = {
+  total: 0,
+  lww: 0,
+  merge: 0,
+  serverWins: 0,
+  clientWins: 0
+};
+
+const payloadStats = {
+  lastPushBytes: 0,
+  lastPullBytes: 0,
+  totalBytes: 0
+};
+
+/**
+ * تسجيل تعارض
+ */
+export function recordConflict(strategy: 'last-write-wins' | 'server-wins' | 'client-wins' | 'merge'): void {
+  conflictStats.total++;
+  if (strategy === 'last-write-wins') conflictStats.lww++;
+  else if (strategy === 'server-wins') conflictStats.serverWins++;
+  else if (strategy === 'client-wins') conflictStats.clientWins++;
+  else if (strategy === 'merge') conflictStats.merge++;
+}
+
+/**
+ * تسجيل حجم البيانات
+ */
+export function recordPayloadSize(bytes: number, type: 'push' | 'pull'): void {
+  if (type === 'push') {
+    payloadStats.lastPushBytes = bytes;
+  } else {
+    payloadStats.lastPullBytes = bytes;
+  }
+  payloadStats.totalBytes += bytes;
+}
 
 /**
  * ابدأ قياس المزامنة
@@ -101,6 +150,8 @@ export async function collectMetrics(): Promise<PerformanceMetrics> {
       deletes: syncStats.deletes,
       failedOps: syncStats.failedOperations
     },
+    conflicts: { ...conflictStats },
+    payloadSize: { ...payloadStats },
     timing: {
       lastSyncDuration: lastSyncStartTime ? Date.now() - lastSyncStartTime : undefined
     }

@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { nativeStorage } from './native-db';
+import { compareHlc } from '../../../shared/hlc';
+import { intelligentMonitor } from './intelligent-monitor';
 
 function isNative(): boolean {
   try {
@@ -188,6 +190,14 @@ export async function smartReconcile(tableName: string, serverRecords: any[]): P
 
   if (isNative()) {
     const existing = await nativeStorage.getAll(tableName);
+    const localMap = new Map<string, any>();
+    for (const rec of existing) {
+      if (rec) {
+        const id = (rec.id || rec.key)?.toString();
+        if (id) localMap.set(id, rec);
+      }
+    }
+
     for (const rec of existing) {
       if (!rec) continue;
       const id = (rec.id || rec.key)?.toString();
@@ -196,9 +206,40 @@ export async function smartReconcile(tableName: string, serverRecords: any[]): P
         removed++;
       }
     }
+
     for (const record of (serverRecords || [])) {
       if (record && (record.id || record.key)) {
-        await nativeStorage.set(tableName, (record.id || record.key).toString(), record);
+        const id = (record.id || record.key).toString();
+        const existingLocal = localMap.get(id);
+
+        if (existingLocal?._pendingSync) {
+          const remoteHlc = record.hlc_timestamp || record.hlcTimestamp;
+          const localHlc = existingLocal.hlc_timestamp || existingLocal.hlcTimestamp;
+
+          if (compareHlc(localHlc, remoteHlc) > 0) {
+            // Local is newer, keep local and skip
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'low',
+              message: `Sync overwrite prevented for ${tableName}:${id} (Local HLC is newer)`,
+              metadata: { tableName, id, localHlc, remoteHlc, reason: 'local_newer' }
+            });
+            continue;
+          } else {
+            // Remote is newer or tie, but we have pending sync. 
+            // Mark conflict and keep local version to avoid losing user's unsynced changes
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'medium',
+              message: `Conflict detected for ${tableName}:${id} (Remote is newer but local has pending changes)`,
+              metadata: { tableName, id, localHlc, remoteHlc, reason: 'conflict_pending' }
+            });
+            await nativeStorage.set(tableName, id, { ...existingLocal, _conflictDetected: true });
+            continue;
+          }
+        }
+
+        await nativeStorage.set(tableName, id, record);
         saved++;
       }
     }
@@ -211,6 +252,14 @@ export async function smartReconcile(tableName: string, serverRecords: any[]): P
     const tx = db.transaction(tableName as any, 'readwrite');
     const store = tx.objectStore(tableName as any);
     const allLocal = await store.getAll();
+    const localMap = new Map<string, any>();
+    for (const rec of allLocal) {
+      if (rec) {
+        const id = (rec.id || rec.key)?.toString();
+        if (id) localMap.set(id, rec);
+      }
+    }
+
     for (const rec of allLocal) {
       if (!rec) continue;
       const id = (rec.id || rec.key)?.toString();
@@ -218,8 +267,36 @@ export async function smartReconcile(tableName: string, serverRecords: any[]): P
         try { store.delete(id); removed++; } catch {}
       }
     }
+
     for (const record of (serverRecords || [])) {
       if (record && (record.id || record.key)) {
+        const id = (record.id || record.key).toString();
+        const existingLocal = localMap.get(id);
+
+        if (existingLocal?._pendingSync) {
+          const remoteHlc = record.hlc_timestamp || record.hlcTimestamp;
+          const localHlc = existingLocal.hlc_timestamp || existingLocal.hlcTimestamp;
+
+          if (compareHlc(localHlc, remoteHlc) > 0) {
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'low',
+              message: `Sync overwrite prevented for ${tableName}:${id} (Local HLC is newer)`,
+              metadata: { tableName, id, localHlc, remoteHlc, reason: 'local_newer' }
+            });
+            continue;
+          } else {
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'medium',
+              message: `Conflict detected for ${tableName}:${id} (Remote is newer but local has pending changes)`,
+              metadata: { tableName, id, localHlc, remoteHlc, reason: 'conflict_pending' }
+            });
+            try { store.put({ ...existingLocal, _conflictDetected: true }); } catch {}
+            continue;
+          }
+        }
+
         try { store.put(record); saved++; } catch {}
       }
     }

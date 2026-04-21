@@ -1,5 +1,6 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
+import { getEncryptionKey } from './sqlcipher-key-manager';
 
 class SQLiteStorage {
   private sqlite: SQLiteConnection;
@@ -10,7 +11,9 @@ class SQLiteStorage {
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    this._initPromise = this.initialize().catch(() => {});
+    this._initPromise = this.initialize().catch((err) => {
+      console.error('[SQLite] Initialization failed:', err);
+    });
   }
 
   async initialize() {
@@ -27,6 +30,8 @@ class SQLiteStorage {
     }
 
     try {
+      const secret = await getEncryptionKey();
+
       let isConn = false;
       try {
         isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
@@ -38,17 +43,35 @@ class SQLiteStorage {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
       } else {
         try {
-          this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+          // Try to create/open with encryption
+          this.db = await this.sqlite.createConnection(this.dbName, false, 'secret', 1, false);
+          await this.sqlite.setEncryptionSecret(secret);
         } catch (createErr: any) {
           if (createErr?.message?.includes('already exists')) {
             this.db = await this.sqlite.retrieveConnection(this.dbName, false);
           } else {
-            throw createErr;
+            // If it fails, it might be an unencrypted DB or wrong key
+            // Try opening without encryption first to check if we need to upgrade
+            try {
+              this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+              await this.db.open();
+              
+              // If opened successfully without encryption, upgrade to encrypted
+              console.log('[SQLite] Upgrading unencrypted database to SQLCipher');
+              await (this.db as any).changeEncryptionSecret(secret, '');
+              console.log('[SQLite] Upgrade successful');
+            } catch (upgradeErr: any) {
+              console.error('[SQLite] Failed to open or upgrade database:', upgradeErr);
+              throw upgradeErr;
+            }
           }
         }
       }
 
-      await this.db.open();
+      const openCheck = await this.db.isDBOpen();
+      if (!openCheck.result) {
+        await this.db.open();
+      }
       await this.createTables();
       this._initialized = true;
     } catch (err) {

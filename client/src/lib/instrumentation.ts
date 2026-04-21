@@ -1,5 +1,6 @@
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { SpanStatusCode, type Span } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { Resource } from '@opentelemetry/resources';
@@ -7,6 +8,7 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
 import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
 import { Capacitor } from '@capacitor/core';
+import { trace, context } from '@opentelemetry/api';
 
 /**
  * يتحقق من إمكانية تغليف XMLHttpRequest بأمان.
@@ -109,3 +111,19 @@ export async function initializeInstrumentation() {
     xhrPatched: !Capacitor.isNativePlatform() && isXhrPatchable(),
   });
 }
+
+/**
+ * إنشاء Sync Span لـ OpenTelemetry
+ */
+export function createSyncSpan(operationName: string, attributes?: Record<string, any>): Span {
+  const tracer = trace.getTracer('aiops-sync');
+  const span = tracer.startSpan(`sync.${operationName}`, {
+    attributes: {
+      'component': 'sync',
+      ...attributes
+    }
+  });
+  return span as Span;
+}
+
+export { SpanStatusCode };

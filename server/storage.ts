@@ -98,7 +98,7 @@ export interface IStorage {
   getWhatsAppSecurityEvents(filters?: { phone_number?: string; event_type?: string; limit?: number }): Promise<WhatsAppSecurityEvent[]>;
 
   // Projects
-  getProjects(): Promise<Project[]>;
+  getProjects(ids?: string[]): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   getProjectByName(name: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
@@ -586,9 +586,12 @@ export class DatabaseStorage implements IStorage {
     return await query;
   }
 
-  async getProjects(): Promise<Project[]> {
-    // 🪦 إخفاء السجلات المحذوفة ناعماً
-    return await db.select().from(projectsTable).where(sql`deleted_at IS NULL`);
+  async getProjects(ids?: string[]): Promise<Project[]> {
+    const conditions = [sql`deleted_at IS NULL`];
+    if (ids && ids.length > 0) {
+      conditions.push(inArray(projectsTable.id, ids));
+    }
+    return await db.select().from(projectsTable).where(and(...conditions)).orderBy(projectsTable.created_at);
   }
 
   async getProject(id: string): Promise<Project | undefined> {
@@ -847,17 +850,17 @@ export class DatabaseStorage implements IStorage {
   async getFundTransfers(project_id: string, date?: string): Promise<FundTransfer[]> {
     if (date) {
       const result = await db.select().from(fundTransfers)
-        .where(and(eq(fundTransfers.project_id, project_id), sql`DATE(${fundTransfers.transferDate}) = ${date}`));
+        .where(and(eq(fundTransfers.project_id, project_id), sql`DATE(${fundTransfers.transferDate}) = ${date}`, sql`deleted_at IS NULL`));
       return result;
     } else {
       const result = await db.select().from(fundTransfers)
-        .where(eq(fundTransfers.project_id, project_id));
+        .where(and(eq(fundTransfers.project_id, project_id), sql`deleted_at IS NULL`));
       return result;
     }
   }
 
   async getFundTransferByNumber(transferNumber: string): Promise<FundTransfer | undefined> {
-    const [transfer] = await db.select().from(fundTransfers).where(eq(fundTransfers.transferNumber, transferNumber));
+    const [transfer] = await db.select().from(fundTransfers).where(and(eq(fundTransfers.transferNumber, transferNumber), sql`deleted_at IS NULL`));
     return transfer || undefined;
   }
 
@@ -968,7 +971,8 @@ export class DatabaseStorage implements IStorage {
             eq(projectFundTransfers.fromProjectId, project_id),
             eq(projectFundTransfers.toProjectId, project_id)
           ),
-          eq(projectFundTransfers.transferDate, date)
+          eq(projectFundTransfers.transferDate, date),
+          sql`deleted_at IS NULL`
         )
       );
     return transfers;
@@ -976,7 +980,7 @@ export class DatabaseStorage implements IStorage {
 
   // Project Fund Transfers (ترحيل الأموال بين المشاريع)
   async getProjectFundTransfers(fromProjectId?: string, toProjectId?: string, date?: string): Promise<ProjectFundTransfer[]> {
-    const conditions = [];
+    const conditions = [sql`deleted_at IS NULL`];
     if (fromProjectId) {
       conditions.push(eq(projectFundTransfers.fromProjectId, fromProjectId));
     }
@@ -987,15 +991,11 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(projectFundTransfers.transferDate, date));
     }
     
-    if (conditions.length > 0) {
-      return await db.select().from(projectFundTransfers).where(and(...conditions));
-    }
-    
-    return await db.select().from(projectFundTransfers);
+    return await db.select().from(projectFundTransfers).where(and(...conditions));
   }
 
   async getProjectFundTransfer(id: string): Promise<ProjectFundTransfer | undefined> {
-    const [transfer] = await db.select().from(projectFundTransfers).where(eq(projectFundTransfers.id, id));
+    const [transfer] = await db.select().from(projectFundTransfers).where(and(eq(projectFundTransfers.id, id), sql`deleted_at IS NULL`));
     return transfer || undefined;
   }
 
@@ -1084,17 +1084,24 @@ export class DatabaseStorage implements IStorage {
   async getWorkerAttendance(project_id: string, date?: string): Promise<WorkerAttendance[]> {
     if (date) {
       const result = await db.select().from(workerAttendance)
-        .where(and(eq(workerAttendance.project_id, project_id), sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${date}`));
+        .where(and(
+          eq(workerAttendance.project_id, project_id), 
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${date}`,
+          sql`deleted_at IS NULL`
+        ));
       return result;
     } else {
       const result = await db.select().from(workerAttendance)
-        .where(eq(workerAttendance.project_id, project_id));
+        .where(and(
+          eq(workerAttendance.project_id, project_id),
+          sql`deleted_at IS NULL`
+        ));
       return result;
     }
   }
 
   async getWorkerAttendanceById(id: string): Promise<WorkerAttendance | null> {
-    const [attendance] = await db.select().from(workerAttendance).where(eq(workerAttendance.id, id));
+    const [attendance] = await db.select().from(workerAttendance).where(and(eq(workerAttendance.id, id), sql`deleted_at IS NULL`));
     return attendance || null;
   }
 
@@ -1263,7 +1270,7 @@ export class DatabaseStorage implements IStorage {
       .from(materialPurchases)
       .where(
         (() => {
-          const conditions = [eq(materialPurchases.project_id, project_id)];
+          const conditions = [eq(materialPurchases.project_id, project_id), sql`deleted_at IS NULL`];
           
           if (dateFrom && dateTo) {
             conditions.push(eq(materialPurchases.purchaseDate, dateFrom));
@@ -1317,7 +1324,7 @@ export class DatabaseStorage implements IStorage {
     const { supplier_id, project_id, dateFrom, dateTo, purchaseType } = filters;
     
     // إنشاء شروط البحث
-    const conditions = [];
+    const conditions = [sql`deleted_at IS NULL`];
     
     if (supplier_id) {
       // جلب اسم المورد من جدول الموردين
@@ -1356,10 +1363,11 @@ export class DatabaseStorage implements IStorage {
       console.log(`🔍 فلتر purchaseType المطلوب: "${purchaseType}"`);
       // البحث عن كلا الشكلين: "أجل" و "آجل"
       if (purchaseType === 'أجل') {
-        conditions.push(or(
+        const typeCond = or(
           sql`${materialPurchases.purchaseType} LIKE ${'%أجل%'}`,
           sql`${materialPurchases.purchaseType} LIKE ${'%آجل%'}`
-        ));
+        );
+        if (typeCond) conditions.push(typeCond);
       } else {
         conditions.push(sql`${materialPurchases.purchaseType} LIKE ${'%' + purchaseType + '%'}`);
       }
@@ -1442,7 +1450,8 @@ export class DatabaseStorage implements IStorage {
         minDate: sql<string>`MIN(${materialPurchases.purchaseDate})`,
         maxDate: sql<string>`MAX(${materialPurchases.purchaseDate})`
       })
-      .from(materialPurchases);
+      .from(materialPurchases)
+      .where(sql`deleted_at IS NULL`);
 
     return {
       minDate: result[0]?.minDate || new Date().toISOString().split('T')[0],
@@ -1451,7 +1460,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMaterialPurchaseById(id: string): Promise<MaterialPurchase | null> {
-    const [purchase] = await db.select().from(materialPurchases).where(eq(materialPurchases.id, id));
+    const [purchase] = await db.select().from(materialPurchases).where(and(eq(materialPurchases.id, id), sql`deleted_at IS NULL`));
     return purchase || null;
   }
 
@@ -1903,8 +1912,12 @@ export class DatabaseStorage implements IStorage {
       created_at: new Date(),
       synced: null,
       isLocal: null,
-      pendingSync: null
-    };
+      pendingSync: null,
+      version: 1,
+      hlcTimestamp: null,
+      deletedAt: null,
+      lastModifiedBy: null,
+    } as WorkerBalance;
     
     return balance;
   }
@@ -1938,17 +1951,15 @@ export class DatabaseStorage implements IStorage {
 
   // Worker Transfers
   async getWorkerTransfers(worker_id: string, project_id?: string): Promise<WorkerTransfer[]> {
+    const conditions = [eq(workerTransfers.worker_id, worker_id), sql`deleted_at IS NULL`];
     if (project_id) {
-      return await db.select().from(workerTransfers)
-        .where(and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id)));
-    } else {
-      return await db.select().from(workerTransfers)
-        .where(eq(workerTransfers.worker_id, worker_id));
+      conditions.push(eq(workerTransfers.project_id, project_id));
     }
+    return await db.select().from(workerTransfers).where(and(...conditions));
   }
 
   async getWorkerTransfer(id: string): Promise<WorkerTransfer | null> {
-    const [transfer] = await db.select().from(workerTransfers).where(eq(workerTransfers.id, id));
+    const [transfer] = await db.select().from(workerTransfers).where(and(eq(workerTransfers.id, id), sql`deleted_at IS NULL`));
     return transfer || null;
   }
 
@@ -1975,22 +1986,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllWorkerTransfers(): Promise<WorkerTransfer[]> {
-    return await db.select().from(workerTransfers);
+    return await db.select().from(workerTransfers).where(sql`deleted_at IS NULL`);
   }
 
   async getFilteredWorkerTransfers(project_id?: string, date?: string): Promise<WorkerTransfer[]> {
-    if (project_id && date) {
-      return await db.select().from(workerTransfers)
-        .where(and(eq(workerTransfers.project_id, project_id), eq(workerTransfers.transferDate, date)));
-    } else if (project_id) {
-      return await db.select().from(workerTransfers)
-        .where(eq(workerTransfers.project_id, project_id));
-    } else if (date) {
-      return await db.select().from(workerTransfers)
-        .where(eq(workerTransfers.transferDate, date));
+    const conditions = [sql`deleted_at IS NULL`];
+    if (project_id) {
+      conditions.push(eq(workerTransfers.project_id, project_id));
+    }
+    if (date) {
+      conditions.push(eq(workerTransfers.transferDate, date));
     }
     
-    return await db.select().from(workerTransfers);
+    return await db.select().from(workerTransfers).where(and(...conditions));
   }
 
   // Reports
@@ -2209,8 +2217,12 @@ export class DatabaseStorage implements IStorage {
         lastUpdated: new Date(),
         synced: null,
         isLocal: null,
-        pendingSync: null
-      };
+        pendingSync: null,
+        version: 1,
+        hlcTimestamp: null,
+        deletedAt: null,
+        lastModifiedBy: null,
+      } as WorkerBalance;
       
       // جلب بيانات العامل
       const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
@@ -2845,13 +2857,15 @@ export class DatabaseStorage implements IStorage {
   // Worker miscellaneous expenses methods
   async getWorkerMiscExpenses(project_id: string, date?: string): Promise<WorkerMiscExpense[]> {
     try {
+      const conditions = [eq(workerMiscExpenses.project_id, project_id), sql`deleted_at IS NULL`];
       if (date) {
+        conditions.push(eq(workerMiscExpenses.date, date));
         return await db.select().from(workerMiscExpenses)
-          .where(and(eq(workerMiscExpenses.project_id, project_id), eq(workerMiscExpenses.date, date)))
+          .where(and(...conditions))
           .orderBy(workerMiscExpenses.created_at);
       } else {
         return await db.select().from(workerMiscExpenses)
-          .where(eq(workerMiscExpenses.project_id, project_id))
+          .where(and(...conditions))
           .orderBy(workerMiscExpenses.date, workerMiscExpenses.created_at);
       }
     } catch (error) {
@@ -2862,7 +2876,7 @@ export class DatabaseStorage implements IStorage {
 
   async getWorkerMiscExpense(id: string): Promise<WorkerMiscExpense | null> {
     try {
-      const [expense] = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, id));
+      const [expense] = await db.select().from(workerMiscExpenses).where(and(eq(workerMiscExpenses.id, id), sql`deleted_at IS NULL`));
       return expense || null;
     } catch (error) {
       console.error('Error getting worker misc expense:', error);
@@ -3309,7 +3323,7 @@ export class DatabaseStorage implements IStorage {
   async getAllSupplierPayments(): Promise<SupplierPayment[]> {
     try {
       console.log('🔍 جاري جلب جميع مدفوعات الموردين...');
-      const payments = await db.select().from(supplierPayments).orderBy(supplierPayments.paymentDate);
+      const payments = await db.select().from(supplierPayments).where(sql`deleted_at IS NULL`).orderBy(supplierPayments.paymentDate);
       console.log(`✅ تم جلب ${payments.length} مدفوعة مورد`);
       return payments;
     } catch (error) {
@@ -3320,7 +3334,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSupplierPayments(supplier_id: string, project_id?: string): Promise<SupplierPayment[]> {
     try {
-      const conditions = [eq(supplierPayments.supplier_id, supplier_id)];
+      const conditions = [eq(supplierPayments.supplier_id, supplier_id), sql`deleted_at IS NULL`];
       if (project_id) {
         conditions.push(eq(supplierPayments.project_id, project_id));
       }
@@ -3336,7 +3350,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSupplierPayment(id: string): Promise<SupplierPayment | undefined> {
     try {
-      const [payment] = await db.select().from(supplierPayments).where(eq(supplierPayments.id, id));
+      const [payment] = await db.select().from(supplierPayments).where(and(eq(supplierPayments.id, id), sql`deleted_at IS NULL`));
       return payment || undefined;
     } catch (error) {
       console.error('Error getting supplier payment:', error);
@@ -4272,7 +4286,7 @@ export class DatabaseStorage implements IStorage {
     try {
       return await db.select()
         .from(wellTasks)
-        .where(eq(wellTasks.well_id, well_id))
+        .where(and(eq(wellTasks.well_id, well_id), sql`deleted_at IS NULL`))
         .orderBy(wellTasks.taskOrder);
     } catch (error) {
       console.error('Error getting well tasks:', error);
@@ -4284,7 +4298,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [task] = await db.select()
         .from(wellTasks)
-        .where(eq(wellTasks.id, id));
+        .where(and(eq(wellTasks.id, id), sql`deleted_at IS NULL`));
       return task || undefined;
     } catch (error) {
       console.error('Error getting well task:', error);

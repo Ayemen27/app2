@@ -14,6 +14,9 @@ import { SYNCABLE_TABLES, SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
 import { endpointToStore } from './store-registry';
 import { initLeaderElection, isCurrentTabLeader, onLeaderChange } from './sync-leader';
 import { Capacitor } from '@capacitor/core';
+import { createSyncSpan, SpanStatusCode } from '../lib/instrumentation';
+import * as performanceMonitor from './performance-monitor';
+import * as Sentry from '@sentry/react';
 
 async function isNetworkAvailable(): Promise<boolean> {
   try {
@@ -22,7 +25,14 @@ async function isNetworkAvailable(): Promise<boolean> {
       const status = await Network.getStatus();
       return status.connected;
     }
-  } catch {}
+  } catch (err) {
+    intelligentMonitor.logEvent({ 
+      type: 'sync', 
+      severity: 'low', 
+      message: 'Network status check failed silently', 
+      metadata: { error: err } 
+    });
+  }
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
@@ -145,16 +155,33 @@ export async function performInitialDataPull(): Promise<boolean> {
 
   try {
     updateSyncState({ isSyncing: true });
+    const span = createSyncSpan('full-backup');
 
     // محاولة جلب البيانات مع مهلة زمنية (Timeout) للتعامل مع ضعف الإنترنت
     // ترقية: استخدام نقطة النهاية المخصصة للمزامنة الكاملة بدلاً من المسار القديم
     const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
     
-    if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN')) {
+    if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN') || result.status === 401 || result.status === 403) {
+      if (result?.status === 401 || result?.status === 403) {
+        stopSyncListener();
+        window.dispatchEvent(new CustomEvent('sync:auth-required'));
+        intelligentMonitor.logEvent({
+          type: 'auth',
+          severity: 'high',
+          message: 'Sync stopped: Authentication required (401/403)',
+          metadata: { status: result.status }
+        });
+        span.setStatus({ code: SpanStatusCode.ERROR, message: 'Auth required' });
+      } else {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: 'Invalid token or server error' });
+      }
+      span.end();
       return false;
     }
     
     if (!result.success || !result.data) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'Sync failed on server' });
+      span.end();
       return false;
     }
 
@@ -164,6 +191,14 @@ export async function performInitialDataPull(): Promise<boolean> {
     let processedTables = 0;
     let totalSaved = 0;
     
+    // تسجيل حجم البيانات (تقديري)
+    const payloadBytes = JSON.stringify(data).length;
+    performanceMonitor.recordPayloadSize(payloadBytes, 'pull');
+    span.setAttributes({
+      'sync.payload_bytes': payloadBytes,
+      'sync.tables_count': totalTables
+    });
+
     if (data.users && Array.isArray(data.users)) {
       processedTables++;
       updateSyncState({ 
@@ -228,10 +263,19 @@ export async function performInitialDataPull(): Promise<boolean> {
     });
 
     updateSyncState({ isSyncing: false, lastSync: Date.now(), progress: undefined });
+    span.setAttributes({
+      'sync.duration_ms': Date.now() - (span as any).startTime?.[0] || 0, // Fallback if internal access fails, but we can just use simple logic
+      'sync.records_count': totalSaved
+    });
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
     return true;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     
+    // Capture critical errors in Sentry
+    Sentry.captureException(error, { tags: { component: 'sync', operation: 'full-backup' } });
+
     updateSyncState({ 
       isSyncing: false, 
       lastError: `فشل الاستيراد: ${errorMsg}` 
@@ -330,18 +374,23 @@ export async function syncOfflineData(): Promise<void> {
 
   isSyncing = true;
   updateSyncState({ isSyncing: true, isOnline: true });
+  const span = createSyncSpan('sync-offline-data');
 
   try {
     const pending = await getPendingSyncQueue();
+    span.setAttribute('sync.pending_count', pending.length);
     if (pending.length === 0) {
       updateSyncState({ isSyncing: false });
       isSyncing = false;
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
       return;
     }
 
     
     let successCount = 0;
     let failedCount = 0;
+    let totalPayloadBytes = 0;
 
     for (const item of pending) {
       if (item.retries >= MAX_RETRIES) {
@@ -370,6 +419,7 @@ export async function syncOfflineData(): Promise<void> {
         }
 
         const payloadString = JSON.stringify(item.payload);
+        totalPayloadBytes += payloadString.length;
         const signature = btoa(encodeURIComponent(payloadString).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))).substring(0, 32);
         
         let result: any;
@@ -386,6 +436,20 @@ export async function syncOfflineData(): Promise<void> {
         } catch (apiError: any) {
           const statusCode = extractStatusCode(apiError);
           const errorMsg = apiError?.message || apiError?.error || String(apiError);
+
+          if (statusCode === 401 || statusCode === 403) {
+            stopSyncListener();
+            window.dispatchEvent(new CustomEvent('sync:auth-required'));
+            intelligentMonitor.logEvent({
+              type: 'auth',
+              severity: 'high',
+              message: 'Sync stopped: Authentication required (401/403)',
+              metadata: { status: statusCode }
+            });
+            isSyncing = false;
+            updateSyncState({ isSyncing: false });
+            return;
+          }
 
           if (statusCode === 409) {
             await markItemDuplicateResolved(item.id, errorMsg);
@@ -443,6 +507,12 @@ export async function syncOfflineData(): Promise<void> {
                 await smartSave(tableName, [record]);
               }
             } catch (updateError) {
+              intelligentMonitor.logEvent({
+                type: 'sync',
+                severity: 'medium',
+                message: 'Failed to update local item sync status after success',
+                metadata: { error: updateError, tableName, recordId }
+              });
             }
           }
           
@@ -476,6 +546,15 @@ export async function syncOfflineData(): Promise<void> {
       }
     }
 
+    performanceMonitor.recordPayloadSize(totalPayloadBytes, 'push');
+    span.setAttributes({
+      'sync.synced_count': successCount,
+      'sync.failed_count': failedCount,
+      'sync.payload_bytes': totalPayloadBytes
+    });
+    span.setStatus({ code: failedCount === 0 ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+    span.end();
+
     updateSyncState({ 
       lastSync: Date.now(),
       isSyncing: false,
@@ -484,12 +563,15 @@ export async function syncOfflineData(): Promise<void> {
     });
   } catch (error) {
     updateSyncState({ isSyncing: false });
+    Sentry.captureException(error, { tags: { component: 'sync', operation: 'sync-offline-data' } });
     
     intelligentMonitor.logEvent({
       type: 'error',
       severity: 'high',
       message: `خطأ حرج في محرك المزامنة: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`,
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : 'Unknown error' });
+    span.end();
   } finally {
     isSyncing = false;
   }
@@ -500,7 +582,14 @@ export async function syncOfflineData(): Promise<void> {
  */
 export function initSyncListener(): void {
   initLeaderElection();
-  _initSyncListenerAsync().catch(() => {});
+  _initSyncListenerAsync().catch(err => {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'high',
+      message: 'Async sync listener initialization failed',
+      metadata: { error: err }
+    });
+  });
 }
 
 async function _initSyncListenerAsync(): Promise<void> {
@@ -508,8 +597,22 @@ async function _initSyncListenerAsync(): Promise<void> {
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
     if (isCurrentTabLeader()) {
-      performInitialDataPull().catch(() => {});
-      syncOfflineData().catch(() => {});
+      performInitialDataPull().catch(err => {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'medium',
+          message: 'Initial data pull failed on network reconnect',
+          metadata: { error: err }
+        });
+      });
+      syncOfflineData().catch(err => {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'medium',
+          message: 'Offline data sync failed on network reconnect',
+          metadata: { error: err }
+        });
+      });
     }
   });
 
@@ -521,8 +624,22 @@ async function _initSyncListenerAsync(): Promise<void> {
     if (leader) {
       isNetworkAvailable().then(online => {
         if (online) {
-          performInitialDataPull().catch(() => {});
-          syncOfflineData().catch(() => {});
+          performInitialDataPull().catch(err => {
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'medium',
+              message: 'Initial data pull failed on leader change',
+              metadata: { error: err }
+            });
+          });
+          syncOfflineData().catch(err => {
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'medium',
+              message: 'Offline data sync failed on leader change',
+              metadata: { error: err }
+            });
+          });
         }
       });
     }
@@ -533,13 +650,27 @@ async function _initSyncListenerAsync(): Promise<void> {
       await performInitialDataPull();
       await syncOfflineData();
     };
-    runSync().catch(() => {});
+    runSync().catch(err => {
+      intelligentMonitor.logEvent({
+        type: 'sync',
+        severity: 'medium',
+        message: 'Initial runSync failed',
+        metadata: { error: err }
+      });
+    });
   }
 
   syncInterval = setInterval(async () => {
     if (isCurrentTabLeader()) {
       const online = await isNetworkAvailable();
-      if (online) syncOfflineData().catch(() => {});
+      if (online) syncOfflineData().catch(err => {
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: 'low',
+          message: 'Interval sync failed',
+          metadata: { error: err }
+        });
+      });
     }
   }, 30000);
 
@@ -551,12 +682,26 @@ async function _initSyncListenerAsync(): Promise<void> {
           const online = await isNetworkAvailable();
           if (online) {
             updateSyncState({ isOnline: true });
-            await syncOfflineData().catch(() => {});
+            await syncOfflineData().catch(err => {
+              intelligentMonitor.logEvent({
+                type: 'sync',
+                severity: 'medium',
+                message: 'App foreground sync failed',
+                metadata: { error: err }
+              });
+            });
           }
         }
       });
     }
-  } catch {}
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'App state change listener registration failed',
+      metadata: { error: err }
+    });
+  }
 }
 
 export function stopSyncListener(): void {
@@ -565,7 +710,14 @@ export function stopSyncListener(): void {
 
 export function triggerSync() {
   if (!isCurrentTabLeader()) return;
-  syncOfflineData().catch(() => {});
+  syncOfflineData().catch(err => {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'medium',
+      message: 'Triggered sync failed',
+      metadata: { error: err }
+    });
+  });
 }
 
 export async function loadFullBackup(): Promise<{ recordCount: number }> {
@@ -605,6 +757,12 @@ export function startBackgroundSync(): void {
   if (isSyncing) return;
   if (!isCurrentTabLeader()) return;
   syncOfflineData().catch(err => {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'medium',
+      message: 'Background sync failed',
+      metadata: { error: err }
+    });
   });
 }
 

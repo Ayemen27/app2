@@ -308,12 +308,12 @@ async function recalculateAttendanceAndBalances(
     const updateResult = await pool.query(
       `UPDATE worker_attendance
        SET
-         daily_wage = $1,
+         daily_wage = safe_numeric($1::text, 0),
          actual_wage = safe_numeric($1::text, 0) * COALESCE(work_days, 0),
          total_pay = safe_numeric($1::text, 0) * COALESCE(work_days, 0),
          remaining_amount = (safe_numeric($1::text, 0) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
        WHERE id = $2`,
-      [resolvedWage, record.id]
+      [String(resolvedWage), record.id]
     );
 
     console.log(`🔄 [RecalcHelper] سجل ${record.id} تاريخ ${record.attendanceDate} → أجر: ${resolvedWage} | rowCount: ${updateResult.rowCount}`);

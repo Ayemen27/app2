@@ -6,7 +6,8 @@
 - **Race condition في تحويلات المشاريع**: لفّ `createProjectFundTransfer` بـ `db.transaction` مع `.for('update')` row locks في `server/storage.ts`.
 - **getWorkersWithMultipleProjects**: استبدال الـ stub بتنفيذ حقيقي عبر CTE + window function.
 - **NotificationQueueWorker**: ربطه بدورة حياة الخادم في `server/index.ts` (start/stop)، معطّل افتراضياً لأن جدول `notification_queue` غير موجود في DB ولا معرّف في `shared/schema.ts` (تفعيل صريح: `NOTIFICATIONS_WORKER_ENABLED=true`).
-- **ترقية حزم**: `drizzle-orm`, `axios`, `nodemailer` إلى أحدث إصدار.
+- **Command Injection (P0)**: استبدال `spawn("bash", ["-c", ssh...cat ...])` بـ SFTP عبر `ssh2` في موضعَي تنزيل APK في `server/routes/modules/deploymentRoutes.ts`. أُضيف `server/services/sftp-client.ts` كطبقة موحّدة (`statRemoteFileSize`, `openRemoteReadStream`).
+- **ترقية حزم**: `drizzle-orm`, `axios`, `nodemailer`, `ssh2` (+ `@types/ssh2`) إلى أحدث إصدار.
 
 ## Overview
 This Node.js application is a professional AI Agent Workspace designed for construction project management. Its primary purpose is to enhance decision-making through data analysis, streamline operations, and improve communication efficiency within construction projects. Key capabilities include WhatsApp integration for user interaction, an advanced AI agent for database operations and queries, comprehensive reporting, and a granular project permission system. The project aims to deliver a state-of-the-art, AI-powered platform for the construction industry.

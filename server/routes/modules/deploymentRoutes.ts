@@ -386,65 +386,53 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
     return;
   }
 
-  const sshCmd = deploymentEngine.getSSHCommandForDownload();
   const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+  const { statRemoteFileSize, openRemoteReadStream } = await import("../../services/sftp-client.js");
 
-  const execEnv = { ...process.env };
-  if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
-    execEnv.SSHPASS = process.env.SSH_PASSWORD;
-  }
-
-  const host = (process.env.SSH_HOST || "").replace(/[^a-zA-Z0-9.\-]/g, "");
-  const { spawn } = await import("child_process");
-
-  const sizeChild = spawn("bash", ["-c",
-    `${sshCmd} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
-  ], { env: execEnv });
-
-  let sizeOutput = "";
-  sizeChild.stdout.on("data", (d: Buffer) => { sizeOutput += d.toString(); });
-  await new Promise<void>((resolve) => sizeChild.on("close", resolve));
-
-  if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
-    res.status(404).json({ error: "ملف APK غير موجود على السيرفر" });
+  let fileSize: number | null;
+  try {
+    fileSize = await statRemoteFileSize(remotePath);
+  } catch (err) {
+    console.error("[APK Download] SFTP stat error:", (err as Error).message);
+    res.status(502).json({ error: "تعذّر الاتصال بالسيرفر للحصول على معلومات الملف" });
     return;
   }
 
-  const fileSize = parseInt(sizeOutput.trim(), 10);
-  if (isNaN(fileSize) || fileSize < 1000) {
+  if (fileSize === null) {
+    res.status(404).json({ error: "ملف APK غير موجود على السيرفر" });
+    return;
+  }
+  if (fileSize < 1000) {
     res.status(404).json({ error: "ملف APK غير صالح أو صغير جداً" });
     return;
   }
 
   setApkDownloadHeaders(res, fileName, fileSize);
 
-  const child = spawn("bash", ["-c",
-    `${sshCmd} "cat '${remotePath}'"`
-  ], { env: execEnv });
+  let handle;
+  try {
+    handle = await openRemoteReadStream(remotePath);
+  } catch (err) {
+    console.error("[APK Download] SFTP open error:", (err as Error).message);
+    if (!res.headersSent) res.status(502).json({ error: "تعذّر فتح ملف APK من السيرفر" });
+    return;
+  }
 
-  const killChild = () => {
-    try { child.kill("SIGTERM"); } catch {}
-  };
+  const cleanup = () => { try { handle!.close(); } catch {} };
+  req.on("close", cleanup);
+  res.on("close", cleanup);
 
-  req.on("close", killChild);
-  res.on("close", killChild);
-
-  child.stdout.pipe(res);
-  child.stderr.on("data", (data: Buffer) => {
-    console.error("[APK Download] stderr:", data.toString());
-  });
-  child.on("error", (err: Error) => {
-    console.error("[APK Download] Error:", err.message);
+  handle.stream.on("error", (err: Error) => {
+    console.error("[APK Download] Stream error:", err.message);
     if (!res.headersSent) {
       res.status(500).json({ error: "فشل في بث ملف APK" });
+    } else {
+      try { res.destroy(err); } catch {}
     }
+    cleanup();
   });
-  child.on("close", (code: number | null) => {
-    req.removeListener("close", killChild);
-    if (code !== 0 && !res.headersSent) {
-      res.status(500).json({ error: "فشل نقل ملف APK" });
-    }
-  });
+
+  handle.stream.pipe(res);
 }));
 
 router.get("/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
@@ -544,39 +532,27 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const sshCmd = deploymentEngine.getSSHCommandForDownload();
     const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+    const { statRemoteFileSize, openRemoteReadStream } = await import("../../services/sftp-client.js");
 
-    const execEnv = { ...process.env };
-    if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
-      execEnv.SSHPASS = process.env.SSH_PASSWORD;
-    }
-
-    const { spawn } = await import("child_process");
-
-    const sizeChild = spawn("bash", ["-c",
-      `${sshCmd} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
-    ], { env: execEnv });
-
-    let sizeOutput = "";
-    sizeChild.stdout.on("data", (d: Buffer) => { sizeOutput += d.toString(); });
-
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        try { sizeChild.kill("SIGTERM"); } catch {}
-        resolve();
-      }, SSH_SIZE_TIMEOUT_MS);
-      sizeChild.on("close", () => { clearTimeout(timer); resolve(); });
-    });
-
-    if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
-      console.error("[Public APK Download] SSH size check failed or file missing. output:", sizeOutput.substring(0, 200));
+    let fileSize: number | null;
+    try {
+      fileSize = await Promise.race([
+        statRemoteFileSize(remotePath),
+        new Promise<null>((_, rej) => setTimeout(() => rej(new Error("SFTP stat timeout")), SSH_SIZE_TIMEOUT_MS)),
+      ]);
+    } catch (err) {
+      console.error("[Public APK Download] SFTP stat error:", (err as Error).message);
       if (!res.headersSent) res.status(503).json({ error: "ملف APK غير متوفر مؤقتاً — حاول لاحقاً" });
       return;
     }
 
-    const fileSize = parseInt(sizeOutput.trim(), 10);
-    if (isNaN(fileSize) || fileSize < 1000) {
+    if (fileSize === null) {
+      console.error("[Public APK Download] File missing on server");
+      if (!res.headersSent) res.status(503).json({ error: "ملف APK غير متوفر مؤقتاً — حاول لاحقاً" });
+      return;
+    }
+    if (fileSize < 1000) {
       if (!res.headersSent) res.status(404).json({ error: "ملف APK غير صالح" });
       return;
     }
@@ -588,38 +564,40 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const child = spawn("bash", ["-c",
-      `${sshCmd} "cat '${remotePath}'"`
-    ], { env: execEnv });
+    let handle;
+    try {
+      handle = await openRemoteReadStream(remotePath);
+    } catch (err) {
+      console.error("[Public APK Download] SFTP open error:", (err as Error).message);
+      if (!res.headersSent) res.status(502).json({ error: "تعذّر فتح ملف APK" });
+      return;
+    }
 
     const streamTimeout = setTimeout(() => {
-      console.error("[Public APK Download] Stream timeout — killing SSH process");
-      try { child.kill("SIGTERM"); } catch {}
+      console.error("[Public APK Download] Stream timeout — closing SFTP");
+      try { handle!.close(); } catch {}
     }, SSH_STREAM_TIMEOUT_MS);
 
     const cleanup = () => {
       clearTimeout(streamTimeout);
-      try { child.kill("SIGTERM"); } catch {}
+      try { handle!.close(); } catch {}
     };
 
     req.on("close", cleanup);
     res.on("close", cleanup);
 
-    child.stdout.pipe(res);
-    child.stderr.on("data", (data: Buffer) => {
-      console.error("[Public APK Download] stderr:", data.toString().substring(0, 500));
-    });
-    child.on("error", (err: Error) => {
-      console.error("[Public APK Download] spawn error:", err.message);
+    handle.stream.on("error", (err: Error) => {
+      console.error("[Public APK Download] SFTP stream error:", err.message);
       clearTimeout(streamTimeout);
-      if (!res.headersSent) res.status(503).json({ error: "فشل الاتصال بخادم التخزين" });
-    });
-    child.on("close", (code: number | null) => {
-      clearTimeout(streamTimeout);
-      if (code !== 0) {
-        console.error(`[Public APK Download] SSH process exited with code ${code}`);
+      if (!res.headersSent) {
+        res.status(503).json({ error: "فشل الاتصال بخادم التخزين" });
+      } else {
+        try { res.destroy(err); } catch {}
       }
+      cleanup();
     });
+    handle.stream.on("end", () => clearTimeout(streamTimeout));
+    handle.stream.pipe(res);
   } catch (err: any) {
     console.error("[Public APK Download] Error:", err.message);
     if (!res.headersSent) res.status(500).json({ error: "خطأ داخلي" });

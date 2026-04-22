@@ -199,7 +199,13 @@ export function EquipmentManagement() {
   });
 
   const { data: equipmentData, isLoading: equipmentLoading } = useQuery<any>({
-    queryKey: ['/api/equipment'],
+    queryKey: ['/api/equipment', projectId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (projectId) params.set('project_id', projectId);
+      const res = await fetch(ENV.getApiUrl(`/api/equipment${params.toString() ? '?' + params.toString() : ''}`), { credentials: 'include' });
+      return res.json();
+    },
     enabled: activeTab === 'assets',
   });
 
@@ -221,9 +227,23 @@ export function EquipmentManagement() {
     queryKey: ['/api/equipment/statuses'],
     queryFn: () => fetch(ENV.getApiUrl('/api/equipment/statuses'), { credentials: 'include' }).then(r => r.json()),
   });
-  const defaultStatusLabels: Record<string, string> = { available: 'متاح', assigned: 'مخصص', maintenance: 'صيانة', lost: 'مفقود', consumed: 'مستهلك', active: 'نشط' };
+  const defaultStatusLabels: Record<string, string> = { available: 'متاح', assigned: 'مخصص', maintenance: 'صيانة', lost: 'مفقود', consumed: 'مستهلك', active: 'نشط', damaged: 'تالف', retired: 'متقاعد' };
   const equipmentStatuses: string[] = statusesData?.data || Object.keys(defaultStatusLabels);
   const statusLabel = (s: string) => defaultStatusLabels[s] || s;
+
+  const equipmentTypeLabels: Record<string, string> = { heavy_machinery: 'معدات ثقيلة', light_tool: 'أدوات خفيفة', vehicle: 'مركبات', electrical: 'كهربائية', plumbing: 'سباكة', safety: 'سلامة', measuring: 'قياس', hand_tool: 'أدوات يدوية', power_tool: 'أدوات كهربائية', other: 'أخرى' };
+  const typeLabel = (t: string) => equipmentTypeLabels[t] || t || 'عام';
+
+  const projectsMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    projects.forEach((p: any) => { if (p?.id) m[p.id] = p.name; });
+    return m;
+  }, [projects]);
+
+  const filteredEquipmentList = useMemo(() => {
+    if (!projectId) return equipmentList;
+    return equipmentList.filter((eq: any) => eq.project_id === projectId);
+  }, [equipmentList, projectId]);
 
   const filteredStockItems = useMemo(() => {
     if (stockStatusFilter === 'all') return stockItems;
@@ -243,12 +263,12 @@ export function EquipmentManagement() {
 
   const eqStatusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    equipmentList.forEach((eq: any) => {
+    filteredEquipmentList.forEach((eq: any) => {
       const s = eq.status || 'unknown';
       counts[s] = (counts[s] || 0) + 1;
     });
     return counts;
-  }, [equipmentList]);
+  }, [filteredEquipmentList]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
     if (activeTab === 'stock') {
@@ -311,7 +331,7 @@ export function EquipmentManagement() {
       ];
     }
     if (activeTab === 'assets') {
-      const totalEquipment = equipmentList.length;
+      const totalEquipment = filteredEquipmentList.length;
       const availableCount = eqStatusCounts['available'] || 0;
       const maintenanceCount = eqStatusCounts['maintenance'] || 0;
       const lostCount = eqStatusCounts['lost'] || 0;
@@ -605,20 +625,25 @@ export function EquipmentManagement() {
         title: 'تقرير الأصول والمعدات',
         pdfTitle: 'تقرير الأصول والمعدات',
         sheetName: 'الأصول والمعدات',
-        fileName: `الأصول_والمعدات_${dateFile}`,
+        fileName: `الأصول_والمعدات_${projectId ? (projectsMap[projectId] || '').replace(/\s+/g, '_') + '_' : ''}${dateFile}`,
         headerColor: '#8B5CF6',
         accentColor: '#7C3AED',
         pdfInfoItems: [
-          { label: 'عدد المعدات', value: equipmentList.length, color: '#8B5CF6' },
+          { label: 'المشروع', value: projectId ? (projectsMap[projectId] || '-') : 'جميع المشاريع', color: '#8B5CF6' },
+          { label: 'عدد المعدات', value: filteredEquipmentList.length, color: '#7C3AED' },
         ],
-        excelInfoLines: [`عدد المعدات: ${equipmentList.length}`, `تاريخ: ${dateStr}`],
+        excelInfoLines: [
+          `المشروع: ${projectId ? (projectsMap[projectId] || '-') : 'جميع المشاريع'}`,
+          `عدد المعدات: ${filteredEquipmentList.length}`,
+          `تاريخ: ${dateStr}`,
+        ],
         columns: [
           { header: 'م', key: 'num', width: 5 },
           { header: 'المعدة', key: 'name', width: 22 },
-          { header: 'النوع', key: 'type', width: 12 },
+          { header: 'النوع', key: 'type', width: 14 },
           { header: 'الرقم التسلسلي', key: 'serial', width: 14 },
           { header: 'الحالة', key: 'status', width: 10 },
-          { header: 'المشروع', key: 'project', width: 16 },
+          { header: 'المشروع', key: 'project', width: 18 },
         ],
         excelColumns: [
           { header: 'م', key: 'num', width: 6 },
@@ -626,20 +651,20 @@ export function EquipmentManagement() {
           { header: 'النوع', key: 'type', width: 16 },
           { header: 'الرقم التسلسلي', key: 'serial', width: 18 },
           { header: 'الحالة', key: 'status', width: 14 },
-          { header: 'المشروع', key: 'project', width: 20 },
+          { header: 'المشروع', key: 'project', width: 22 },
         ],
-        getData: () => equipmentList.map((eq: any, idx: number) => ({
+        getData: () => filteredEquipmentList.map((eq: any, idx: number) => ({
           num: idx + 1,
           name: eq.name || '-',
-          type: eq.type || '-',
-          serial: eq.serial_number || '-',
-          status: eq.status === 'active' ? 'نشط' : eq.status === 'maintenance' ? 'صيانة' : eq.status || '-',
-          project: eq.project_name || '-',
+          type: typeLabel(eq.type),
+          serial: eq.serial_number || eq.code || '-',
+          status: statusLabel(eq.status || ''),
+          project: eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || '-',
         })),
       },
     };
     return configs;
-  }, [filteredStockItems, stats, incomingTx, outgoingTx, returnTx, reports, reportGroupBy, equipmentList, projectId]);
+  }, [filteredStockItems, stats, incomingTx, outgoingTx, returnTx, reports, reportGroupBy, filteredEquipmentList, projectId, projectsMap]);
 
   const handleExportExcel = useCallback(async () => {
     const config = tabExportConfig[activeTab];
@@ -1112,51 +1137,57 @@ export function EquipmentManagement() {
         <TabsContent value="assets" className="space-y-4">
           {equipmentLoading ? (
             <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
-          ) : equipmentList.length === 0 ? (
+          ) : filteredEquipmentList.length === 0 ? (
             <Card className="py-10 text-center text-gray-500">
               <Settings className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>لا توجد معدات مسجلة</p>
+              <p>{projectId ? 'لا توجد معدات لهذا المشروع' : 'لا توجد معدات مسجلة'}</p>
               <p className="text-sm mt-2">استخدم الزر العائم لإضافة معدة جديدة</p>
             </Card>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {equipmentList.map((eq: any) => (
-                <Card key={eq.id} data-testid={`card-equipment-${eq.id}`} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold">{eq.name}</h3>
-                        <p className="text-xs text-gray-500">{eq.code}</p>
-                        <div className="flex gap-1 mt-1">
-                          <Badge variant="outline" className="text-xs">{{ heavy_machinery: 'معدات ثقيلة', light_tool: 'أدوات خفيفة', vehicle: 'مركبات', electrical: 'كهربائية', plumbing: 'سباكة', safety: 'سلامة', measuring: 'قياس', hand_tool: 'أدوات يدوية', power_tool: 'أدوات كهربائية', other: 'أخرى' }[eq.type as string] || eq.type || 'عام'}</Badge>
-                          <Badge className={`text-xs ${eq.status === 'available' ? 'bg-emerald-100 text-emerald-800' : eq.status === 'assigned' ? 'bg-blue-100 text-blue-800' : eq.status === 'maintenance' ? 'bg-amber-100 text-amber-800' : eq.status === 'lost' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {statusLabel(eq.status)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm mt-1 text-gray-600">الكمية: {eq.quantity} {eq.unit}</p>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Button size="sm" variant="ghost" className="text-xs" data-testid={`btn-transfer-eq-${eq.id}`} onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
-                          <Truck className="w-3 h-3 ml-1" /> نقل
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-xs" data-testid={`btn-history-eq-${eq.id}`} onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
-                          <RefreshCw className="w-3 h-3 ml-1" /> سجل
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-xs text-blue-600" data-testid={`btn-edit-eq-${eq.id}`} onClick={() => handleEditEquipmentClick(eq)}>
-                          <Pencil className="w-3 h-3 ml-1" /> تعديل
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-xs text-amber-600" data-testid={`btn-status-eq-${eq.id}`} onClick={() => handleStatusClick(eq)}>
-                          <ToggleLeft className="w-3 h-3 ml-1" /> الحالة
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-xs text-red-600" data-testid={`btn-delete-eq-${eq.id}`} onClick={() => handleDeleteEquipmentClick(eq)}>
-                          <Trash2 className="w-3 h-3 ml-1" /> حذف
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <UnifiedCardGrid columns={1}>
+              {filteredEquipmentList.map((eq: any) => {
+                const statusColor: 'success' | 'info' | 'warning' | 'danger' | 'default' =
+                  eq.status === 'available' ? 'success'
+                  : eq.status === 'assigned' || eq.status === 'active' ? 'info'
+                  : eq.status === 'maintenance' ? 'warning'
+                  : (eq.status === 'lost' || eq.status === 'damaged') ? 'danger'
+                  : 'default';
+                const headerColor =
+                  statusColor === 'success' ? '#10b981'
+                  : statusColor === 'info' ? '#3b82f6'
+                  : statusColor === 'warning' ? '#f59e0b'
+                  : statusColor === 'danger' ? '#ef4444'
+                  : '#6b7280';
+                const projectName = eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || (eq.project_id ? '-' : 'غير مرتبط بمشروع');
+                return (
+                  <UnifiedCard
+                    key={eq.id}
+                    data-testid={`card-equipment-${eq.id}`}
+                    title={eq.name}
+                    titleIcon={Settings}
+                    compact
+                    headerColor={headerColor}
+                    badges={[
+                      { label: typeLabel(eq.type), variant: "outline" as const },
+                      { label: statusLabel(eq.status), variant: statusColor === 'danger' ? 'destructive' as const : statusColor === 'warning' ? 'warning' as const : statusColor === 'success' ? 'success' as const : 'secondary' as const },
+                    ]}
+                    fields={[
+                      { label: "المشروع", value: projectName, icon: FolderKanban, color: "info" as const },
+                      ...(eq.code ? [{ label: "الكود", value: eq.code, icon: Box }] : []),
+                      ...(eq.serial_number ? [{ label: "الرقم التسلسلي", value: eq.serial_number, icon: Box }] : []),
+                      { label: "الكمية", value: `${eq.quantity ?? '-'} ${eq.unit || ''}`.trim(), color: "info" as const, emphasis: true },
+                    ]}
+                    actions={[
+                      { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
+                      { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
+                      { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
+                      { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "amber" as const },
+                      { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
+                    ]}
+                  />
+                );
+              })}
+            </UnifiedCardGrid>
           )}
         </TabsContent>
       </Tabs>

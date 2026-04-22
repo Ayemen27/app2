@@ -1,4 +1,5 @@
 import { ENV } from "@/lib/env";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -902,6 +903,7 @@ export function EquipmentManagement() {
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         hideHeader={true}
         statsRows={statsRowsConfig}

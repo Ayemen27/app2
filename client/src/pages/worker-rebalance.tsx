@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -224,6 +225,7 @@ export default function WorkerRebalancePage() {
 
   return (
     <div className="space-y-4 pb-24" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         statsRows={statsRows}
         searchValue={searchValue}

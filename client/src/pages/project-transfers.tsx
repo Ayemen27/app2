@@ -1,4 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -402,6 +403,7 @@ export default function ProjectTransfers() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8 pb-40 md:pb-20">
+          <SelectedProjectBadge />
           {/* شريط الفلترة والإحصائيات الموحد */}
           <UnifiedFilterDashboard
             statsRows={statsRowsConfig}

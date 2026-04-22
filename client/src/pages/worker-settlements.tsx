@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -522,6 +523,7 @@ export default function WorkerSettlementsPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <Tabs value={activeView} onValueChange={(v) => setActiveView(v as "new" | "history")} className="w-full">
         <TabsList className="w-full grid grid-cols-2 h-11 mb-4">
           <TabsTrigger value="new" className="gap-1.5 text-sm" data-testid="tab-new-settlement">

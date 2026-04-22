@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -261,6 +262,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 fade-in space-y-4">
+      <SelectedProjectBadge />
       {/* قسم المراقبة والإحصائيات */}
       <div className="mb-4">
         {monitoringStats && (

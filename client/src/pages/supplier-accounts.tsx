@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery } from "@tanstack/react-query";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { 
@@ -489,6 +490,7 @@ export default function SupplierAccountsPage() {
 
   return (
     <div className="p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         statsRows={statsRowsConfig}
         searchValue={searchTerm}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -864,6 +865,7 @@ export default function RecordsTransfer() {
 
   return (
     <div className="min-h-screen bg-background p-2 sm:p-4" dir="rtl">
+      <SelectedProjectBadge />
       <div className="max-w-7xl mx-auto space-y-2.5">
         <Card className="bg-card border-border">
           <CardContent className="p-3 space-y-3">

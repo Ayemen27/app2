@@ -481,7 +481,7 @@ export default function TransportManagement() {
     <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-slate-950/50">
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="max-w-7xl mx-auto w-full p-4 space-y-6">
-          
+          <SelectedProjectBadge />
           <UnifiedStats
             title="ملخص حركة النقل"
             stats={statsData}

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -519,6 +520,7 @@ export default function WellReceptionsPage() {
 
   return (
     <div className="p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         hideHeader
         statsRows={statsRowsConfig}

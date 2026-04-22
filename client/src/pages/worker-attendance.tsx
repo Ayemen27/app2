@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download, Briefcase } from "lucide-react";
@@ -1160,6 +1161,7 @@ export default function WorkerAttendance() {
 
   return (
     <div className="p-4 space-y-4">
+      <SelectedProjectBadge />
 
       {/* لوحة الإحصائيات والفلترة الموحدة */}
       {selectedProjectId && (

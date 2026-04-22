@@ -1,4 +1,5 @@
 import { useState } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export default function WellReports() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 space-y-6" dir="rtl">
+      <SelectedProjectBadge />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1201,6 +1202,7 @@ export default function WorkersPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-4">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         hideHeader={true}
         title=""

@@ -8,6 +8,7 @@
  */
 
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -872,6 +873,7 @@ export default function WorkerAccountsPage() {
 
   return (
     <div className="p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         statsRows={statsRowsConfig}
         searchValue={searchTerm}

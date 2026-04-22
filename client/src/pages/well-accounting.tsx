@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -264,6 +265,7 @@ export default function WellAccounting() {
 
   return (
     <div className="p-4 space-y-4" dir="rtl">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         searchValue={searchValue}
         onSearchChange={setSearchValue}

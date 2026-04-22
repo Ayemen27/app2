@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
@@ -2755,6 +2756,7 @@ function DailyExpensesContent() {
 
   return (
     <div className="p-4 slide-in space-y-4">
+      <SelectedProjectBadge />
 
       {/* نافذة اختيار قالب التصدير */}
       <Dialog open={showTemplateSelector} onOpenChange={setShowTemplateSelector}>

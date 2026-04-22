@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -568,6 +569,7 @@ export default function WellsPage() {
 
   return (
     <div className="p-4 slide-in space-y-4">
+      <SelectedProjectBadge />
       <UnifiedFilterDashboard
         hideHeader={true}
         statsRows={statsRowsConfig}

@@ -369,6 +369,7 @@ export default function ProjectFundCustody() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8 pb-24 md:pb-20">
+          <SelectedProjectBadge />
           <UnifiedFilterDashboard
             statsRows={statsRowsConfig}
             searchValue={searchValue}

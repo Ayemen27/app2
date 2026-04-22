@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
@@ -1062,7 +1063,8 @@ export default function MaterialPurchase() {
   ], [handleExportExcel, isExporting, filteredPurchases.length]);
 
   return (
-    <div className="p-4 slide-in">
+    <div className="p-4 slide-in space-y-4">
+      <SelectedProjectBadge />
       {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
       <UnifiedFilterDashboard
         hideHeader={true}

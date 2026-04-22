@@ -31,6 +31,7 @@ import { ledgerRouter } from './ledgerRoutes.js';
 import equipmentRouter from './equipmentRoutes.js';
 import syncAuditRouter from './syncAuditRoutes.js';
 import webauthnRouter from './webauthnRoutes.js';
+import biometricTokenRouter from './biometricTokenRoutes.js';
 import preferencesRouter from './preferencesRoutes.js';
 import reportHeaderRouter from './reportHeaderRoutes.js';
 import permissionRouter from './permissionRoutes.js';
@@ -172,6 +173,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات WebAuthn (المصادقة البيومترية)
   app.use('/api/webauthn', webauthnRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات WebAuthn: /api/webauthn');
+
+  // مسارات رموز البصمة طويلة العمر (issue / exchange / revoke)
+  app.use('/api/auth/biometric', biometricTokenRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات رموز البصمة: /api/auth/biometric');
 
   // مسارات تفضيلات المستخدم
   app.use('/api/preferences', preferencesRouter);

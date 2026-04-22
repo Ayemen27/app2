@@ -242,7 +242,8 @@ export default function SettingsPage() {
       });
       if (res.ok) {
         setBiometricStatus('disabled');
-        localStorage.removeItem('biometric_credential_registered');
+        const { clearAllBiometricData } = await import("../lib/webauthn");
+        await clearAllBiometricData();
         localStorage.removeItem('biometric_prompt_dismissed');
         toast({ title: "تم الإلغاء", description: "تم إلغاء تفعيل البصمة بنجاح" });
       } else {

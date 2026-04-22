@@ -31,6 +31,7 @@ import {
   type WhatsAppStats, type InsertWhatsAppStats, type WhatsAppMessage, type InsertWhatsAppMessage,
   type WhatsAppSecurityEvent, type InsertWhatsAppSecurityEvent,
   type WebAuthnCredential, type InsertWebAuthnCredential, type WebAuthnChallenge, type InsertWebAuthnChallenge,
+  type BiometricRefreshToken, type InsertBiometricRefreshToken,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, workerProjectWages, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   dailyActivityLogs,
@@ -47,6 +48,7 @@ import {
   whatsappSecurityEvents,
   webauthnCredentials,
   webauthnChallenges,
+  biometricRefreshTokens,
   userPreferences,
   reportHeaderSettings,
 } from "@shared/schema";
@@ -404,6 +406,15 @@ export interface IStorage {
   getWebAuthnChallenge(challenge: string): Promise<WebAuthnChallenge | undefined>;
   deleteWebAuthnChallenge(challenge: string): Promise<void>;
   cleanupExpiredChallenges(): Promise<void>;
+
+  // Biometric Refresh Tokens
+  createBiometricRefreshToken(data: InsertBiometricRefreshToken): Promise<BiometricRefreshToken>;
+  getBiometricRefreshTokenByHash(tokenHash: string): Promise<BiometricRefreshToken | undefined>;
+  updateBiometricRefreshTokenLastUsed(id: number, ip?: string | null, ua?: string | null): Promise<void>;
+  revokeBiometricRefreshToken(id: number): Promise<void>;
+  revokeBiometricRefreshTokensByUserId(userId: string): Promise<void>;
+  revokeBiometricRefreshTokensByCredentialId(credentialId: string): Promise<void>;
+  cleanupExpiredBiometricRefreshTokens(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4828,6 +4839,49 @@ export class DatabaseStorage implements IStorage {
 
   async cleanupExpiredChallenges(): Promise<void> {
     await db.delete(webauthnChallenges).where(lte(webauthnChallenges.expires_at, new Date()));
+  }
+
+  // ===== Biometric Refresh Tokens =====
+  async createBiometricRefreshToken(data: InsertBiometricRefreshToken): Promise<BiometricRefreshToken> {
+    const [row] = await db.insert(biometricRefreshTokens).values(data).returning();
+    return row;
+  }
+
+  async getBiometricRefreshTokenByHash(tokenHash: string): Promise<BiometricRefreshToken | undefined> {
+    const [row] = await db.select().from(biometricRefreshTokens)
+      .where(eq(biometricRefreshTokens.token_hash, tokenHash));
+    return row || undefined;
+  }
+
+  async updateBiometricRefreshTokenLastUsed(id: number, ip?: string | null, ua?: string | null): Promise<void> {
+    const patch: Record<string, any> = { last_used_at: new Date() };
+    if (ip) patch.ip_address = ip;
+    if (ua) patch.user_agent = ua;
+    await db.update(biometricRefreshTokens)
+      .set(patch)
+      .where(eq(biometricRefreshTokens.id, id));
+  }
+
+  async revokeBiometricRefreshToken(id: number): Promise<void> {
+    await db.update(biometricRefreshTokens)
+      .set({ revoked_at: new Date() })
+      .where(eq(biometricRefreshTokens.id, id));
+  }
+
+  async revokeBiometricRefreshTokensByUserId(userId: string): Promise<void> {
+    await db.update(biometricRefreshTokens)
+      .set({ revoked_at: new Date() })
+      .where(and(eq(biometricRefreshTokens.user_id, userId), isNull(biometricRefreshTokens.revoked_at)));
+  }
+
+  async revokeBiometricRefreshTokensByCredentialId(credentialId: string): Promise<void> {
+    await db.update(biometricRefreshTokens)
+      .set({ revoked_at: new Date() })
+      .where(and(eq(biometricRefreshTokens.credential_id, credentialId), isNull(biometricRefreshTokens.revoked_at)));
+  }
+
+  async cleanupExpiredBiometricRefreshTokens(): Promise<void> {
+    await db.delete(biometricRefreshTokens).where(lte(biometricRefreshTokens.expires_at, new Date()));
   }
 }
 

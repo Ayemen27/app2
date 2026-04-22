@@ -2200,6 +2200,29 @@ export const insertWebAuthnChallengeSchema = createInsertSchema(webauthnChalleng
 export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
 export type InsertWebAuthnChallenge = z.infer<typeof insertWebAuthnChallengeSchema>;
 
+// Biometric Refresh Tokens — long-lived tokens dedicated to biometric login
+// Stored as SHA-256 hash; original is returned to client only once at issuance.
+// Standards: OWASP ASVS 6.2 — token binding to device + UA, hashed at rest.
+export const biometricRefreshTokens = pgTable("biometric_refresh_tokens", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id").notNull(),
+  token_hash: text("token_hash").notNull().unique("biometric_refresh_tokens_token_hash_key"),
+  device_id: text("device_id"),
+  device_label: text("device_label"),
+  credential_id: text("credential_id"),
+  platform: text("platform"),
+  ip_address: text("ip_address"),
+  user_agent: text("user_agent"),
+  last_used_at: timestamp("last_used_at", { withTimezone: true }),
+  expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revoked_at: timestamp("revoked_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertBiometricRefreshTokenSchema = createInsertSchema(biometricRefreshTokens).omit({ id: true, created_at: true });
+export type BiometricRefreshToken = typeof biometricRefreshTokens.$inferSelect;
+export type InsertBiometricRefreshToken = z.infer<typeof insertBiometricRefreshTokenSchema>;
+
 export const userPreferences = pgTable("user_preferences", {
   id: serial("id").primaryKey(),
   user_id: varchar("user_id").notNull().unique("user_preferences_user_id_key"),

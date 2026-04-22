@@ -87,10 +87,15 @@ webauthnRouter.post('/register/options', requireAuth, async (req: AuthenticatedR
         type: 'public-key' as const,
         transports: (cred.transports as AuthenticatorTransportFuture[]) || [],
       })),
+      // Global passkey standard (FIDO Alliance + W3C WebAuthn L3):
+      // - residentKey: 'required'  → enables Conditional UI / usernameless login
+      // - requireResidentKey: true → backward compat with WebAuthn L1 authenticators
+      // - userVerification: 'required' → biometric/PIN always enforced
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
         userVerification: 'required',
-        residentKey: 'preferred',
+        residentKey: 'required',
+        requireResidentKey: true,
       },
       supportedAlgorithmIDs: [-7, -257],
       timeout: 60000,
@@ -333,6 +338,11 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
       return res.status(400).json({ success: false, message: 'بيانات الاعتماد لا تتطابق مع المستخدم' });
     }
 
+    // Synced passkeys (iCloud/Google Password Manager) often report counter=0.
+    // Per FIDO guidance, do NOT treat counter==0 from a sync-fabric authenticator as cloning.
+    // SimpleWebAuthn handles this when both stored and received counter are 0; we make it explicit here.
+    const isSyncedPasskey = (storedCredential.counter ?? 0) === 0;
+
     const rpId = getRpId(req);
     const origin = getOrigin(req);
 
@@ -355,10 +365,20 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
       return res.status(400).json({ success: false, message: 'فشل التحقق من المصادقة' });
     }
 
-    await storage.updateWebAuthnCredentialCounter(
-      storedCredential.credential_id,
-      verification.authenticationInfo.newCounter
-    );
+    // For synced passkeys, the counter often stays 0 across devices; only update if it actually advanced.
+    const newCounter = verification.authenticationInfo.newCounter ?? 0;
+    if (newCounter > (storedCredential.counter ?? 0) || !isSyncedPasskey) {
+      await storage.updateWebAuthnCredentialCounter(
+        storedCredential.credential_id,
+        newCounter
+      );
+    } else {
+      // Just refresh last_used_at without counter change
+      await storage.updateWebAuthnCredentialCounter(
+        storedCredential.credential_id,
+        storedCredential.counter ?? 0
+      );
+    }
 
     await storage.deleteWebAuthnChallenge(challengeStr);
 
@@ -470,7 +490,9 @@ webauthnRouter.delete('/credentials', requireAuth, async (req: AuthenticatedRequ
     }
 
     await storage.deleteAllWebAuthnCredentialsByUserId(userId);
-    console.log(`🗑️ [WebAuthn] All credentials deleted for user: ${req.user?.email}`);
+    // Also revoke any long-lived biometric refresh tokens (Android native flow)
+    try { await storage.revokeBiometricRefreshTokensByUserId(userId); } catch {}
+    console.log(`🗑️ [WebAuthn] All credentials + biometric tokens revoked for user: ${req.user?.email}`);
 
     res.json({
       success: true,

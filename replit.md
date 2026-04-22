@@ -102,6 +102,17 @@ All sensitive values (IP, domain, DB credentials, SSH credentials) are sourced e
 | `DB_NAME`, `DB_USER` | Server | Database health check params |
 | `DATABASE_URL_CENTRAL` | Server | Primary database connection |
 
+### توحيد ترويسة التقارير (2026-04-22)
+كل تصدير (PDF/Excel/HTML) يستخدم الآن بيانات موحدة من `/api/report-header` (الاسم العربي/الإنجليزي، الشعار، الإيميل، الهاتف، العنوان، الموقع، الألوان).
+- **العميل**: `client/src/lib/report-branding.ts` يكشف `getBranding()` + `hexNoHash()` (Proxy على cache يُحدَّث عبر `/api/report-header`).
+- **الخادم**: `server/services/reports/templates/header-context.ts` يكشف `withReportHeader(header, fn)` + `currentReportHeader()` + `hexToArgb()` عبر AsyncLocalStorage.
+- **الملفات المُحدَّثة**:
+  - `client/src/components/ui/export-transactions-excel-template2.ts` — ألوان وترويسة كاملة من branding.
+  - `client/src/pages/ai-chat.tsx` (`generatePrintPDF`) — Letterhead HTML كامل (شعار/حرف بديل + accent + 4 أيقونات اتصال + تذييل ثلاثي).
+  - `server/routes/modules/wellRoutes.ts` (`/reports/export`) — يجلب `getReportHeader(authUserId)` ويلفّ xlsx/pdf بـ `withReportHeader`.
+  - `server/services/ai-agent/ReportGenerator.ts` — helper `getReportBranding()` + استبدال الألوان/الأسماء الثابتة في 4 دوال Excel (WorkerStatement + Supplier + Dashboard + Attendance).
+  - `server/services/ai-agent/AIAgentService.ts` — helper `withUserBranding(userId, fn)` يلفّ كل استدعاءات `reportGenerator.generate*` داخل `parseAndExecuteActions` (مرّر `userId` من `processMessage`).
+
 ### توحيدات حديثة (2026-04-21)
 - **توحيد Service Account**: `GoogleDriveService` يقرأ الآن `FIREBASE_SERVICE_ACCOUNT_KEY` كأولوية، ثم `GOOGLE_DRIVE_CREDENTIALS` كـ legacy fallback. يُنصح بحذف `GOOGLE_DRIVE_CREDENTIALS` من Replit Secrets (محلي + إنتاج).
 - **توحيد Domain**: حُذف `PRODUCTION_URL` من الكود (deployment-engine.ts، deploymentRoutes.ts، deploymentPayloadBuilder.ts). يُنصح بحذفه من Secrets الإنتاج.

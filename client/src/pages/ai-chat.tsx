@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getBranding } from "@/lib/report-branding";
 
 interface Message {
   id?: string;
@@ -38,7 +39,23 @@ function escapeHtml(str: string): string {
 
 function generatePrintPDF(content: string, tableData: any[] | null, title?: string) {
   const reportTitle = escapeHtml(title || "تقرير من الوكيل الذكي");
-  const dateStr = escapeHtml(new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" }));
+
+  // 🏢 الترويسة الموحّدة — تُقرأ من إعدادات المستخدم
+  const b = getBranding();
+  const primary = b.primaryColor || '#1E3A5F';
+  const secondary = b.secondaryColor || '#2E86AB';
+  const accent = b.accentColor || '#F4A14B';
+  const companyName = escapeHtml(b.companyName || '');
+  const companyEn = escapeHtml(b.companyNameEn || '');
+  const initials = ((b.companyName || '').trim().charAt(0)) || 'A';
+  const logoBox = b.logoUrl
+    ? `<img class="lh-logo-img" src="${escapeHtml(b.logoUrl)}" alt="logo"/>`
+    : `<div class="lh-logo-fallback">${escapeHtml(initials)}</div>`;
+  const contactItems: string[] = [];
+  if (b.email)   contactItems.push(`<div class="lh-row"><span class="lh-icon">✉</span>${escapeHtml(b.email)}</div>`);
+  if (b.website) contactItems.push(`<div class="lh-row"><span class="lh-icon">🌐</span>${escapeHtml(b.website)}</div>`);
+  if (b.phone)   contactItems.push(`<div class="lh-row"><span class="lh-icon">☎</span><span dir="ltr">${escapeHtml(b.phone)}</span></div>`);
+  if (b.address) contactItems.push(`<div class="lh-row"><span class="lh-icon">📍</span>${escapeHtml(b.address)}</div>`);
 
   let tableHTML = "";
   if (tableData && tableData.length > 0) {
@@ -73,33 +90,53 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
     @font-face { font-family: "Cairo"; src: url("/fonts/cairo/Cairo-Variable.woff2") format("woff2-variations"); font-weight: 300 700; font-style: normal; font-display: swap; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12pt; color: #1a1a2e; background: #fff; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1E3A5F, #2E86AB); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
-    .header h1 { font-size: 16pt; font-weight: 700; }
-    .header .date { font-size: 10pt; opacity: 0.85; margin-top: 4px; }
+    .lh-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: ${primary}; color: #fff; border-radius: 8px 8px 0 0; }
+    .lh-header-left { font-size: 9.5pt; line-height: 1.7; opacity: 0.95; }
+    .lh-row { display: flex; align-items: center; gap: 6px; }
+    .lh-icon { font-size: 10pt; }
+    .lh-header-right { display: flex; align-items: center; gap: 12px; }
+    .lh-logo-img { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; }
+    .lh-logo-fallback { width: 56px; height: 56px; border-radius: 8px; background: #fff; color: ${primary}; display: flex; align-items: center; justify-content: center; font-size: 22pt; font-weight: 800; }
+    .lh-co-block { text-align: center; }
+    .lh-co-name { font-size: 14pt; font-weight: 800; }
+    .lh-tagline { font-size: 9pt; opacity: 0.85; margin-top: 2px; }
+    .lh-accent-bar { height: 4px; background: ${accent}; border-radius: 0 0 8px 8px; margin-bottom: 14px; }
+    .lh-title-band { background: ${secondary}; color: #fff; text-align: center; padding: 10px; font-size: 13pt; font-weight: 700; border-radius: 4px; margin-bottom: 16px; }
     .content { line-height: 1.8; color: #333; white-space: pre-wrap; padding: 0 4px; }
-    .content strong { color: #1E3A5F; font-weight: 700; }
+    .content strong { color: ${primary}; font-weight: 700; }
     .content hr { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
     table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th { background: #1E3A5F; color: white; padding: 8px 10px; font-size: 10pt; text-align: right; }
+    th { background: ${primary}; color: white; padding: 8px 10px; font-size: 10pt; text-align: right; }
     td { padding: 7px 10px; font-size: 10pt; border-bottom: 1px solid #eee; text-align: right; }
     tr:nth-child(even) td { background: #f8f9fb; }
-    .footer { margin-top: 24px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+    .lh-footer { margin-top: 28px; padding-top: 12px; border-top: 2px solid ${accent}; display: flex; justify-content: space-between; align-items: center; font-size: 9pt; color: #555; }
+    .lh-footer-co { font-weight: 700; color: ${primary}; }
     @media print { body { padding: 0; } .no-print { display: none; } }
   `;
   doc.head.appendChild(style);
 
   doc.title = reportTitle;
 
-  const header = doc.createElement('div');
-  header.className = 'header';
-  const h1 = doc.createElement('h1');
-  h1.textContent = title || "تقرير من الوكيل الذكي";
-  header.appendChild(h1);
-  const dateDiv = doc.createElement('div');
-  dateDiv.className = 'date';
-  dateDiv.textContent = new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
-  header.appendChild(dateDiv);
-  doc.body.appendChild(header);
+  // 🏢 الترويسة الموحّدة (Letterhead)
+  const headerHtml = `
+    <div class="lh-header">
+      <div class="lh-header-left">
+        ${contactItems.join('\n        ') || '<div class="lh-row" style="opacity:.6;">&nbsp;</div>'}
+      </div>
+      <div class="lh-header-right">
+        ${logoBox}
+        <div class="lh-co-block">
+          <div class="lh-co-name">${companyName}</div>
+          ${companyEn ? `<div class="lh-tagline">${companyEn}</div>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="lh-accent-bar"></div>
+    <div class="lh-title-band">${escapeHtml(title || "تقرير من الوكيل الذكي")} — ${escapeHtml(new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" }))}</div>
+  `;
+  const headerWrap = doc.createElement('div');
+  headerWrap.innerHTML = DOMPurify.sanitize(headerHtml, { ADD_TAGS: ['style'], ADD_ATTR: ['dir', 'lang', 'class', 'src', 'alt'] });
+  doc.body.appendChild(headerWrap);
 
   const contentDiv = doc.createElement('div');
   contentDiv.className = 'content';
@@ -112,10 +149,17 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
     doc.body.appendChild(tableContainer);
   }
 
-  const footer = doc.createElement('div');
-  footer.className = 'footer';
-  footer.textContent = 'نظام إدارة المشاريع الإنشائية — تم إنشاء هذا التقرير تلقائياً';
-  doc.body.appendChild(footer);
+  // 📌 التذييل الموحّد
+  const footerHtml = `
+    <div class="lh-footer">
+      <div>${b.phone ? `<span dir="ltr">${escapeHtml(b.phone)}</span>` : ''}</div>
+      <div class="lh-footer-co">${companyName}</div>
+      <div>${b.address ? escapeHtml(b.address) : ''}</div>
+    </div>
+  `;
+  const footerWrap = doc.createElement('div');
+  footerWrap.innerHTML = DOMPurify.sanitize(footerHtml, { ADD_ATTR: ['dir', 'class'] });
+  doc.body.appendChild(footerWrap);
 
   win.onload = function() { win.print(); win.onafterprint = function() { win.close(); }; };
 }

@@ -1,5 +1,5 @@
 import { downloadExcelFile } from '@/utils/webview-download';
-import { getBranding } from '@/lib/report-branding';
+import { getBranding, hexNoHash } from '@/lib/report-branding';
 
 interface Transaction {
   id: string;
@@ -130,28 +130,50 @@ export async function exportTransactionsToExcelTemplate2(
 
   const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
 
-  // 🎨 الهوية البصرية الموحدة — Navy/Slate corporate palette
-  const MAIN_BLUE    = 'FF1E3A8A';   // mainBlue
-  const SLATE        = 'FF334155';   // slateHeader
+  // 🎨 الهوية البصرية الموحدة — تُقرأ من إعدادات المستخدم (report-branding)
+  const _b = getBranding();
+  const MAIN_BLUE    = 'FF' + hexNoHash(_b.primaryColor);
+  const SLATE        = 'FF' + hexNoHash(_b.secondaryColor);
+  const ACCENT       = 'FF' + hexNoHash(_b.accentColor);
   const WHITE        = 'FFFFFFFF';
-  const GREY         = 'FFF8FAFC';   // zebra (slate-50)
-  const GREEN_MUTED  = 'FFECFDF5';   // emerald-50 (positive opening)
-  const RED_MUTED    = 'FFFEE2E2';   // rose-100 (negative opening)
-  const INCOME_BG    = 'FFEFF6FF';   // blue-50 (income)
-  const TRANSFER_BG  = 'FFFEF3C7';   // amber-100 (project transfer)
-  const MATERIAL_BG  = 'FFEDE9FE';   // violet-100 (materials)
-  const TOTAL_BG     = 'FF334155';   // slate (total bar)
-  const TOTAL_BG_ALT = 'FFE2E8F0';   // border-slate (extension cell)
+  const GREY         = 'FFF8FAFC';
+  const GREEN_MUTED  = 'FFECFDF5';
+  const RED_MUTED    = 'FFFEE2E2';
+  const INCOME_BG    = 'FFEFF6FF';
+  const TRANSFER_BG  = 'FFFEF3C7';
+  const MATERIAL_BG  = 'FFEDE9FE';
+  const TOTAL_BG     = SLATE;
+  const TOTAL_BG_ALT = 'FFE2E8F0';
 
   let r = 1;
 
-  // 🏢 ترويسة الشركة
+  // 🏢 الترويسة الموحّدة — الاسم العربي + الإنجليزي
   ws.mergeCells(r, 1, r, COL);
   const companyCell = ws.getRow(r).getCell(1);
-  companyCell.value = getBranding().companyName;
-  style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13 });
-  ws.getRow(r).height = 26;
+  const _tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
+  companyCell.value = `${_b.companyName}${_tagline}`;
+  style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
+  ws.getRow(r).height = _tagline ? 40 : 26;
   r++;
+
+  // شريط لون التمييز (accent)
+  ws.mergeCells(r, 1, r, COL);
+  const accentRow = ws.getRow(r).getCell(1);
+  accentRow.value = '';
+  accentRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT } };
+  ws.getRow(r).height = 6;
+  r++;
+
+  // سطر معلومات التواصل (إن وُجدت)
+  const _contact = [_b.address, _b.phone, _b.email, _b.website].filter(Boolean).join('  •  ');
+  if (_contact) {
+    ws.mergeCells(r, 1, r, COL);
+    const contactCell = ws.getRow(r).getCell(1);
+    contactCell.value = _contact;
+    style(contactCell, { bg: 'FFF1F5F9', fc: 'FF475569', bold: false, size: 9 });
+    ws.getRow(r).height = 18;
+    r++;
+  }
 
   // 📋 عنوان التقرير
   ws.mergeCells(r, 1, r, COL);

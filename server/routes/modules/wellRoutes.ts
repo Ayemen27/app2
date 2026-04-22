@@ -22,6 +22,9 @@ import {
 import { sanitizeZodErrors } from '../../lib/error-utils';
 import { generateWellReportExcel } from '../../services/reports/templates/WellReportExcel';
 import { generateWellReportHTML } from '../../services/reports/templates/WellReportPDF';
+import { withReportHeader, ReportHeader } from '../../services/reports/templates/header-context';
+import { storage } from '../../storage';
+import type { AuthenticatedRequest } from '../../middleware/auth';
 import { db, pool } from '../../db';
 import { projects, users } from '../../../shared/schema';
 import { eq, inArray } from 'drizzle-orm';
@@ -152,14 +155,39 @@ wellRouter.get('/reports/export', async (req: Request, res: Response) => {
     const validReportTypes = ['comprehensive', 'wells_only', 'crews_only', 'solar_only'];
     const rType = validReportTypes.includes(report_type as string) ? (report_type as string) : 'comprehensive';
 
+    // 🏢 جلب ترويسة التقارير للمستخدم المُصادَق عليه (نفس نمط reportRoutes)
+    let header: ReportHeader | null = null;
+    const authUserId = (req as AuthenticatedRequest).user?.user_id;
+    if (authUserId) {
+      try {
+        const row = await storage.getReportHeader(authUserId);
+        if (row) {
+          header = {
+            company_name: row.company_name,
+            company_name_en: row.company_name_en,
+            address: row.address,
+            phone: row.phone,
+            email: row.email,
+            website: row.website,
+            footer_text: row.footer_text,
+            primary_color: row.primary_color,
+            secondary_color: row.secondary_color,
+            accent_color: row.accent_color,
+          };
+        }
+      } catch (e: any) {
+        console.warn('⚠️ [Wells/ReportHeader] فشل تحميل الترويسة، سنستخدم الافتراضية:', e?.message);
+      }
+    }
+
     if (format === 'xlsx') {
-      const buffer = await generateWellReportExcel({
+      const buffer = await withReportHeader(header, () => generateWellReportExcel({
         projectName,
         projectId: filteredProjectId || 'all',
         engineerName,
         wells: wellsData,
         reportType: rType as any,
-      });
+      }));
 
       const safeName = projectName.replace(/[^\u0600-\u06FFa-zA-Z0-9_\- ]/g, '').trim() || 'wells-report';
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -168,12 +196,12 @@ wellRouter.get('/reports/export', async (req: Request, res: Response) => {
     }
 
     if (format === 'pdf') {
-      const html = generateWellReportHTML({
+      const html = withReportHeader(header, () => generateWellReportHTML({
         projectName,
         engineerName,
         wells: wellsData,
         reportType: rType as any,
-      });
+      }));
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(html);

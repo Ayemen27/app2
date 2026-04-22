@@ -8,6 +8,29 @@ import * as path from "path";
 import * as ExcelJS from "exceljs";
 import { getDatabaseActions, ActionResult } from "./DatabaseActions";
 import { pool } from "../../db";
+import { currentReportHeader, hexToArgb } from "../reports/templates/header-context";
+
+/**
+ * 🏢 helper موحّد لقراءة بيانات الترويسة (شركة، ألوان) لأي تقرير AI.
+ * يستخدم AsyncLocalStorage عبر currentReportHeader — يرجع للقيم الافتراضية
+ * إن لم يكن داخل سياق withReportHeader.
+ */
+function getReportBranding() {
+  const h = currentReportHeader();
+  return {
+    companyName: h.company_name,
+    companyNameEn: h.company_name_en || '',
+    headerLine: h.company_name + (h.company_name_en ? `\n${h.company_name_en}` : ''),
+    primaryArgb: hexToArgb(h.primary_color),
+    secondaryArgb: hexToArgb(h.secondary_color),
+    accentArgb: hexToArgb(h.accent_color),
+    address: h.address || '',
+    phone: h.phone || '',
+    email: h.email || '',
+    website: h.website || '',
+    footerText: h.footer_text || '',
+  };
+}
 
 export interface ReportOptions {
   type: "worker_statement" | "project_expenses" | "daily_summary" | "attendance";
@@ -45,8 +68,9 @@ export class ReportGenerator {
       if (!result.success) return { success: false, message: result.message };
 
       const data = result.data;
+      const branding = getReportBranding();
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.creator = branding.companyName;
       workbook.created = new Date();
 
       const worksheet = workbook.addWorksheet('تصفية حساب عامل');
@@ -62,8 +86,8 @@ export class ReportGenerator {
         { key: 'F', width: 14 },
       ];
 
-      const primaryColor = 'FF1E3A5F';
-      const secondaryColor = 'FF2E86AB';
+      const primaryColor = branding.primaryArgb;
+      const secondaryColor = branding.secondaryArgb;
       const lightGray = 'FFF5F5F5';
       const creditColor = 'FF1B7E4E';
       const debitColor = 'FFC0392B';
@@ -83,11 +107,11 @@ export class ReportGenerator {
       // ─── رأس التقرير ───
       worksheet.mergeCells('A1:F1');
       const logoCell = worksheet.getCell('A1');
-      logoCell.value = 'نظام إدارة المشاريع الإنشائية';
+      logoCell.value = branding.headerLine;
       logoCell.font = { size: 13, bold: true, color: { argb: white } };
       logoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
-      logoCell.alignment = { horizontal: 'center', vertical: 'middle' };
-      worksheet.getRow(1).height = 28;
+      logoCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      worksheet.getRow(1).height = branding.companyNameEn ? 40 : 28;
 
       worksheet.mergeCells('A2:F2');
       const titleCell = worksheet.getCell('A2');
@@ -273,7 +297,7 @@ export class ReportGenerator {
 
       // ─── تذييل ───
       worksheet.addRow([]);
-      const footerRow = worksheet.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      const footerRow = worksheet.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - ${branding.companyName}`, '', '', '', '', '']);
       worksheet.mergeCells(`A${footerRow.number}:F${footerRow.number}`);
       footerRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footerRow.getCell(1).alignment = { horizontal: 'center' };
@@ -361,8 +385,9 @@ export class ReportGenerator {
       }
 
       const data = result.data;
+      const branding = getReportBranding();
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.creator = branding.companyName;
       workbook.created = new Date();
 
       const ws = workbook.addWorksheet('كشف حساب مورد');
@@ -377,8 +402,8 @@ export class ReportGenerator {
         { key: 'F', width: 16 },
       ];
 
-      const primary = 'FF1E3A5F';
-      const secondary = 'FF2E86AB';
+      const primary = branding.primaryArgb;
+      const secondary = branding.secondaryArgb;
       const light = 'FFF5F5F5';
       const green = 'FF1B7E4E';
       const red = 'FFC0392B';
@@ -397,11 +422,11 @@ export class ReportGenerator {
 
       ws.mergeCells('A1:F1');
       const h1 = ws.getCell('A1');
-      h1.value = 'نظام إدارة المشاريع الإنشائية';
+      h1.value = branding.headerLine;
       h1.font = { size: 13, bold: true, color: { argb: white } };
       h1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
-      h1.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.getRow(1).height = 28;
+      h1.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      ws.getRow(1).height = branding.companyNameEn ? 40 : 28;
 
       ws.mergeCells('A2:F2');
       const h2 = ws.getCell('A2');
@@ -539,7 +564,7 @@ export class ReportGenerator {
       }
 
       ws.addRow([]);
-      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} - ${branding.companyName}`, '', '', '', '', '']);
       ws.mergeCells(`A${footer.number}:F${footer.number}`);
       footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footer.getCell(1).alignment = { horizontal: 'center' };
@@ -568,8 +593,9 @@ export class ReportGenerator {
       if (!result.success) return { success: false, message: result.message };
 
       const data = result.data;
+      const branding = getReportBranding();
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.creator = branding.companyName;
       workbook.created = new Date();
 
       const ws = workbook.addWorksheet('لوحة المعلومات');
@@ -583,8 +609,8 @@ export class ReportGenerator {
         { key: 'E', width: 18 },
       ];
 
-      const primary = 'FF1E3A5F';
-      const secondary = 'FF2E86AB';
+      const primary = branding.primaryArgb;
+      const secondary = branding.secondaryArgb;
       const light = 'FFF5F5F5';
       const white = 'FFFFFFFF';
       const green = 'FF1B7E4E';
@@ -603,11 +629,11 @@ export class ReportGenerator {
 
       ws.mergeCells('A1:E1');
       const h1 = ws.getCell('A1');
-      h1.value = 'لوحة المعلومات الشاملة — نظام إدارة المشاريع';
+      h1.value = `لوحة المعلومات الشاملة — ${branding.headerLine}`;
       h1.font = { size: 14, bold: true, color: { argb: white } };
       h1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
-      h1.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.getRow(1).height = 30;
+      h1.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      ws.getRow(1).height = branding.companyNameEn ? 44 : 30;
 
       ws.mergeCells('A2:E2');
       const h2 = ws.getCell('A2');
@@ -672,7 +698,7 @@ export class ReportGenerator {
       balRow.height = 26;
 
       ws.addRow([]);
-      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} — نظام إدارة المشاريع`, '', '', '', '']);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('en-GB')} — ${branding.companyName}`, '', '', '', '']);
       ws.mergeCells(`A${footer.number}:E${footer.number}`);
       footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
       footer.getCell(1).alignment = { horizontal: 'center' };
@@ -926,8 +952,9 @@ export class ReportGenerator {
         };
       }
 
+      const branding = getReportBranding();
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "نظام إدارة المشاريع";
+      workbook.creator = branding.companyName;
       workbook.created = new Date();
       const worksheet = workbook.addWorksheet("تقرير الحضور", { views: [{ rightToLeft: true }] });
 
@@ -942,8 +969,8 @@ export class ReportGenerator {
         { key: "H", width: 20 },
       ];
 
-      const primaryColor = "FF1E3A5F";
-      const secondaryColor = "FF2E86AB";
+      const primaryColor = branding.primaryArgb;
+      const secondaryColor = branding.secondaryArgb;
       const lightGray = "FFF5F5F5";
       const creditColor = "FF1B7E4E";
       const debitColor = "FFC0392B";
@@ -962,11 +989,11 @@ export class ReportGenerator {
 
       worksheet.mergeCells("A1:H1");
       const logoCell = worksheet.getCell("A1");
-      logoCell.value = "نظام إدارة المشاريع الإنشائية";
+      logoCell.value = branding.headerLine;
       logoCell.font = { size: 13, bold: true, color: { argb: white } };
       logoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: primaryColor } };
-      logoCell.alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getRow(1).height = 28;
+      logoCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      worksheet.getRow(1).height = branding.companyNameEn ? 40 : 28;
 
       worksheet.mergeCells("A2:H2");
       const titleCell = worksheet.getCell("A2");

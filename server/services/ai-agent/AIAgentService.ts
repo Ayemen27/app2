@@ -593,7 +593,8 @@ export class AIAgentService {
         responseContent,
         sessionId,
         securityContext,
-        sanitizedMessage
+        sanitizedMessage,
+        userId
       );
       
       steps[1].status = "completed";
@@ -726,11 +727,45 @@ export class AIAgentService {
    * أوامر القراءة [ACTION] تنفذ مباشرة
    * أوامر التعديل [PROPOSE] تنتظر موافقة المسؤول
    */
+  /**
+   * 🏢 لفّ تنفيذ أي عملية بترويسة التقارير الخاصة بالمستخدم.
+   * يجلب الترويسة من DB ويضعها في AsyncLocalStorage عبر withReportHeader
+   * كي تستخدمها أي دالة ReportGenerator تُستدعى داخل fn.
+   */
+  private async withUserBranding<T>(userId: string | undefined, fn: () => Promise<T>): Promise<T> {
+    const { withReportHeader } = await import("../reports/templates/header-context");
+    const { storage } = await import("../../storage");
+    let header: any = null;
+    if (userId) {
+      try {
+        const row = await storage.getReportHeader(userId);
+        if (row) {
+          header = {
+            company_name: row.company_name,
+            company_name_en: row.company_name_en,
+            address: row.address,
+            phone: row.phone,
+            email: row.email,
+            website: row.website,
+            footer_text: row.footer_text,
+            primary_color: row.primary_color,
+            secondary_color: row.secondary_color,
+            accent_color: row.accent_color,
+          };
+        }
+      } catch (e: any) {
+        console.warn('⚠️ [AI/ReportHeader] فشل تحميل الترويسة، سنستخدم الافتراضية:', e?.message);
+      }
+    }
+    return await withReportHeader(header, fn);
+  }
+
   private async parseAndExecuteActions(
     response: string,
     sessionId?: string,
     securityContext?: import("./WhatsAppSecurityContext").WhatsAppSecurityContext,
-    originalUserMessage?: string
+    originalUserMessage?: string,
+    userId?: string
   ): Promise<{ processedResponse: string; action?: string; actionData?: any }> {
     
     // التحقق من وجود أوامر قراءة [ACTION]
@@ -852,7 +887,7 @@ export class AIAgentService {
                   break;
                 }
               }
-              currentResult = await this.reportGenerator.generateWorkerStatement(workerId, scopeIds);
+              currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateWorkerStatement(workerId, scopeIds));
               break;
             }
 
@@ -861,7 +896,7 @@ export class AIAgentService {
               if (scopeIds && !scopeIds.includes(pId)) {
                 currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "project_expenses" };
               } else {
-                currentResult = await this.reportGenerator.generateProjectExpensesSummary(pId);
+                currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateProjectExpensesSummary(pId));
               }
               break;
             }
@@ -882,7 +917,7 @@ export class AIAgentService {
                 dateStr = new Date().toISOString().split("T")[0];
               }
               
-              currentResult = await this.reportGenerator.generateDailyExpensesReport(projectId, dateStr);
+              currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateDailyExpensesReport(projectId, dateStr));
               break;
             }
 
@@ -946,17 +981,17 @@ export class AIAgentService {
                     break;
                   }
                 }
-                currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
+                currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateWorkerStatementExcel(actionParams[1]));
               } else if (actionParams[0] === "PROJECT_FULL") {
                 if (scopeIds && !scopeIds.includes(actionParams[1])) {
                   currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع" };
                 } else {
-                  currentResult = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
+                  currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateProjectFullExcel(actionParams[1]));
                 }
               } else if (actionParams[0] === "SUPPLIER_STATEMENT") {
-                currentResult = await this.reportGenerator.generateSupplierStatementExcel(actionParams[1]);
+                currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateSupplierStatementExcel(actionParams[1]));
               } else if (actionParams[0] === "DASHBOARD") {
-                currentResult = await this.reportGenerator.generateDashboardExcel();
+                currentResult = await this.withUserBranding(userId, () => this.reportGenerator.generateDashboardExcel());
               } else {
                 currentResult = { success: false, message: "نوع التقرير غير مدعوم حالياً" };
               }

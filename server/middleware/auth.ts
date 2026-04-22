@@ -25,14 +25,31 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-// Rate Limiting للطلبات العامة - تم رفعه لضمان السرعة
+// Rate Limiting للطلبات العامة
+// المعيار العالمي (Stripe/GitHub): استثناء auth (له limit مخصص)، dedup لكل user/IP، تجاوز CGNAT
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 600,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
+  // المفتاح: استخدم user_id من JWT إن وُجد (أدق من IP خلف CGNAT)، وإلا IP
+  keyGenerator: (req: any) => {
+    const uid = req?.user?.user_id || req?.auth?.user_id;
+    if (uid) return `u:${uid}`;
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    return `ip:${ip}`;
+  },
   skip: (req) => {
-    return req.path === '/api/health' || req.path === '/health';
+    const p = req.path || '';
+    // 1) صحة - دائماً
+    if (p === '/api/health' || p === '/health' || p === '/healthz' || p === '/readyz' || p === '/livez') return true;
+    // 2) مسارات المصادقة - لها authRateLimit/refreshRateLimit مخصصة
+    if (p.startsWith('/api/auth/') || p.startsWith('/api/webauthn/')) return true;
+    // 3) SSE stream - long-lived connection يجب ألا يُحسب
+    if (p === '/api/notifications/stream' || p.endsWith('/stream')) return true;
+    // 4) أصول ثابتة (Vite dev + production assets)
+    if (p.startsWith('/@') || p.startsWith('/src/') || p.startsWith('/assets/') || p.startsWith('/fonts/') || p === '/sw.js' || p === '/offline.html') return true;
+    return false;
   },
   handler: (_req, res) => {
     res.status(429).json({

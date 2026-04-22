@@ -1032,96 +1032,63 @@ const activeIntervals: NodeJS.Timeout[] = [];
       }, 3000);
     });
 
+    let shuttingDown = false;
     async function gracefulShutdown(signal: string) {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.log(`[Shutdown] Signal received: ${signal}`);
-      
+
+      // ضمان مطلق: مهما حدث، نخرج خلال 4 ثوانٍ بكود نجاح (الإغلاق متعمد).
       const forceExitTimeout = setTimeout(() => {
-        console.error('[Shutdown] Forcefully exiting after timeout');
-        process.exit(1);
-      }, 8000);
+        console.warn('[Shutdown] Forcing clean exit after timeout');
+        process.exit(0);
+      }, 4000);
+      forceExitTimeout.unref?.();
 
       for (const interval of activeIntervals) {
-        clearInterval(interval);
+        try { clearInterval(interval); } catch {}
       }
       activeIntervals.length = 0;
 
-      try {
-        await new Promise<void>((resolve, reject) => {
-          serverInstance.close((err) => {
-            if (err) {
-              console.error('❌ [Shutdown] Error closing HTTP server:', err);
-              reject(err);
-            } else {
-              console.log('✅ [Shutdown] HTTP server closed');
+      // غلاف بـ timeout قصير لكل مَهمّة لمنع التعليق.
+      const withTimeout = <T>(label: string, p: Promise<T> | T, ms = 1500): Promise<void> =>
+        new Promise<void>((resolve) => {
+          const t = setTimeout(() => {
+            console.warn(`⏱️ [Shutdown] ${label} تجاوز ${ms}ms - تخطي`);
+            resolve();
+          }, ms);
+          Promise.resolve(p)
+            .then(() => { clearTimeout(t); resolve(); })
+            .catch((err) => {
+              clearTimeout(t);
+              console.warn(`⚠️ [Shutdown] ${label}:`, err?.message || err);
               resolve();
-            }
-          });
+            });
         });
-      } catch (err) {
-        console.warn("[Shutdown] فشل إغلاق HTTP server:", err);
-      }
 
-      try {
-        io.close();
-        console.log('✅ [Shutdown] Socket.IO closed');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error closing Socket.IO:', err);
-      }
+      // إغلاق HTTP server بشكل فوري (بدون انتظار اتصالات keep-alive).
+      const httpClose = withTimeout('HTTP server', new Promise<void>((resolve) => {
+        try {
+          serverInstance.close(() => resolve());
+          // فرض إغلاق الاتصالات المفتوحة.
+          (serverInstance as any).closeAllConnections?.();
+        } catch { resolve(); }
+      }), 1500);
 
-      try {
-        await getWhatsAppBot().disconnect();
-        console.log('✅ [Shutdown] WhatsApp bot stopped');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error stopping WhatsApp bot:', err);
-      }
+      // كل عمليات التنظيف بالتوازي.
+      await Promise.allSettled([
+        httpClose,
+        withTimeout('Socket.IO', Promise.resolve().then(() => io.close())),
+        withTimeout('WhatsApp bot', getWhatsAppBot().disconnect()),
+        withTimeout('Notification worker', Promise.resolve().then(() => notificationQueueWorker.stop())),
+        withTimeout('Tombstone purge', Promise.resolve().then(() => tombstonePurgeService.stop())),
+        withTimeout('App cache', Promise.resolve().then(() => appCache.destroy())),
+        withTimeout('Central logs flush', CentralLogService.getInstance().flush()),
+        withTimeout('PDF browser', closePdfBrowser()),
+        withTimeout('DB pool', pool.end(), 2000),
+      ]);
 
-      try {
-        notificationQueueWorker.stop();
-        console.log('✅ [Shutdown] Notification queue worker stopped');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error stopping notification worker:', err);
-      }
-
-      try {
-        tombstonePurgeService.stop();
-        console.log('✅ [Shutdown] Tombstone purge service stopped');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error stopping tombstone purge service:', err);
-      }
-
-      try {
-        appCache.destroy();
-        console.log('✅ [Shutdown] In-memory cache destroyed');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error destroying cache:', err);
-      }
-
-      try {
-        await CentralLogService.getInstance().flush();
-        console.log('✅ [Shutdown] Central logs flushed');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error flushing central logs:', err);
-      }
-
-      try {
-        CentralLogService.getInstance().destroy();
-      } catch (err) {
-        console.warn("[Shutdown] فشل إغلاق CentralLogService:", err);
-      }
-
-      try {
-        await closePdfBrowser();
-        console.log('✅ [Shutdown] PDF browser closed');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error closing PDF browser:', err);
-      }
-
-      try {
-        await pool.end();
-        console.log('✅ [Shutdown] Database pool closed');
-      } catch (err) {
-        console.error('❌ [Shutdown] Error closing database pool:', err);
-      }
+      try { CentralLogService.getInstance().destroy(); } catch {}
 
       clearTimeout(forceExitTimeout);
       console.log('✅ [Shutdown] Graceful shutdown complete');

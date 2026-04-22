@@ -2529,6 +2529,30 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'worker_settlement_lines': 'workerSettlementLines',
 };
 
+export const deploymentBuildCounter = pgTable("deployment_build_counter", {
+  id: integer("id").primaryKey().default(1),
+  nextBuildNumber: integer("next_build_number").notNull().default(1),
+}, (table) => ({
+  singletonCheck: check("deployment_build_counter_id_check", sql`${table.id} = 1`),
+}));
+
+export type DeploymentBuildCounter = typeof deploymentBuildCounter.$inferSelect;
+export type InsertDeploymentBuildCounter = typeof deploymentBuildCounter.$inferInsert;
+
+export const netlifyErrorLogs = pgTable("netlify_error_logs", {
+  id: serial("id").primaryKey(),
+  timestamp: text("timestamp").notNull(),
+  type: text("type").notNull(),
+  path: text("path").notNull(),
+  error: text("error").notNull(),
+  status: text("status").notNull().default('active'),
+  statusCode: integer("statusCode").notNull().default(0),
+  userAgent: text("userAgent"),
+  ip: text("ip"),
+  stack: text("stack"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export interface ErrorLog {
   id: number;
   timestamp: string;

@@ -6,7 +6,7 @@ import {
   getEntryName,
   getRowColors,
 } from '../../../../shared/daily-transactions';
-import { pdfWrap, pdfHeader } from './shared-styles';
+import { pdfWrap, pdfHeader, pdfSignatures } from './shared-styles';
 import { currentReportHeader } from './header-context';
 
 function gregorianToHijri(date: Date): { day: number; month: number; year: number; monthName: string; dayName: string } {
@@ -113,7 +113,8 @@ ${rows}
       <td style="background:#fa8072;border:1px solid #999;padding:5px 4px;"></td>
     </tr>
   </tbody>
-</table>`;
+</table>
+${pdfSignatures(['المهندس المسؤول', 'المدير', 'المحاسب'])}`;
 
   return pdfWrap(`كشف مصروفات ${projectName}`, body);
 }

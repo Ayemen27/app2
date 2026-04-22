@@ -426,6 +426,16 @@ body {
 }
 .lh-footer .lhf-label { font-size: 9px; opacity: 0.75; }
 .lh-footer .lhf-val { font-size: 11px; font-weight: 700; }
+.lh-footer .lhf-center {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.lh-footer .lhf-co { font-size: 13px; font-weight: 800; letter-spacing: 0.3px; }
+.lh-footer .lhf-tag { font-size: 10px; opacity: 0.85; }
 
 /* Backward compat — old templates still calling .header-band fall back to title band look */
 .header-band {
@@ -535,6 +545,7 @@ export function pdfHeader(a?: string, b?: string): string {
   if (h.email)   leftItems.push(`<div class="lh-row"><span class="lh-icon">✉</span>${escapeHtml(h.email)}</div>`);
   if (h.website) leftItems.push(`<div class="lh-row"><span class="lh-icon">🌐</span>${escapeHtml(h.website)}</div>`);
   if (h.phone)   leftItems.push(`<div class="lh-row"><span class="lh-icon">☎</span><span dir="ltr">${escapeHtml(h.phone)}</span></div>`);
+  if (h.address) leftItems.push(`<div class="lh-row"><span class="lh-icon">📍</span>${escapeHtml(h.address)}</div>`);
 
   const tagline = h.company_name_en || '';
 
@@ -564,16 +575,16 @@ ${titleBand}`;
  */
 export function pdfLetterheadFooter(): string {
   const h = currentReportHeader();
-  const phoneBlock = h.phone
-    ? `<div class="lhf-block"><div class="lhf-icon">☎</div><div class="lhf-text"><div class="lhf-label">Phone</div><div class="lhf-val" dir="ltr">${escapeHtml(h.phone)}</div></div></div>`
-    : '<div class="lhf-block"></div>';
-  const addrBlock = h.address
-    ? `<div class="lhf-block"><div class="lhf-icon">📍</div><div class="lhf-text"><div class="lhf-label">Address</div><div class="lhf-val">${escapeHtml(h.address)}</div></div></div>`
-    : '<div class="lhf-block"></div>';
+  // ✅ بيانات الاتصال (الهاتف والعنوان والإيميل) أصبحت في الترويسة العلوية فقط
+  // التذييل الآن شريط زخرفي + اسم الشركة لتجنّب تكرار الهاتف والعنوان.
+  const companyName = h.company_name ? escapeHtml(h.company_name) : '';
+  const tagline = h.company_name_en ? escapeHtml(h.company_name_en) : '';
   return `<div class="lh-accent-bar lh-accent-bar-bottom"></div>
 <div class="lh-footer">
-  ${phoneBlock}
-  ${addrBlock}
+  <div class="lhf-center">
+    ${companyName ? `<div class="lhf-co">${companyName}</div>` : ''}
+    ${tagline ? `<div class="lhf-tag">${tagline}</div>` : ''}
+  </div>
 </div>`;
 }
 

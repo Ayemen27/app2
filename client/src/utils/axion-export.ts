@@ -421,6 +421,8 @@ export interface ProfessionalReportOptions {
   sheetName: string;
   reportTitle: string;
   subtitle?: string;
+  /** اسم المشروع — يُلحَق تلقائياً بعنوان التقرير إن وُجد، ويوحّد التنسيق عبر كل التقارير. */
+  projectName?: string | null;
   infoLines?: string[];
   columns: ProfessionalReportColumn[];
   data: Record<string, any>[];
@@ -432,8 +434,45 @@ export interface ProfessionalReportOptions {
   summaryRows?: Array<{ label: string; value: string; valueColor?: string }>;
 }
 
+/** يُنظّف "تاريخ الإصدار/الاستخراج/الإنشاء" من subtitle (مكرر تلقائياً). */
+function _stripIssueDateExcel(s?: string): string | undefined {
+  if (!s) return s;
+  const cleaned = s
+    .replace(/تاريخ\s*(الإصدار|الاستخراج|التقرير|الإنشاء)\s*[:：]?\s*[^|•·\-—\n]+/g, '')
+    .replace(/^[\s|•·\-—]+|[\s|•·\-—]+$/g, '')
+    .replace(/[\s]*[|•·]+[\s]*[|•·]+[\s]*/g, ' • ')
+    .trim();
+  return cleaned || undefined;
+}
+
+/** يُلحق "— مشروع X" أو "— جميع المشاريع" بعنوان التقرير. */
+function _decorateTitleWithProjectExcel(title: string, projectName?: string | null): string {
+  const t = (title || '').trim();
+  const name = (projectName || '').trim();
+  if (!name) return t;
+  if (name === 'جميع المشاريع' || name === 'all') return `${t} — جميع المشاريع`;
+  return `${t} — مشروع ${name}`;
+}
+
+/** يُحاول قراءة اسم المشروع المختار من localStorage إن لم يُمرَّر صراحةً. */
+function _autoProjectNameExcel(passed?: string | null): string | null {
+  if (passed !== undefined) return passed;
+  try {
+    return (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('construction-app-selected-project-name')
+      : null;
+  } catch { return null; }
+}
+
 export async function createProfessionalReport(options: ProfessionalReportOptions): Promise<boolean> {
   await ensureBrandingLoaded();
+  // 🏗️ توحيد تلقائي عبر كل تقارير Excel (يقرأ اسم المشروع من المعطيات أو من localStorage تلقائياً)
+  const autoProj = _autoProjectNameExcel(options.projectName);
+  options = {
+    ...options,
+    reportTitle: _decorateTitleWithProjectExcel(options.reportTitle, autoProj),
+    subtitle: _stripIssueDateExcel(options.subtitle),
+  };
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;

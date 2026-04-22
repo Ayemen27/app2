@@ -1056,12 +1056,12 @@ export default function WorkersPage() {
       });
       const statusOption = filtersConfig.find(f => f.key === 'status')?.options?.find(o => o.value === filterValues.status);
       const typeOption = filtersConfig.find(f => f.key === 'type')?.options?.find(o => o.value === filterValues.type);
-      const projectLabel = selectedProjectName ? `مشروع ${selectedProjectName}` : 'جميع المشاريع';
       const filterBits: string[] = [];
       if (statusOption?.label && filterValues.status && filterValues.status !== 'all') filterBits.push(`الحالة: ${statusOption.label}`);
       if (typeOption?.label && filterValues.type && filterValues.type !== 'all') filterBits.push(`النوع: ${typeOption.label}`);
       const ok = await generateTablePDF({
-        reportTitle: `كشف تصفية عمالة ${projectLabel}`,
+        reportTitle: 'كشف تصفية عمالة',
+        projectName: selectedProjectName,
         subtitle: filterBits.length ? filterBits.join(' • ') : undefined,
         infoItems: [
           { label: 'عدد العمال', value: filteredWorkers.length },

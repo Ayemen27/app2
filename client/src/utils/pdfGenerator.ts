@@ -89,6 +89,8 @@ export interface TablePDFColumn {
 export interface TablePDFOptions {
   reportTitle: string;
   subtitle?: string;
+  /** اسم المشروع — يُلحَق تلقائياً بعنوان التقرير إن وُجد، ويوحّد تنسيقه عبر كل التقارير. */
+  projectName?: string | null;
   infoItems?: Array<{ label: string; value: string | number; color?: string }>;
   columns: TablePDFColumn[];
   data: Record<string, any>[];
@@ -99,9 +101,46 @@ export interface TablePDFOptions {
   accentColor?: string;
 }
 
+/** يُنظّف "تاريخ الإصدار" من subtitle (مكرر في الفوتر تلقائياً). */
+function _stripIssueDate(s?: string): string | undefined {
+  if (!s) return s;
+  const cleaned = s
+    .replace(/تاريخ\s*(الإصدار|الاستخراج|التقرير|الإنشاء)\s*[:：]?\s*[^|•·\-—\n]+/g, '')
+    .replace(/^[\s|•·\-—]+|[\s|•·\-—]+$/g, '')
+    .replace(/[\s]*[|•·]+[\s]*[|•·]+[\s]*/g, ' • ')
+    .trim();
+  return cleaned || undefined;
+}
+
+/** يُحاول قراءة اسم المشروع المختار من localStorage إن لم يُمرَّر صراحةً. */
+function _autoProjectName(passed?: string | null): string | null {
+  if (passed !== undefined) return passed;
+  try {
+    return (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('construction-app-selected-project-name')
+      : null;
+  } catch { return null; }
+}
+
+/** يُلحق "— مشروع X" أو "— جميع المشاريع" بعنوان التقرير. مصدر موحّد للتنسيق. */
+export function decorateTitleWithProject(title: string, projectName?: string | null): string {
+  const t = (title || '').trim();
+  const name = (projectName || '').trim();
+  if (!name) return t;
+  if (name === 'جميع المشاريع' || name === 'all') return `${t} — جميع المشاريع`;
+  return `${t} — مشروع ${name}`;
+}
+
 export async function generateTablePDF(options: TablePDFOptions): Promise<boolean> {
   const { ensureBrandingLoaded, getBranding } = await import('@/lib/report-branding');
   await ensureBrandingLoaded();
+  // 🏗️ توحيد تلقائي: دمج اسم المشروع (من القيمة المُمرَّرة أو من localStorage) + إزالة "تاريخ الإصدار" من subtitle
+  const autoProj = _autoProjectName(options.projectName);
+  options = {
+    ...options,
+    reportTitle: decorateTitleWithProject(options.reportTitle, autoProj),
+    subtitle: _stripIssueDate(options.subtitle),
+  };
   const _b = getBranding();
 
   const containerWidth = options.orientation === 'landscape' ? 1122 : 794;

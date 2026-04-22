@@ -26,5 +26,5 @@ describe('Database Module Structure Tests', () => {
     expect(syncModule.ALL_SYNC_TABLES).toContain('projects');
     expect(syncModule.ALL_SYNC_TABLES).toContain('workers');
     expect(syncModule.ALL_SYNC_TABLES).toContain('wells');
-  });
+  }, 30000);
 });

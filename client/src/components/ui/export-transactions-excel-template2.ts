@@ -1,5 +1,5 @@
 import { downloadExcelFile } from '@/utils/webview-download';
-import { getBranding, hexNoHash } from '@/lib/report-branding';
+import { getBranding, hexNoHash , ensureBrandingLoaded } from '@/lib/report-branding';
 
 interface Transaction {
   id: string;
@@ -97,6 +97,7 @@ export async function exportTransactionsToExcelTemplate2(
   projectName?: string,
   reportDate?: string
 ): Promise<boolean> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'AXION';
@@ -147,13 +148,38 @@ export async function exportTransactionsToExcelTemplate2(
 
   let r = 1;
 
-  // 🏢 الترويسة الموحّدة — الاسم العربي + الإنجليزي
-  ws.mergeCells(r, 1, r, COL);
-  const companyCell = ws.getRow(r).getCell(1);
+  // 🏢 الترويسة الموحّدة — الشعار (يمين) + الاسم العربي + الإنجليزي
   const _tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
-  companyCell.value = `${_b.companyName}${_tagline}`;
-  style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
-  ws.getRow(r).height = _tagline ? 40 : 26;
+  if (_b.logoUrl) {
+    // الشعار في خلية A، النص في B-F
+    ws.mergeCells(r, 1, r, 1);
+    const logoCell = ws.getRow(r).getCell(1);
+    style(logoCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF' });
+    try {
+      const m = /^data:image\/(png|jpeg|jpg|gif);base64,/i.exec(_b.logoUrl);
+      if (m) {
+        const ext = (m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase()) as 'png' | 'jpeg' | 'gif';
+        const imageId = wb.addImage({ base64: _b.logoUrl, extension: ext });
+        ws.addImage(imageId, {
+          tl: { col: 0.1, row: r - 1 + 0.1 } as any,
+          br: { col: 0.95, row: r - 1 + 0.95 } as any,
+        });
+      }
+    } catch (e) {
+      console.warn('[template2] logo embed failed:', (e as Error)?.message);
+    }
+    ws.mergeCells(r, 2, r, COL);
+    const companyCell = ws.getRow(r).getCell(2);
+    companyCell.value = `${_b.companyName}${_tagline}`;
+    style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
+    ws.getRow(r).height = 60;
+  } else {
+    ws.mergeCells(r, 1, r, COL);
+    const companyCell = ws.getRow(r).getCell(1);
+    companyCell.value = `${_b.companyName}${_tagline}`;
+    style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
+    ws.getRow(r).height = _tagline ? 40 : 26;
+  }
   r++;
 
   // شريط لون التمييز (accent)

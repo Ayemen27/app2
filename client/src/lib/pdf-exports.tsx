@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import { downloadFile } from '@/utils/webview-download';
-import { getBranding } from '@/lib/report-branding';
+import { getBranding , ensureBrandingLoaded } from '@/lib/report-branding';
 
 /**
  * ترويسة Letterhead الموحّدة لكل تقارير العميل (مطابقة لتصميم الصورة).
@@ -193,6 +193,7 @@ function buildWorkerHTML(data: any, worker: any): string {
 }
 
 export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean> => {
+  await ensureBrandingLoaded();
   try {
     if (!data || !data.statement) {
       console.error("No data provided for PDF generation");

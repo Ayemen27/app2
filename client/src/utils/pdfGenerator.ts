@@ -88,39 +88,46 @@ export interface TablePDFOptions {
 }
 
 export async function generateTablePDF(options: TablePDFOptions): Promise<boolean> {
+  const { ensureBrandingLoaded, getBranding } = await import('@/lib/report-branding');
+  await ensureBrandingLoaded();
+  const _b = getBranding();
+
   const containerWidth = options.orientation === 'landscape' ? 1122 : 794;
   const colCount = options.columns.length;
   const totalWeight = options.columns.reduce((s, c) => s + (c.width || 10), 0);
 
-  const hdrColor = options.headerColor || '#1E3A8A';
-  const accColor = options.accentColor || '#334155';
+  // 🎨 الألوان من إعدادات المستخدم (مع إمكانية تجاوز عبر options)
+  const hdrColor = options.headerColor || _b.primaryColor || '#1E3A8A';
+  const accColor = options.accentColor || _b.secondaryColor || '#334155';
 
-  const thStyle = `padding:5px 3px;border:1px solid ${hdrColor};font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;font-weight:800;text-align:center;white-space:nowrap;`;
-  const tdStyle = (alt: boolean) => `padding:4px 3px;border:1px solid #CBD5E1;text-align:center;font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;${alt ? 'background:#F8FAFC;' : ''}`;
+  // 🎨 حدود واضحة + توسيط أفقي/عمودي + حجم خط متكيف
+  const fontSize = colCount > 14 ? 8 : colCount > 10 ? 9 : 10;
+  const borderColor = '#475569'; // حدود أغمق وأوضح من قبل
+  const thStyle = `padding:8px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;text-align:center;vertical-align:middle;white-space:nowrap;color:#fff;`;
+  const tdStyle = (alt: boolean) => `padding:7px 6px;border:1px solid ${borderColor};text-align:center;vertical-align:middle;font-size:${fontSize}px;${alt ? 'background:#F8FAFC;' : 'background:#fff;'}`;
 
-  const colWidths = options.columns.map(c => `${((c.width || 10) / totalWeight * 100).toFixed(1)}%`);
-
-  const headerCells = options.columns.map((col, i) =>
-    `<th style="${thStyle}width:${colWidths[i]};">${col.header}</th>`
+  const headerCells = options.columns.map((col) =>
+    `<th style="${thStyle}">${col.header}</th>`
   ).join('');
 
   const dataRows = options.data.map((row, idx) => {
-    const cells = options.columns.map((col, i) => {
+    const cells = options.columns.map((col) => {
       const val = row[col.key] ?? '-';
       const colorFn = col.color ? col.color(val, row) : undefined;
       const colorStyle = colorFn ? `color:${colorFn};font-weight:700;` : '';
-      return `<td style="${tdStyle(idx % 2 !== 0)}${colorStyle}width:${colWidths[i]};">${val}</td>`;
+      return `<td style="${tdStyle(idx % 2 !== 0)}${colorStyle}">${val}</td>`;
     }).join('');
     return `<tr>${cells}</tr>`;
   }).join('');
 
   let totalsRow = '';
   if (options.totals) {
+    const totCellStyle = `padding:9px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;color:#fff;text-align:center;vertical-align:middle;`;
     const cells = options.columns.map((col, i) => {
       const val = options.totals!.values[col.key];
-      if (i === 0) return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;font-weight:800;color:#fff;text-align:center;" colspan="1">${options.totals!.label}</td>`;
-      if (val !== undefined) return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;font-weight:800;color:#fff;text-align:center;">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
-      return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;color:#fff;"></td>`;
+      if (i === 0) return `<td style="${totCellStyle}">${options.totals!.label}</td>`;
+      if (val !== undefined) return `<td style="${totCellStyle}">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
+      return `<td style="${totCellStyle}"></td>`;
     }).join('');
     totalsRow = `<tr style="background:${accColor};">${cells}</tr>`;
   }
@@ -136,8 +143,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
       ${buildLetterheadHeader(options.reportTitle)}
       ${options.subtitle ? `<div style="text-align:center;padding:6px 16px 2px;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}
-      <table style="width:calc(100% - 32px);border-collapse:collapse;margin:10px 16px;table-layout:fixed;">
-        <colgroup>${colWidths.map(w => `<col style="width:${w}">`).join('')}</colgroup>
+      <table style="width:auto;max-width:calc(100% - 32px);border-collapse:collapse;margin:12px auto;table-layout:auto;border:1.5px solid ${borderColor};">
         <thead>
           <tr style="background:${accColor};color:#fff;">${headerCells}</tr>
         </thead>

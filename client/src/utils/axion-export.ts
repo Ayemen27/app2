@@ -6,7 +6,29 @@
 
 import { formatCurrency } from '@/lib/utils';
 import { downloadExcelFile } from '@/utils/webview-download';
-import { getBranding, hexNoHash } from '@/lib/report-branding';
+import { getBranding, hexNoHash, ensureBrandingLoaded } from '@/lib/report-branding';
+
+/**
+ * 🖼️ يضيف شعار الشركة إلى ورقة Excel من data URL.
+ * يُتجاهل بصمت إذا لا يوجد شعار أو فشل التحويل.
+ */
+export function addLogoToWorksheet(
+  workbook: any,
+  worksheet: any,
+  range: { tl: { col: number; row: number }; br: { col: number; row: number } }
+): void {
+  const logoUrl = getBranding().logoUrl;
+  if (!logoUrl) return;
+  try {
+    const m = /^data:image\/(png|jpeg|jpg|gif);base64,/i.exec(logoUrl);
+    if (!m) return;
+    const ext = m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase();
+    const imageId = workbook.addImage({ base64: logoUrl, extension: ext });
+    worksheet.addImage(imageId, range);
+  } catch (e) {
+    console.warn('[axion-export] addLogoToWorksheet failed:', (e as Error)?.message);
+  }
+}
 
 // 🏢 معلومات الشركة — تُقرأ ديناميكياً من إعدادات المستخدم الحالي
 // (Proxy: كل قراءة تجلب أحدث قيمة من cache report-branding)
@@ -325,11 +347,27 @@ export function addReportHeader(
   
   const columnCount = worksheet.columns?.length || 8;
 
-  worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
-  const companyRow = worksheet.getRow(currentRow);
-  companyRow.getCell(1).value = COMPANY_INFO.name;
-  applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
-  companyRow.height = 20;
+  // 🖼️ صف الشعار + اسم الشركة (الشعار في يمين RTL = العمود A)
+  if (getBranding().logoUrl) {
+    worksheet.mergeCells(currentRow, 1, currentRow, 2);
+    worksheet.mergeCells(currentRow, 3, currentRow, columnCount);
+    const logoFill = worksheet.getRow(currentRow).getCell(1);
+    applyStyle(logoFill, EXCEL_STYLES.headerMain);
+    addLogoToWorksheet(worksheet.workbook, worksheet, {
+      tl: { col: 0.15, row: currentRow - 1 + 0.1 },
+      br: { col: 1.85, row: currentRow - 1 + 0.95 },
+    });
+    const companyCell = worksheet.getRow(currentRow).getCell(3);
+    companyCell.value = COMPANY_INFO.name;
+    applyStyle(companyCell, EXCEL_STYLES.headerMain);
+    worksheet.getRow(currentRow).height = 60;
+  } else {
+    worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
+    const companyRow = worksheet.getRow(currentRow);
+    companyRow.getCell(1).value = COMPANY_INFO.name;
+    applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
+    companyRow.height = 20;
+  }
   currentRow++;
 
   worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
@@ -395,9 +433,11 @@ export interface ProfessionalReportOptions {
 }
 
 export async function createProfessionalReport(options: ProfessionalReportOptions): Promise<boolean> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
+  workbook.company = COMPANY_INFO.name;
   workbook.created = new Date();
 
   const worksheet = workbook.addWorksheet(options.sheetName, {
@@ -554,6 +594,7 @@ export async function exportDailyExpensesReport(
     }>;
   }
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -696,6 +737,7 @@ export async function exportWorkerSettlementReport(
     };
   }
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -865,6 +907,7 @@ export async function exportDetailedWorkerStatement(
     };
   }
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -1059,6 +1102,7 @@ export async function exportDailyReportToExcel(
   data: any,
   options: ExportOptions
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -1178,6 +1222,7 @@ export async function exportPeriodicReportToExcel(
   data: any,
   options: ExportOptions
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -1306,6 +1351,7 @@ export async function exportWorkerStatementToExcel(
   data: any,
   options: ExportOptions
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const formattedData = {
     workerName: data.worker?.name || '',
     profession: data.worker?.type || '',
@@ -1341,6 +1387,7 @@ export async function exportComparisonReportToExcel(
   data: any,
   options: ExportOptions
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;

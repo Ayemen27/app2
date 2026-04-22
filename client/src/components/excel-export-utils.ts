@@ -1,3 +1,4 @@
+import { ensureBrandingLoaded } from '@/lib/report-branding';
 /**
  * أدوات تصدير Excel - شركة الفتيني للمقاولات والاستشارات الهندسية
  * Excel Export Utilities - Al-Fatihi Contracting & Engineering Consultancy
@@ -41,6 +42,7 @@ export async function exportToExcel(
   sheetName: string,
   columns: Array<{ key: string; header: string; width?: number }>
 ): Promise<void> {
+  await ensureBrandingLoaded();
   const { COMPANY_INFO, EXCEL_STYLES } = await import('@/utils/axion-export');
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();

@@ -42,9 +42,37 @@ export const DEFAULT_BRANDING: ReportBranding = {
 };
 
 let _cache: ReportBranding = { ...DEFAULT_BRANDING };
+let _loadedFromServer = false;
+let _inflight: Promise<ReportBranding> | null = null;
 
 export function getBranding(): ReportBranding {
   return _cache;
+}
+
+/**
+ * يضمن أن cache الترويسة محمّل من الخادم قبل أي تصدير (PDF/Excel).
+ * إذا كان محمّلاً بالفعل أو هناك طلب جارٍ يُعاد استخدامه. آمن للاستدعاء المتزامن.
+ * يُعيد القيم الافتراضية بصمت في حال الفشل (بدون كسر التصدير).
+ */
+export async function ensureBrandingLoaded(force = false): Promise<ReportBranding> {
+  if (_loadedFromServer && !force) return _cache;
+  if (_inflight) return _inflight;
+  _inflight = (async () => {
+    try {
+      const { apiRequest } = await import('@/lib/queryClient');
+      const res = await apiRequest('GET', '/api/report-header');
+      const data = await res.json();
+      const mapped = mapServerPayload(data);
+      if (mapped) updateBrandingCache(mapped);
+      _loadedFromServer = true;
+    } catch (e) {
+      console.warn('[branding] failed to load /api/report-header, using defaults:', (e as Error)?.message);
+    } finally {
+      _inflight = null;
+    }
+    return _cache;
+  })();
+  return _inflight;
 }
 
 export function updateBrandingCache(next: Partial<ReportBranding> | null | undefined): void {
@@ -101,8 +129,10 @@ export function useReportBranding() {
   useEffect(() => {
     if (query.data) {
       updateBrandingCache(mapServerPayload(query.data));
+      _loadedFromServer = true;
     } else if (query.isError) {
       updateBrandingCache(null);
+      _loadedFromServer = true;
     }
   }, [query.data, query.isError]);
 

@@ -1,3 +1,4 @@
+import { ensureBrandingLoaded } from '@/lib/report-branding';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { 
   COMPANY_INFO, 
@@ -80,6 +81,7 @@ export async function exportTransactionsToExcel(
   formatCurrency: (amount: number) => string,
   projectName?: string
 ): Promise<boolean> {
+  await ensureBrandingLoaded();
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;

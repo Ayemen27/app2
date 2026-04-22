@@ -2,9 +2,32 @@ import ExcelJS from 'exceljs';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import { getBranding, argb } from '@/lib/report-branding';
+import { getBranding, argb, ensureBrandingLoaded } from '@/lib/report-branding';
+
+/**
+ * 🖼️ يضيف شعار الشركة (data URL) إلى ورقة Excel ضمن النطاق المحدد.
+ * يُتجاهل بصمت إذا لم يكن هناك شعار أو فشل التحويل.
+ */
+export function addBrandingLogo(
+  workbook: ExcelJS.Workbook,
+  worksheet: ExcelJS.Worksheet,
+  logoUrl: string | undefined,
+  range: { tl: { col: number; row: number }; br: { col: number; row: number } }
+): void {
+  if (!logoUrl) return;
+  try {
+    const m = /^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/i.exec(logoUrl);
+    if (!m) return;
+    const ext = (m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase()) as 'png' | 'jpeg' | 'gif';
+    const imageId = workbook.addImage({ base64: logoUrl, extension: ext });
+    worksheet.addImage(imageId, range as any);
+  } catch (e) {
+    console.warn('[excel] addBrandingLogo failed:', (e as Error)?.message);
+  }
+}
 
 export const exportWorkerStatement = async (data: any, worker: any): Promise<boolean> => {
+  await ensureBrandingLoaded();
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('كشف حساب عامل', {
     views: [{ rightToLeft: true, showGridLines: false }]
@@ -12,6 +35,8 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
 
   // 🎨 الألوان الديناميكية من إعدادات المستخدم
   const _b = getBranding();
+  workbook.creator = _b.companyName;
+  workbook.company = _b.companyName;
   const mainBlue = argb(_b.primaryColor);
   const accentBlue = argb(_b.accentColor);
   const softGray = 'FFF8FAFC';
@@ -33,14 +58,23 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
     right: { style: 'thin', color: { argb: borderGray } }
   };
 
-  // 1. ترويسة الصفحة الاحترافية (Professional Header)
-  worksheet.mergeCells('A1:I1');
-  const mainTitle = worksheet.getCell('A1');
+  // 1. ترويسة الصفحة الاحترافية (Professional Header) — تشمل الشعار + العنوان
+  // في وضع RTL: العمود A هو اليمين البصري — مكان مناسب للشعار.
+  worksheet.mergeCells('A1:B1');
+  worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  worksheet.getCell('A1').border = { top: { style: 'none' } } as any;
+  addBrandingLogo(workbook, worksheet, _b.logoUrl, {
+    tl: { col: 0.15, row: 0.1 } as any,
+    br: { col: 1.85, row: 0.95 } as any,
+  });
+
+  worksheet.mergeCells('C1:I1');
+  const mainTitle = worksheet.getCell('C1');
   mainTitle.value = 'التقرير المالي التفصيلي - كشف حساب عامل';
   mainTitle.font = { ...whiteText, size: 18 };
   mainTitle.alignment = centerAlign;
   mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  worksheet.getRow(1).height = 45;
+  worksheet.getRow(1).height = 70;
 
   // 2. تذييل الترويسة (Subtitle/Timestamp)
   worksheet.mergeCells('A2:I2');
@@ -260,6 +294,7 @@ export const exportWorkersListReport = async (
   rows: WorkerSummaryRow[],
   meta: { title?: string; projectName?: string; statusLabel?: string; typeLabel?: string }
 ): Promise<boolean> => {
+  await ensureBrandingLoaded();
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('كشف العمال', {
     views: [{ rightToLeft: true, showGridLines: false }],
@@ -268,6 +303,8 @@ export const exportWorkersListReport = async (
 
   // 🎨 الهوية البصرية الموحدة — تُقرأ من إعدادات المستخدم
   const _b = getBranding();
+  workbook.creator = _b.companyName;
+  workbook.company = _b.companyName;
   const mainBlue = argb(_b.primaryColor);
   const accentBlue = argb(_b.accentColor);
   const slateHeader = argb(_b.secondaryColor);
@@ -294,14 +331,20 @@ export const exportWorkersListReport = async (
   const COLS = 10; // م، الاسم، الأيام، اليومية، أصبح له، السحبيات، الحوالات، الذي بيده، المتبقي له، ملاحظات
   const lastColLetter = String.fromCharCode(64 + COLS); // 'J'
 
-  // 1) ترويسة شركة + عنوان التقرير
-  worksheet.mergeCells(`A1:${lastColLetter}1`);
-  const mainTitle = worksheet.getCell('A1');
+  // 1) ترويسة شركة + شعار + عنوان التقرير
+  worksheet.mergeCells('A1:B1');
+  worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  addBrandingLogo(workbook, worksheet, _b.logoUrl, {
+    tl: { col: 0.15, row: 0.1 } as any,
+    br: { col: 1.85, row: 0.95 } as any,
+  });
+  worksheet.mergeCells(`C1:${lastColLetter}1`);
+  const mainTitle = worksheet.getCell('C1');
   mainTitle.value = meta.title || 'كشف العمال - تقرير شامل';
   mainTitle.font = { ...whiteText, size: 18 };
   mainTitle.alignment = centerAlign;
   mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  worksheet.getRow(1).height = 45;
+  worksheet.getRow(1).height = 70;
 
   worksheet.mergeCells(`A2:${lastColLetter}2`);
   const subTitle = worksheet.getCell('A2');

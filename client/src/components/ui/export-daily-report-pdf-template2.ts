@@ -75,12 +75,12 @@ function getRowBg(t: Transaction, idx: number): string {
   const isRegIncome    = !isOpening && t.type === 'income' && !isTransferProj;
   const isMaterial     = t.category === 'مشتريات مواد';
 
-  if (isOpening && !isNegOpening) return '#d6ead7';
-  if (isNegOpening)               return '#fce4e4';
-  if (isTransferProj)             return '#fff0cc';
-  if (isRegIncome)                return '#daeaf5';
-  if (isMaterial)                 return '#eee8f8';
-  return idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
+  if (isOpening && !isNegOpening) return '#ECFDF5';  // emerald-50
+  if (isNegOpening)               return '#FEE2E2';  // rose-100
+  if (isTransferProj)             return '#FEF3C7';  // amber-100
+  if (isRegIncome)                return '#EFF6FF';  // blue-50
+  if (isMaterial)                 return '#EDE9FE';  // violet-100
+  return idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';      // slate-50 zebra
 }
 
 export async function exportDailyReportPdfTemplate2(
@@ -137,57 +137,63 @@ export async function exportDailyReportPdfTemplate2(
 <meta charset="UTF-8"/>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Arial', sans-serif; background:#fff; direction:rtl; }
+  body { font-family: 'Cairo', 'Arial', sans-serif; background:#fff; direction:rtl; color:#0F172A; }
   .page { width:794px; padding:16px; }
+  .company-row {
+    background:#1E3A8A; color:#fff; text-align:center;
+    font-size:14px; font-weight:bold; padding:10px 8px;
+    border:1px solid #1E2A6B; letter-spacing:0.3px;
+  }
   .title-row {
-    background:#1f7a3c; color:#fff; text-align:center;
-    font-size:13px; font-weight:bold; padding:10px 8px;
-    border:1px solid #999;
+    background:#334155; color:#fff; text-align:center;
+    font-size:12px; font-weight:bold; padding:8px 8px;
+    border:1px solid #1E2A6B; border-top:none;
   }
   .hijri-row {
-    background:#2d9146; color:#fff; text-align:center;
-    font-size:11px; padding:5px 8px;
-    border:1px solid #999; border-top:none;
+    background:#475569; color:#fff; text-align:center;
+    font-size:10px; padding:5px 8px;
+    border:1px solid #1E2A6B; border-top:none;
   }
   .legend {
     display:flex; gap:12px; flex-wrap:wrap;
-    padding:6px 8px; font-size:9px; border:1px solid #ccc; border-top:none;
-    background:#fafafa;
+    padding:6px 8px; font-size:9px; border:1px solid #CBD5E1; border-top:none;
+    background:#F8FAFC; color:#334155;
   }
   .legend-item { display:flex; align-items:center; gap:4px; }
-  .legend-box { width:12px; height:12px; border:1px solid #aaa; display:inline-block; }
+  .legend-box { width:12px; height:12px; border:1px solid #CBD5E1; display:inline-block; }
   table {
     width:100%; border-collapse:collapse;
     margin-top:0; font-size:11px;
   }
   th {
-    background:#1f7a3c; color:#fff; font-weight:bold;
+    background:#1E3A8A; color:#fff; font-weight:bold;
     padding:7px 5px; text-align:center;
-    border:1px solid #999;
+    border:1px solid #1E2A6B;
   }
   td {
-    padding:6px 5px; border:1px solid #ccc;
+    padding:6px 5px; border:1px solid #E2E8F0;
     font-size:11px; vertical-align:middle;
   }
   .remain-row td {
-    background:#fa8072 !important;
-    color:#7b1d0b;
+    background:#334155 !important;
+    color:#FFFFFF;
     font-weight:bold;
     font-size:12px;
-    border-color:#999;
+    border-color:#1E2A6B;
   }
 </style>
 </head>
 <body>
 <div class="page">
+  <div class="company-row">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
   <div class="title-row">كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}</div>
   <div class="hijri-row">${hijriStr}</div>
   <div class="legend">
-    <span class="legend-item"><span class="legend-box" style="background:#d6ead7;"></span> رصيد مرحل موجب</span>
-    <span class="legend-item"><span class="legend-box" style="background:#fce4e4;"></span> رصيد مرحل سالب</span>
-    <span class="legend-item"><span class="legend-box" style="background:#daeaf5;"></span> دخل (عهدة/أموال واردة)</span>
-    <span class="legend-item"><span class="legend-box" style="background:#fff0cc;"></span> ترحيل بين مشاريع</span>
-    <span class="legend-item"><span class="legend-box" style="background:#eee8f8;"></span> مشتريات مواد</span>
+    <span class="legend-item"><span class="legend-box" style="background:#ECFDF5;"></span> رصيد مرحل موجب</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FEE2E2;"></span> رصيد مرحل سالب</span>
+    <span class="legend-item"><span class="legend-box" style="background:#EFF6FF;"></span> دخل (عهدة/أموال واردة)</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FEF3C7;"></span> ترحيل بين مشاريع</span>
+    <span class="legend-item"><span class="legend-box" style="background:#EDE9FE;"></span> مشتريات مواد</span>
   </div>
   <table>
     <thead>
@@ -204,7 +210,7 @@ export async function exportDailyReportPdfTemplate2(
       ${rows}
       <tr class="remain-row">
         <td colspan="4" style="text-align:center;">المبلغ المتبقي</td>
-        <td style="text-align:center;color:${running < 0 ? '#c0392b' : '#7b1d0b'};">${fmt(running)}</td>
+        <td style="text-align:center;color:${running < 0 ? '#FCA5A5' : '#6EE7B7'};">${fmt(running)}</td>
         <td></td>
       </tr>
     </tbody>

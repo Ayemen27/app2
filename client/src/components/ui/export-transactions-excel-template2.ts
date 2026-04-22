@@ -129,24 +129,35 @@ export async function exportTransactionsToExcelTemplate2(
 
   const gFormatted = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-');
 
-  const GREEN        = 'FF1F7A3C';
+  // 🎨 الهوية البصرية الموحدة — Navy/Slate corporate palette
+  const MAIN_BLUE    = 'FF1E3A8A';   // mainBlue
+  const SLATE        = 'FF334155';   // slateHeader
   const WHITE        = 'FFFFFFFF';
-  const GREY         = 'FFF5F5F5';
-  const GREEN_MUTED  = 'FFD6EAD7';
-  const RED_MUTED    = 'FFFCE4E4';
-  const INCOME_BG    = 'FFDAEAF5';
-  const TRANSFER_BG  = 'FFFFF0CC';
-  const MATERIAL_BG  = 'FFEEE8F8';
-  const SALMON       = 'FFFA8072';
-  const SALMON_LIGHT = 'FFFCE4D6';
+  const GREY         = 'FFF8FAFC';   // zebra (slate-50)
+  const GREEN_MUTED  = 'FFECFDF5';   // emerald-50 (positive opening)
+  const RED_MUTED    = 'FFFEE2E2';   // rose-100 (negative opening)
+  const INCOME_BG    = 'FFEFF6FF';   // blue-50 (income)
+  const TRANSFER_BG  = 'FFFEF3C7';   // amber-100 (project transfer)
+  const MATERIAL_BG  = 'FFEDE9FE';   // violet-100 (materials)
+  const TOTAL_BG     = 'FF334155';   // slate (total bar)
+  const TOTAL_BG_ALT = 'FFE2E8F0';   // border-slate (extension cell)
 
   let r = 1;
 
+  // 🏢 ترويسة الشركة
+  ws.mergeCells(r, 1, r, COL);
+  const companyCell = ws.getRow(r).getCell(1);
+  companyCell.value = 'الفتيني للمقاولات العامة والاستشارات الهندسية';
+  style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13 });
+  ws.getRow(r).height = 26;
+  r++;
+
+  // 📋 عنوان التقرير
   ws.mergeCells(r, 1, r, COL);
   const titleCell = ws.getRow(r).getCell(1);
   titleCell.value = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
-  style(titleCell, { bg: GREEN, fc: 'FFFFFFFF', bold: true, size: 12 });
-  ws.getRow(r).height = 30;
+  style(titleCell, { bg: SLATE, fc: 'FFFFFFFF', bold: true, size: 12 });
+  ws.getRow(r).height = 26;
   r++;
 
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
@@ -154,7 +165,7 @@ export async function exportTransactionsToExcelTemplate2(
   HEADERS.forEach((h, i) => {
     const c = ws.getRow(r).getCell(i + 1);
     c.value = h;
-    style(c, { bg: GREEN, fc: 'FFFFFFFF', bold: true });
+    style(c, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true });
   });
   r++;
 
@@ -223,15 +234,15 @@ export async function exportTransactionsToExcelTemplate2(
   ws.mergeCells(r, 1, r, 4);
   const lblCell = ws.getRow(r).getCell(1);
   lblCell.value = 'المبلغ المتبقي';
-  style(lblCell, { bg: SALMON, fc: 'FF7B1D0B', bold: true, size: 11 });
+  style(lblCell, { bg: TOTAL_BG, fc: 'FFFFFFFF', bold: true, size: 11 });
 
   const valCell = ws.getRow(r).getCell(5);
   valCell.value = running;
-  style(valCell, { bg: SALMON, fc: running < 0 ? 'FFCC0000' : 'FF7B1D0B', bold: true, size: 11, fmt: '#,##0' });
+  style(valCell, { bg: TOTAL_BG, fc: running < 0 ? 'FFFCA5A5' : 'FF6EE7B7', bold: true, size: 11, fmt: '#,##0' });
 
   const extCell = ws.getRow(r).getCell(6);
   extCell.value = '';
-  style(extCell, { bg: SALMON_LIGHT });
+  style(extCell, { bg: TOTAL_BG_ALT });
   r++;
 
   const buf = await wb.xlsx.writeBuffer();

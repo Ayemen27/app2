@@ -16,21 +16,23 @@ export const COMPANY_INFO = {
   website: 'www.alfatihi.com'
 };
 
+// 🎨 الهوية البصرية الموحدة — Aligned with BRAND.colors (client/src/lib/brand-constants.ts)
+// Updated to match enterprise standards: Navy (#1E3A8A) + Slate (#334155) + Emerald/Rose accents.
 export const ALFATIHI_COLORS = {
-  headerBlue: '2E5090',
-  headerDarkBlue: '1B2A4A',
-  accentBlue: '4A90D9',
-  lightBlue: 'F0F4F8',
-  altRowBlue: 'F0F4F8',
-  greenTotal: '1B2A4A',
-  greenLight: 'E8EDF4',
-  orangeLight: 'FCE4D6',
+  headerBlue: '1E3A8A',        // mainBlue — corporate navy
+  headerDarkBlue: '334155',    // slateHeader — secondary corporate
+  accentBlue: '3B82F6',        // accentBlue — bright accent
+  lightBlue: 'EFF6FF',         // alt-row tint (blue-50)
+  altRowBlue: 'F8FAFC',        // zebra striping (slate-50)
+  greenTotal: '334155',        // totals header (slate)
+  greenLight: 'ECFDF5',        // emerald-50 for positive highlights
+  orangeLight: 'FEF3C7',       // amber-100 for warnings
   white: 'FFFFFF',
-  black: '000000',
-  gray: '6B7280',
-  incomeGreen: '008000',
-  expenseRed: 'FF0000',
-  deferredOrange: 'FF8C00',
+  black: '0F172A',
+  gray: '64748B',
+  incomeGreen: '10B981',       // emerald-500
+  expenseRed: 'F43F5E',        // rose-500
+  deferredOrange: 'F59E0B',    // amber-500
 };
 
 export const EXCEL_STYLES = {

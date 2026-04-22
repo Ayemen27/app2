@@ -164,7 +164,7 @@ export default function DailyExpensesBulkExport() {
     companyHeaderCell.value = 'شركة الفتيني للمقاولات والاستشارات الهندسية';
     companyHeaderCell.font = { name: 'Arial Unicode MS', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
     companyHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    companyHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
+    companyHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
     companyHeaderCell.border = {
       top: { style: 'medium' }, bottom: { style: 'medium' },
       left: { style: 'medium' }, right: { style: 'medium' }
@@ -179,7 +179,7 @@ export default function DailyExpensesBulkExport() {
     headerCell.value = `كشف مصروفات ${dayData.projectName} يوم ${dayName} تاريخ ${formattedDate}`;
     headerCell.font = { name: 'Arial Unicode MS', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     headerCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     headerCell.border = {
       top: { style: 'medium' }, bottom: { style: 'medium' },
       left: { style: 'medium' }, right: { style: 'medium' }
@@ -193,7 +193,7 @@ export default function DailyExpensesBulkExport() {
     headerRow.eachCell((cell: any, index: any) => {
       cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
       cell.border = {
         top: { style: 'thin' }, bottom: { style: 'thin' },
         left: { style: 'thin' }, right: { style: 'thin' }
@@ -232,9 +232,9 @@ export default function DailyExpensesBulkExport() {
         
         // تحديد لون الخلفية حسب إشارة المبلغ المرحل
         if (dayData.carriedForward < 0) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF6B6B' } }; // أحمر فاتح للمرحل السالب
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF43F5E' } }; // أحمر فاتح للمرحل السالب
         } else {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB8E6B8' } }; // أخضر فاتح للمرحل الموجب
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // أخضر فاتح للمرحل الموجب
         }
         
         cell.border = {
@@ -269,7 +269,7 @@ export default function DailyExpensesBulkExport() {
           transferRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10, bold: true };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCC99' } }; // لون مميز للمبالغ المرحلة من مشاريع أخرى
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // لون مميز للمبالغ المرحلة من مشاريع أخرى
             cell.border = {
               top: { style: 'thin' }, bottom: { style: 'thin' },
               left: { style: 'thin' }, right: { style: 'thin' }
@@ -314,7 +314,7 @@ export default function DailyExpensesBulkExport() {
           transferRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB8E6B8' } }; // أخضر فاتح للحوالات
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // أخضر فاتح للحوالات
             cell.border = {
               top: { style: 'thin' }, bottom: { style: 'thin' },
               left: { style: 'thin' }, right: { style: 'thin' }
@@ -409,7 +409,7 @@ export default function DailyExpensesBulkExport() {
               if (workDaysText) {
                 richTextArray.push({ 
                   text: workDaysText, 
-                  font: { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FF0066CC' } } 
+                  font: { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FF3B82F6' } } 
                 });
               }
               
@@ -619,14 +619,14 @@ export default function DailyExpensesBulkExport() {
     finalBalanceRow.eachCell((cell: any, index: any) => {
       cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
       cell.border = {
         top: { style: 'medium' }, bottom: { style: 'medium' },
         left: { style: 'thin' }, right: { style: 'thin' }
       };
       
       if (index === 4 && currentBalance < 0) {
-        cell.font = { ...cell.font, color: { argb: 'FFFF6B6B' } };
+        cell.font = { ...cell.font, color: { argb: 'FFF43F5E' } };
       }
     });
     finalBalanceRow.height = 22;
@@ -645,7 +645,7 @@ export default function DailyExpensesBulkExport() {
       purchasesHeaderRow.eachCell((cell: any) => {
         cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
         cell.border = {
           top: { style: 'thin' }, bottom: { style: 'thin' },
           left: { style: 'thin' }, right: { style: 'thin' }
@@ -677,7 +677,7 @@ export default function DailyExpensesBulkExport() {
           
           // تمييز المشتريات الآجلة بلون مختلف (في عمود نوع الدفع)
           if (index === 4 && (paymentType === 'آجل' || paymentType === 'أجل')) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE6CC' } }; // لون برتقالي فاتح للآجل
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // لون برتقالي فاتح للآجل
           }
           
           cell.border = {

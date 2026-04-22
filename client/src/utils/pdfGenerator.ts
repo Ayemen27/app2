@@ -91,8 +91,8 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
   const colCount = options.columns.length;
   const totalWeight = options.columns.reduce((s, c) => s + (c.width || 10), 0);
 
-  const hdrColor = options.headerColor || '#2E5090';
-  const accColor = options.accentColor || '#1B2A4A';
+  const hdrColor = options.headerColor || '#1E3A8A';
+  const accColor = options.accentColor || '#334155';
 
   const thStyle = `padding:5px 3px;border:1px solid ${hdrColor};font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;font-weight:800;text-align:center;white-space:nowrap;`;
   const tdStyle = (alt: boolean) => `padding:4px 3px;border:1px solid #CBD5E1;text-align:center;font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;${alt ? 'background:#F8FAFC;' : ''}`;
@@ -132,7 +132,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
 
   const html = `
     <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:${containerWidth}px;">
-      <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
+      <div style="background:#1E3A8A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;letter-spacing:0.3px;border-bottom:2px solid #334155;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
       <div style="background:${hdrColor};color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">${options.reportTitle}</div>
       ${options.subtitle ? `<div style="text-align:center;padding:5px 0;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}

@@ -31,7 +31,10 @@ function getCachedNotification(key: string) {
   return e.data;
 }
 function setCachedNotification(key: string, data: any, ttlMs = 30000) {
-  if (notificationCache.size > 500) notificationCache.delete(notificationCache.keys().next().value);
+  if (notificationCache.size > 500) {
+    const firstKey = notificationCache.keys().next().value;
+    if (firstKey !== undefined) notificationCache.delete(firstKey);
+  }
   notificationCache.set(key, {data, expires: Date.now() + ttlMs});
 }
 

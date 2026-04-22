@@ -1181,7 +1181,7 @@ export function EquipmentManagement() {
                       { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
                       { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
                       { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
-                      { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "amber" as const },
+                      { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "yellow" as const },
                       { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
                     ]}
                   />

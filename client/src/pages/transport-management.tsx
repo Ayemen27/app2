@@ -33,6 +33,7 @@ const getCategoryIconColor = (cat: string, categories: string[]) => {
   const idx = categories.indexOf(cat);
   return idx >= 0 ? ICON_COLORS[idx % ICON_COLORS.length] : "text-slate-400";
 };
+import SelectedProjectBadge from "@/components/selected-project-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

@@ -25,7 +25,10 @@ function getCached(key: string) {
   return e.data;
 }
 function setCached(key: string, data: any, ttlMs = 60000) {
-  if (cache.size > 200) cache.delete(cache.keys().next().value);
+  if (cache.size > 200) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey !== undefined) cache.delete(firstKey);
+  }
   cache.set(key, {data, expires: Date.now() + ttlMs});
 }
 

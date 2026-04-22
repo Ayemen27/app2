@@ -356,7 +356,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
       SyncAuditService.logBulkSync({
         user_id: getAuthUser(req)?.user_id,
         userName: getUserDisplayName(getAuthUser(req)),
-        syncType: lastSyncTime ? 'delta_sync_stream' : 'full_backup_stream',
+        syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
         tablesCount: ALL_DATABASE_TABLES.length,
         totalRecords,
         durationMs: duration,

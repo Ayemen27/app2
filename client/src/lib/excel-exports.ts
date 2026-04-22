@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
+import { getBranding, argb } from '@/lib/report-branding';
 
 export const exportWorkerStatement = async (data: any, worker: any): Promise<boolean> => {
   const workbook = new ExcelJS.Workbook();
@@ -9,13 +10,14 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
     views: [{ rightToLeft: true, showGridLines: false }]
   });
 
-  // المعايير العالمية للألوان والخطوط (Modern Corporate Theme)
-  const mainBlue = 'FF1E3A8A'; // Deep Navy Blue
-  const accentBlue = 'FF3B82F6'; // Modern Bright Blue
-  const softGray = 'FFF8FAFC'; // Lightest Gray Background
-  const borderGray = 'FFE2E8F0'; // Modern Border Color
-  const emeraldGreen = 'FF10B981'; // Success Green
-  const roseRed = 'FFF43F5E'; // Error/Debit Red
+  // 🎨 الألوان الديناميكية من إعدادات المستخدم
+  const _b = getBranding();
+  const mainBlue = argb(_b.primaryColor);
+  const accentBlue = argb(_b.accentColor);
+  const softGray = 'FFF8FAFC';
+  const borderGray = 'FFE2E8F0';
+  const emeraldGreen = 'FF10B981';
+  const roseRed = 'FFF43F5E';
   
   const whiteText = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
   const darkText = { name: 'Calibri', size: 11, color: { argb: 'FF1E293B' } };
@@ -264,10 +266,11 @@ export const exportWorkersListReport = async (
     pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } as any,
   });
 
-  // 🎨 الهوية البصرية الموحدة (نفس ألوان كشف العامل الفردي)
-  const mainBlue = 'FF1E3A8A';
-  const accentBlue = 'FF3B82F6';
-  const slateHeader = 'FF334155';
+  // 🎨 الهوية البصرية الموحدة — تُقرأ من إعدادات المستخدم
+  const _b = getBranding();
+  const mainBlue = argb(_b.primaryColor);
+  const accentBlue = argb(_b.accentColor);
+  const slateHeader = argb(_b.secondaryColor);
   const slateTotals = 'FF475569';
   const softGray = 'FFF8FAFC';
   const altRow = 'FFF1F5F9';

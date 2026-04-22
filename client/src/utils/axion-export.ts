@@ -6,36 +6,65 @@
 
 import { formatCurrency } from '@/lib/utils';
 import { downloadExcelFile } from '@/utils/webview-download';
+import { getBranding, hexNoHash } from '@/lib/report-branding';
 
-export const COMPANY_INFO = {
-  name: 'الفتيني للمقاولات العامة والاستشارات الهندسية',
-  subtitle: 'Al-Fatihi Contracting & Engineering Consultancy',
-  address: 'المملكة العربية السعودية',
-  phone: '+966 XX XXXX XXX',
-  email: 'info@alfatihi.com',
-  website: 'www.alfatihi.com'
-};
+// 🏢 معلومات الشركة — تُقرأ ديناميكياً من إعدادات المستخدم الحالي
+// (Proxy: كل قراءة تجلب أحدث قيمة من cache report-branding)
+export const COMPANY_INFO = new Proxy({} as {
+  name: string; subtitle: string; address: string; phone: string; email: string; website: string;
+}, {
+  get(_t, key: string) {
+    const b = getBranding();
+    switch (key) {
+      case 'name': return b.companyName;
+      case 'subtitle': return b.companyNameEn;
+      case 'address': return b.address;
+      case 'phone': return b.phone;
+      case 'email': return b.email;
+      case 'website': return b.website;
+      default: return undefined;
+    }
+  }
+});
 
-// 🎨 الهوية البصرية الموحدة — Aligned with BRAND.colors (client/src/lib/brand-constants.ts)
-// Updated to match enterprise standards: Navy (#1E3A8A) + Slate (#334155) + Emerald/Rose accents.
-export const ALFATIHI_COLORS = {
-  headerBlue: '1E3A8A',        // mainBlue — corporate navy
-  headerDarkBlue: '334155',    // slateHeader — secondary corporate
-  accentBlue: '3B82F6',        // accentBlue — bright accent
-  lightBlue: 'EFF6FF',         // alt-row tint (blue-50)
-  altRowBlue: 'F8FAFC',        // zebra striping (slate-50)
-  greenTotal: '334155',        // totals header (slate)
-  greenLight: 'ECFDF5',        // emerald-50 for positive highlights
-  orangeLight: 'FEF3C7',       // amber-100 for warnings
+// 🎨 الهوية البصرية — Proxy على إعدادات المستخدم
+// headerBlue/headerDarkBlue/accentBlue تتغيّر حسب primary/secondary/accent المستخدم.
+// باقي الألوان (success/error/warn/zebra) ثابتة دلالياً.
+const _SEMANTIC_COLORS = {
+  lightBlue: 'EFF6FF',
+  altRowBlue: 'F8FAFC',
+  greenLight: 'ECFDF5',
+  orangeLight: 'FEF3C7',
   white: 'FFFFFF',
   black: '0F172A',
   gray: '64748B',
-  incomeGreen: '10B981',       // emerald-500
-  expenseRed: 'F43F5E',        // rose-500
-  deferredOrange: 'F59E0B',    // amber-500
+  incomeGreen: '10B981',
+  expenseRed: 'F43F5E',
+  deferredOrange: 'F59E0B',
 };
 
-export const EXCEL_STYLES = {
+export const ALFATIHI_COLORS = new Proxy({} as Record<string, string>, {
+  get(_t, key: string) {
+    const b = getBranding();
+    switch (key) {
+      case 'headerBlue': return hexNoHash(b.primaryColor);
+      case 'headerDarkBlue': return hexNoHash(b.secondaryColor);
+      case 'accentBlue': return hexNoHash(b.accentColor);
+      case 'greenTotal': return hexNoHash(b.secondaryColor);
+      default: return (_SEMANTIC_COLORS as any)[key];
+    }
+  },
+  ownKeys() {
+    return ['headerBlue','headerDarkBlue','accentBlue','greenTotal', ...Object.keys(_SEMANTIC_COLORS)];
+  },
+  getOwnPropertyDescriptor() {
+    return { enumerable: true, configurable: true };
+  },
+});
+
+// 🎨 EXCEL_STYLES — Proxy ديناميكي: كل property تُبنى عند الطلب
+// لتعكس أحدث ألوان المستخدم (تجنّب تجميد القيم وقت import).
+const _buildExcelStyles = () => ({
   fonts: {
     header: { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     data: { size: 10 },
@@ -175,7 +204,13 @@ export const EXCEL_STYLES = {
     font: { size: 9, italic: true, color: { argb: 'FF' + ALFATIHI_COLORS.gray } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const }
   }
-};
+});
+
+export const EXCEL_STYLES = new Proxy({} as ReturnType<typeof _buildExcelStyles>, {
+  get(_t, key: string) {
+    return (_buildExcelStyles() as any)[key];
+  },
+});
 
 export interface ExportOptions {
   projectName?: string;

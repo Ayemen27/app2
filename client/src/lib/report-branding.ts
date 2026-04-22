@@ -100,21 +100,24 @@ export const hexNoHash = (c: string) => (c || '#000000').replace('#', '').toUppe
 export const argb = (c: string) => 'FF' + hexNoHash(c);
 export const hex = (c: string) => (c?.startsWith('#') ? c : `#${c}`);
 
-/** Map server snake_case payload → client camelCase. */
+/** Map server snake_case payload → client camelCase.
+ *  يدعم كلا الشكلين: { success, header: {...} } من /api/report-header، أو الـ header المباشر. */
 function mapServerPayload(p: any): Partial<ReportBranding> | null {
   if (!p || typeof p !== 'object') return null;
+  const h = p.header && typeof p.header === 'object' ? p.header : p;
+  if (!h.company_name && !h.primary_color && !h.logo_url) return null;
   return {
-    companyName: p.company_name,
-    companyNameEn: p.company_name_en,
-    address: p.address,
-    phone: p.phone,
-    email: p.email,
-    website: p.website,
-    logoUrl: p.logo_url,
-    footerText: p.footer_text,
-    primaryColor: p.primary_color,
-    secondaryColor: p.secondary_color,
-    accentColor: p.accent_color,
+    companyName: h.company_name,
+    companyNameEn: h.company_name_en,
+    address: h.address,
+    phone: h.phone,
+    email: h.email,
+    website: h.website,
+    logoUrl: h.logo_url,
+    footerText: h.footer_text,
+    primaryColor: h.primary_color,
+    secondaryColor: h.secondary_color,
+    accentColor: h.accent_color,
   };
 }
 

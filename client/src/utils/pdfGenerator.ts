@@ -40,22 +40,34 @@ export async function generatePDF(options: PDFGenerationOptions): Promise<boolea
 
     const isLandscape = options.orientation === 'landscape';
     const imgWidth = isLandscape ? 297 : 210;
-    const pageHeight = isLandscape ? 210 : 297;
+    const a4Height = isLandscape ? 210 : 297;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pdf = new jsPDF(isLandscape ? 'l' : 'p', 'mm', options.format === 'Letter' ? 'letter' : 'a4');
-
-    let heightLeft = imgHeight;
-    let position = 0;
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    let pdf: any;
 
-    while (heightLeft > 0) {
-      position = -(imgHeight - heightLeft);
-      pdf.addPage();
+    if (imgHeight <= a4Height) {
+      // ✨ المحتوى يدخل في صفحة واحدة → استخدم حجم مخصّص = ارتفاع المحتوى الفعلي
+      // عرض A4 ثابت (طبيعي للطباعة) + ارتفاع متكيّف → لا مساحة فارغة
+      pdf = new jsPDF({
+        orientation: isLandscape ? 'l' : 'p',
+        unit: 'mm',
+        format: [imgWidth, Math.max(imgHeight, 50)],
+      });
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+    } else {
+      // المحتوى أطول من صفحة → A4 عادي مع تقسيم على عدة صفحات
+      pdf = new jsPDF(isLandscape ? 'l' : 'p', 'mm', options.format === 'Letter' ? 'letter' : 'a4');
+      let heightLeft = imgHeight;
+      let position = 0;
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      heightLeft -= a4Height;
+      while (heightLeft > 0) {
+        position = -(imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= a4Height;
+      }
     }
 
     const pdfBlob = pdf.output('blob');
@@ -103,11 +115,13 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
   // 🎨 حدود واضحة + توسيط أفقي/عمودي + حجم خط متكيف
   const fontSize = colCount > 14 ? 8 : colCount > 10 ? 9 : 10;
   const borderColor = '#475569'; // حدود أغمق وأوضح من قبل
-  const thStyle = `padding:8px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;text-align:center;vertical-align:middle;white-space:nowrap;color:#fff;`;
-  const tdStyle = (alt: boolean) => `padding:7px 6px;border:1px solid ${borderColor};text-align:center;vertical-align:middle;font-size:${fontSize}px;${alt ? 'background:#F8FAFC;' : 'background:#fff;'}`;
+  // عرض كل عمود كنسبة من المجموع (table-layout:fixed يلتزم بها)
+  const colWidthPct = (w?: number) => `${(((w || 10) / totalWeight) * 100).toFixed(2)}%`;
+  const thStyle = (col: TablePDFColumn) => `width:${colWidthPct(col.width)};padding:8px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;text-align:center;vertical-align:middle;color:#fff;word-wrap:break-word;overflow-wrap:break-word;white-space:normal;`;
+  const tdStyle = (alt: boolean) => `padding:7px 6px;border:1px solid ${borderColor};text-align:center;vertical-align:middle;font-size:${fontSize}px;word-wrap:break-word;overflow-wrap:break-word;white-space:normal;line-height:1.4;${alt ? 'background:#F8FAFC;' : 'background:#fff;'}`;
 
   const headerCells = options.columns.map((col) =>
-    `<th style="${thStyle}">${col.header}</th>`
+    `<th style="${thStyle(col)}">${col.header}</th>`
   ).join('');
 
   const dataRows = options.data.map((row, idx) => {
@@ -120,16 +134,22 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
     return `<tr>${cells}</tr>`;
   }).join('');
 
+  // 🎯 سطر الإجماليات: دمج العمودين الأوّلَين (م + الاسم) لتمركز التسمية بشكل صحيح
   let totalsRow = '';
   if (options.totals) {
-    const totCellStyle = `padding:9px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;color:#fff;text-align:center;vertical-align:middle;`;
-    const cells = options.columns.map((col, i) => {
+    const totCellStyle = `padding:10px 6px;border:1.2px solid ${borderColor};font-size:${fontSize}px;font-weight:800;color:#fff;text-align:center;vertical-align:middle;`;
+    const firstColW = colWidthPct((options.columns[0]?.width || 0) + (options.columns[1]?.width || 0));
+    const labelExtra = options.totals.values[options.columns[1]?.key];
+    const labelText = labelExtra !== undefined && labelExtra !== '' && labelExtra !== null
+      ? `${options.totals.label} — ${labelExtra}`
+      : options.totals.label;
+    const labelCell = `<td colspan="2" style="${totCellStyle}width:${firstColW};">${labelText}</td>`;
+    const restCells = options.columns.slice(2).map((col) => {
       const val = options.totals!.values[col.key];
-      if (i === 0) return `<td style="${totCellStyle}">${options.totals!.label}</td>`;
-      if (val !== undefined) return `<td style="${totCellStyle}">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
-      return `<td style="${totCellStyle}"></td>`;
+      if (val !== undefined) return `<td style="${totCellStyle}width:${colWidthPct(col.width)};">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
+      return `<td style="${totCellStyle}width:${colWidthPct(col.width)};"></td>`;
     }).join('');
-    totalsRow = `<tr style="background:${accColor};">${cells}</tr>`;
+    totalsRow = `<tr style="background:${accColor};">${labelCell}${restCells}</tr>`;
   }
 
   const infoHtml = options.infoItems?.length ? `

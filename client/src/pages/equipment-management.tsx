@@ -444,7 +444,7 @@ export function EquipmentManagement() {
 
     const configs: Record<string, {
       title: string; pdfTitle: string; sheetName: string; fileName: string;
-      headerColor: string; accentColor: string;
+      headerColor?: string; accentColor?: string;
       pdfInfoItems: Array<{ label: string; value: string | number; color?: string }>;
       excelInfoLines: string[];
       columns: any[]; excelColumns: any[];
@@ -457,8 +457,6 @@ export function EquipmentManagement() {
         pdfTitle: 'تقرير رصيد المخزون',
         sheetName: 'رصيد المخزون',
         fileName: `رصيد_المخزون_${dateFile}`,
-        headerColor: '#10B981',
-        accentColor: '#059669',
         pdfInfoItems: [
           { label: 'إجمالي المواد', value: stats.total_items || 0, color: '#10B981' },
           { label: 'مواد متوفرة', value: stats.items_in_stock || 0, color: '#059669' },
@@ -536,8 +534,6 @@ export function EquipmentManagement() {
         pdfTitle: 'تقرير حركة الوارد',
         sheetName: 'حركة الوارد',
         fileName: `حركة_الوارد_${dateFile}`,
-        headerColor: '#10B981',
-        accentColor: '#059669',
         pdfInfoItems: [
           { label: 'عدد الحركات', value: incomingTx.length, color: '#10B981' },
           { label: 'إجمالي التكلفة', value: formatCurrency(incomingTx.reduce((s, t) => s + parseFloat(t.total_cost || '0'), 0)), color: '#059669' },
@@ -553,8 +549,6 @@ export function EquipmentManagement() {
         pdfTitle: 'تقرير حركة الصرف',
         sheetName: 'حركة الصرف',
         fileName: `حركة_الصرف_${dateFile}`,
-        headerColor: '#EF4444',
-        accentColor: '#DC2626',
         pdfInfoItems: [
           { label: 'عدد الحركات', value: outgoingTx.length, color: '#EF4444' },
           { label: 'إجمالي التكلفة', value: formatCurrency(outgoingTx.reduce((s, t) => s + parseFloat(t.total_cost || '0'), 0)), color: '#DC2626' },
@@ -570,8 +564,6 @@ export function EquipmentManagement() {
         pdfTitle: 'تقرير المرتجعات',
         sheetName: 'المرتجعات',
         fileName: `المرتجعات_${dateFile}`,
-        headerColor: '#06B6D4',
-        accentColor: '#0891B2',
         pdfInfoItems: [
           { label: 'عدد المرتجعات', value: returnTx.length, color: '#06B6D4' },
           { label: 'إجمالي الكمية', value: returnTx.reduce((s, t) => s + parseFloat(t.quantity), 0).toFixed(1), color: '#0891B2' },
@@ -587,8 +579,6 @@ export function EquipmentManagement() {
         pdfTitle: 'التقرير التحليلي للمخزون',
         sheetName: 'ملخص المخزون',
         fileName: `ملخص_المخزون_${dateFile}`,
-        headerColor: '#F59E0B',
-        accentColor: '#D97706',
         pdfInfoItems: [
           { label: 'عدد التصنيفات', value: reports.length, color: '#F59E0B' },
         ],
@@ -626,8 +616,6 @@ export function EquipmentManagement() {
         pdfTitle: 'تقرير الأصول والمعدات',
         sheetName: 'الأصول والمعدات',
         fileName: `الأصول_والمعدات_${projectId ? (projectsMap[projectId] || '').replace(/\s+/g, '_') + '_' : ''}${dateFile}`,
-        headerColor: '#8B5CF6',
-        accentColor: '#7C3AED',
         pdfInfoItems: [
           { label: 'المشروع', value: projectId ? (projectsMap[projectId] || '-') : 'جميع المشاريع', color: '#8B5CF6' },
           { label: 'عدد المعدات', value: filteredEquipmentList.length, color: '#7C3AED' },

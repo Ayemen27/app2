@@ -1080,7 +1080,7 @@ export default function WorkersPage() {
             const num = Number(String(r.remaining).replace(/,/g, ''));
             return num > 0 ? '#10b981' : num < 0 ? '#f43f5e' : '#64748b';
           }},
-          { header: 'ملاحظات', key: 'notes', width: 10 },
+          { header: 'ملاحظات', key: 'notes', width: 16 },
         ],
         data,
         totals: {

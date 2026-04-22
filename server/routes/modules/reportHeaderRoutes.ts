@@ -19,7 +19,7 @@ const upsertSchema = z.object({
   phone: z.string().max(50).nullable().optional(),
   email: z.string().email().max(150).nullable().optional().or(z.literal('').transform(() => null)),
   website: z.string().max(200).nullable().optional(),
-  logo_url: z.string().max(500).nullable().optional(),
+  logo_url: z.string().max(2_000_000).nullable().optional(),
   footer_text: z.string().max(500).nullable().optional(),
   primary_color: z.string().regex(HEX_COLOR).optional(),
   secondary_color: z.string().regex(HEX_COLOR).optional(),

@@ -291,9 +291,24 @@ export class SmartConnectionManager {
          * 2. DATABASE_URL_RAILWAY - قاعدة Railway
          * ❌ يتم تجاهل DATABASE_URL (Replit Helium) لمنع الاتصال بها
          */
+        // 🔒 helper: تنظيف URL لضمان sslmode=no-verify (السيرفر البعيد يستخدم شهادة موقّعة ذاتياً)
+        const ensureSslNoVerify = (url: string | undefined): string | undefined => {
+          if (!url) return url;
+          let u = url.trim().replace(/^["']|["']$/g, "");
+          if (u.includes('localhost') || u.includes('127.0.0.1')) return u;
+          const hasQuery = u.includes("?");
+          const hasSslMode = /[?&]sslmode=/.test(u);
+          if (!hasSslMode) {
+            u += (hasQuery ? "&" : "?") + "sslmode=no-verify";
+          } else {
+            u = u.replace(/([?&])sslmode=(require|verify-ca|verify-full)(?=&|$)/, "$1sslmode=no-verify");
+          }
+          return u;
+        };
+
         const databaseUrl = 
-          process.env.DATABASE_URL_CENTRAL ||
-          process.env.DATABASE_URL_RAILWAY;
+          ensureSslNoVerify(process.env.DATABASE_URL_CENTRAL) ||
+          ensureSslNoVerify(process.env.DATABASE_URL_RAILWAY);
         
         // تسجيل مصدر القاعدة
         const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :

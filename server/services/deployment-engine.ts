@@ -1327,7 +1327,7 @@ export class DeploymentEngine {
         await this.stepHotfixGuard(deploymentId);
         break;
       case "post-deploy-smoke":
-        await this.stepPostDeploySmoke(deploymentId, config);
+        await this.stepPostDeploySmoke(deploymentId, config, sshCmd);
         break;
       case "apk-integrity":
         await this.stepApkIntegrity(deploymentId, sshCmd);
@@ -2126,7 +2126,7 @@ export class DeploymentEngine {
     }
   }
 
-  private async stepPostDeploySmoke(deploymentId: string, config?: DeploymentConfig) {
+  private async stepPostDeploySmoke(deploymentId: string, config?: DeploymentConfig, sharedSshCmd?: string) {
     await this.addLog(deploymentId, "🔥 اختبار دخان ما بعد النشر — فحص المسارات الحرجة...", "info");
     const baseUrl = this.resolveBaseUrl(config);
     const maxAttempts = 3;
@@ -2143,7 +2143,9 @@ export class DeploymentEngine {
         let internalProbe: { sshCommand: string; internalBaseUrl: string; env?: Record<string, string> } | undefined;
         try {
           await this.ensureKnownHosts();
-          const sshCmd = this.buildSSHCommand();
+          // 🚀 إعادة استخدام SSH ControlMaster لتجنب 19 handshake منفصلة (~80% أسرع)
+          const muxSocket = this.sshMuxSockets.get(deploymentId) ?? null;
+          const sshCmd = sharedSshCmd ?? this.buildSSHCommand(muxSocket);
           const internalPort = process.env.APP_INTERNAL_PORT || "6000";
           const env: Record<string, string> = {};
           if (process.env.SSH_PASSWORD) env.SSHPASS = process.env.SSH_PASSWORD;
@@ -2152,7 +2154,8 @@ export class DeploymentEngine {
             internalBaseUrl: `http://localhost:${internalPort}`,
             env,
           };
-          await this.addLog(deploymentId, `🔒 الفحص الداخلي مُفعّل عبر SSH → localhost:${internalPort} (مصدر الحقيقة، يتجاوز CDN/Edge)`, "info");
+          const muxNote = muxSocket ? " [mux مفعّل]" : "";
+          await this.addLog(deploymentId, `🔒 الفحص الداخلي مُفعّل عبر SSH → localhost:${internalPort}${muxNote} (مصدر الحقيقة، يتجاوز CDN/Edge)`, "info");
         } catch (probeErr: any) {
           await this.addLog(deploymentId, `⚠️ تعذر تفعيل الفحص الداخلي (${probeErr.message?.slice(0, 120)}) — التراجع للفحص الخارجي عبر HTTPS`, "warn");
         }

@@ -91,8 +91,22 @@ let finalDbUrl = dbUrl;
 
 // (Supabase pooler block removed — not applicable to this deployment)
 
-if (!finalDbUrl.includes("?")) {
-  finalDbUrl += "?sslmode=no-verify&connect_timeout=30";
+// 🔒 ضمان وجود sslmode=no-verify (السيرفر البعيد يستخدم شهادة موقّعة ذاتياً)
+// وضمان connect_timeout — حتى لو احتوى الرابط بالفعل على query params أخرى
+{
+  const hasQuery = finalDbUrl.includes("?");
+  const hasSslMode = /[?&]sslmode=/.test(finalDbUrl);
+  const hasConnTimeout = /[?&]connect_timeout=/.test(finalDbUrl);
+
+  if (!hasSslMode) {
+    finalDbUrl += (hasQuery ? "&" : "?") + "sslmode=no-verify";
+  } else {
+    // لو موجود لكن بقيمة صارمة (require/verify-full)، استبدلها بـ no-verify لتفادي self-signed cert
+    finalDbUrl = finalDbUrl.replace(/([?&])sslmode=(require|verify-ca|verify-full)(?=&|$)/, "$1sslmode=no-verify");
+  }
+  if (!hasConnTimeout) {
+    finalDbUrl += "&connect_timeout=30";
+  }
 }
 
 console.log(`🔗 [DB] استخدام الاتصال المستقر لضمان الوصول`);

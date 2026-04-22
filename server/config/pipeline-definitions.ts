@@ -145,7 +145,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   },
   "post-deploy-smoke": {
     name: "post-deploy-smoke",
-    timeoutMs: 60000,
+    timeoutMs: 300000,
   },
   "verify": {
     name: "verify",

@@ -1068,19 +1068,19 @@ export default function WorkersPage() {
           { label: 'الرصيد المتبقي', value: `${totalRemaining.toLocaleString('en-US')} ر.ي`, color: totalRemaining >= 0 ? '#10b981' : '#f43f5e' },
         ],
         columns: [
-          { header: 'م', key: 'index', width: 4 },
-          { header: 'الاسم', key: 'name', width: 22 },
-          { header: 'الأيام', key: 'days', width: 7 },
-          { header: 'اليومية', key: 'dailyWage', width: 9 },
-          { header: 'أصبح له', key: 'earnings', width: 11, color: () => '#3b82f6' },
-          { header: 'السحبيات', key: 'withdrawals', width: 11 },
-          { header: 'الحوالات', key: 'transfers', width: 11 },
-          { header: 'الذي بيده', key: 'onHand', width: 11 },
-          { header: 'المتبقي له', key: 'remaining', width: 12, color: (_v, r) => {
+          { header: 'م', key: 'index', width: 3 },
+          { header: 'الاسم', key: 'name', width: 18 },
+          { header: 'الأيام', key: 'days', width: 6 },
+          { header: 'اليومية', key: 'dailyWage', width: 8 },
+          { header: 'أصبح له', key: 'earnings', width: 10, color: () => '#3b82f6' },
+          { header: 'السحبيات', key: 'withdrawals', width: 10 },
+          { header: 'الحوالات', key: 'transfers', width: 10 },
+          { header: 'الذي بيده', key: 'onHand', width: 10 },
+          { header: 'المتبقي له', key: 'remaining', width: 11, color: (_v, r) => {
             const num = Number(String(r.remaining).replace(/,/g, ''));
             return num > 0 ? '#10b981' : num < 0 ? '#f43f5e' : '#64748b';
           }},
-          { header: 'ملاحظات', key: 'notes', width: 12 },
+          { header: 'ملاحظات', key: 'notes', width: 10 },
         ],
         data,
         totals: {
@@ -1096,7 +1096,7 @@ export default function WorkersPage() {
           },
         },
         filename: `Workers_Report_${new Date().toISOString().split('T')[0]}`,
-        orientation: 'landscape',
+        orientation: 'portrait',
       });
       if (ok) toast({ title: 'تم التصدير', description: `تم تصدير ${filteredWorkers.length} عامل بنجاح` });
       else toast({ title: 'تعذر التنزيل', description: 'فشل تنزيل الملف', variant: 'destructive' });

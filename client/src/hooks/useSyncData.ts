@@ -54,7 +54,7 @@ export function useSyncData() {
     window.addEventListener('offline', handleOffline);
 
     refreshData();
-    const interval = setInterval(refreshData, 10000);
+    const interval = setInterval(refreshData, 60000);
 
     return () => {
       unsubscribe();

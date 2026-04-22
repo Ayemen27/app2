@@ -531,12 +531,16 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       // ⚡ تعطيل إعادة الجلب عند التركيز لتحسين الأداء
       refetchOnWindowFocus: false,
-      // ⚡ البيانات تبقى صالحة لـ 10 دقائق للبيانات المرجعية و 5 للديناميكية
-      staleTime: 1000 * 60 * 5, 
-      // ⚡ الاحتفاظ بالبيانات في الذاكرة لـ 60 دقيقة
-      gcTime: 1000 * 60 * 60,
-      retry: false,
-      refetchOnReconnect: false,
+      // ⚡ البيانات تبقى صالحة لـ دقيقة كافتراضي
+      staleTime: 60 * 1000, 
+      // ⚡ الاحتفاظ بالبيانات في الذاكرة لـ 5 دقائق
+      gcTime: 5 * 60 * 1000,
+      retry: (failureCount, error: any) => {
+        if (error?.status === 429) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+      refetchOnReconnect: 'always',
       // ⚡ لا تعيد الجلب عند التحميل إذا كانت البيانات محفوظة
       refetchOnMount: false,
       // ⚡ الاحتفاظ بالبيانات السابقة أثناء التحميل

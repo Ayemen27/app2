@@ -119,10 +119,10 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       }
     },
     enabled,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 2,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const isAllProjects = !project_id || project_id === 'all';

@@ -128,7 +128,7 @@ export default function NotificationsPage() {
       if (Array.isArray(result)) return { notifications: result, unreadCount: result.filter((n: any) => !n.isRead).length, total: result.length };
       return result.notifications ? result : { notifications: [], unreadCount: 0, total: 0 };
     },
-    refetchInterval: 30000,
+    refetchInterval: 60000,
     enabled: !!user_id,
   });
 

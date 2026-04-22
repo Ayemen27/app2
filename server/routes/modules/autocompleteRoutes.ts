@@ -14,6 +14,21 @@ import { getAuthUser } from '../../internal/auth-user.js';
 
 export const autocompleteRouter = express.Router();
 
+const cache = new Map<string, {data: any, expires: number}>();
+function getCached(key: string) {
+  const e = cache.get(key);
+  if (!e) return null;
+  if (Date.now() > e.expires) {
+    cache.delete(key);
+    return null;
+  }
+  return e.data;
+}
+function setCached(key: string, data: any, ttlMs = 60000) {
+  if (cache.size > 200) cache.delete(cache.keys().next().value);
+  cache.set(key, {data, expires: Date.now() + ttlMs});
+}
+
 /**
  * 📝 POST /api/autocomplete - حفظ قيمة إكمال تلقائي
  * يحفظ البيانات في قاعدة البيانات فعلاً
@@ -105,6 +120,18 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
   try {
     const category = req.query.category as string | undefined;
     const userId = getAuthUser(req)?.user_id ?? '';
+    
+    const cacheKey = `all:${userId}:${category || 'all'}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      console.log('🟢 [Autocomplete] Cache hit:', cacheKey);
+      return res.json({
+        ...cached,
+        processingTime: Date.now() - startTime,
+        fromCache: true
+      });
+    }
+
     console.log('📊 [API] جلب بيانات الإكمال التلقائي', category ? `للفئة: ${category}` : '(جميع الفئات)', 'للمستخدم:', userId);
     
     let conditions = [eq(autocompleteData.user_id, userId)];
@@ -118,6 +145,7 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
       .limit(1000);
     
     const duration = Date.now() - startTime;
+    let responseData: any;
     
     // إذا كانت هناك فئة معينة
     if (category) {
@@ -129,35 +157,39 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
           pumpPowers: ['500W', '1000W', '1500W', '2000W'],
         };
         const fallback = fallbackData[category] || [];
-        return res.json({
+        responseData = {
           success: true,
           data: fallback,
-          message: `تم جلب بيانات ${category} (بيانات افتراضية)`,
-          processingTime: duration
-        });
+          message: `تم جلب بيانات ${category} (بيانات افتراضية)`
+        };
+      } else {
+        responseData = {
+          success: true,
+          data: data.map((item: any) => item.value),
+          message: `تم جلب بيانات ${category} بنجاح`
+        };
       }
-      
-      return res.json({
-        success: true,
-        data: data.map((item: any) => item.value),
-        message: `تم جلب بيانات ${category} بنجاح`,
-        processingTime: duration
+    } else {
+      // إذا لم تكن هناك فئة، أرجع مجموعة حسب الفئة
+      const grouped: Record<string, any[]> = {};
+      data.forEach((item: any) => {
+        if (!grouped[item.category]) {
+          grouped[item.category] = [];
+        }
+        grouped[item.category].push(item);
       });
+      
+      responseData = {
+        success: true,
+        data: grouped,
+        message: 'تم جلب بيانات الإكمال التلقائي بنجاح'
+      };
     }
     
-    // إذا لم تكن هناك فئة، أرجع مجموعة حسب الفئة
-    const grouped: Record<string, any[]> = {};
-    data.forEach((item: any) => {
-      if (!grouped[item.category]) {
-        grouped[item.category] = [];
-      }
-      grouped[item.category].push(item);
-    });
+    setCached(cacheKey, responseData);
     
-    res.json({
-      success: true,
-      data: grouped,
-      message: 'تم جلب بيانات الإكمال التلقائي بنجاح',
+    return res.json({
+      ...responseData,
       processingTime: duration
     });
     
@@ -193,18 +225,28 @@ autocompleteRouter.head('/transferTypes', (req: Request, res: Response): void =>
  * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/senderNames', requireAuth, async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
+    const userId = getAuthUser(req)?.user_id ?? '';
+    const cacheKey = `senderNames:${userId}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json({ ...cached, fromCache: true, processingTime: Date.now() - startTime });
+    }
+
     const data = await db
       .select()
       .from(autocompleteData)
-      .where(eq(autocompleteData.category, 'senderNames'))
+      .where(and(eq(autocompleteData.category, 'senderNames'), eq(autocompleteData.user_id, userId)))
       .orderBy(desc(autocompleteData.usageCount));
     
-    res.json({
+    const responseData = {
       success: true,
       data: data,
       message: 'تم جلب أسماء المرسلين بنجاح'
-    });
+    };
+    setCached(cacheKey, responseData);
+    res.json({ ...responseData, processingTime: Date.now() - startTime });
   } catch (error: any) {
     res.status(500).json({
       success: false,

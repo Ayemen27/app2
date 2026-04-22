@@ -53,6 +53,7 @@ export function AutocompleteInput({
     },
     enabled: !!category,
     staleTime: 1000 * 60 * 5, // 5 دقائق
+    placeholderData: (previousData: any) => previousData,
   });
 
   // حفظ البيانات في قاعدة البيانات

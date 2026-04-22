@@ -20,6 +20,21 @@ import { safeErrorMessage } from '../../middleware/api-response';
 
 export const notificationRouter = express.Router();
 
+const notificationCache = new Map<string, {data: any, expires: number}>();
+function getCachedNotification(key: string) {
+  const e = notificationCache.get(key);
+  if (!e) return null;
+  if (Date.now() > e.expires) {
+    notificationCache.delete(key);
+    return null;
+  }
+  return e.data;
+}
+function setCachedNotification(key: string, data: any, ttlMs = 30000) {
+  if (notificationCache.size > 500) notificationCache.delete(notificationCache.keys().next().value);
+  notificationCache.set(key, {data, expires: Date.now() + ttlMs});
+}
+
 // تطبيق المصادقة على جميع مسارات الإشعارات
 notificationRouter.use(requireAuth);
 
@@ -68,6 +83,7 @@ notificationRouter.post('/push/token', handlePushToken);
 pushTokenRouter.post('/push/token', handlePushToken);
 
 notificationRouter.get('/', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
@@ -85,6 +101,13 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
     
     const { limit, offset, type, unreadOnly, project_id } = req.query;
 
+    const cacheKey = `notifs:${user_id}:${limit}:${offset}:${type}:${unreadOnly}:${project_id}`;
+    const cached = getCachedNotification(cacheKey);
+    if (cached) {
+      console.log('🟢 [Notifications] Cache hit:', cacheKey);
+      return res.json({ ...cached, processingTime: Date.now() - startTime, fromCache: true });
+    }
+
     console.log(`📥 [API] جلب الإشعارات للمستخدم: ${user_id}`);
 
     const result = await notificationService.getUserNotifications(user_id, {
@@ -97,13 +120,20 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${result.notifications.length} إشعار للمستخدم ${user_id}`);
 
-    res.json({
+    const responseData = {
       success: true,
       data: result.notifications,
       notifications: result.notifications,
       count: result.total,
       unreadCount: result.unreadCount,
       message: result.notifications.length > 0 ? 'تم جلب الإشعارات بنجاح' : 'لا توجد إشعارات'
+    };
+
+    setCachedNotification(cacheKey, responseData);
+
+    res.json({
+      ...responseData,
+      processingTime: Date.now() - startTime
     });
   } catch (error: unknown) {
     console.error('❌ [API] خطأ في جلب الإشعارات:', error);

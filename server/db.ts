@@ -116,14 +116,15 @@ const smartConnectionManager = SmartConnectionManager.getInstance();
 
 export const pool = new Pool({
   connectionString: finalDbUrl,
-  max: 8,
+  max: 20,
   idleTimeoutMillis: 20000,
   connectionTimeoutMillis: 15000,
   query_timeout: 15000,
   statement_timeout: 15000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  application_name: 'axion-api'
 });
 
 // تهيئة قاعدة البيانات المناسبة مع إدارة ذكية

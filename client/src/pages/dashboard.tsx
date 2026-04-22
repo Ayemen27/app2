@@ -127,8 +127,8 @@ export default function Dashboard() {
         return [];
       }
     },
-    staleTime: 1000 * 10,
-    refetchInterval: 30000, // تحديث كل 30 ثانية
+    staleTime: 1000 * 60,
+    refetchInterval: 60000, // تحديث كل 60 ثانية
   });
 
   // جلب إحصائيات المراقبة (SigNoz/Prometheus)
@@ -155,7 +155,8 @@ export default function Dashboard() {
         return null;
       }
     },
-    refetchInterval: 15000, // تحديث كل 15 ثانية
+    staleTime: 1000 * 60,
+    refetchInterval: 60000, // تحديث كل 60 ثانية
   });
 
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;

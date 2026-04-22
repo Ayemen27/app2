@@ -65,6 +65,61 @@ function sanitizeLogData(data: any): any {
 
 const app = express();
 
+// --- [T001] Health & Ready Probes (Kubernetes-style) ---
+// Defined BEFORE any heavy middleware (auth, rate-limit, compression)
+app.get('/healthz', (req: Request, res: Response) => {
+  const health = {
+    status: 'ok',
+    uptime: process.uptime(),
+    pid: process.pid,
+    memory: {
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+    },
+    timestamp: new Date().toISOString()
+  };
+  res.status(200).json(health);
+});
+
+app.get('/readyz', (req: Request, res: Response) => {
+  const status = getConnectionHealthStatus();
+  // If pool is completely exhausted or disconnected
+  const isReady = status.totalConnections > 0;
+  
+  if (!isReady) {
+    return res.status(503).json({
+      status: 'service_unavailable',
+      reason: 'database_disconnected',
+      pool: {
+        total: status.totalConnections,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount
+      }
+    });
+  }
+  
+  res.status(200).json({
+    status: 'ready',
+    pool: {
+      total: status.totalConnections,
+      idle: pool.idleCount,
+      waiting: pool.waitingCount
+    }
+  });
+});
+
+// Event Loop Lag Monitor
+let lastCheck = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const lag = now - lastCheck - 1000;
+  if (lag > 500) {
+    console.warn(`🔴 [Performance] Event loop lag detected: ${lag}ms | Pool: total=${pool.totalCount} idle=${pool.idleCount} waiting=${pool.waitingCount}`);
+  }
+  lastCheck = now;
+}, 1000).unref();
+// -------------------------------------------------------
+
 app.use(cookieParser());
 
 import { apiErrorNormalizer } from './middleware/api-error-normalizer';
@@ -978,7 +1033,12 @@ const activeIntervals: NodeJS.Timeout[] = [];
     });
 
     async function gracefulShutdown(signal: string) {
-      console.log(`${signal} signal received: starting graceful shutdown`);
+      console.log(`[Shutdown] Signal received: ${signal}`);
+      
+      const forceExitTimeout = setTimeout(() => {
+        console.error('[Shutdown] Forcefully exiting after timeout');
+        process.exit(1);
+      }, 8000);
 
       for (const interval of activeIntervals) {
         clearInterval(interval);
@@ -1063,12 +1123,35 @@ const activeIntervals: NodeJS.Timeout[] = [];
         console.error('❌ [Shutdown] Error closing database pool:', err);
       }
 
+      clearTimeout(forceExitTimeout);
       console.log('✅ [Shutdown] Graceful shutdown complete');
       process.exit(0);
     }
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    process.on('uncaughtException', (err) => {
+      console.error('🚨 [Critical] Uncaught Exception:', {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
+      // In Express production pattern, we log but might not exit unless it's a known fatal error
+      // However, usually it's safer to exit after logging to avoid inconsistent state
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('🚨 [Critical] Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+
+    process.on('beforeExit', (code) => {
+      console.log(`[Shutdown] beforeExit code=${code}`);
+    });
+
+    process.on('exit', (code) => {
+      console.log(`[Shutdown] exit code=${code}`);
+    });
   } catch (error) {
     console.error('❌ خطأ في بدء الخادم:', error);
     process.exit(1);

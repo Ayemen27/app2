@@ -313,9 +313,65 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   const startTime = Date.now();
+  const { lastSyncTime } = req.query;
+  const isNdjsonRequested = req.headers['accept'] === 'application/x-ndjson' || req.query.format === 'ndjson';
+
   try {
-    const { lastSyncTime } = req.query;
-    console.log(`🔄 [Sync] طلب نسخة احتياطية${lastSyncTime ? ' تفاضلية منذ ' + lastSyncTime : ' كاملة'} (${ALL_DATABASE_TABLES.length} جدول، parallel batches)`);
+    if (isNdjsonRequested) {
+      console.log(`🔄 [Sync] Starting streaming NDJSON backup${lastSyncTime ? ' (delta)' : ''}`);
+      res.setHeader('Content-Type', 'application/x-ndjson');
+      res.setHeader('Transfer-Encoding', 'chunked');
+      res.setHeader('X-Backup-Format', 'ndjson-v1');
+
+      let totalRecords = 0;
+      for (const table of ALL_DATABASE_TABLES) {
+        let hasMore = true;
+        let cursor: string | undefined = undefined;
+        while (hasMore) {
+          const result = await fetchTableDataPaginated({ 
+            table: table as string, 
+            lastSyncTime: lastSyncTime as string | undefined,
+            cursor,
+            pageSize: 1000 
+          });
+          
+          if (result.error) {
+            console.error(`❌ [Sync] Error streaming table ${table}:`, result.error);
+            break;
+          }
+
+          for (const row of result.rows) {
+            res.write(JSON.stringify({ t: table, d: row }) + '\n');
+            totalRecords++;
+          }
+
+          hasMore = !!result.hasMore;
+          cursor = result.nextCursor || undefined;
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [Sync] Finished streaming ${totalRecords} records in ${duration}ms`);
+      
+      SyncAuditService.logBulkSync({
+        user_id: getAuthUser(req)?.user_id,
+        userName: getUserDisplayName(getAuthUser(req)),
+        syncType: lastSyncTime ? 'delta_sync_stream' : 'full_backup_stream',
+        tablesCount: ALL_DATABASE_TABLES.length,
+        totalRecords,
+        durationMs: duration,
+        status: 'success',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+        userAgent: req.headers['user-agent'],
+        isDelta: !!lastSyncTime,
+      }).catch(() => {});
+
+      res.end();
+      return;
+    }
+
+    // Legacy JSON support
+    console.log(`🔄 [Sync] طلب نسخة احتياطية (Legacy JSON)${lastSyncTime ? ' تفاضلية منذ ' + lastSyncTime : ' كاملة'} (${ALL_DATABASE_TABLES.length} جدول)`);
 
     const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(
       ALL_DATABASE_TABLES as unknown as string[],
@@ -324,8 +380,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
 
     const duration = Date.now() - startTime;
     const totalRecords = Object.values(results).reduce((sum, rows) => sum + rows.length, 0);
-    console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
-
+    console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي)`);
 
     SyncAuditService.logBulkSync({
       user_id: getAuthUser(req)?.user_id,
@@ -346,7 +401,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     return res.status(200).send(JSON.stringify({
       success: true,
       status: "success",
-      message: "تم تجهيز البيانات بنجاح",
+      message: "تم تجهيز البيانات بنجاح (Legacy JSON)",
       data: results,
       timestamp: new Date().toISOString(),
       metadata: {
@@ -364,24 +419,11 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     }));
   } catch (error: unknown) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
-    SyncAuditService.logBulkSync({
-      user_id: getAuthUser(req)?.user_id,
-      userName: getUserDisplayName(getAuthUser(req)),
-      syncType: 'full_backup',
-      tablesCount: ALL_DATABASE_TABLES.length,
-      totalRecords: 0,
-      durationMs: Date.now() - startTime,
-      status: 'failed',
-      errorMessage: error instanceof Error ? error.message : String(error),
-      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
-      userAgent: req.headers['user-agent'],
-    }).catch(() => {});
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(500).send(JSON.stringify({
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      message: "حدث خطأ غير متوقع في الخادم"
-    }));
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: "Internal server error" });
+    } else {
+      res.end();
+    }
   }
 });
 

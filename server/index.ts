@@ -1114,10 +1114,17 @@ const activeIntervals: NodeJS.Timeout[] = [];
 
     process.on('beforeExit', (code) => {
       console.log(`[Shutdown] beforeExit code=${code}`);
+      try { (process.stdout as any).write?.('', () => {}); } catch {}
     });
 
     process.on('exit', (code) => {
-      console.log(`[Shutdown] exit code=${code}`);
+      // إذا كنا في عملية إغلاق متعمَّد، حوّل أي كود غير صفر إلى صفر
+      // لتجنّب وسم workflow بـ FAILED بعد restart عادي.
+      if (shuttingDown && code !== 0) {
+        console.log(`[Shutdown] exit code=${code} (overriding to 0 - intentional shutdown)`);
+      } else {
+        console.log(`[Shutdown] exit code=${code}`);
+      }
     });
   } catch (error) {
     console.error('❌ خطأ في بدء الخادم:', error);

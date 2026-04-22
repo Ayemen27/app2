@@ -45,7 +45,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   // 2. تذييل الترويسة (Subtitle/Timestamp)
   worksheet.mergeCells('A2:I2');
   const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | الفتيني للمقاولات العامة والاستشارات الهندسية`;
+  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | ${_b.companyName}`;
   subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
   subTitle.alignment = centerAlign;
   worksheet.getRow(2).height = 20;
@@ -305,7 +305,7 @@ export const exportWorkersListReport = async (
 
   worksheet.mergeCells(`A2:${lastColLetter}2`);
   const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | الفتيني للمقاولات العامة والاستشارات الهندسية`;
+  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | ${getBranding().companyName}`;
   subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
   subTitle.alignment = centerAlign;
   worksheet.getRow(2).height = 20;

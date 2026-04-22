@@ -20,6 +20,7 @@ export interface ReportBranding {
   phone: string;
   email: string;
   website: string;
+  logoUrl: string;
   footerText: string;
   primaryColor: string;   // #RRGGBB
   secondaryColor: string;
@@ -33,10 +34,11 @@ export const DEFAULT_BRANDING: ReportBranding = {
   phone: '',
   email: '',
   website: '',
+  logoUrl: '',
   footerText: '',
-  primaryColor: '#1B2A4A',
-  secondaryColor: '#2E5090',
-  accentColor: '#4A90D9',
+  primaryColor: '#15807F',
+  secondaryColor: '#0F6B6B',
+  accentColor: '#F4A14B',
 };
 
 let _cache: ReportBranding = { ...DEFAULT_BRANDING };
@@ -57,6 +59,7 @@ export function updateBrandingCache(next: Partial<ReportBranding> | null | undef
     phone: next.phone ?? '',
     email: next.email ?? '',
     website: next.website ?? '',
+    logoUrl: next.logoUrl ?? '',
     footerText: next.footerText ?? '',
     primaryColor: next.primaryColor || DEFAULT_BRANDING.primaryColor,
     secondaryColor: next.secondaryColor || DEFAULT_BRANDING.secondaryColor,
@@ -79,6 +82,7 @@ function mapServerPayload(p: any): Partial<ReportBranding> | null {
     phone: p.phone,
     email: p.email,
     website: p.website,
+    logoUrl: p.logo_url,
     footerText: p.footer_text,
     primaryColor: p.primary_color,
     secondaryColor: p.secondary_color,

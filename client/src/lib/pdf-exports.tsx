@@ -3,6 +3,58 @@ import { arSA } from 'date-fns/locale';
 import { downloadFile } from '@/utils/webview-download';
 import { getBranding } from '@/lib/report-branding';
 
+/**
+ * ترويسة Letterhead الموحّدة لكل تقارير العميل (مطابقة لتصميم الصورة).
+ * تقرأ كل البيانات من /api/report-header (cache المخزن في getBranding).
+ */
+function buildLetterheadHeader(subtitle?: string): string {
+  const b = getBranding();
+  const initial = (b.companyName || 'A').charAt(0);
+  const logo = b.logoUrl
+    ? `<img src="${b.logoUrl}" alt="logo" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #e2e8f0;padding:2px;"/>`
+    : `<div style="width:48px;height:48px;border-radius:8px;background:${b.primaryColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">${initial}</div>`;
+
+  const left: string[] = [];
+  if (b.email)   left.push(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${b.accentColor};color:#fff;font-size:10px;">✉</span>${b.email}</div>`);
+  if (b.website) left.push(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${b.accentColor};color:#fff;font-size:10px;">🌐</span>${b.website}</div>`);
+
+  const titleBand = subtitle
+    ? `<div style="background:${b.secondaryColor};color:#fff;text-align:center;padding:8px 12px;margin:12px 0 8px 0;font-size:13px;font-weight:800;border-radius:4px;">${subtitle}</div>`
+    : '';
+
+  return `
+  <div style="display:flex;background:${b.primaryColor};color:#fff;min-height:86px;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;">
+    <div style="flex:1;padding:14px 20px;display:flex;flex-direction:column;justify-content:center;font-size:11px;color:#fff;">
+      ${left.join('') || '<div style="opacity:.5;">&nbsp;</div>'}
+    </div>
+    <div style="flex:1.2;background:#fff;color:${b.primaryColor};display:flex;align-items:center;gap:12px;padding:10px 22px 10px 40px;border-bottom-right-radius:60px;">
+      ${logo}
+      <div style="line-height:1.2;">
+        <div style="font-size:18px;font-weight:800;color:${b.primaryColor};">${b.companyName}</div>
+        ${b.companyNameEn ? `<div style="font-size:11px;color:${b.secondaryColor};font-weight:500;">${b.companyNameEn}</div>` : ''}
+      </div>
+    </div>
+  </div>
+  <div style="height:6px;background:${b.accentColor};"></div>
+  ${titleBand}`;
+}
+
+function buildLetterheadFooter(): string {
+  const b = getBranding();
+  const phone = b.phone
+    ? `<div style="flex:1;display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${b.accentColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;">☎</div><div><div style="font-size:9px;opacity:.75;">Phone</div><div style="font-size:11px;font-weight:700;" dir="ltr">${b.phone}</div></div></div>`
+    : '<div style="flex:1;"></div>';
+  const addr = b.address
+    ? `<div style="flex:1;display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${b.accentColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;">📍</div><div><div style="font-size:9px;opacity:.75;">Address</div><div style="font-size:11px;font-weight:700;">${b.address}</div></div></div>`
+    : '<div style="flex:1;"></div>';
+  return `
+  <div style="height:6px;background:${b.accentColor};margin-top:16px;"></div>
+  <div style="display:flex;background:${b.primaryColor};color:#fff;min-height:60px;padding:12px 24px;gap:24px;align-items:center;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;">
+    ${phone}
+    ${addr}
+  </div>`;
+}
+
 function buildWorkerHTML(data: any, worker: any): string {
   // 🎨 ألوان مأخوذة من إعدادات المستخدم (ترويسة التقارير في الإعدادات)
   const _b = getBranding();
@@ -85,8 +137,8 @@ function buildWorkerHTML(data: any, worker: any): string {
   ` : '';
 
   return `<div style="direction:rtl;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
-    <div style="background:${cSecondary};color:#fff;text-align:center;padding:6px 0;font-size:14px;font-weight:800;margin-bottom:8px;">كشف حساب العامل التفصيلي والشامل</div>
-    <div style="display:flex;justify-content:space-between;margin:0 8px 8px 8px;font-size:10px;">
+    ${buildLetterheadHeader('كشف حساب العامل التفصيلي والشامل')}
+    <div style="display:flex;justify-content:space-between;margin:0 8px 8px 8px;font-size:10px;padding:0 12px;">
       <div>
         <div style="margin-bottom:2px;"><b style="display:inline-block;width:80px;">اسم العامل:</b> ${workerName}</div>
         <div style="margin-bottom:2px;"><b style="display:inline-block;width:80px;">نوع العامل:</b> ${workerType}</div>
@@ -133,8 +185,9 @@ function buildWorkerHTML(data: any, worker: any): string {
         <tr><td style="padding:3px 6px;font-weight:700;border:1px solid ${cBorder};font-size:10px;background:${cZebra};">الرصيد النهائي:</td><td style="padding:3px 6px;text-align:left;border:1px solid ${cBorder};font-size:10px;font-weight:800;background:${cZebra};">${finalBalance.toLocaleString('en-US')}</td></tr>
       </table>
     </div>
-    <div style="text-align:center;font-size:8px;color:#7F7F7F;margin-top:12px;padding:4px;border-top:1px solid #EEE;">
-      تم إنشاء هذا التقرير بواسطة نظام إدارة مشاريع البناء | ${format(new Date(), 'dd/MM/yyyy HH:mm')}
+    ${buildLetterheadFooter()}
+    <div style="text-align:center;font-size:8px;color:#7F7F7F;margin-top:6px;padding:4px;">
+      تاريخ الإنشاء: ${format(new Date(), 'dd/MM/yyyy HH:mm')}
     </div>
   </div>`;
 }

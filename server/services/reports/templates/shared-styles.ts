@@ -128,15 +128,26 @@ export function xlApplyBorders(row: ExcelJS.Row, colCount: number) {
 
 export function xlCompanyHeader(ws: ExcelJS.Worksheet, rowNum: number, colCount: number): number {
   const h = currentReportHeader();
+  // الصف 1: شريط Letterhead الرئيسي — اسم الشركة + tagline
   ws.mergeCells(rowNum, 1, rowNum, colCount);
   const r = ws.getRow(rowNum);
-  r.getCell(1).value = h.company_name;
+  const tagline = h.company_name_en ? `\n${h.company_name_en}` : '';
+  r.getCell(1).value = `${h.company_name}${tagline}`;
   r.getCell(1).font = { bold: true, size: 14, color: { argb: COLORS.white }, name: 'Calibri' };
   r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
-  r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-  r.height = 34;
+  r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  r.height = tagline ? 44 : 34;
   xlApplyBorders(r, colCount);
-  // Optional contact line
+
+  // الصف 2: شريط لون التمييز (accent) — يحاكي الشريط البرتقالي في الصورة
+  rowNum += 1;
+  ws.mergeCells(rowNum, 1, rowNum, colCount);
+  const accent = ws.getRow(rowNum);
+  accent.getCell(1).value = '';
+  accent.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.accentBlue } };
+  accent.height = 6;
+
+  // الصف 3 (اختياري): بيانات الاتصال
   const contact = [h.address, h.phone, h.email, h.website].filter(Boolean).join('  •  ');
   if (contact) {
     rowNum += 1;
@@ -146,8 +157,33 @@ export function xlCompanyHeader(ws: ExcelJS.Worksheet, rowNum: number, colCount:
     cr.getCell(1).font = { size: 9, color: { argb: COLORS.gray700 }, name: 'Calibri' };
     cr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.gray100 } };
     cr.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-    cr.height = 18;
+    cr.height = 20;
   }
+  return rowNum + 1;
+}
+
+/**
+ * تذييل letterhead الموحّد لـ Excel — يطابق ترويسة الأعلى بصرياً.
+ */
+export function xlLetterheadFooter(ws: ExcelJS.Worksheet, rowNum: number, colCount: number): number {
+  const h = currentReportHeader();
+  // شريط accent
+  ws.mergeCells(rowNum, 1, rowNum, colCount);
+  const accent = ws.getRow(rowNum);
+  accent.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.accentBlue } };
+  accent.height = 6;
+  rowNum += 1;
+
+  // شريط بيانات الاتصال (هاتف | عنوان)
+  ws.mergeCells(rowNum, 1, rowNum, colCount);
+  const fr = ws.getRow(rowNum);
+  const phone = h.phone ? `☎  ${h.phone}` : '';
+  const addr = h.address ? `📍  ${h.address}` : '';
+  fr.getCell(1).value = [phone, addr].filter(Boolean).join('     |     ');
+  fr.getCell(1).font = { bold: true, size: 11, color: { argb: COLORS.white }, name: 'Calibri' };
+  fr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+  fr.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  fr.height = 32;
   return rowNum + 1;
 }
 
@@ -291,9 +327,109 @@ body {
   table { break-inside: auto; }
   thead { display: table-header-group; }
 }
-.report-container { padding: 10px; max-width: 794px; margin: 0 auto; }
+.report-container { padding: 0 12px; max-width: 794px; margin: 0 auto; }
+.report-container > .lh-header,
+.report-container > .lh-footer,
+.report-container > .lh-accent-bar { margin-left: -12px; margin-right: -12px; }
+
+/* ===== Letterhead Header (مطابق لقالب letterhead الرسمي) ===== */
+.lh-header {
+  display: flex;
+  background: ${PDF_COLORS.navy};
+  color: #fff;
+  min-height: 86px;
+  margin: 0;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+}
+.lh-header-left {
+  flex: 1;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #fff;
+}
+.lh-header-left .lh-row { display: flex; align-items: center; gap: 8px; }
+.lh-header-left .lh-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: ${PDF_COLORS.accentBlue}; color: #fff;
+  font-size: 10px; flex-shrink: 0;
+}
+.lh-header-right {
+  background: #fff;
+  color: ${PDF_COLORS.navy};
+  flex: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px 10px 40px;
+  position: relative;
+  border-bottom-right-radius: 60px;
+}
+.lh-header-right .lh-logo-img,
+.lh-header-right .lh-logo-fallback {
+  width: 48px; height: 48px; border-radius: 8px;
+  background: ${PDF_COLORS.navy}; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 22px; flex-shrink: 0;
+  object-fit: contain;
+}
+.lh-header-right .lh-logo-img { background: #fff; border: 1px solid ${PDF_COLORS.border}; padding: 2px; }
+.lh-header-right .lh-co-block { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+.lh-header-right .lh-co-name { font-size: 18px; font-weight: 800; color: ${PDF_COLORS.navy}; }
+.lh-header-right .lh-tagline { font-size: 11px; color: ${PDF_COLORS.blue}; font-weight: 500; }
+.lh-accent-bar {
+  height: 6px;
+  background: ${PDF_COLORS.accentBlue};
+  margin: 0 0 0 0;
+}
+.lh-accent-bar-bottom { margin-top: 16px; }
+.lh-title-band {
+  background: ${PDF_COLORS.blue};
+  color: #fff;
+  text-align: center;
+  padding: 8px 12px;
+  margin: 12px 10px 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+}
+/* ===== Letterhead Footer ===== */
+.lh-footer {
+  display: flex;
+  background: ${PDF_COLORS.navy};
+  color: #fff;
+  min-height: 60px;
+  padding: 12px 24px;
+  margin: 0;
+  gap: 24px;
+  align-items: center;
+  font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+}
+.lh-footer .lhf-block {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lh-footer .lhf-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: ${PDF_COLORS.accentBlue}; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+.lh-footer .lhf-label { font-size: 9px; opacity: 0.75; }
+.lh-footer .lhf-val { font-size: 11px; font-weight: 700; }
+
+/* Backward compat — old templates still calling .header-band fall back to title band look */
 .header-band {
-  background: linear-gradient(135deg, ${PDF_COLORS.navy} 0%, ${PDF_COLORS.blue} 100%);
+  background: ${PDF_COLORS.blue};
   color: #fff; text-align: center; padding: 10px 12px; margin-bottom: 0;
   border-radius: 6px 6px 0 0;
 }
@@ -376,10 +512,68 @@ table tbody tr:hover { background: #E3EBF3; }
  */
 export const PDF_BASE_STYLES = buildPdfBaseStyles();
 
-export function pdfHeader(title: string, subtitle: string): string {
-  return `<div class="header-band">
-  <h1>${escapeHtml(title)}</h1>
-  <div class="subtitle">${escapeHtml(subtitle)}</div>
+/**
+ * ترويسة موحّدة لكل تقارير PDF — مطابقة لقالب letterhead الرسمي.
+ * تقرأ كل البيانات من إعدادات المستخدم في DB (currentReportHeader).
+ *
+ * التوقيع متوافق خلفياً: لو مُرّر وسيطان، الأول كان اسم شركة hardcoded قديماً
+ * ويُتجاهل الآن (الاسم يأتي من DB). الثاني (أو الأول إن كان واحداً) = subtitle.
+ *
+ * @param a - subtitle، أو (للتوافق القديم) اسم شركة يُتجاهل
+ * @param b - subtitle عند تمرير وسيطين
+ */
+export function pdfHeader(a?: string, b?: string): string {
+  const h = currentReportHeader();
+  const subtitle = (b !== undefined ? b : a) || '';
+  const initials = (h.company_name || '').trim().charAt(0) || 'A';
+
+  const logoBox = h.logo_url
+    ? `<img class="lh-logo-img" src="${escapeHtml(h.logo_url)}" alt="logo"/>`
+    : `<div class="lh-logo-fallback">${escapeHtml(initials)}</div>`;
+
+  const leftItems: string[] = [];
+  if (h.email)   leftItems.push(`<div class="lh-row"><span class="lh-icon">✉</span>${escapeHtml(h.email)}</div>`);
+  if (h.website) leftItems.push(`<div class="lh-row"><span class="lh-icon">🌐</span>${escapeHtml(h.website)}</div>`);
+  if (h.phone)   leftItems.push(`<div class="lh-row"><span class="lh-icon">☎</span><span dir="ltr">${escapeHtml(h.phone)}</span></div>`);
+
+  const tagline = h.company_name_en || '';
+
+  const titleBand = subtitle
+    ? `<div class="lh-title-band">${escapeHtml(subtitle)}</div>`
+    : '';
+
+  return `<div class="lh-header">
+  <div class="lh-header-left">
+    ${leftItems.join('\n    ') || '<div class="lh-row" style="opacity:.6;">&nbsp;</div>'}
+  </div>
+  <div class="lh-header-right">
+    ${logoBox}
+    <div class="lh-co-block">
+      <div class="lh-co-name">${escapeHtml(h.company_name)}</div>
+      ${tagline ? `<div class="lh-tagline">${escapeHtml(tagline)}</div>` : ''}
+    </div>
+  </div>
+</div>
+<div class="lh-accent-bar"></div>
+${titleBand}`;
+}
+
+/**
+ * تذييل letterhead الموحّد — يظهر في أسفل صفحة التقرير.
+ * يعرض الهاتف على اليمين والعنوان على اليسار بتصميم مطابق للترويسة.
+ */
+export function pdfLetterheadFooter(): string {
+  const h = currentReportHeader();
+  const phoneBlock = h.phone
+    ? `<div class="lhf-block"><div class="lhf-icon">☎</div><div class="lhf-text"><div class="lhf-label">Phone</div><div class="lhf-val" dir="ltr">${escapeHtml(h.phone)}</div></div></div>`
+    : '<div class="lhf-block"></div>';
+  const addrBlock = h.address
+    ? `<div class="lhf-block"><div class="lhf-icon">📍</div><div class="lhf-text"><div class="lhf-label">Address</div><div class="lhf-val">${escapeHtml(h.address)}</div></div></div>`
+    : '<div class="lhf-block"></div>';
+  return `<div class="lh-accent-bar lh-accent-bar-bottom"></div>
+<div class="lh-footer">
+  ${phoneBlock}
+  ${addrBlock}
 </div>`;
 }
 
@@ -461,6 +655,7 @@ export function pdfWrap(title: string, body: string): string {
 <div class="print-bar-spacer no-print"></div>
 <div class="report-container">
 ${body}
+${pdfLetterheadFooter()}
 </div>
 </body>
 </html>`;

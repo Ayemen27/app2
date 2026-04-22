@@ -60,7 +60,7 @@ export function generateWellReportHTML(options: {
 
   let body = '';
 
-  body += pdfHeader('تقرير إدارة الآبار', 'الفتيني للمقاولات العامة والاستشارات الهندسية');
+  body += pdfHeader('تقرير إدارة الآبار');
   body += pdfInfoBar(
     [`<b>المشروع:</b> ${escapeHtml(projectName)}`, `<b>المهندس:</b> ${escapeHtml(engineerName || '-')}`],
     [`<b>التاريخ:</b> ${nowDateBR()}`, `<b>عدد الآبار:</b> ${wells.length}`]

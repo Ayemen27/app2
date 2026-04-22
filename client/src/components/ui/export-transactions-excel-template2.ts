@@ -1,4 +1,5 @@
 import { downloadExcelFile } from '@/utils/webview-download';
+import { getBranding } from '@/lib/report-branding';
 
 interface Transaction {
   id: string;
@@ -147,7 +148,7 @@ export async function exportTransactionsToExcelTemplate2(
   // 🏢 ترويسة الشركة
   ws.mergeCells(r, 1, r, COL);
   const companyCell = ws.getRow(r).getCell(1);
-  companyCell.value = 'الفتيني للمقاولات العامة والاستشارات الهندسية';
+  companyCell.value = getBranding().companyName;
   style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13 });
   ws.getRow(r).height = 26;
   r++;

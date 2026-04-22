@@ -6,6 +6,8 @@ import {
   getEntryName,
   getRowColors,
 } from '../../../../shared/daily-transactions';
+import { pdfWrap, pdfHeader } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function gregorianToHijri(date: Date): { day: number; month: number; year: number; monthName: string; dayName: string } {
   const DAY_NAMES_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -79,67 +81,39 @@ export function generateDailyReportTemplate2HTML(data: DailyReportData, dateStr:
   }).join('\n');
 
   const runColor = running < 0 ? '#c0392b' : '#7b1d0b';
+  const h = currentReportHeader();
+  const cPrimary = h.primary_color || '#15807F';
+  const cSecondary = h.secondary_color || '#0F6B6B';
 
-  return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  @page { size: A4; margin: 10mm; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, Tahoma, sans-serif; background:#fff; direction:rtl; font-size:10pt; }
-  .title-row {
-    background:#1f7a3c; color:#fff; text-align:center;
-    font-size:12pt; font-weight:bold; padding:8px;
-    border:1px solid #999;
-  }
-  .legend {
-    padding:4px 8px; font-size:8pt; border:1px solid #ccc; border-top:none;
-    background:#fafafa;
-  }
-  .legend span { margin-left:12px; }
-  .leg-box { display:inline-block; width:10px; height:10px; border:1px solid #aaa; vertical-align:middle; margin-left:3px; }
-  table { width:100%; border-collapse:collapse; margin-top:0; font-size:9.5pt; }
-  th {
-    background:#1f7a3c; color:#fff; font-weight:bold;
-    padding:6px 4px; text-align:center; border:1px solid #999;
-  }
-  td { padding:5px 4px; border:1px solid #ccc; vertical-align:middle; }
-  .remain-row td {
-    background:#fa8072 !important; color:${runColor};
-    font-weight:bold; font-size:11pt; border-color:#999;
-  }
-</style>
-</head>
-<body>
-<div class="title-row">كشف مصروفات مشروع ${projectName} الموافق ${gFormatted}</div>
-<div class="legend">
-  <span><span class="leg-box" style="background:#d6ead7;"></span> رصيد مرحل موجب</span>
-  <span><span class="leg-box" style="background:#fce4e4;"></span> رصيد مرحل سالب</span>
-  <span><span class="leg-box" style="background:#daeaf5;"></span> دخل (عهدة/أموال واردة)</span>
-  <span><span class="leg-box" style="background:#fff0cc;"></span> ترحيل بين مشاريع</span>
-  <span><span class="leg-box" style="background:#eee8f8;"></span> مشتريات مواد</span>
+  const body = `
+${pdfHeader(`كشف مصروفات مشروع ${projectName} الموافق ${gFormatted}`)}
+<div class="legend" style="padding:4px 8px;font-size:8pt;border:1px solid #ccc;background:#fafafa;margin:0 0 6px 0;">
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#d6ead7;vertical-align:middle;margin-left:3px;"></span> رصيد مرحل موجب</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#fce4e4;vertical-align:middle;margin-left:3px;"></span> رصيد مرحل سالب</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#daeaf5;vertical-align:middle;margin-left:3px;"></span> دخل (عهدة/أموال واردة)</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#fff0cc;vertical-align:middle;margin-left:3px;"></span> ترحيل بين مشاريع</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#eee8f8;vertical-align:middle;margin-left:3px;"></span> مشتريات مواد</span>
 </div>
-<table>
+<table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
   <thead>
     <tr>
-      <th style="width:12%;">المبلغ</th>
-      <th style="width:14%;">نوع الحساب</th>
-      <th style="width:22%;">الاسم</th>
-      <th style="width:9%;">عدد الأيام</th>
-      <th style="width:14%;">الرصيد التجميعي</th>
-      <th style="width:29%;">ملاحظات</th>
+      <th style="width:12%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">المبلغ</th>
+      <th style="width:14%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">نوع الحساب</th>
+      <th style="width:22%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">الاسم</th>
+      <th style="width:9%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">عدد الأيام</th>
+      <th style="width:14%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">الرصيد التجميعي</th>
+      <th style="width:29%;background:${cPrimary};color:#fff;font-weight:bold;padding:6px 4px;text-align:center;border:1px solid ${cSecondary};">ملاحظات</th>
     </tr>
   </thead>
   <tbody>
 ${rows}
-    <tr class="remain-row">
-      <td colspan="4" style="text-align:center;">المبلغ المتبقي</td>
-      <td style="text-align:center;color:${runColor};">${fmt(running)}</td>
-      <td></td>
+    <tr>
+      <td colspan="4" style="text-align:center;background:#fa8072;color:${runColor};font-weight:bold;font-size:11pt;border:1px solid #999;padding:5px 4px;">المبلغ المتبقي</td>
+      <td style="text-align:center;background:#fa8072;color:${runColor};font-weight:bold;font-size:11pt;border:1px solid #999;padding:5px 4px;">${fmt(running)}</td>
+      <td style="background:#fa8072;border:1px solid #999;padding:5px 4px;"></td>
     </tr>
   </tbody>
-</table>
-</body>
-</html>`;
+</table>`;
+
+  return pdfWrap(`كشف مصروفات ${projectName}`, body);
 }

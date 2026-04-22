@@ -17,6 +17,7 @@ interface HeaderForm {
   phone: string;
   email: string;
   website: string;
+  logo_url: string;
   footer_text: string;
   primary_color: string;
   secondary_color: string;
@@ -30,10 +31,11 @@ const EMPTY: HeaderForm = {
   phone: "",
   email: "",
   website: "",
+  logo_url: "",
   footer_text: "",
-  primary_color: "#1B2A4A",
-  secondary_color: "#2E5090",
-  accent_color: "#4A90D9",
+  primary_color: "#15807F",
+  secondary_color: "#0F6B6B",
+  accent_color: "#F4A14B",
 };
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -56,10 +58,11 @@ export default function ReportHeaderSettings() {
         phone: data.header.phone || "",
         email: data.header.email || "",
         website: data.header.website || "",
+        logo_url: data.header.logo_url || "",
         footer_text: data.header.footer_text || "",
-        primary_color: data.header.primary_color || "#1B2A4A",
-        secondary_color: data.header.secondary_color || "#2E5090",
-        accent_color: data.header.accent_color || "#4A90D9",
+        primary_color: data.header.primary_color || "#15807F",
+        secondary_color: data.header.secondary_color || "#0F6B6B",
+        accent_color: data.header.accent_color || "#F4A14B",
       });
       setDirty(false);
     }
@@ -74,6 +77,7 @@ export default function ReportHeaderSettings() {
         phone: payload.phone.trim() || null,
         email: payload.email.trim() || null,
         website: payload.website.trim() || null,
+        logo_url: payload.logo_url.trim() || null,
         footer_text: payload.footer_text.trim() || null,
         primary_color: payload.primary_color,
         secondary_color: payload.secondary_color,
@@ -208,6 +212,31 @@ export default function ReportHeaderSettings() {
                 data-testid="input-address"
               />
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="rh-logo">رابط الشعار (URL)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="rh-logo"
+                  value={form.logo_url}
+                  onChange={(e) => update("logo_url", e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  dir="ltr"
+                  data-testid="input-logo-url"
+                />
+                {form.logo_url ? (
+                  <img
+                    src={form.logo_url}
+                    alt="logo preview"
+                    className="w-12 h-12 rounded border object-contain bg-white"
+                    onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+                    data-testid="img-logo-preview"
+                  />
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                إن لم تُحدّد رابطاً، سيُستخدم الحرف الأول من اسم الشركة كشعار افتراضي.
+              </p>
+            </div>
           </div>
           <Separator className="opacity-50" />
           <div className="space-y-2">
@@ -266,16 +295,48 @@ export default function ReportHeaderSettings() {
           <div
             className="rounded-lg overflow-hidden border"
             data-testid="color-preview"
-            aria-label="معاينة الألوان"
+            aria-label="معاينة الترويسة"
           >
-            <div className="p-3 text-white text-center font-bold text-sm" style={{ background: form.primary_color }}>
-              {form.company_name || "اسم الشركة"}
+            <div className="flex items-stretch" style={{ background: form.primary_color }}>
+              <div className="flex-1 p-3 text-white text-xs space-y-1">
+                {form.email ? <div>✉ {form.email}</div> : <div className="opacity-60">your@email.com</div>}
+                {form.website ? <div>🌐 {form.website}</div> : <div className="opacity-60">www.example.com</div>}
+              </div>
+              <div
+                className="flex-1 bg-white flex items-center gap-2 p-3"
+                style={{ borderBottomRightRadius: "32px" }}
+              >
+                {form.logo_url ? (
+                  <img src={form.logo_url} alt="" className="w-9 h-9 object-contain rounded" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                ) : (
+                  <div
+                    className="w-9 h-9 rounded flex items-center justify-center text-white font-bold"
+                    style={{ background: form.primary_color }}
+                  >
+                    {(form.company_name || "A").charAt(0)}
+                  </div>
+                )}
+                <div className="leading-tight">
+                  <div className="font-bold text-sm" style={{ color: form.primary_color }}>
+                    {form.company_name || "اسم الشركة"}
+                  </div>
+                  <div className="text-xs" style={{ color: form.secondary_color }}>
+                    {form.company_name_en || "Tagline / Slogan"}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="p-2 text-white text-center text-xs" style={{ background: form.secondary_color }}>
+            <div className="h-1.5" style={{ background: form.accent_color }} />
+            <div className="p-2 text-white text-center text-xs font-bold" style={{ background: form.secondary_color }}>
               عنوان التقرير
             </div>
-            <div className="p-2 text-center text-xs" style={{ background: "#fff", borderTop: `2px solid ${form.accent_color}` }}>
-              معاينة بطاقة المؤشرات
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground bg-white">
+              ـ ـ ـ محتوى التقرير ـ ـ ـ
+            </div>
+            <div className="h-1.5" style={{ background: form.accent_color }} />
+            <div className="flex items-center justify-between p-3 text-white text-xs" style={{ background: form.primary_color }}>
+              <div>☎ {form.phone || "+xxx xxx xxx"}</div>
+              <div>📍 {form.address || "العنوان"}</div>
             </div>
           </div>
         </CardContent>

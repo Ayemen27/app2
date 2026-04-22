@@ -1,4 +1,5 @@
 import { generatePDF } from '@/utils/pdfGenerator';
+import { getBranding } from '@/lib/report-branding';
 
 interface Transaction {
   id: string;
@@ -185,7 +186,7 @@ export async function exportDailyReportPdfTemplate2(
 </head>
 <body>
 <div class="page">
-  <div class="company-row">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
+  <div class="company-row">${getBranding().companyName}</div>
   <div class="title-row">كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}</div>
   <div class="hijri-row">${hijriStr}</div>
   <div class="legend">

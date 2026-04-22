@@ -16,6 +16,7 @@ export interface ReportHeader {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  logo_url?: string | null;
   footer_text?: string | null;
   primary_color: string;   // hex like #1B2A4A
   secondary_color: string;
@@ -29,10 +30,11 @@ export const DEFAULT_REPORT_HEADER: ReportHeader = {
   phone: null,
   email: null,
   website: null,
+  logo_url: null,
   footer_text: null,
-  primary_color: '#1B2A4A',
-  secondary_color: '#2E5090',
-  accent_color: '#4A90D9',
+  primary_color: '#15807F',
+  secondary_color: '#0F6B6B',
+  accent_color: '#F4A14B',
 };
 
 const storage = new AsyncLocalStorage<ReportHeader>();

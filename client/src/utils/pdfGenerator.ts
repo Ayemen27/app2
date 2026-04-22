@@ -1,5 +1,6 @@
 import { downloadFile, isMobileWebView } from '@/utils/webview-download';
 import DOMPurify from 'dompurify';
+import { getBranding } from '@/lib/report-branding';
 
 interface PDFGenerationOptions {
   html: string;
@@ -132,7 +133,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
 
   const html = `
     <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:${containerWidth}px;">
-      <div style="background:#1E3A8A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;letter-spacing:0.3px;border-bottom:2px solid #334155;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
+      <div style="background:${getBranding().primaryColor};color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;letter-spacing:0.3px;border-bottom:4px solid ${getBranding().accentColor};">${getBranding().companyName}</div>
       <div style="background:${hdrColor};color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">${options.reportTitle}</div>
       ${options.subtitle ? `<div style="text-align:center;padding:5px 0;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}

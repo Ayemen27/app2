@@ -18,8 +18,10 @@ export async function setupVite(app: Express, server: Server) {
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
+        // ✅ إصلاح حرج: لا تقتل الخادم بسبب أخطاء Vite (HMR / compile / module errors).
+        // كان السلوك السابق يستدعي process.exit(1) عند أي تحذير من Vite،
+        // مما يُسبب موت الخادم فجأة عند فتح صفحة الدخول أو أي خطأ في المتصفح.
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: {

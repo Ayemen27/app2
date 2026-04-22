@@ -26,6 +26,127 @@ export function addBrandingLogo(
   }
 }
 
+/**
+ * 🏛️ ترويسة letterhead موحّدة للإكسل — مطابقة لترويسة الـ PDF (buildLetterheadHeader).
+ * تُنشئ:
+ *   - صف 1: شريط الشركة (اسم عربي + tagline إنجليزي) بخلفية primary، مع شعار يطفو على اليمين
+ *   - صف 2: شريط لون التمييز (accent) رفيع
+ *   - صف 3 (اختياري): بيانات الاتصال (هاتف • عنوان • بريد • موقع)
+ *   - صف 4: شريط عنوان التقرير بخلفية secondary
+ *   - صف 5: تاريخ الاستخراج
+ * يعيد رقم الصف التالي للاستخدام.
+ */
+export function buildExcelLetterhead(
+  workbook: ExcelJS.Workbook,
+  worksheet: ExcelJS.Worksheet,
+  colCount: number,
+  reportTitle: string
+): number {
+  const _b = getBranding();
+  const mainBlue = argb(_b.primaryColor);
+  const accentBlue = argb(_b.accentColor);
+  const secondary = argb(_b.secondaryColor);
+  const lastCol = colCount;
+
+  // الصف 1: شريط الشركة الرئيسي
+  worksheet.mergeCells(1, 1, 1, lastCol);
+  const r1 = worksheet.getRow(1);
+  const tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
+  r1.getCell(1).value = `${_b.companyName}${tagline}`;
+  r1.getCell(1).font = { name: 'Calibri', bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+  r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  r1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  r1.height = tagline ? 64 : 50;
+
+  // الشعار يطفو في يمين الصف الأول (في وضع RTL: العمود A هو اليمين البصري)
+  // الحجم محسوب لينسجم مع ارتفاع الصف ويحافظ على نسبة الأبعاد المربّعة
+  if (_b.logoUrl) {
+    addBrandingLogo(workbook, worksheet, _b.logoUrl, {
+      tl: { col: 0.1, row: 0.08 } as any,
+      br: { col: 1.2, row: 0.92 } as any,
+    });
+  }
+
+  // الصف 2: شريط accent
+  worksheet.mergeCells(2, 1, 2, lastCol);
+  const r2 = worksheet.getRow(2);
+  r2.getCell(1).value = '';
+  r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentBlue } };
+  r2.height = 6;
+
+  let cursor = 3;
+
+  // الصف 3 (اختياري): بيانات الاتصال
+  const contactParts: string[] = [];
+  if (_b.phone)   contactParts.push(`☎  ${_b.phone}`);
+  if (_b.address) contactParts.push(`📍  ${_b.address}`);
+  if (_b.email)   contactParts.push(`✉  ${_b.email}`);
+  if (_b.website) contactParts.push(`🌐  ${_b.website}`);
+  if (contactParts.length > 0) {
+    worksheet.mergeCells(cursor, 1, cursor, lastCol);
+    const rc = worksheet.getRow(cursor);
+    rc.getCell(1).value = contactParts.join('     •     ');
+    rc.getCell(1).font = { name: 'Calibri', size: 10, color: { argb: 'FF475569' } };
+    rc.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    rc.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    rc.height = 22;
+    cursor++;
+  }
+
+  // صف عنوان التقرير
+  worksheet.mergeCells(cursor, 1, cursor, lastCol);
+  const rt = worksheet.getRow(cursor);
+  rt.getCell(1).value = reportTitle;
+  rt.getCell(1).font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  rt.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
+  rt.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  rt.height = 30;
+  cursor++;
+
+  // صف تاريخ الاستخراج
+  worksheet.mergeCells(cursor, 1, cursor, lastCol);
+  const rd = worksheet.getRow(cursor);
+  rd.getCell(1).value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+  rd.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: 'FF64748B' } };
+  rd.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  rd.height = 18;
+  cursor++;
+
+  return cursor;
+}
+
+/**
+ * 🦶 تذييل letterhead موحّد للإكسل — مطابق لتذييل الـ PDF (buildLetterheadFooter).
+ * شريط accent رفيع + شريط primary فيه الهاتف والعنوان.
+ */
+export function buildExcelLetterheadFooter(
+  worksheet: ExcelJS.Worksheet,
+  startRow: number,
+  colCount: number
+): number {
+  const _b = getBranding();
+  const mainBlue = argb(_b.primaryColor);
+  const accentBlue = argb(_b.accentColor);
+
+  worksheet.mergeCells(startRow, 1, startRow, colCount);
+  const ra = worksheet.getRow(startRow);
+  ra.getCell(1).value = '';
+  ra.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentBlue } };
+  ra.height = 6;
+
+  worksheet.mergeCells(startRow + 1, 1, startRow + 1, colCount);
+  const rf = worksheet.getRow(startRow + 1);
+  const phone = _b.phone ? `☎  ${_b.phone}` : '';
+  const addr = _b.address ? `📍  ${_b.address}` : '';
+  rf.getCell(1).value = [phone, addr].filter(Boolean).join('     |     ') || _b.companyName;
+  rf.getCell(1).font = { name: 'Calibri', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+  rf.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  rf.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  rf.height = 32;
+
+  return startRow + 2;
+}
+
 export const exportWorkerStatement = async (data: any, worker: any): Promise<boolean> => {
   await ensureBrandingLoaded();
   const workbook = new ExcelJS.Workbook();
@@ -58,34 +179,12 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
     right: { style: 'thin', color: { argb: borderGray } }
   };
 
-  // 1. ترويسة الصفحة الاحترافية (Professional Header) — تشمل الشعار + العنوان
-  // في وضع RTL: العمود A هو اليمين البصري — مكان مناسب للشعار.
-  worksheet.mergeCells('A1:B1');
-  worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  worksheet.getCell('A1').border = { top: { style: 'none' } } as any;
-  addBrandingLogo(workbook, worksheet, _b.logoUrl, {
-    tl: { col: 0.15, row: 0.1 } as any,
-    br: { col: 1.85, row: 0.95 } as any,
-  });
-
-  worksheet.mergeCells('C1:I1');
-  const mainTitle = worksheet.getCell('C1');
-  mainTitle.value = 'التقرير المالي التفصيلي - كشف حساب عامل';
-  mainTitle.font = { ...whiteText, size: 18 };
-  mainTitle.alignment = centerAlign;
-  mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  worksheet.getRow(1).height = 70;
-
-  // 2. تذييل الترويسة (Subtitle/Timestamp)
-  worksheet.mergeCells('A2:I2');
-  const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | ${_b.companyName}`;
-  subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
-  subTitle.alignment = centerAlign;
-  worksheet.getRow(2).height = 20;
+  // 1. ترويسة letterhead الموحّدة (مطابقة لـ PDF) — اسم شركة + شعار + بيانات اتصال + شريط accent + شريط عنوان
+  const COL_COUNT_WS = 10; // الأعمدة A→J في كشف حساب العامل
+  const nextRow = buildExcelLetterhead(workbook, worksheet, COL_COUNT_WS, 'التقرير المالي التفصيلي - كشف حساب عامل');
 
   // 3. قسم معلومات الكيان (Worker Info Section) - تصميم بطاقة حديثة
-  const infoStartRow = 4;
+  const infoStartRow = nextRow + 1; // فراغ صف واحد بعد الترويسة
   worksheet.getRow(infoStartRow).height = 25;
   worksheet.getRow(infoStartRow + 1).height = 25;
   worksheet.getRow(infoStartRow + 2).height = 25;
@@ -106,21 +205,15 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
     vCell.border = borderLight;
   };
 
-  styleInfoBox(4, 'A', '● اسم الموظف:', worker.name, accentBlue);
-  styleInfoBox(4, 'D', '● المشروع الحالي:', data.projectName || 'جميع المشاريع', accentBlue);
-  styleInfoBox(5, 'A', '● المسمى الوظيفي:', worker.type || 'عامل', accentBlue);
-  styleInfoBox(5, 'D', '● نطاق التقرير:', data.dateRange || 'السجل الكامل', accentBlue);
-  styleInfoBox(6, 'A', '● الأجر الأساسي:', `${worker.dailyWage} ر.ي / يوم`, accentBlue);
-  styleInfoBox(6, 'D', '● رقم القيد:', `W-${worker.id.toString().slice(-4).toUpperCase()}`, accentBlue);
-
-  // تنسيق أعمدة المعلومات لضمان عدم التداخل
-  worksheet.getColumn('A').width = 18;
-  worksheet.getColumn('B').width = 25;
-  worksheet.getColumn('D').width = 18;
-  worksheet.getColumn('E').width = 25;
+  styleInfoBox(infoStartRow, 'A', '● اسم الموظف:', worker.name, accentBlue);
+  styleInfoBox(infoStartRow, 'D', '● المشروع الحالي:', data.projectName || 'جميع المشاريع', accentBlue);
+  styleInfoBox(infoStartRow + 1, 'A', '● المسمى الوظيفي:', worker.type || 'عامل', accentBlue);
+  styleInfoBox(infoStartRow + 1, 'D', '● نطاق التقرير:', data.dateRange || 'السجل الكامل', accentBlue);
+  styleInfoBox(infoStartRow + 2, 'A', '● الأجر الأساسي:', `${worker.dailyWage} ر.ي / يوم`, accentBlue);
+  styleInfoBox(infoStartRow + 2, 'D', '● رقم القيد:', `W-${String(worker.id).slice(-4).toUpperCase()}`, accentBlue);
 
   // 4. جدول البيانات الرئيسي (Main Data Grid)
-  const tableHeaderRow = 8;
+  const tableHeaderRow = infoStartRow + 4; // فراغ صف بعد المعلومات
   const headers = ['م', 'التاريخ', 'اليوم', 'المشروع المرتبط', 'وصف العمل والتفاصيل', 'أيام', 'ساعات', 'مستحق (+)', 'مدفوع (-)', 'المتبقي'];
   const headerRow = worksheet.getRow(tableHeaderRow);
   headers.forEach((h, i) => {
@@ -147,7 +240,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   ];
 
   const statement = data.statement || [];
-  let currentRow = 10; // تأكيد قيمة البداية لـ currentRow
+  let currentRow = tableHeaderRow + 1;
   statement.forEach((item: any, index: number) => {
     const row = worksheet.getRow(currentRow);
     const date = new Date(item.date);
@@ -261,13 +354,17 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
     }
   });
 
-  // 7. تذييل التقرير (Footer/Security)
+  // 7. تذييل أمان (نص قانوني) — يغطي كل الأعمدة العشرة
   currentRow += metrics.length + 1;
-  worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+  const lastColLetterWS = String.fromCharCode(64 + COL_COUNT_WS);
+  worksheet.mergeCells(`A${currentRow}:${lastColLetterWS}${currentRow}`);
   const footer = worksheet.getCell(`A${currentRow}`);
   footer.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة أكسيون AXION. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
   footer.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
   footer.alignment = centerAlign;
+
+  // 8. تذييل letterhead الموحّد (مطابق لـ PDF)
+  buildExcelLetterheadFooter(worksheet, currentRow + 2, COL_COUNT_WS);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return await downloadExcelFile(buffer as ArrayBuffer, `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
@@ -331,30 +428,11 @@ export const exportWorkersListReport = async (
   const COLS = 10; // م، الاسم، الأيام، اليومية، أصبح له، السحبيات، الحوالات، الذي بيده، المتبقي له، ملاحظات
   const lastColLetter = String.fromCharCode(64 + COLS); // 'J'
 
-  // 1) ترويسة شركة + شعار + عنوان التقرير
-  worksheet.mergeCells('A1:B1');
-  worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  addBrandingLogo(workbook, worksheet, _b.logoUrl, {
-    tl: { col: 0.15, row: 0.1 } as any,
-    br: { col: 1.85, row: 0.95 } as any,
-  });
-  worksheet.mergeCells(`C1:${lastColLetter}1`);
-  const mainTitle = worksheet.getCell('C1');
-  mainTitle.value = meta.title || 'كشف العمال - تقرير شامل';
-  mainTitle.font = { ...whiteText, size: 18 };
-  mainTitle.alignment = centerAlign;
-  mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
-  worksheet.getRow(1).height = 70;
-
-  worksheet.mergeCells(`A2:${lastColLetter}2`);
-  const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | ${getBranding().companyName}`;
-  subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
-  subTitle.alignment = centerAlign;
-  worksheet.getRow(2).height = 20;
+  // 1) ترويسة letterhead الموحّدة (مطابقة لـ PDF)
+  const headerNextRow = buildExcelLetterhead(workbook, worksheet, COLS, meta.title || 'كشف العمال - تقرير شامل');
 
   // 2) صف معلومات الفلاتر
-  const infoRow = 4;
+  const infoRow = headerNextRow + 1; // فراغ صف بعد الترويسة
   worksheet.getRow(infoRow).height = 25;
   const infoCells: Array<[string, string, string]> = [
     ['A', '● المشروع:', meta.projectName || 'جميع المشاريع'],
@@ -379,7 +457,7 @@ export const exportWorkersListReport = async (
   });
 
   // 3) رأس الجدول
-  const headerRowIdx = 6;
+  const headerRowIdx = infoRow + 2; // فراغ صف بعد صف الفلاتر
   const headers = ['م', 'الاسم', 'الأيام', 'اليومية', 'أصبح له', 'السحبيات', 'الحوالات', 'الذي بيده', 'المتبقي له', 'ملاحظات'];
   const headerRow = worksheet.getRow(headerRowIdx);
   headers.forEach((h, i) => {
@@ -522,13 +600,16 @@ export const exportWorkersListReport = async (
     worksheet.getRow(r).height = 22;
   });
 
-  // 7) تذييل
-  const footerRow = summaryStart + metricsList.length + 2;
-  worksheet.mergeCells(`A${footerRow}:${lastColLetter}${footerRow}`);
-  const footer = worksheet.getCell(`A${footerRow}`);
-  footer.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة أكسيون AXION. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
-  footer.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
-  footer.alignment = centerAlign;
+  // 7) تذييل أمان (نص قانوني)
+  const legalRow = summaryStart + metricsList.length + 2;
+  worksheet.mergeCells(`A${legalRow}:${lastColLetter}${legalRow}`);
+  const legal = worksheet.getCell(`A${legalRow}`);
+  legal.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة أكسيون AXION. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
+  legal.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
+  legal.alignment = centerAlign;
+
+  // 8) تذييل letterhead الموحّد (مطابق لـ PDF)
+  buildExcelLetterheadFooter(worksheet, legalRow + 2, COLS);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return await downloadExcelFile(buffer as ArrayBuffer, `Workers_Report_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);

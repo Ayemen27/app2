@@ -44,20 +44,16 @@ export async function generatePDF(options: PDFGenerationOptions): Promise<boolea
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-    let pdf: any;
+    // ✅ نستخدم صفحة A4 قياسية دائماً لضمان عرض متّسق على كل عارضات PDF
+    // (عارضات الجوال/سامسونج/جوجل تعرض الصفحات المخصّصة داخل إطار A4 وهمي
+    //  مما يجعل المحتوى يبدو "مقصوصاً" ومتمركزاً في صفحة بهوامش بيضاء كبيرة).
+    const pdf: any = new jsPDF(isLandscape ? 'l' : 'p', 'mm', options.format === 'Letter' ? 'letter' : 'a4');
 
     if (imgHeight <= a4Height) {
-      // ✨ المحتوى يدخل في صفحة واحدة → استخدم حجم مخصّص = ارتفاع المحتوى الفعلي
-      // عرض A4 ثابت (طبيعي للطباعة) + ارتفاع متكيّف → لا مساحة فارغة
-      pdf = new jsPDF({
-        orientation: isLandscape ? 'l' : 'p',
-        unit: 'mm',
-        format: [imgWidth, Math.max(imgHeight, 50)],
-      });
+      // محتوى يدخل في صفحة واحدة → ضعه في الأعلى داخل صفحة A4 كاملة
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
     } else {
-      // المحتوى أطول من صفحة → A4 عادي مع تقسيم على عدة صفحات
-      pdf = new jsPDF(isLandscape ? 'l' : 'p', 'mm', options.format === 'Letter' ? 'letter' : 'a4');
+      // محتوى أطول من صفحة → تقسيم على عدة صفحات A4
       let heightLeft = imgHeight;
       let position = 0;
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);

@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { useNotificationStream } from '@/hooks/useNotificationStream';
 
 interface Notification {
   id: string;
@@ -128,8 +129,15 @@ export default function NotificationsPage() {
       if (Array.isArray(result)) return { notifications: result, unreadCount: result.filter((n: any) => !n.isRead).length, total: result.length };
       return result.notifications ? result : { notifications: [], unreadCount: 0, total: 0 };
     },
-    refetchInterval: 60000,
+    refetchInterval: 180000,
     enabled: !!user_id,
+  });
+
+  useNotificationStream({
+    enabled: !!user_id,
+    onNotification: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationsByUser(user_id) });
+    }, [user_id]),
   });
 
   const notifications = useMemo(() => {

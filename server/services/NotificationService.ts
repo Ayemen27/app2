@@ -99,6 +99,21 @@ export class NotificationService {
 
     console.log(`✅ تم إنشاء الإشعار: ${notification.id}`);
 
+    try {
+      const { notificationStream } = await import('./NotificationStream');
+      notificationStream.publish({
+        kind: 'created',
+        notificationId: notification.id,
+        recipients: recipients.length > 0 ? recipients : 'all',
+        project_id: data.project_id || null,
+        type: data.type,
+        priority: data.priority,
+        title: data.title,
+      });
+    } catch (e: any) {
+      console.warn('⚠️ [NotificationStream] publish failed:', e?.message);
+    }
+
     // إرسال إشعارات Push الحقيقية عبر FCM
     if (recipients.length > 0) {
       this.sendPushNotifications(

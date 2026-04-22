@@ -82,6 +82,62 @@ const handlePushToken = async (req: Request, res: Response) => {
 notificationRouter.post('/push/token', handlePushToken);
 pushTokenRouter.post('/push/token', handlePushToken);
 
+/**
+ * 📡 SSE Stream للإشعارات اللحظية - معيار Vercel/GitHub Dashboard
+ * GET /api/notifications/stream
+ *
+ * يبثّ events فقط للمستخدم الحالي (recipient match أو 'all').
+ * Heartbeat كل 25s لمنع timeout على proxies.
+ */
+notificationRouter.get('/stream', async (req: Request, res: Response) => {
+  const user_id = getAuthUser(req)?.user_id || 'unknown';
+  if (!user_id || user_id === 'unknown') {
+    return res.status(401).end();
+  }
+
+  const { notificationStream } = await import('../../services/NotificationStream');
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof (res as any).flushHeaders === 'function') (res as any).flushHeaders();
+
+  res.write(`: connected ${new Date().toISOString()}\n\n`);
+  res.write(`event: ready\ndata: {"user_id":"${user_id}"}\n\n`);
+
+  const send = (event: string, data: any) => {
+    try {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch {}
+  };
+
+  const onEvent = (evt: any) => {
+    if (evt.recipients === 'all') return send('notification', evt);
+    if (Array.isArray(evt.recipients) && evt.recipients.includes(user_id)) {
+      return send('notification', evt);
+    }
+  };
+
+  notificationStream.on('event', onEvent);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`: hb ${Date.now()}\n\n`); } catch {}
+  }, 25000);
+  (heartbeat as any).unref?.();
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    notificationStream.off('event', onEvent);
+    try { res.end(); } catch {}
+  };
+
+  req.on('close', cleanup);
+  req.on('aborted', cleanup);
+  res.on('error', cleanup);
+});
+
 notificationRouter.get('/', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {

@@ -1,5 +1,12 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-22)
+- **SSE للإشعارات اللحظية** (معيار Vercel/GitHub Dashboard): إضافة `server/services/NotificationStream.ts` (EventEmitter singleton) و `GET /api/notifications/stream` (SSE endpoint) في `notificationRoutes.ts` مع heartbeat كل 25s. `NotificationService.createNotification` ينشر event بعد insert. على العميل: `client/src/hooks/useNotificationStream.ts` (EventSource مع exponential backoff retry) مدمج في `notifications.tsx`. polling خُفّض من 60s إلى 180s كـ safety net فقط. SSE معطّل تلقائياً في Bearer mode (موبايل) — يُعتمد polling فيه. الفائدة: الإشعارات تظهر فورياً عند الإنشاء بدلاً من انتظار polling cycle.
+- **Health & Stability** (T001 سابق): `/healthz`, `/readyz`, `/livez` + graceful shutdown على SIGTERM/SIGINT في `server/index.ts`. تخفيض query timeout من 30s إلى 15s.
+- **تخفيض حمل العميل** (T002 سابق): تخفيض polling intervals في `useFinancialSummary`, `useSyncData`, `queryClient`, `dashboard.tsx`, `notifications.tsx`.
+- **Server-side caching** (T003 سابق): in-memory cache TTL في `autocompleteRoutes`, `notificationRoutes`, `syncRoutes`. Migration `_auto_sync_fields_fix.sql` لإضافة `version` و `last_modified_by`.
+- **Backup streaming**: `BackupService.runBackup(triggeredBy, 'streaming')` يستخدم NDJSON عبر `server/services/backup/streaming-exporter.ts` بدلاً من تحميل كل البيانات في الذاكرة.
+
 ## التغييرات الأخيرة (2026-04-21)
 - **أمن JWT**: توحيد TTL = 14 يوم في `server/auth/jwt-utils.ts` (كان 90 يوم في بعض المسارات).
 - **تسرّب ذاكرة Cache**: إضافة `destroy()` + الاحتفاظ بمرجع `setInterval` + `unref()` في `server/services/MemoryCacheService.ts`، وتنظيفه عند الإغلاق في `server/index.ts`.

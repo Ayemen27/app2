@@ -1,6 +1,11 @@
 import ExcelJS from 'exceljs';
+import { currentReportHeader, hexToArgb } from './header-context.js';
 
-export const COLORS = {
+// ===== Static color tokens (defaults) =====
+// NOTE: navy/blue/accentBlue/totalBg/grandTotalBg are PER-USER overridable
+// at runtime via the report header context. The static values below remain
+// as fallbacks (and as defaults for any helper called outside a request).
+const STATIC_COLORS = {
   navy:        'FF1B2A4A',
   blue:        'FF2E5090',
   accentBlue:  'FF4A90D9',
@@ -21,7 +26,25 @@ export const COLORS = {
   grandTotalBg:'FF1B2A4A',
 };
 
-export const PDF_COLORS = {
+/**
+ * Dynamic COLORS proxy.
+ * Reading COLORS.navy / COLORS.blue / COLORS.accentBlue / COLORS.grandTotalBg
+ * returns the CURRENT request's branded color (from AsyncLocalStorage).
+ * All other keys return the static defaults.
+ * Effect: every existing template that uses `COLORS.navy` etc. is auto-themed
+ * per user with NO code change required in the templates themselves.
+ */
+export const COLORS: typeof STATIC_COLORS = new Proxy(STATIC_COLORS, {
+  get(target, prop: string) {
+    const h = currentReportHeader();
+    if (prop === 'navy' || prop === 'grandTotalBg') return hexToArgb(h.primary_color);
+    if (prop === 'blue') return hexToArgb(h.secondary_color);
+    if (prop === 'accentBlue') return hexToArgb(h.accent_color);
+    return (target as any)[prop];
+  }
+}) as typeof STATIC_COLORS;
+
+const STATIC_PDF_COLORS = {
   navy:        '#1B2A4A',
   blue:        '#2E5090',
   accentBlue:  '#4A90D9',
@@ -39,6 +62,16 @@ export const PDF_COLORS = {
   totalBg:     '#E8EDF2',
   white:       '#FFFFFF',
 };
+
+export const PDF_COLORS: typeof STATIC_PDF_COLORS = new Proxy(STATIC_PDF_COLORS, {
+  get(target, prop: string) {
+    const h = currentReportHeader();
+    if (prop === 'navy') return h.primary_color;
+    if (prop === 'blue') return h.secondary_color;
+    if (prop === 'accentBlue') return h.accent_color;
+    return (target as any)[prop];
+  }
+}) as typeof STATIC_PDF_COLORS;
 
 export function formatNum(n: number | string | null | undefined): string {
   const num = typeof n === 'string' ? parseFloat(n) : (n ?? 0);
@@ -94,14 +127,27 @@ export function xlApplyBorders(row: ExcelJS.Row, colCount: number) {
 }
 
 export function xlCompanyHeader(ws: ExcelJS.Worksheet, rowNum: number, colCount: number): number {
+  const h = currentReportHeader();
   ws.mergeCells(rowNum, 1, rowNum, colCount);
   const r = ws.getRow(rowNum);
-  r.getCell(1).value = 'الفتيني للمقاولات العامة والاستشارات الهندسية';
+  r.getCell(1).value = h.company_name;
   r.getCell(1).font = { bold: true, size: 14, color: { argb: COLORS.white }, name: 'Calibri' };
   r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
   r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
   r.height = 34;
   xlApplyBorders(r, colCount);
+  // Optional contact line
+  const contact = [h.address, h.phone, h.email, h.website].filter(Boolean).join('  •  ');
+  if (contact) {
+    rowNum += 1;
+    ws.mergeCells(rowNum, 1, rowNum, colCount);
+    const cr = ws.getRow(rowNum);
+    cr.getCell(1).value = contact;
+    cr.getCell(1).font = { size: 9, color: { argb: COLORS.gray700 }, name: 'Calibri' };
+    cr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.gray100 } };
+    cr.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    cr.height = 18;
+  }
   return rowNum + 1;
 }
 
@@ -200,9 +246,11 @@ export function xlGrandTotalRow(ws: ExcelJS.Worksheet, rowNum: number, values: a
 }
 
 export function xlFooter(ws: ExcelJS.Worksheet, rowNum: number, colCount: number): number {
+  const h = currentReportHeader();
   ws.mergeCells(rowNum, 1, rowNum, colCount);
   const r = ws.getRow(rowNum);
-  r.getCell(1).value = `Report generated: ${nowDateBR()} - Al-Fatihi Construction Management System`;
+  const tail = h.footer_text || h.company_name_en || h.company_name;
+  r.getCell(1).value = `Report generated: ${nowDateBR()} - ${tail}`;
   r.getCell(1).font = { size: 9, italic: true, color: { argb: COLORS.gray500 }, name: 'Calibri' };
   r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
   return rowNum + 1;
@@ -222,7 +270,10 @@ export function xlSignatures(ws: ExcelJS.Worksheet, rowNum: number, names: strin
   return rowNum + 1;
 }
 
-export const PDF_BASE_STYLES = `
+// IMPORTANT: built as a function (not a const) so the proxied PDF_COLORS
+// values are read PER REQUEST, allowing per-user color theming.
+export function buildPdfBaseStyles(): string {
+  return `
 @font-face { font-family: "Cairo"; src: url("/fonts/cairo/Cairo-Variable.woff2") format("woff2-variations"); font-weight: 300 700; font-style: normal; font-display: swap; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -316,6 +367,14 @@ table tbody tr:hover { background: #E3EBF3; }
   margin-top: 12px; padding: 5px; border-top: 1px solid ${PDF_COLORS.border};
 }
 `;
+}
+
+/**
+ * @deprecated Kept for backward compatibility. Returns CURRENT defaults at
+ * import time only — does NOT pick up per-user overrides. Templates that need
+ * per-user theming should use buildPdfBaseStyles() inside pdfWrap (already wired).
+ */
+export const PDF_BASE_STYLES = buildPdfBaseStyles();
 
 export function pdfHeader(title: string, subtitle: string): string {
   return `<div class="header-band">
@@ -367,7 +426,14 @@ export function pdfSignatures(names: string[]): string {
 }
 
 export function pdfFooter(generatedAt: string): string {
-  return `<div class="report-footer">Report generated: ${formatDateBR(generatedAt)} - Al-Fatihi Construction Management System | نظام الفتيني لإدارة المقاولات</div>`;
+  const h = currentReportHeader();
+  const parts = [
+    h.footer_text,
+    h.company_name_en,
+    h.company_name,
+  ].filter(Boolean);
+  const tail = parts.length > 0 ? parts.join(' | ') : 'Report';
+  return `<div class="report-footer">Report generated: ${escapeHtml(formatDateBR(generatedAt))} - ${escapeHtml(tail)}</div>`;
 }
 
 export function pdfWrap(title: string, body: string): string {
@@ -377,13 +443,13 @@ export function pdfWrap(title: string, body: string): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
-<style>${PDF_BASE_STYLES}
+<style>${buildPdfBaseStyles()}
 @media print {
   .no-print { display: none !important; }
 }
-.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #1B2A4A; color: #fff; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
-.print-bar button { background: #4A90D9; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-.print-bar button:hover { background: #2E5090; }
+.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: ${PDF_COLORS.navy}; color: #fff; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+.print-bar button { background: ${PDF_COLORS.accentBlue}; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.print-bar button:hover { background: ${PDF_COLORS.blue}; }
 .print-bar-spacer { height: 48px; }
 </style>
 </head>

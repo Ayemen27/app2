@@ -2220,6 +2220,41 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 
+// ===== Report Header Settings (إعدادات ترويسة التقارير) =====
+// كل مستخدم له صف واحد فقط (UNIQUE على user_id)
+// يستخدم في توليد التقارير (PDF/Excel) لإظهار بيانات الشركة وألوان الهوية البصرية الخاصة بالمستخدم
+export const reportHeaderSettings = pgTable("report_header_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user_id: varchar("user_id").notNull().unique("report_header_settings_user_id_key"),
+  company_name: text("company_name").notNull(),
+  company_name_en: text("company_name_en"),
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  logo_url: text("logo_url"),
+  footer_text: text("footer_text"),
+  primary_color: text("primary_color").notNull().default('#1B2A4A'),
+  secondary_color: text("secondary_color").notNull().default('#2E5090'),
+  accent_color: text("accent_color").notNull().default('#4A90D9'),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_by: varchar("created_by"),
+  last_modified_by: varchar("last_modified_by"),
+}, (table) => ({
+  report_header_settings_user_id_fkey: foreignKey({
+    name: "report_header_settings_user_id_fkey",
+    columns: [table.user_id],
+    foreignColumns: [users.id]
+  }).onDelete("cascade"),
+}));
+
+export const insertReportHeaderSchema = createInsertSchema(reportHeaderSettings).omit({
+  id: true, created_at: true, updated_at: true
+});
+export type ReportHeaderSettings = typeof reportHeaderSettings.$inferSelect;
+export type InsertReportHeaderSettings = z.infer<typeof insertReportHeaderSchema>;
+
 export const whatsappUserLinks = pgTable("whatsapp_user_links", {
   id: serial("id").primaryKey(),
   user_id: varchar("user_id").notNull().unique("whatsapp_user_links_user_id_key"),

@@ -35,6 +35,8 @@ import { exportLocalData, importLocalData } from "@/offline/backup";
 import { clearAllLocalData } from "@/offline/data-cleanup";
 import { getSyncStats } from "@/offline/offline";
 import { useSyncData } from "@/hooks/useSyncData";
+import ReportHeaderSettings from "@/components/settings/ReportHeaderSettings";
+import { FileText } from "lucide-react";
 
 interface Preferences {
   language: string;
@@ -319,6 +321,10 @@ export default function SettingsPage() {
             <Lock className="h-4 w-4" />
             الأمان
           </TabsTrigger>
+          <TabsTrigger value="report-header" className="rounded-lg gap-2" data-testid="tab-report-header">
+            <FileText className="h-4 w-4" />
+            ترويسة التقارير
+          </TabsTrigger>
         </TabsList>
 
         {prefsLoading ? (
@@ -589,6 +595,10 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="report-header" className="space-y-4">
+              <ReportHeaderSettings />
             </TabsContent>
 
             <div className="flex justify-end gap-3 pt-4">

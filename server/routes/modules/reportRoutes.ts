@@ -21,8 +21,10 @@ import {
   dailyExpenseSummaries,
   suppliers
 } from '@shared/schema';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { storage } from '../../storage';
+import { withReportHeader, ReportHeader } from '../../services/reports/templates/header-context';
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { reportDataService } from '../../services/reports/ReportDataService';
 import { generateDailyReportExcel } from '../../services/reports/templates/DailyReportExcel';
@@ -53,6 +55,37 @@ export const reportRouter = express.Router();
 
 reportRouter.use(requireAuth);
 reportRouter.use(attachAccessibleProjects);
+
+// Per-user report header context (company name, colors, footer).
+// Loaded ONCE per request from the AUTHENTICATED user's row, then applied to
+// every report template via AsyncLocalStorage. SECURITY: user_id is taken
+// from req.user (JWT/session), never from query/body.
+reportRouter.use(async (req, res, next) => {
+  const userId = (req as AuthenticatedRequest).user?.user_id;
+  let header: ReportHeader | null = null;
+  if (userId) {
+    try {
+      const row = await storage.getReportHeader(userId);
+      if (row) {
+        header = {
+          company_name: row.company_name,
+          company_name_en: row.company_name_en,
+          address: row.address,
+          phone: row.phone,
+          email: row.email,
+          website: row.website,
+          footer_text: row.footer_text,
+          primary_color: row.primary_color,
+          secondary_color: row.secondary_color,
+          accent_color: row.accent_color,
+        };
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [ReportHeaderCtx] failed to load, using default:', e?.message);
+    }
+  }
+  withReportHeader(header, () => next());
+});
 
 /**
  * 📊 تقرير يومي شامل

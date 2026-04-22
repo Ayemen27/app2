@@ -32,6 +32,7 @@ import equipmentRouter from './equipmentRoutes.js';
 import syncAuditRouter from './syncAuditRoutes.js';
 import webauthnRouter from './webauthnRoutes.js';
 import preferencesRouter from './preferencesRoutes.js';
+import reportHeaderRouter from './reportHeaderRoutes.js';
 import permissionRouter from './permissionRoutes.js';
 import deploymentRouter, { deploymentPublicRouter, deploymentInternalRouter } from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
@@ -176,6 +177,9 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/preferences', preferencesRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات التفضيلات: /api/preferences');
 
+  app.use('/api/report-header', reportHeaderRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات ترويسة التقارير: /api/report-header');
+
   // مسارات الصلاحيات وإدارة الوصول
   app.use('/api/permissions', permissionRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الصلاحيات: /api/permissions');
@@ -248,6 +252,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'authRoutes',
   'webauthnRoutes',
   'preferencesRoutes',
+  'reportHeaderRoutes',
   'permissionRoutes',
   'deploymentRoutes',
   'telemetryRoutes',

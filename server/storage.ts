@@ -48,6 +48,7 @@ import {
   webauthnCredentials,
   webauthnChallenges,
   userPreferences,
+  reportHeaderSettings,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
@@ -4783,6 +4784,32 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // ===== Report Header Settings (per-user) =====
+  async getReportHeader(userId: string): Promise<any | undefined> {
+    const [row] = await db.select().from(reportHeaderSettings)
+      .where(eq(reportHeaderSettings.user_id, userId));
+    return row;
+  }
+
+  async upsertReportHeader(userId: string, data: Record<string, any>): Promise<any> {
+    const existing = await this.getReportHeader(userId);
+    if (existing) {
+      const [updated] = await db.update(reportHeaderSettings)
+        .set({ ...data, updated_at: new Date(), last_modified_by: userId })
+        .where(eq(reportHeaderSettings.user_id, userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(reportHeaderSettings)
+      .values({ ...data, user_id: userId, created_by: userId, last_modified_by: userId })
+      .returning();
+    return created;
+  }
+
+  async deleteReportHeader(userId: string): Promise<void> {
+    await db.delete(reportHeaderSettings).where(eq(reportHeaderSettings.user_id, userId));
   }
 
   async createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge> {

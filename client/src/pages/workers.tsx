@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { toUserMessage } from '@/lib/error-utils';
-import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown, Plus, FolderOpen } from 'lucide-react';
-import { exportWorkerStatement } from '@/lib/excel-exports';
+import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown, Plus, FolderOpen, Download } from 'lucide-react';
+import { exportWorkerStatement, exportWorkersListReport, type WorkerSummaryRow } from '@/lib/excel-exports';
 import { generateWorkerPDF } from '@/lib/pdf-exports.tsx';
+import { generateTablePDF } from '@/utils/pdfGenerator';
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -642,6 +643,8 @@ export default function WorkersPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [togglingWorkerId, setTogglingWorkerId] = useState<string | null>(null);
   const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
+  const [isExportingList, setIsExportingList] = useState(false);
+  const [isExportingListPdf, setIsExportingListPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [showExportOptions, setShowExportOptions] = useState<string | null>(null);
   const [projectWagesWorker, setProjectWagesWorker] = useState<Worker | null>(null);
@@ -649,7 +652,7 @@ export default function WorkersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
-  const { selectedProjectId } = useSelectedProject();
+  const { selectedProjectId, selectedProjectName } = useSelectedProject();
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -718,6 +721,20 @@ export default function WorkersPage() {
     gcTime: 1800000,  
     retry: 1,
     placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: workersSummary = [] } = useQuery<WorkerSummaryRow[]>({
+    queryKey: ['/api/workers/summary', selectedProjectId ?? 'all'],
+    queryFn: async () => {
+      const projectParam2 = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+      const url = projectParam2 ? `/api/workers/summary?project_id=${projectParam2}` : '/api/workers/summary';
+      const response = await apiRequest(url, 'GET');
+      return Array.isArray(response?.data) ? response.data : [];
+    },
+    staleTime: 30000,
+    gcTime: 60000,
+    retry: 1,
     refetchOnWindowFocus: false,
   });
 
@@ -835,6 +852,13 @@ export default function WorkersPage() {
     },
   });
 
+  // فهرس الملخّص حسب worker_id لربط البيانات بسرعة
+  const summaryById = useMemo(() => {
+    const map: Record<string, WorkerSummaryRow> = {};
+    (workersSummary || []).forEach(s => { map[s.worker_id] = s; });
+    return map;
+  }, [workersSummary]);
+
   const filteredWorkers = useMemo(() => {
     return (Array.isArray(workers) ? workers : []).filter(worker => {
       const matchesSearch = worker.name.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -873,6 +897,21 @@ export default function WorkersPage() {
       : 0
   }), [workers]);
 
+  // 📊 إحصائيات العمال المفلترين (مبنية على summaryById)
+  const filteredAggregates = useMemo(() => {
+    let totalDays = 0, totalEarnings = 0, totalPaid = 0, totalRemaining = 0, withBalance = 0;
+    filteredWorkers.forEach(w => {
+      const s = summaryById[w.id];
+      if (!s) return;
+      totalDays += s.totalWorkDays || 0;
+      totalEarnings += s.totalEarnings || 0;
+      totalPaid += (s.totalWithdrawals || 0) + (s.totalTransfers || 0) + (s.totalSettled || 0);
+      totalRemaining += s.balance || 0;
+      if ((s.balance || 0) !== 0) withBalance++;
+    });
+    return { totalDays, totalEarnings, totalPaid, totalRemaining, withBalance };
+  }, [filteredWorkers, summaryById]);
+
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
       columns: 3,
@@ -887,12 +926,21 @@ export default function WorkersPage() {
       columns: 3,
       gap: 'sm',
       items: [
-        { key: 'avgWage', label: 'متوسط الأجر', value: formatCurrency(stats.avgWage), icon: DollarSign, color: 'purple' },
+        { key: 'totalWorkDays', label: 'مجموع أيام العمل', subLabel: 'للمفلترين', value: filteredAggregates.totalDays.toLocaleString('en-US', { maximumFractionDigits: 1 }), icon: Calendar, color: 'indigo' },
+        { key: 'totalEarnings', label: 'إجمالي المستحقات', subLabel: 'أصبح لهم', value: formatCurrency(filteredAggregates.totalEarnings), icon: Wallet, color: 'emerald' },
+        { key: 'totalPaid', label: 'إجمالي المسلَّم', subLabel: 'الذي بأيديهم', value: formatCurrency(filteredAggregates.totalPaid), icon: ArrowDownCircle, color: 'amber' },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        { key: 'totalRemaining', label: 'إجمالي المتبقي', subLabel: 'الرصيد الصافي', value: formatCurrency(filteredAggregates.totalRemaining), icon: TrendingDown, color: filteredAggregates.totalRemaining >= 0 ? 'cyan' : 'red' },
+        { key: 'withBalance', label: 'لديهم رصيد', value: filteredAggregates.withBalance, icon: DollarSign, color: 'purple' },
         { key: 'totalTypes', label: 'أنواع العمال', value: workerTypeOptions.length, icon: Briefcase, color: 'teal' },
-        { key: 'totalWorkDays', label: 'مجموع أيام العمل', value: '-', icon: Calendar, color: 'indigo' },
       ]
     }
-  ], [stats, workerTypeOptions]);
+  ], [stats, workerTypeOptions, filteredAggregates]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {
@@ -930,6 +978,154 @@ export default function WorkersPage() {
       ],
     },
   ], [workerTypeOptions]);
+
+  // 📤 تصدير قائمة العمال المفلترة إلى Excel (قالب موحّد)
+  const handleExportListExcel = useCallback(async () => {
+    if (filteredWorkers.length === 0) {
+      toast({ title: 'لا توجد بيانات', description: 'لا يوجد عمال للتصدير', variant: 'destructive' });
+      return;
+    }
+    setIsExportingList(true);
+    try {
+      const rows: WorkerSummaryRow[] = filteredWorkers.map(w => {
+        const s = summaryById[w.id];
+        return {
+          worker_id: w.id,
+          name: w.name,
+          type: w.type,
+          dailyWage: parseFloat(w.dailyWage) || 0,
+          totalWorkDays: s?.totalWorkDays || 0,
+          totalEarnings: s?.totalEarnings || 0,
+          totalWithdrawals: s?.totalWithdrawals || 0,
+          totalTransfers: s?.totalTransfers || 0,
+          totalSettled: s?.totalSettled || 0,
+          balance: s?.balance ?? (workerBalances[w.id] || 0),
+        };
+      });
+      const statusOption = filtersConfig.find(f => f.key === 'status')?.options?.find(o => o.value === filterValues.status);
+      const typeOption = filtersConfig.find(f => f.key === 'type')?.options?.find(o => o.value === filterValues.type);
+      const ok = await exportWorkersListReport(rows, {
+        title: 'كشف العمال - تقرير شامل',
+        projectName: selectedProjectName || 'جميع المشاريع',
+        statusLabel: statusOption?.label || 'الكل',
+        typeLabel: typeOption?.label || 'الكل',
+      });
+      if (ok) toast({ title: 'تم التصدير', description: `تم تصدير ${rows.length} عامل بنجاح` });
+      else toast({ title: 'تعذر التنزيل', description: 'فشل تنزيل الملف', variant: 'destructive' });
+    } catch (e: any) {
+      toast({ title: 'خطأ في التصدير', description: e?.message || 'فشل التصدير', variant: 'destructive' });
+    } finally {
+      setIsExportingList(false);
+    }
+  }, [filteredWorkers, summaryById, workerBalances, filtersConfig, filterValues, selectedProjectName, toast]);
+
+  // 📤 تصدير قائمة العمال المفلترة إلى PDF (نفس البيانات والترتيب)
+  const handleExportListPdf = useCallback(async () => {
+    if (filteredWorkers.length === 0) {
+      toast({ title: 'لا توجد بيانات', description: 'لا يوجد عمال للتصدير', variant: 'destructive' });
+      return;
+    }
+    setIsExportingListPdf(true);
+    try {
+      const data: any[] = [];
+      let totalDays = 0, totalEarnings = 0, totalWithdrawals = 0, totalTransfers = 0, totalOnHand = 0, totalRemaining = 0;
+      filteredWorkers.forEach((w, idx) => {
+        const s = summaryById[w.id];
+        const earnings = s?.totalEarnings || 0;
+        const withdrawals = s?.totalWithdrawals || 0;
+        const transfers = s?.totalTransfers || 0;
+        const settled = s?.totalSettled || 0;
+        const onHand = withdrawals + transfers + settled;
+        const remaining = s?.balance ?? (workerBalances[w.id] || 0);
+        const days = s?.totalWorkDays || 0;
+        totalDays += days; totalEarnings += earnings; totalWithdrawals += withdrawals;
+        totalTransfers += transfers; totalOnHand += onHand; totalRemaining += remaining;
+        data.push({
+          index: idx + 1,
+          name: w.name,
+          days: days.toLocaleString('en-US', { maximumFractionDigits: 1 }),
+          dailyWage: (parseFloat(w.dailyWage) || 0).toLocaleString('en-US'),
+          earnings: earnings.toLocaleString('en-US'),
+          withdrawals: withdrawals.toLocaleString('en-US'),
+          transfers: transfers.toLocaleString('en-US'),
+          onHand: onHand.toLocaleString('en-US'),
+          remaining: remaining.toLocaleString('en-US'),
+          notes: w.type || '-',
+        });
+      });
+      const statusOption = filtersConfig.find(f => f.key === 'status')?.options?.find(o => o.value === filterValues.status);
+      const typeOption = filtersConfig.find(f => f.key === 'type')?.options?.find(o => o.value === filterValues.type);
+      const ok = await generateTablePDF({
+        reportTitle: 'كشف العمال - تقرير شامل',
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')} | المشروع: ${selectedProjectName || 'جميع المشاريع'}`,
+        infoItems: [
+          { label: 'عدد العمال', value: filteredWorkers.length },
+          { label: 'الحالة', value: statusOption?.label || 'الكل' },
+          { label: 'النوع', value: typeOption?.label || 'الكل' },
+          { label: 'إجمالي المستحقات', value: `${totalEarnings.toLocaleString('en-US')} ر.ي`, color: '#10b981' },
+          { label: 'إجمالي المسلَّم', value: `${totalOnHand.toLocaleString('en-US')} ر.ي`, color: '#f43f5e' },
+          { label: 'الرصيد المتبقي', value: `${totalRemaining.toLocaleString('en-US')} ر.ي`, color: totalRemaining >= 0 ? '#10b981' : '#f43f5e' },
+        ],
+        columns: [
+          { header: 'م', key: 'index', width: 4 },
+          { header: 'الاسم', key: 'name', width: 22 },
+          { header: 'الأيام', key: 'days', width: 7 },
+          { header: 'اليومية', key: 'dailyWage', width: 9 },
+          { header: 'أصبح له', key: 'earnings', width: 11, color: () => '#3b82f6' },
+          { header: 'السحبيات', key: 'withdrawals', width: 11 },
+          { header: 'الحوالات', key: 'transfers', width: 11 },
+          { header: 'الذي بيده', key: 'onHand', width: 11 },
+          { header: 'المتبقي له', key: 'remaining', width: 12, color: (_v, r) => {
+            const num = Number(String(r.remaining).replace(/,/g, ''));
+            return num > 0 ? '#10b981' : num < 0 ? '#f43f5e' : '#64748b';
+          }},
+          { header: 'ملاحظات', key: 'notes', width: 12 },
+        ],
+        data,
+        totals: {
+          label: 'الإجماليات',
+          values: {
+            name: `${filteredWorkers.length} عامل`,
+            days: totalDays.toLocaleString('en-US', { maximumFractionDigits: 1 }),
+            earnings: totalEarnings.toLocaleString('en-US'),
+            withdrawals: totalWithdrawals.toLocaleString('en-US'),
+            transfers: totalTransfers.toLocaleString('en-US'),
+            onHand: totalOnHand.toLocaleString('en-US'),
+            remaining: totalRemaining.toLocaleString('en-US'),
+          },
+        },
+        filename: `Workers_Report_${new Date().toISOString().split('T')[0]}`,
+        orientation: 'landscape',
+      });
+      if (ok) toast({ title: 'تم التصدير', description: `تم تصدير ${filteredWorkers.length} عامل بنجاح` });
+      else toast({ title: 'تعذر التنزيل', description: 'فشل تنزيل الملف', variant: 'destructive' });
+    } catch (e: any) {
+      toast({ title: 'خطأ في التصدير', description: e?.message || 'فشل التصدير', variant: 'destructive' });
+    } finally {
+      setIsExportingListPdf(false);
+    }
+  }, [filteredWorkers, summaryById, workerBalances, filtersConfig, filterValues, selectedProjectName, toast]);
+
+  const exportActions = useMemo(() => [
+    {
+      key: 'export-excel',
+      icon: Download,
+      label: 'تصدير Excel',
+      onClick: handleExportListExcel,
+      loading: isExportingList,
+      disabled: filteredWorkers.length === 0,
+      tooltip: 'تصدير كشف Excel',
+    },
+    {
+      key: 'export-pdf',
+      icon: FileText,
+      label: 'تصدير PDF',
+      onClick: handleExportListPdf,
+      loading: isExportingListPdf,
+      disabled: filteredWorkers.length === 0,
+      tooltip: 'تصدير كشف PDF',
+    },
+  ], [handleExportListExcel, handleExportListPdf, isExportingList, isExportingListPdf, filteredWorkers.length]);
 
   const handleNewWorker = () => {
     setEditingWorker(undefined);
@@ -1015,9 +1211,17 @@ export default function WorkersPage() {
         onFilterChange={handleFilterChange}
         onSearchChange={setSearchValue}
         searchValue={searchValue}
+        searchPlaceholder="البحث بالاسم، النوع، أو الهاتف..."
         onReset={handleResetFilters}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
+        actions={exportActions}
+        resultsSummary={{
+          totalCount: Array.isArray(workers) ? workers.length : 0,
+          filteredCount: filteredWorkers.length,
+          totalLabel: 'إجمالي العمال',
+          filteredLabel: 'نتائج الفلترة',
+        }}
       />
 
       {isLoading ? (

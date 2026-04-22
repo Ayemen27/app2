@@ -720,6 +720,80 @@ workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
 });
 
 /**
+ * 📋 جلب ملخّص شامل لكل العمال دفعة واحدة (للتصدير وإحصائيات الصفحة)
+ * GET /api/workers/summary?project_id=...
+ * يرجع لكل عامل: name, type, dailyWage, totalWorkDays, totalEarnings,
+ * totalWithdrawals (السحبيات النقدية على الحضور), totalTransfers (الحوالات), totalSettled, balance
+ */
+workerRouter.get('/workers/summary', async (req: Request, res: Response) => {
+  try {
+    const project_id = req.query.project_id as string | undefined;
+    const isAllProjects = !project_id || project_id === 'all';
+
+    const params: any[] = isAllProjects ? [] : [project_id];
+    const waFilter = isAllProjects ? '' : 'AND wa.project_id = $1';
+    const wtFilter = isAllProjects ? '' : 'AND wt.project_id = $1';
+
+    const result = await pool.query(`
+      SELECT
+        w.id as worker_id,
+        w.name,
+        w.type,
+        w.daily_wage,
+        w.is_active,
+        COALESCE((
+          SELECT SUM(safe_numeric(wa.work_days::text, 0))
+          FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
+        ), 0) as total_work_days,
+        COALESCE((
+          SELECT SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END)
+          FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
+        ), 0) as total_earnings,
+        COALESCE((
+          SELECT SUM(safe_numeric(COALESCE(wa.paid_amount, '0')::text, 0))
+          FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
+        ), 0) as total_withdrawals,
+        COALESCE((
+          SELECT SUM(safe_numeric(wt.amount::text, 0))
+          FROM worker_transfers wt WHERE wt.worker_id = w.id AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement') ${wtFilter}
+        ), 0) as total_transfers,
+        COALESCE((
+          SELECT SUM(safe_numeric(wt.amount::text, 0))
+          FROM worker_transfers wt WHERE wt.worker_id = w.id AND wt.transfer_method = 'settlement' ${wtFilter}
+        ), 0) as total_settled
+      FROM workers w
+      ORDER BY w.name
+    `, params);
+
+    const summary = result.rows.map((r: any) => {
+      const earnings = Math.round(Number(r.total_earnings) || 0);
+      const withdrawals = Math.round(Number(r.total_withdrawals) || 0);
+      const transfers = Math.round(Number(r.total_transfers) || 0);
+      const settled = Math.round(Number(r.total_settled) || 0);
+      const workDays = Number(r.total_work_days) || 0;
+      return {
+        worker_id: r.worker_id,
+        name: r.name,
+        type: r.type || 'عامل',
+        dailyWage: Number(r.daily_wage) || 0,
+        is_active: !!r.is_active,
+        totalWorkDays: workDays,
+        totalEarnings: earnings,
+        totalWithdrawals: withdrawals,
+        totalTransfers: transfers,
+        totalSettled: settled,
+        balance: earnings - withdrawals - transfers - settled,
+      };
+    });
+
+    res.json({ success: true, data: summary });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب ملخص العمال:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * 💰 جلب أرصدة العامل المفتوحة لكل مشروع
  * GET /api/workers/:id/open-balances
  */

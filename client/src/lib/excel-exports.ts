@@ -236,3 +236,254 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   const buffer = await workbook.xlsx.writeBuffer();
   return await downloadExcelFile(buffer as ArrayBuffer, `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };
+
+// ====================================================================
+// 📋 كشف العمال الجماعي (Workers List Report) — مطابق للقالب المرجعي
+// أعمدة: م | الاسم | الأيام | اليومية | أصبح له | السحبيات | الحوالات | الذي بيده | المتبقي له | ملاحظات
+// ====================================================================
+export interface WorkerSummaryRow {
+  worker_id: string;
+  name: string;
+  type?: string;
+  dailyWage: number;
+  totalWorkDays: number;
+  totalEarnings: number;       // أصبح له
+  totalWithdrawals: number;    // السحبيات (نقد على الحضور)
+  totalTransfers: number;      // الحوالات
+  totalSettled?: number;       // التصفيات (اختياري)
+  balance: number;             // المتبقي له
+}
+
+export const exportWorkersListReport = async (
+  rows: WorkerSummaryRow[],
+  meta: { title?: string; projectName?: string; statusLabel?: string; typeLabel?: string }
+): Promise<boolean> => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('كشف العمال', {
+    views: [{ rightToLeft: true, showGridLines: false }],
+    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } as any,
+  });
+
+  // 🎨 الهوية البصرية الموحدة (نفس ألوان كشف العامل الفردي)
+  const mainBlue = 'FF1E3A8A';
+  const accentBlue = 'FF3B82F6';
+  const slateHeader = 'FF334155';
+  const slateTotals = 'FF475569';
+  const softGray = 'FFF8FAFC';
+  const altRow = 'FFF1F5F9';
+  const borderGray = 'FFE2E8F0';
+  const emeraldGreen = 'FF10B981';
+  const roseRed = 'FFF43F5E';
+  const amber = 'FFD97706';
+
+  const whiteText = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  const darkText = { name: 'Calibri', size: 11, color: { argb: 'FF1E293B' } };
+  const headerText = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF1E293B' } };
+  const centerAlign: any = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  const rightAlign: any = { horizontal: 'right', vertical: 'middle', wrapText: true, indent: 1 };
+  const borderLight: any = {
+    top: { style: 'thin', color: { argb: borderGray } },
+    left: { style: 'thin', color: { argb: borderGray } },
+    bottom: { style: 'thin', color: { argb: borderGray } },
+    right: { style: 'thin', color: { argb: borderGray } },
+  };
+
+  const COLS = 10; // م، الاسم، الأيام، اليومية، أصبح له، السحبيات، الحوالات، الذي بيده، المتبقي له، ملاحظات
+  const lastColLetter = String.fromCharCode(64 + COLS); // 'J'
+
+  // 1) ترويسة شركة + عنوان التقرير
+  worksheet.mergeCells(`A1:${lastColLetter}1`);
+  const mainTitle = worksheet.getCell('A1');
+  mainTitle.value = meta.title || 'كشف العمال - تقرير شامل';
+  mainTitle.font = { ...whiteText, size: 18 };
+  mainTitle.alignment = centerAlign;
+  mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  worksheet.getRow(1).height = 45;
+
+  worksheet.mergeCells(`A2:${lastColLetter}2`);
+  const subTitle = worksheet.getCell('A2');
+  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'dd/MM/yyyy HH:mm')} | الفتيني للمقاولات العامة والاستشارات الهندسية`;
+  subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
+  subTitle.alignment = centerAlign;
+  worksheet.getRow(2).height = 20;
+
+  // 2) صف معلومات الفلاتر
+  const infoRow = 4;
+  worksheet.getRow(infoRow).height = 25;
+  const infoCells: Array<[string, string, string]> = [
+    ['A', '● المشروع:', meta.projectName || 'جميع المشاريع'],
+    ['D', '● الحالة:', meta.statusLabel || 'الكل'],
+    ['G', '● النوع:', meta.typeLabel || 'الكل'],
+  ];
+  infoCells.forEach(([col, label, value]) => {
+    const lCell = worksheet.getCell(`${col}${infoRow}`);
+    const vCellAddr = `${String.fromCharCode(col.charCodeAt(0) + 1)}${infoRow}`;
+    const v2Addr = `${String.fromCharCode(col.charCodeAt(0) + 2)}${infoRow}`;
+    worksheet.mergeCells(`${vCellAddr}:${v2Addr}`);
+    const vCell = worksheet.getCell(vCellAddr);
+    lCell.value = label;
+    lCell.font = { ...headerText, color: { argb: accentBlue } };
+    lCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: softGray } };
+    lCell.alignment = rightAlign;
+    lCell.border = borderLight;
+    vCell.value = value;
+    vCell.font = darkText;
+    vCell.alignment = rightAlign;
+    vCell.border = borderLight;
+  });
+
+  // 3) رأس الجدول
+  const headerRowIdx = 6;
+  const headers = ['م', 'الاسم', 'الأيام', 'اليومية', 'أصبح له', 'السحبيات', 'الحوالات', 'الذي بيده', 'المتبقي له', 'ملاحظات'];
+  const headerRow = worksheet.getRow(headerRowIdx);
+  headers.forEach((h, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = h;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: slateHeader } };
+    cell.font = { ...whiteText, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = centerAlign;
+    cell.border = borderLight;
+  });
+  headerRow.height = 30;
+
+  // عرض الأعمدة
+  worksheet.columns = [
+    { width: 5 },   // م
+    { width: 28 },  // الاسم
+    { width: 9 },   // الأيام
+    { width: 11 },  // اليومية
+    { width: 13 },  // أصبح له
+    { width: 13 },  // السحبيات
+    { width: 13 },  // الحوالات
+    { width: 13 },  // الذي بيده
+    { width: 14 },  // المتبقي له
+    { width: 18 },  // ملاحظات
+  ];
+
+  // 4) صفوف البيانات
+  let currentRow = headerRowIdx + 1;
+  let sumDays = 0, sumDaily = 0, sumEarnings = 0, sumWithdrawals = 0, sumTransfers = 0, sumOnHand = 0, sumRemaining = 0;
+
+  rows.forEach((r, idx) => {
+    const row = worksheet.getRow(currentRow);
+    const isEven = idx % 2 === 0;
+    // الذي بيده = السحبيات + الحوالات (مدفوع للعامل)
+    const onHand = (r.totalWithdrawals || 0) + (r.totalTransfers || 0) + (r.totalSettled || 0);
+    const remaining = r.balance;
+
+    sumDays += r.totalWorkDays;
+    sumDaily += r.dailyWage;
+    sumEarnings += r.totalEarnings;
+    sumWithdrawals += r.totalWithdrawals;
+    sumTransfers += r.totalTransfers;
+    sumOnHand += onHand;
+    sumRemaining += remaining;
+
+    row.values = [
+      idx + 1,
+      r.name,
+      r.totalWorkDays,
+      r.dailyWage,
+      r.totalEarnings,
+      r.totalWithdrawals,
+      r.totalTransfers,
+      onHand,
+      remaining,
+      r.type || '-',
+    ];
+
+    row.eachCell((cell, colNum) => {
+      cell.border = borderLight;
+      cell.font = darkText;
+      cell.alignment = colNum === 2 || colNum === 10 ? rightAlign : centerAlign;
+      if (isEven) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: altRow } };
+      // تنسيق الأرقام
+      if (colNum === 3) cell.numFmt = '#,##0.0'; // الأيام
+      if (colNum === 4 || colNum === 5 || colNum === 6 || colNum === 7 || colNum === 8) cell.numFmt = '#,##0';
+      if (colNum === 9) {
+        cell.numFmt = '#,##0';
+        if (remaining > 0) cell.font = { ...darkText, bold: true, color: { argb: emeraldGreen } };
+        else if (remaining < 0) cell.font = { ...darkText, bold: true, color: { argb: roseRed } };
+        else cell.font = { ...darkText, color: { argb: 'FF64748B' } };
+      }
+      if (colNum === 5) cell.font = { ...darkText, color: { argb: accentBlue } };
+      if (colNum === 6 && r.totalWithdrawals > 0) cell.font = { ...darkText, color: { argb: amber } };
+    });
+    row.height = 22;
+    currentRow++;
+  });
+
+  // 5) صف الإجماليات
+  const totalsRow = worksheet.getRow(currentRow);
+  totalsRow.values = [
+    '',
+    'الإجماليات',
+    sumDays,
+    '',
+    sumEarnings,
+    sumWithdrawals,
+    sumTransfers,
+    sumOnHand,
+    sumRemaining,
+    `${rows.length} عامل`,
+  ];
+  totalsRow.eachCell((cell, colNum) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: slateTotals } };
+    cell.font = whiteText;
+    cell.alignment = colNum === 2 || colNum === 10 ? rightAlign : centerAlign;
+    cell.border = borderLight;
+    if (colNum === 3) cell.numFmt = '#,##0.0';
+    if (colNum >= 5 && colNum <= 9) cell.numFmt = '#,##0 "ر.ي"';
+  });
+  totalsRow.height = 28;
+  currentRow++;
+
+  // 6) لوحة الملخص المالي
+  currentRow += 1;
+  const summaryStart = currentRow;
+  worksheet.mergeCells(`A${summaryStart}:${lastColLetter}${summaryStart}`);
+  const summaryHeader = worksheet.getCell(`A${summaryStart}`);
+  summaryHeader.value = 'الملخص المالي العام';
+  summaryHeader.font = { ...whiteText, size: 13 };
+  summaryHeader.alignment = centerAlign;
+  summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
+  worksheet.getRow(summaryStart).height = 28;
+
+  const metricsList = [
+    { label: 'إجمالي عدد العمال', value: rows.length, isCount: true, color: mainBlue },
+    { label: 'مجموع أيام العمل', value: sumDays, isCount: true, color: accentBlue },
+    { label: 'إجمالي المستحقات (أصبح له)', value: sumEarnings, color: emeraldGreen },
+    { label: 'إجمالي المسلَّم (الذي بيده)', value: sumOnHand, color: roseRed },
+    { label: 'الرصيد المتبقي الصافي', value: sumRemaining, color: sumRemaining >= 0 ? emeraldGreen : roseRed, isFinal: true },
+  ];
+  metricsList.forEach((m, i) => {
+    const r = summaryStart + 1 + i;
+    worksheet.mergeCells(`A${r}:E${r}`);
+    worksheet.mergeCells(`F${r}:${lastColLetter}${r}`);
+    const lCell = worksheet.getCell(`A${r}`);
+    const vCell = worksheet.getCell(`F${r}`);
+    lCell.value = m.label;
+    lCell.font = headerText;
+    lCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: softGray } };
+    lCell.alignment = rightAlign;
+    lCell.border = borderLight;
+    vCell.value = m.value;
+    vCell.font = { ...darkText, bold: true, color: { argb: m.color } };
+    vCell.alignment = centerAlign;
+    vCell.border = borderLight;
+    vCell.numFmt = m.isCount ? '#,##0' : '#,##0 "ر.ي"';
+    if (m.isFinal) vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    worksheet.getRow(r).height = 22;
+  });
+
+  // 7) تذييل
+  const footerRow = summaryStart + metricsList.length + 2;
+  worksheet.mergeCells(`A${footerRow}:${lastColLetter}${footerRow}`);
+  const footer = worksheet.getCell(`A${footerRow}`);
+  footer.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة أكسيون AXION. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
+  footer.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
+  footer.alignment = centerAlign;
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return await downloadExcelFile(buffer as ArrayBuffer, `Workers_Report_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+};

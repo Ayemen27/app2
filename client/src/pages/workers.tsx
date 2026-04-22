@@ -1056,13 +1056,15 @@ export default function WorkersPage() {
       });
       const statusOption = filtersConfig.find(f => f.key === 'status')?.options?.find(o => o.value === filterValues.status);
       const typeOption = filtersConfig.find(f => f.key === 'type')?.options?.find(o => o.value === filterValues.type);
+      const projectLabel = selectedProjectName ? `مشروع ${selectedProjectName}` : 'جميع المشاريع';
+      const filterBits: string[] = [];
+      if (statusOption?.label && filterValues.status && filterValues.status !== 'all') filterBits.push(`الحالة: ${statusOption.label}`);
+      if (typeOption?.label && filterValues.type && filterValues.type !== 'all') filterBits.push(`النوع: ${typeOption.label}`);
       const ok = await generateTablePDF({
-        reportTitle: 'كشف العمال - تقرير شامل',
-        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')} | المشروع: ${selectedProjectName || 'جميع المشاريع'}`,
+        reportTitle: `كشف تصفية عمالة ${projectLabel}`,
+        subtitle: filterBits.length ? filterBits.join(' • ') : undefined,
         infoItems: [
           { label: 'عدد العمال', value: filteredWorkers.length },
-          { label: 'الحالة', value: statusOption?.label || 'الكل' },
-          { label: 'النوع', value: typeOption?.label || 'الكل' },
           { label: 'إجمالي المستحقات', value: `${totalEarnings.toLocaleString('en-US')} ر.ي`, color: '#10b981' },
           { label: 'إجمالي المسلَّم', value: `${totalOnHand.toLocaleString('en-US')} ر.ي`, color: '#f43f5e' },
           { label: 'الرصيد المتبقي', value: `${totalRemaining.toLocaleString('en-US')} ر.ي`, color: totalRemaining >= 0 ? '#10b981' : '#f43f5e' },

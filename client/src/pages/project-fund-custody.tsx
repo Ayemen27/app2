@@ -24,6 +24,8 @@ import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filte
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { z } from "zod";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 
 type FundTransferFormData = z.infer<typeof insertFundTransferSchema>;
 
@@ -31,6 +33,8 @@ export default function ProjectFundCustody() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+  const { selectedProjectId } = useSelectedProject();
+  const isAllProjects = !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID;
   const [editingTransfer, setEditingTransfer] = useState<FundTransfer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -110,8 +114,11 @@ export default function ProjectFundCustody() {
       );
     }
 
-    if (filterValues.project && filterValues.project !== 'all') {
-      filtered = filtered.filter(t => t.project_id === filterValues.project);
+    const effectiveProjectId = (filterValues.project && filterValues.project !== 'all')
+      ? filterValues.project
+      : (!isAllProjects ? selectedProjectId : '');
+    if (effectiveProjectId) {
+      filtered = filtered.filter(t => t.project_id === effectiveProjectId);
     }
 
     if (filterValues.transferType) {

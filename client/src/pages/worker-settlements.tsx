@@ -890,11 +890,22 @@ export default function WorkerSettlementsPage() {
                       title={s.settlement_project_name || "مشروع غير معروف"}
                       subtitle={formatDate(s.created_at)}
                       titleIcon={Building}
-                      headerColor={s.status === "completed" ? "#22c55e" : s.status === "reversed" ? "#ef4444" : "#94a3b8"}
+                      headerColor={s.status === "completed" ? "#22c55e" : s.status === "reversed" ? "#ef4444" : s.status === "pending" ? "#f59e0b" : s.status === "draft" ? "#64748b" : "#94a3b8"}
                       badges={[
                         {
-                          label: s.status === "completed" ? "مكتملة" : s.status === "reversed" ? "ملغاة" : s.status,
-                          variant: s.status === "completed" ? "success" : s.status === "reversed" ? "destructive" : "secondary",
+                          label: ({
+                            completed: "مكتملة",
+                            reversed: "ملغاة",
+                            pending: "قيد المعالجة",
+                            draft: "مسودة",
+                            approved: "موافق عليها",
+                            rejected: "مرفوضة",
+                            cancelled: "ملغاة",
+                          } as Record<string, string>)[s.status] || s.status || "غير محدد",
+                          variant: s.status === "completed" || s.status === "approved" ? "success"
+                            : s.status === "reversed" || s.status === "rejected" || s.status === "cancelled" ? "destructive"
+                            : s.status === "pending" ? "warning"
+                            : "secondary",
                         },
                       ]}
                       fields={[

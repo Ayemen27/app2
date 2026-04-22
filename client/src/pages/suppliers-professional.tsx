@@ -13,8 +13,12 @@ import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
+import SelectedProjectBadge from "@/components/selected-project-badge";
 
 export default function SuppliersPage() {
+  const { selectedProjectId } = useSelectedProject();
+  const isAllProjects = !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [searchValue, setSearchValue] = useState("");
@@ -51,6 +55,27 @@ export default function SuppliersPage() {
   const { data: suppliers = [], isLoading, refetch: refetchSuppliers } = useQuery({
     queryKey: QUERY_KEYS.suppliers,
   });
+
+  // جلب مشتريات المواد للمشروع المختار لاستخراج الموردين الذين لديهم تعاملات
+  const { data: projectPurchases = [] } = useQuery<any[]>({
+    queryKey: ['/api/material-purchases', selectedProjectId],
+    queryFn: async () => {
+      if (isAllProjects || !selectedProjectId) return [];
+      const params = new URLSearchParams({ project_id: selectedProjectId });
+      const response = await apiRequest(`/api/material-purchases?${params.toString()}`, 'GET');
+      return response?.data || response || [];
+    },
+    enabled: !isAllProjects && !!selectedProjectId,
+  });
+
+  const projectSupplierIds = useMemo(() => {
+    if (isAllProjects) return null;
+    const ids = new Set<string>();
+    (projectPurchases as any[]).forEach((p: any) => {
+      if (p.supplier_id) ids.add(p.supplier_id);
+    });
+    return ids;
+  }, [projectPurchases, isAllProjects]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -119,17 +144,25 @@ export default function SuppliersPage() {
       const matchesStatus = filterValues.status === 'all' || 
         (filterValues.status === 'active' && supplier.is_active) ||
         (filterValues.status === 'inactive' && !supplier.is_active);
+      // فلترة حسب المشروع المختار: فقط الموردون الذين لديهم مشتريات في هذا المشروع
+      const matchesProject = projectSupplierIds === null || projectSupplierIds.has(supplier.id);
       
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesProject;
     });
-  }, [suppliers, searchValue, filterValues]);
+  }, [suppliers, searchValue, filterValues, projectSupplierIds]);
 
-  const stats = useMemo(() => ({
-    total: (suppliers as Supplier[]).length,
-    active: (suppliers as Supplier[]).filter((s: Supplier) => s.is_active).length,
-    inactive: (suppliers as Supplier[]).filter((s: Supplier) => !s.is_active).length,
-    totalDebt: (suppliers as Supplier[]).reduce((sum: number, s: Supplier) => sum + (parseFloat(s.totalDebt?.toString() || '0') || 0), 0),
-  }), [suppliers]);
+  const stats = useMemo(() => {
+    // عند اختيار مشروع، الإحصائيات تعكس موردي المشروع فقط
+    const baseList = projectSupplierIds === null
+      ? (suppliers as Supplier[])
+      : (suppliers as Supplier[]).filter(s => projectSupplierIds.has(s.id));
+    return {
+      total: baseList.length,
+      active: baseList.filter((s: Supplier) => s.is_active).length,
+      inactive: baseList.filter((s: Supplier) => !s.is_active).length,
+      totalDebt: baseList.reduce((sum: number, s: Supplier) => sum + (parseFloat(s.totalDebt?.toString() || '0') || 0), 0),
+    };
+  }, [suppliers, projectSupplierIds]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
@@ -233,6 +266,7 @@ export default function SuppliersPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-2">
+      <SelectedProjectBadge />
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

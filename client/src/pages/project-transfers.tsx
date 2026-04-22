@@ -32,6 +32,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 
 type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 
@@ -39,6 +40,8 @@ export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+  const { selectedProjectId } = useSelectedProject();
+  const isAllProjects = !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID;
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -137,8 +140,15 @@ export default function ProjectTransfers() {
       });
     }
 
+    // فلترة حسب المشروع المختار من الشريط العلوي: المشروع طرف في التحويل (مصدر أو وجهة)
+    if (!isAllProjects && selectedProjectId) {
+      filtered = filtered.filter((t: any) =>
+        t.fromProjectId === selectedProjectId || t.toProjectId === selectedProjectId
+      );
+    }
+
     return filtered;
-  }, [allTransfers, searchValue, filterValues, projects]);
+  }, [allTransfers, searchValue, filterValues, projects, selectedProjectId, isAllProjects]);
 
   // Calculate Stats
   const stats = useMemo(() => {

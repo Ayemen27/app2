@@ -408,18 +408,18 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       : await pool.query(`
       SELECT
         COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE transfer_date::date = $1::date ${projectFilter}), 0) as total_fund_transfers,
-        COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance WHERE (safe_numeric(work_days::text, 0) > 0 OR safe_numeric(paid_amount::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance WHERE (safe_numeric(work_days::text, 0) > 0 OR safe_numeric(paid_amount::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1::text ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0)
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0)
             ELSE 0
           END
-        ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${projectFilter}), 0) as total_material_costs,
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM transportation_expenses WHERE date = $1 ${projectFilter}), 0) as total_transportation,
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1 ${projectFilter}), 0) as total_worker_transfers,
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_misc_expenses WHERE date = $1 ${projectFilter}), 0) as total_misc_expenses,
-        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM supplier_payments WHERE payment_date = $1 ${projectFilter}), 0) as total_supplier_payments
+        ) FROM material_purchases WHERE purchase_date = $1::text AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${projectFilter}), 0) as total_material_costs,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM transportation_expenses WHERE date = $1::text ${projectFilter}), 0) as total_transportation,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers WHERE COALESCE(NULLIF(transfer_date, ''), '1970-01-01') = $1::text ${projectFilter}), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_misc_expenses WHERE date = $1::text ${projectFilter}), 0) as total_misc_expenses,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM supplier_payments WHERE payment_date = $1::text ${projectFilter}), 0) as total_supplier_payments
     `, queryParams);
     const overallSums = overallSumsQuery.rows[0];
     const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);

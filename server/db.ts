@@ -119,8 +119,8 @@ export const pool = new Pool({
   max: 8,
   idleTimeoutMillis: 20000,
   connectionTimeoutMillis: 15000,
-  query_timeout: 30000,
-  statement_timeout: 30000,
+  query_timeout: 15000,
+  statement_timeout: 15000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
   ssl: { rejectUnauthorized: false }

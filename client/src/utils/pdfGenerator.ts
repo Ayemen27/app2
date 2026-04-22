@@ -1,6 +1,6 @@
-import { downloadFile, isMobileWebView } from '@/utils/webview-download';
+import { downloadFile } from '@/utils/webview-download';
 import DOMPurify from 'dompurify';
-import { getBranding } from '@/lib/report-branding';
+import { buildLetterheadHeader, buildLetterheadFooter } from '@/lib/pdf-exports';
 
 interface PDFGenerationOptions {
   html: string;
@@ -133,9 +133,8 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
 
   const html = `
     <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:${containerWidth}px;">
-      <div style="background:${getBranding().primaryColor};color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;letter-spacing:0.3px;border-bottom:4px solid ${getBranding().accentColor};">${getBranding().companyName}</div>
-      <div style="background:${hdrColor};color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">${options.reportTitle}</div>
-      ${options.subtitle ? `<div style="text-align:center;padding:5px 0;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
+      ${buildLetterheadHeader(options.reportTitle)}
+      ${options.subtitle ? `<div style="text-align:center;padding:6px 16px 2px;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}
       <table style="width:calc(100% - 32px);border-collapse:collapse;margin:10px 16px;table-layout:fixed;">
         <colgroup>${colWidths.map(w => `<col style="width:${w}">`).join('')}</colgroup>
@@ -152,8 +151,9 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
         <div style="text-align:center;font-size:10px;"><b>توقيع مدير المشروع</b><br/>.................................</div>
         <div style="text-align:center;font-size:10px;"><b>توقيع المدير العام</b><br/>.................................</div>
       </div>
-      <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;border-top:1px solid #E5E7EB;margin:4px 16px 0;">
-        تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - ${new Date().toLocaleDateString('en-GB')} - ${new Date().toLocaleTimeString('en-GB')}
+      ${buildLetterheadFooter()}
+      <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;margin:4px 16px 0;">
+        تم إنشاء هذا التقرير آلياً - ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}
       </div>
     </div>
   `;

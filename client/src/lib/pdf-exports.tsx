@@ -7,7 +7,7 @@ import { getBranding } from '@/lib/report-branding';
  * ترويسة Letterhead الموحّدة لكل تقارير العميل (مطابقة لتصميم الصورة).
  * تقرأ كل البيانات من /api/report-header (cache المخزن في getBranding).
  */
-function buildLetterheadHeader(subtitle?: string): string {
+export function buildLetterheadHeader(subtitle?: string): string {
   const b = getBranding();
   const initial = (b.companyName || 'A').charAt(0);
   const logo = b.logoUrl
@@ -39,7 +39,7 @@ function buildLetterheadHeader(subtitle?: string): string {
   ${titleBand}`;
 }
 
-function buildLetterheadFooter(): string {
+export function buildLetterheadFooter(): string {
   const b = getBranding();
   const phone = b.phone
     ? `<div style="flex:1;display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${b.accentColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;">☎</div><div><div style="font-size:9px;opacity:.75;">Phone</div><div style="font-size:11px;font-weight:700;" dir="ltr">${b.phone}</div></div></div>`

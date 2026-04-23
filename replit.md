@@ -297,3 +297,8 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 - Automated backup restore verification (DR drills)
 - Expand financial correctness test suite (property-based tests for settlement/allocation invariants)
 - TLS certificate validation (`rejectUnauthorized: true`) with proper CA chain
+## 2026-04-23 — إصلاحات محرك النشر (deployment-engine.ts)
+
+**1) capture-plugin-manifest:** Capacitor v6+ لم يعد يكتب `capacitor.plugins.json` في جذر المشروع، بل في `android/app/src/main/assets/`. الكود في `computeLocalPluginManifestHash` و `computeRemotePluginManifestHash` و `stepApkPluginSmoke` كان يفترض المسار القديم فيفشل بـ "capacitor.plugins.json غير موجود على السيرفر بعد cap sync". الإصلاح: قراءة من المسار الجديد أولاً ثم الجذر القديم كـ fallback (توافق v5–v8+).
+
+**2) syncBotTInventory:** نمط `sed` للنطاق كان معطوباً — نمط نهاية النطاق `^  [a-z][a-z0-9_-]*:$` يطابق سطر `axion:` نفسه، فيُغلق النطاق فوراً ولا يصل لـ `pm2_name`. النتيجة: `pm2_name` لا يُحدَّث أبداً، التحقق يفشل بـ "القيمة الفعلية: ...". الإصلاح: استبدال sed بـ Python+PyYAML مع backup ذرّي و atomic rename و post-write verify (المعيار في Ansible/Kubernetes).

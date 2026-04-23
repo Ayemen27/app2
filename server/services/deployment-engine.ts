@@ -2544,23 +2544,53 @@ export class DeploymentEngine {
   }
 
   private async syncBotTInventory(deploymentId: string, sshCmd: string, pm2Name: string) {
+    // معالجة YAML احترافية عبر Python+PyYAML (المعيار المُتّبع في Ansible/Kubernetes):
+    //   1) backup ذرّي قبل التعديل
+    //   2) كتابة عبر ملف مؤقّت ثم os.replace (atomic rename)
+    //   3) قراءة ما بعد الكتابة للتحقق من القيمة فعلياً
+    // هذا يستبدل sed range الذي كان فاشلاً (نمط النهاية يطابق سطر axion: نفسه فيُغلق النطاق فوراً).
     const inventoryPath = "/opt/Bot-T/apps_inventory.yaml";
+    const appKey = "axion";
     const maxRetries = 3;
+
+    // تمرير القيمة عبر متغير بيئة لتفادي مشاكل escape/quoting
+    const pyScript = [
+      `import os, sys, tempfile, shutil, yaml`,
+      `path = os.environ['INV_PATH']`,
+      `key = os.environ['APP_KEY']`,
+      `new_name = os.environ['NEW_PM2_NAME']`,
+      `with open(path, 'r', encoding='utf-8') as f: data = yaml.safe_load(f)`,
+      `apps = (data or {}).get('applications') or {}`,
+      `if key not in apps: print(f'ERR: key {key} not found'); sys.exit(2)`,
+      `before = apps[key].get('pm2_name')`,
+      `if before == new_name: print(f'NOOP: pm2_name already {new_name}'); sys.exit(0)`,
+      `apps[key]['pm2_name'] = new_name`,
+      `shutil.copy2(path, path + '.bak.' + str(int(os.path.getmtime(path))))`,
+      `dir_ = os.path.dirname(path)`,
+      `fd, tmp = tempfile.mkstemp(prefix='.inv.', dir=dir_)`,
+      `os.close(fd)`,
+      `with open(tmp, 'w', encoding='utf-8') as f: yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)`,
+      `os.replace(tmp, path)`,
+      `with open(path, 'r', encoding='utf-8') as f: verify = yaml.safe_load(f)`,
+      `actual = verify['applications'][key].get('pm2_name')`,
+      `print(f'OK: {before} -> {actual}' if actual == new_name else f'ERR: verify mismatch {actual}')`,
+      `sys.exit(0 if actual == new_name else 3)`,
+    ].join("; ");
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}" (محاولة ${attempt}/${maxRetries})...`, "info");
-        const sedCmd = `sed -i '/^  axion:$/,/^  [a-z][a-z0-9_-]*:$/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
-        const verifyCmd = `awk '/^  axion:$/{f=1; next} f && /^  [a-z][a-z0-9_-]*:$/{f=0} f && /pm2_name:/{print}' ${inventoryPath}`;
-        const { stdout } = await execAsync(
-          `${sshCmd} "${sedCmd} && ${verifyCmd}"`,
-          { timeout: 10000, env: this.getSSHExecEnv() }
+        const remoteCmd = `INV_PATH='${inventoryPath}' APP_KEY='${appKey}' NEW_PM2_NAME='${pm2Name}' python3 -c ${JSON.stringify(pyScript)}`;
+        const { stdout, stderr } = await execAsync(
+          `${sshCmd} "${remoteCmd.replace(/"/g, '\\"')}"`,
+          { timeout: 15000, env: this.getSSHExecEnv() }
         );
-        const verified = stdout.trim().includes(`"${pm2Name}"`);
-        if (verified) {
-          await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}"`, "success");
+        const out = (stdout || "").trim();
+        if (out.startsWith("OK:") || out.startsWith("NOOP:")) {
+          await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}" (${out})`, "success");
           return;
         }
-        throw new Error(`التحقق فشل — القيمة الفعلية: ${stdout.trim()}`);
+        throw new Error(`الناتج غير متوقع: ${out || stderr || "(empty)"}`);
       } catch (err: any) {
         if (attempt < maxRetries) {
           await this.addLog(deploymentId, `⚠️ محاولة ${attempt} فشلت: ${err.message} — إعادة المحاولة...`, "warn");
@@ -4613,10 +4643,16 @@ echo 'MAINACTIVITY_FIXED'"`,
     capacitorBuildGradleHash: string | null;
   } | null> {
     try {
-      const pluginsPath = `${process.cwd()}/capacitor.plugins.json`;
-      const buildGradlePath = `${process.cwd()}/android/app/capacitor.build.gradle`;
+      // Capacitor v6+ يكتب الملف داخل android/app/src/main/assets/ — للتوافق نتفقد المسارين بالترتيب
+      const localRoot = process.cwd();
+      const candidatePaths = [
+        `${localRoot}/android/app/src/main/assets/capacitor.plugins.json`,
+        `${localRoot}/capacitor.plugins.json`,
+      ];
+      const buildGradlePath = `${localRoot}/android/app/capacitor.build.gradle`;
 
-      if (!existsSync(pluginsPath)) {
+      const pluginsPath = candidatePaths.find(p => existsSync(p));
+      if (!pluginsPath) {
         return null;
       }
 
@@ -4660,10 +4696,12 @@ echo 'MAINACTIVITY_FIXED'"`,
   } | null> {
     try {
       const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
-      const pluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+      // Capacitor v6+ يكتب الملف داخل android/app/src/main/assets/ — نقرأ من المسار الجديد ثم القديم كـ fallback
+      const newPluginsPath = `${remoteRoot}/android/app/src/main/assets/capacitor.plugins.json`;
+      const legacyPluginsPath = `${remoteRoot}/capacitor.plugins.json`;
       const buildGradlePath = `${remoteRoot}/android/app/capacitor.build.gradle`;
 
-      const cmd = `${sshCmd} 'cat ${pluginsPath} 2>/dev/null && echo "===GRADLE_SEPARATOR===" && cat ${buildGradlePath} 2>/dev/null'`;
+      const cmd = `${sshCmd} '(cat ${newPluginsPath} 2>/dev/null || cat ${legacyPluginsPath} 2>/dev/null) && echo "===GRADLE_SEPARATOR===" && cat ${buildGradlePath} 2>/dev/null'`;
       const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
 
       const parts = stdout.split("===GRADLE_SEPARATOR===");
@@ -4867,10 +4905,12 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
     const apkPath = `${remoteRoot}/android/app/build/outputs/apk/release/app-release.apk`;
-    const sourcePluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+    // Capacitor v6+ يكتب المصدر داخل android/app/src/main/assets/ — مع fallback للموقع القديم
+    const newSourcePath = `${remoteRoot}/android/app/src/main/assets/capacitor.plugins.json`;
+    const legacySourcePath = `${remoteRoot}/capacitor.plugins.json`;
 
     // استخرج capacitor.plugins.json من داخل APK + اقرأ المصدر — كلاهما عبر SSH
-    const cmd = `${sshCmd} 'unzip -p ${apkPath} assets/capacitor.plugins.json 2>/dev/null && echo "===APK_SOURCE_SEPARATOR===" && cat ${sourcePluginsPath} 2>/dev/null'`;
+    const cmd = `${sshCmd} 'unzip -p ${apkPath} assets/capacitor.plugins.json 2>/dev/null && echo "===APK_SOURCE_SEPARATOR===" && (cat ${newSourcePath} 2>/dev/null || cat ${legacySourcePath} 2>/dev/null)'`;
     const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
 
     const parts = stdout.split("===APK_SOURCE_SEPARATOR===");

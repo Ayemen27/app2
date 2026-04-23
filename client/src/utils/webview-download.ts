@@ -7,10 +7,6 @@ export function isCapacitorNative(): boolean {
   try { return Capacitor.isNativePlatform(); } catch { return false; }
 }
 
-function isPluginReady(name: string): boolean {
-  try { return isCapacitorNative() && Capacitor.isPluginAvailable(name); } catch { return false; }
-}
-
 const KNOWN_ANDROID_BROWSERS = [
   'chrome/', 'firefox/', 'edg/', 'edge/', 'opr/', 'opera/',
   'samsungbrowser/', 'ucbrowser/', 'brave/', 'vivaldi/',
@@ -129,18 +125,17 @@ function debugLog(method: string, status: string, detail?: string) {
 /**
  * الطريقة 1: FileSharer (Capacitor native — الأفضل والأسرع)
  * تعمل على Android وiOS. تعرض قائمة المشاركة الأصلية.
+ *
+ * ملاحظة مهمة: لا نستخدم Capacitor.isPluginAvailable() لأنها تُرجع false
+ * في Capacitor 8 حتى لو كانت الإضافة مُضمَّنة في APK. نستدعي الإضافة مباشرة.
  */
 async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
-  // التحقق من توافر الإضافة الأصلية في APK أولاً
-  if (!isPluginReady('FileSharer')) {
-    debugLog('FileSharer', 'SKIP', 'plugin not compiled in APK');
-    return false;
-  }
+  if (!isCapacitorNative()) return false;
 
   try {
     const { FileSharer } = await import('@byteowls/capacitor-filesharer');
     if (!FileSharer || typeof FileSharer.share !== 'function') {
-      debugLog('FileSharer', 'SKIP', 'plugin not available');
+      debugLog('FileSharer', 'SKIP', 'plugin object not available');
       return false;
     }
 
@@ -162,7 +157,6 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
   } catch (err: any) {
     const msg = String(err?.message || err || '');
     debugLog('FileSharer', 'ERROR', msg);
-    // إلغاء المستخدم يُعدّ نجاحاً (لم يحدث خطأ تقني)
     if (/cancel|Cancel|dismiss|USER_CANCELLED/i.test(msg)) return true;
     return false;
   }
@@ -170,14 +164,14 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
 
 /**
  * الطريقة 2: Capacitor Filesystem + Share
- * تكتب الملف في الـ Cache ثم تعرض قائمة المشاركة.
- * تعمل بدون صلاحيات على Android 10+ (Directory.Cache لا يحتاج إذناً).
+ * تكتب الملف في الـ Cache ثم تعرض قائمة المشاركة الأصلية.
+ *
+ * - Directory.Cache لا يحتاج صلاحيات على Android 10+ (API 29+)
+ * - هذه الطريقة هي الأكثر موثوقية على Android بعد FileSharer
+ * - لا نستخدم isPluginAvailable() — نستدعي مباشرة ونعالج الأخطاء
  */
 async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
-  if (!isPluginReady('Filesystem') || !isPluginReady('Share')) {
-    debugLog('CapFS+Share', 'SKIP', 'Filesystem or Share plugin not compiled in APK');
-    return false;
-  }
+  if (!isCapacitorNative()) return false;
 
   try {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
@@ -188,12 +182,6 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
 
     debugLog('CapFS', 'WRITING', sanitized);
 
-    /*
-     * نستخدم Directory.Cache لأنه:
-     * - لا يحتاج صلاحيات على Android 10+ (API 29+)
-     * - لا يحتاج صلاحيات على Android 13+ (API 33+) حيث تغيّرت نماذج الإذن
-     * - آمن ومناسب للملفات المؤقتة كالتقارير
-     */
     await Filesystem.writeFile({
       path: sanitized,
       data: base64Data,
@@ -225,7 +213,8 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
 
 /**
  * الطريقة 3: Web Share API (navigator.share)
- * تعمل في المتصفحات الحديثة وبعض WebViews.
+ * تعمل في المتصفحات الحديثة وبعض WebViews — لكن ليس في Capacitor.
+ * في Capacitor نتجاوز هذه الطريقة لصالح الطرق الأصلية أعلاه.
  */
 async function tryWebShareAPI(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
@@ -313,7 +302,6 @@ async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: st
     debugLog('ServerProxy', 'URL_READY', fullUrl);
 
     if (isMobileWebView()) {
-      // في WebView نستخدم iframe مخفي لتحفيز التحميل
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'display:none;position:fixed;left:-9999px;';
       iframe.src = fullUrl;
@@ -365,13 +353,18 @@ function downloadForBrowser(blob: Blob, fileName: string): boolean {
 /**
  * downloadFile — نقطة دخول موحّدة لتصدير الملفات
  *
- * تجرّب الطرق بالترتيب التالي:
- *  Capacitor Native → FileSharer → CapFS+Share → NativeBridge → WebShare → ServerProxy → Browser
+ * على Android (Capacitor):
+ *   1. FileSharer  → يعرض قائمة المشاركة الأصلية (Save to Downloads + تطبيقات أخرى)
+ *   2. CapFS+Share → يكتب في Cache ثم يعرض قائمة المشاركة
+ *   3. NativeBridge → جسر Java إن وُجد
  *
- * متوافقة مع:
- *  - Android 10 – 15 (Capacitor + WebView)
- *  - iOS 15+ (Capacitor + WebView)
- *  - متصفحات سطح المكتب الحديثة
+ * على الويب / المتصفح:
+ *   4. Web Share API
+ *   5. Server Proxy
+ *   6. تحميل المتصفح التقليدي
+ *
+ * ملاحظة: لا نستخدم Capacitor.isPluginAvailable() لأنها تُرجع false
+ * في Capacitor 8 حتى للإضافات المُضمَّنة. نستدعي كل إضافة مباشرة ونعالج الأخطاء.
  */
 export async function downloadFile(
   blob: Blob,
@@ -387,16 +380,30 @@ export async function downloadFile(
     throw new Error('الملف فارغ — لم يتم إنشاء التقرير بشكل صحيح');
   }
 
-  // مسح أخطاء الجلسة السابقة
   Object.keys(lastErrors).forEach(k => delete lastErrors[k]);
 
   // ── تطبيق Capacitor (Android / iOS) ──
+  // نستدعي الإضافات الأصلية مباشرة بدون فحص isPluginAvailable()
   if (onCapacitor) {
-    // 1. FileSharer — الأسرع والأكثر موثوقية
+    // 1. FileSharer — يعرض Share Sheet: يمكن للمستخدم الحفظ في Downloads
     if (await tryFileSharer(blob, fileName, type)) return true;
 
-    // 2. Filesystem + Share — بديل موثوق بدون صلاحيات
+    // 2. Filesystem + Share — يكتب الملف في Cache ثم يفتح Share Sheet
     if (await tryCapacitorFsShare(blob, fileName, type)) return true;
+
+    // 3. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
+    if (hasAndroidBridge() || hasIOSBridge()) {
+      if (await tryNativeBridge(blob, fileName, type)) return true;
+    }
+
+    // في Capacitor لا نستخدم WebShare أو ServerProxy — نُبلّغ بفشل حقيقي
+    const errorDetails = Object.entries(lastErrors)
+      .map(([m, e]) => `• ${m}: ${e}`)
+      .join('\n');
+    console.error('[DL] All native Capacitor methods failed:', lastErrors);
+    throw new Error(
+      `فشل تصدير الملف:\n${errorDetails || 'تعذّر الوصول إلى إضافات المشاركة الأصلية'}\n\nيرجى التحقق من صلاحيات التطبيق.`
+    );
   }
 
   // ── Native Bridge المضمّن (Java / Swift) ──
@@ -417,7 +424,6 @@ export async function downloadFile(
   // ── تحميل المتصفح التقليدي ──
   if (downloadForBrowser(blob, fileName)) return true;
 
-  // ── فشلت جميع الطرق ──
   const errorDetails = Object.entries(lastErrors)
     .map(([m, e]) => `• ${m}: ${e}`)
     .join('\n');
@@ -447,16 +453,16 @@ export function getDownloadCapabilities() {
     isMobile:           isMobileDevice(),
     hasNativeBridge:    hasAndroidBridge() || hasIOSBridge(),
     hasShareAPI:        hasShareAPI(),
-    fileSharerReady:    isPluginReady('FileSharer'),
-    filesystemReady:    isPluginReady('Filesystem'),
-    sharePluginReady:   isPluginReady('Share'),
+    // ملاحظة: isPluginAvailable() لا تعمل في Capacitor 8 — نحاول مباشرة
+    fileSharerReady:    isCapacitorNative(),
+    filesystemReady:    isCapacitorNative(),
+    sharePluginReady:   isCapacitorNative(),
     recommendedMethod:
-      isPluginReady('FileSharer')    ? 'filesharer'      :
-      isPluginReady('Filesystem')    ? 'capacitor-fs'    :
-      hasAndroidBridge()             ? 'android-bridge'  :
-      hasIOSBridge()                 ? 'ios-bridge'      :
-      hasShareAPI()                  ? 'webshare'        :
-                                       'browser',
+      isCapacitorNative()  ? 'capacitor-filesharer' :
+      hasAndroidBridge()   ? 'android-bridge'       :
+      hasIOSBridge()       ? 'ios-bridge'           :
+      hasShareAPI()        ? 'webshare'             :
+                             'browser',
   };
 }
 
@@ -468,11 +474,6 @@ export function exportDiagnostics() {
     platform:          Capacitor.getPlatform(),
     isNative:          isCapacitorNative(),
     lastSessionErrors: { ...lastErrors },
-    pluginChecks: {
-      FileSharer:  isPluginReady('FileSharer'),
-      Filesystem:  isPluginReady('Filesystem'),
-      Share:       isPluginReady('Share'),
-    },
     bridgeChecks: {
       hasAndroidBridge: hasAndroidBridge(),
       hasIOSBridge:     hasIOSBridge(),

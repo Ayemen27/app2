@@ -39,7 +39,14 @@ function isNativePlatform(): boolean {
 
 function isNativeBiometricAvailable(): boolean {
   try {
-    return isNativePlatform() && Capacitor.isPluginAvailable('NativeBiometric');
+    if (!isNativePlatform()) return false;
+
+    if (Capacitor.isPluginAvailable('NativeBiometric')) return true;
+
+    const plugins = (window as any)?.Capacitor?.Plugins;
+    if (plugins && typeof plugins === 'object' && 'NativeBiometric' in plugins) return true;
+
+    return false;
   } catch { return false; }
 }
 
@@ -114,11 +121,12 @@ function commonHeaders(extra: Record<string, string> = {}): Record<string, strin
 
 export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
-    if (!isNativeBiometricAvailable()) return false;
     try {
       const result = await NativeBiometric.isAvailable();
-      return result.isAvailable;
-    } catch { return false; }
+      return result.isAvailable === true;
+    } catch {
+      return false;
+    }
   }
   if (!window.PublicKeyCredential) return false;
   try {
@@ -178,7 +186,7 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
         }
       }
     }
-    if (isNativePlatform() && isNativeBiometricAvailable()) {
+    if (isNativePlatform()) {
       try {
         const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
         if (creds?.password) {
@@ -212,7 +220,7 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
  */
 export async function clearAllBiometricData(): Promise<void> {
   clearLocalBiometricHints();
-  if (isNativePlatform() && isNativeBiometricAvailable()) {
+  if (isNativePlatform()) {
     try { await NativeBiometric.deleteCredentials({ server: CREDENTIAL_SERVER }); } catch {}
   }
 }
@@ -220,10 +228,12 @@ export async function clearAllBiometricData(): Promise<void> {
 // ─── Native (Android/iOS via Capgo) ─────────────────────────────────────────
 
 async function registerBiometricNative(accessToken: string): Promise<{ success: boolean; message: string }> {
-  if (!isNativeBiometricAvailable()) {
-    throw new Error('إضافة البصمة غير مُدمجة في هذا الإصدار من التطبيق');
+  let available: any;
+  try {
+    available = await NativeBiometric.isAvailable();
+  } catch {
+    throw new Error('إضافة البصمة غير متوفرة في هذا الإصدار من التطبيق');
   }
-  const available = await NativeBiometric.isAvailable();
   if (!available.isAvailable) {
     throw new Error('البصمة غير متاحة على هذا الجهاز');
   }
@@ -285,8 +295,16 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
 }
 
 async function loginWithBiometricNative(): Promise<any> {
-  if (!isNativeBiometricAvailable()) {
-    throw new Error('إضافة البصمة غير مُدمجة في هذا الإصدار من التطبيق');
+  try {
+    const check = await NativeBiometric.isAvailable();
+    if (!check.isAvailable) {
+      const e = new Error('البصمة غير متاحة على هذا الجهاز');
+      (e as any).code = 'UNAVAILABLE';
+      throw e;
+    }
+  } catch (checkErr: any) {
+    if (checkErr.code === 'UNAVAILABLE') throw checkErr;
+    throw new Error('إضافة البصمة غير متوفرة — يرجى تحديث التطبيق');
   }
   await NativeBiometric.verifyIdentity({
     reason: 'تسجيل الدخول بالبصمة',
@@ -297,8 +315,18 @@ async function loginWithBiometricNative(): Promise<any> {
     maxAttempts: 3,
   });
 
-  const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
+  let creds: any = null;
+  try {
+    creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
+  } catch (credErr: any) {
+    clearLocalBiometricHints();
+    const noCredError = new Error('لم يُعثر على بيانات البصمة — يرجى إعادة تفعيلها من الإعدادات بعد تسجيل الدخول بكلمة المرور');
+    (noCredError as any).code = 'NO_CREDENTIALS';
+    throw noCredError;
+  }
+
   if (!creds?.password) {
+    clearLocalBiometricHints();
     const noCredError = new Error('لم يتم تسجيل البصمة بعد. سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من الإعدادات');
     (noCredError as any).code = 'NO_CREDENTIALS';
     throw noCredError;

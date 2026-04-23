@@ -36,6 +36,10 @@
 		"classpath": "com.capacitorjs.plugins.network.NetworkPlugin"
 	},
 	{
+		"pkg": "@capacitor/preferences",
+		"classpath": "com.capacitorjs.plugins.preferences.PreferencesPlugin"
+	},
+	{
 		"pkg": "@capacitor/push-notifications",
 		"classpath": "com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin"
 	},

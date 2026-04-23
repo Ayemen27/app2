@@ -2,6 +2,13 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Enforce Latin (Western) numerals globally — must run before any JS module.
+      On Arabic-locale Android WebViews, bare toLocaleString() defaults to Eastern
+      Arabic numerals (١٢٣). This patch intercepts all prototype methods and
+      forces en-US as the fallback locale when no locale is explicitly provided.
+    -->
     <script>
       (function () {
         var L = 'en-US';
@@ -16,7 +23,6 @@
         dp.toLocaleTimeString = function (l, o) { return dtOrig.call(this, l || L, o); };
       })();
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3b82f6" />
     <meta name="description" content="AXION — نظام احترافي لإدارة المشاريع الإنشائية وتتبع الآبار والعمال والمالية. منصة ذكية مدعومة بالذكاء الاصطناعي." />
     <meta name="keywords" content="إدارة مشاريع, مشاريع إنشائية, تتبع آبار, إدارة عمال, محاسبة, AXION, BinarJoin" />
@@ -70,8 +76,67 @@
       }
     }
     </script>
-    <script type="module" crossorigin src="./assets/index-BG05E7zY.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Cqt_Q8GC.css">
+    <script type="module" crossorigin src="./assets/index-C3Mrf1F4.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/classPrivateFieldSet2-BQyv2n4V.js">
+    <link rel="modulepreload" crossorigin href="./assets/classPrivateMethodInitSpec-BX_tB9Cq.js">
+    <link rel="modulepreload" crossorigin href="./assets/chunk-jRWAZmH_.js">
+    <link rel="modulepreload" crossorigin href="./assets/preload-helper-CM5_IGEG.js">
+    <link rel="modulepreload" crossorigin href="./assets/utils-KEeOgKer.js">
+    <link rel="modulepreload" crossorigin href="./assets/react-DDzTVtu_.js">
+    <link rel="modulepreload" crossorigin href="./assets/jsx-runtime-CR1pcHoO.js">
+    <link rel="modulepreload" crossorigin href="./assets/proxy-DaHwfDry.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-D6VhP_2B.js">
+    <link rel="modulepreload" crossorigin href="./assets/createLucideIcon-WHkhkIMZ.js">
+    <link rel="modulepreload" crossorigin href="./assets/button-CIy7GVDi.js">
+    <link rel="modulepreload" crossorigin href="./assets/queryKeys-CpC8qp7W.js">
+    <link rel="modulepreload" crossorigin href="./assets/debug-tracker-C4GxW6d_.js">
+    <link rel="modulepreload" crossorigin href="./assets/env-DBcMO2nM.js">
+    <link rel="modulepreload" crossorigin href="./assets/auth-token-store-dN2V_QlT.js">
+    <link rel="modulepreload" crossorigin href="./assets/query-W3qlpLLa.js">
+    <link rel="modulepreload" crossorigin href="./assets/QueryClientProvider-IwncI6kI.js">
+    <link rel="modulepreload" crossorigin href="./assets/useQuery-CyMCfgRr.js">
+    <link rel="modulepreload" crossorigin href="./assets/SelectedProjectContext-D9FeHRa9.js">
+    <link rel="modulepreload" crossorigin href="./assets/use-toast-CBS3DA6k.js">
+    <link rel="modulepreload" crossorigin href="./assets/defineProperty-Df_FyI5P.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-CuNHp7jB.js">
+    <link rel="modulepreload" crossorigin href="./assets/instrumentation-v23-iI11.js">
+    <link rel="modulepreload" crossorigin href="./assets/token-utils-CB3HvJwp.js">
+    <link rel="modulepreload" crossorigin href="./assets/error-utils-gfeDnC9X.js">
+    <link rel="modulepreload" crossorigin href="./assets/intelligent-monitor-CIGseq5_.js">
+    <link rel="modulepreload" crossorigin href="./assets/native-db-DB6VajLu.js">
+    <link rel="modulepreload" crossorigin href="./assets/hlc-BRf3z-E1.js">
+    <link rel="modulepreload" crossorigin href="./assets/storage-factory-P7iiGU6R.js">
+    <link rel="modulepreload" crossorigin href="./assets/schemas-B2P6oMF2.js">
+    <link rel="modulepreload" crossorigin href="./assets/sync-tables-CJh4uU_P.js">
+    <link rel="modulepreload" crossorigin href="./assets/store-registry-CdSNndRN.js">
+    <link rel="modulepreload" crossorigin href="./assets/pako.esm-BA9XaIFP.js">
+    <link rel="modulepreload" crossorigin href="./assets/conflict-resolver-D-K4PREH.js">
+    <link rel="modulepreload" crossorigin href="./assets/mutation-DVD1BCu-.js">
+    <link rel="modulepreload" crossorigin href="./assets/queryClient-CgyqyZ5K.js">
+    <link rel="modulepreload" crossorigin href="./assets/report-branding-RzQL_mD2.js">
+    <link rel="modulepreload" crossorigin href="./assets/db-R_P0_qdj.js">
+    <link rel="modulepreload" crossorigin href="./assets/react-dom-UXsIWqGt.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-BM8SEwWw.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-R6cCXTQK.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-DaDgQYvU.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-DRa03rYv.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-BQf9GyKZ.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-BiL0nzVX.js">
+    <link rel="modulepreload" crossorigin href="./assets/Combination-abRLdQFH.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-G3Ezxx5-.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-Cmf9BVfv.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-qte8RjDF.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-6_X0Jwg6.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-DHmdShzr.js">
+    <link rel="modulepreload" crossorigin href="./assets/dist-DAeS3-xE.js">
+    <link rel="modulepreload" crossorigin href="./assets/check-BgZwu2aY.js">
+    <link rel="modulepreload" crossorigin href="./assets/chevron-right-C7rHN0Jy.js">
+    <link rel="modulepreload" crossorigin href="./assets/circle-alert-9fzQWjzt.js">
+    <link rel="modulepreload" crossorigin href="./assets/circle-check-big-DDzROV1q.js">
+    <link rel="modulepreload" crossorigin href="./assets/circle-CkTPVNxQ.js">
+    <link rel="modulepreload" crossorigin href="./assets/x-B0kMnqpO.js">
+    <link rel="modulepreload" crossorigin href="./assets/index.esm-Bh3MMTwO.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-c1X3Oaf5.css">
   </head>
   <body>
     <div id="root"></div>

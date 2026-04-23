@@ -2553,36 +2553,46 @@ export class DeploymentEngine {
     const appKey = "axion";
     const maxRetries = 3;
 
-    // تمرير القيمة عبر متغير بيئة لتفادي مشاكل escape/quoting
-    const pyScript = [
-      `import os, sys, tempfile, shutil, yaml`,
-      `path = os.environ['INV_PATH']`,
-      `key = os.environ['APP_KEY']`,
-      `new_name = os.environ['NEW_PM2_NAME']`,
-      `with open(path, 'r', encoding='utf-8') as f: data = yaml.safe_load(f)`,
-      `apps = (data or {}).get('applications') or {}`,
-      `if key not in apps: print(f'ERR: key {key} not found'); sys.exit(2)`,
-      `before = apps[key].get('pm2_name')`,
-      `if before == new_name: print(f'NOOP: pm2_name already {new_name}'); sys.exit(0)`,
-      `apps[key]['pm2_name'] = new_name`,
-      `shutil.copy2(path, path + '.bak.' + str(int(os.path.getmtime(path))))`,
-      `dir_ = os.path.dirname(path)`,
-      `fd, tmp = tempfile.mkstemp(prefix='.inv.', dir=dir_)`,
-      `os.close(fd)`,
-      `with open(tmp, 'w', encoding='utf-8') as f: yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)`,
-      `os.replace(tmp, path)`,
-      `with open(path, 'r', encoding='utf-8') as f: verify = yaml.safe_load(f)`,
-      `actual = verify['applications'][key].get('pm2_name')`,
-      `print(f'OK: {before} -> {actual}' if actual == new_name else f'ERR: verify mismatch {actual}')`,
-      `sys.exit(0 if actual == new_name else 3)`,
-    ].join("; ");
+    // سكربت Python كامل (multi-line حقيقي - يحوي compound statements with/if التي لا تعمل مع python -c "stmt; stmt")
+    // الحل: نشفّر السكربت بـ base64 ونمرّره لـ python عبر pipe — يضمن سلامة الأسطر بصرف النظر عن أي escaping
+    const pyScript = `
+import os, sys, tempfile, shutil, yaml
+path = os.environ['INV_PATH']
+key = os.environ['APP_KEY']
+new_name = os.environ['NEW_PM2_NAME']
+with open(path, 'r', encoding='utf-8') as f:
+    data = yaml.safe_load(f)
+apps = (data or {}).get('applications') or {}
+if key not in apps:
+    print(f'ERR: key {key} not found')
+    sys.exit(2)
+before = apps[key].get('pm2_name')
+if before == new_name:
+    print(f'NOOP: pm2_name already {new_name}')
+    sys.exit(0)
+apps[key]['pm2_name'] = new_name
+shutil.copy2(path, path + '.bak.' + str(int(os.path.getmtime(path))))
+dir_ = os.path.dirname(path)
+fd, tmp = tempfile.mkstemp(prefix='.inv.', dir=dir_)
+os.close(fd)
+with open(tmp, 'w', encoding='utf-8') as f:
+    yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+os.replace(tmp, path)
+with open(path, 'r', encoding='utf-8') as f:
+    verify = yaml.safe_load(f)
+actual = verify['applications'][key].get('pm2_name')
+print(f'OK: {before} -> {actual}' if actual == new_name else f'ERR: verify mismatch {actual}')
+sys.exit(0 if actual == new_name else 3)
+`;
+    const pyB64 = Buffer.from(pyScript, "utf-8").toString("base64");
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}" (محاولة ${attempt}/${maxRetries})...`, "info");
-        const remoteCmd = `INV_PATH='${inventoryPath}' APP_KEY='${appKey}' NEW_PM2_NAME='${pm2Name}' python3 -c ${JSON.stringify(pyScript)}`;
+        // فك base64 على السيرفر ثم تنفيذ - لا escaping needed داخل السكربت
+        const remoteCmd = `INV_PATH=${JSON.stringify(inventoryPath)} APP_KEY=${JSON.stringify(appKey)} NEW_PM2_NAME=${JSON.stringify(pm2Name)} bash -c 'echo ${pyB64} | base64 -d | python3 -'`;
         const { stdout, stderr } = await execAsync(
-          `${sshCmd} "${remoteCmd.replace(/"/g, '\\"')}"`,
+          `${sshCmd} ${JSON.stringify(remoteCmd)}`,
           { timeout: 15000, env: this.getSSHExecEnv() }
         );
         const out = (stdout || "").trim();

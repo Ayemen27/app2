@@ -107,7 +107,10 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
       return;
     }
 
-    const clientVersionUnknown = clientVersionName === "0.0.0" && clientVersionCode === 0;
+    // معيار صناعي: versionCode هو المصدر الموثوق الوحيد لمقارنة إصدارات Android (Google Play / Play Console).
+    // versionName قد يأتي من web bundle fallback عندما يفشل @capacitor/app plugin (APK قديم بدون الإضافة) →
+    // اعتبار العميل "غير معروف" إذا كان versionCode == 0 يضمن التعافي التلقائي من هذه الحالة.
+    const clientVersionUnknown = clientVersionCode === 0;
 
     const byVersionName = compareVersions(latest.versionName, clientVersionName) > 0;
     const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;

@@ -121,12 +121,11 @@ function commonHeaders(extra: Record<string, string> = {}): Record<string, strin
 
 export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
-    try {
-      const result = await NativeBiometric.isAvailable();
-      return result.isAvailable === true;
-    } catch {
-      return false;
-    }
+    // On native Android/iOS we return true optimistically — the device almost certainly
+    // has hardware-backed biometrics.  Calling NativeBiometric.isAvailable() here can
+    // throw or return false due to Capacitor-bridge timing before plugins are fully
+    // registered.  Real errors are caught and handled in loginWithBiometricNative().
+    return true;
   }
   if (!window.PublicKeyCredential) return false;
   try {
@@ -368,8 +367,25 @@ async function loginWithBiometricNative(): Promise<any> {
     throw e;
   }
 
+  const responseData = await exchangeRes.json();
+
+  // Token rotation: server issues a fresh biometric token each exchange.
+  // Store it in the device keystore so the next login uses the new valid secret.
+  if (responseData.newBiometricToken && creds?.username) {
+    try {
+      await NativeBiometric.setCredentials({
+        server: CREDENTIAL_SERVER,
+        username: creds.username,
+        password: responseData.newBiometricToken,
+      });
+    } catch {
+      // Non-fatal: old token already revoked server-side; user will need to
+      // re-register biometric from settings on next attempt.
+    }
+  }
+
   resetFailures();
-  return await exchangeRes.json();
+  return responseData;
 }
 
 // ─── Web (WebAuthn / Passkeys) ──────────────────────────────────────────────

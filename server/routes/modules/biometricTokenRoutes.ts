@@ -133,7 +133,27 @@ biometricTokenRouter.post('/exchange', authRateLimit, async (req: Request, res: 
 
     const ip = getClientIp(req);
     const ua = req.get('user-agent') || null;
-    await storage.updateBiometricRefreshTokenLastUsed(record.id, ip, ua);
+
+    // Token rotation: revoke old token and issue a fresh one so the keystore
+    // always holds a valid secret and the old one can never be replayed.
+    const newBiometricToken = newOpaqueToken();
+    const newTokenHash = sha256(newBiometricToken);
+    const newExpiresAt = new Date(Date.now() + BIOMETRIC_TOKEN_TTL_MS);
+
+    await storage.revokeBiometricRefreshToken(record.id);
+    await storage.createBiometricRefreshToken({
+      user_id: String(user.id),
+      token_hash: newTokenHash,
+      device_id: record.device_id || null,
+      device_label: record.device_label || null,
+      credential_id: record.credential_id || null,
+      platform: record.platform || null,
+      ip_address: ip,
+      user_agent: ua,
+      last_used_at: new Date(),
+      expires_at: newExpiresAt,
+      revoked_at: null,
+    } as any);
 
     const clientContext = extractClientContext(req);
     const tokenPair = await generateTokenPair(
@@ -147,7 +167,7 @@ biometricTokenRouter.post('/exchange', authRateLimit, async (req: Request, res: 
 
     const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
 
-    console.log(`✅ [BiometricToken] Exchange OK for user=${user.email}`);
+    console.log(`✅ [BiometricToken] Exchange+Rotate OK for user=${user.email}`);
 
     return res.json({
       success: true,
@@ -156,6 +176,7 @@ biometricTokenRouter.post('/exchange', authRateLimit, async (req: Request, res: 
       token: tokenPair.accessToken,
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
+      newBiometricToken,
       user: {
         id: user.id,
         user_id: user.id,

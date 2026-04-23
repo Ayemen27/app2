@@ -3524,14 +3524,17 @@ sys.exit(0 if actual == new_name else 3)
     }
 
     const integrityMeta = {
-      sha256: sha256?.trim() || null,
-      signatureValid,
-      verifiedAt: new Date().toISOString(),
+      apkSha256: sha256?.trim() || null,
+      apkSignatureValid: signatureValid,
+      apkVerifiedAt: new Date().toISOString(),
     };
 
-    await this.updateDeployment(deploymentId, {
-      environmentSnapshot: integrityMeta,
-    });
+    // دمج (لا استبدال) للحفاظ على pluginManifestId و bumpedVersionCode وغيرها
+    await db.update(buildDeployments)
+      .set({
+        environmentSnapshot: sql`COALESCE(${buildDeployments.environmentSnapshot}, '{}'::jsonb) || ${JSON.stringify(integrityMeta)}::jsonb`,
+      })
+      .where(eq(buildDeployments.id, deploymentId));
 
     await this.addLog(deploymentId, "✅ فحص سلامة APK مكتمل", "success");
   }

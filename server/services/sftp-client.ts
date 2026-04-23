@@ -18,16 +18,24 @@ function buildConnectConfig(opts: SftpConnectionOptions): ConnectConfig {
     username: opts.username,
     readyTimeout: opts.readyTimeout ?? 20000,
   };
+  let keyLoaded = false;
   if (opts.privateKeyPath) {
     try {
       cfg.privateKey = readFileSync(opts.privateKeyPath);
+      keyLoaded = true;
     } catch (err) {
-      throw new Error(`SFTP: تعذّر قراءة المفتاح من ${opts.privateKeyPath}: ${(err as Error).message}`);
+      if (!opts.password) {
+        throw new Error(`SFTP: تعذّر قراءة المفتاح من ${opts.privateKeyPath}: ${(err as Error).message}`);
+      }
+      console.warn(`[SFTP] تعذّر قراءة المفتاح ${opts.privateKeyPath} — التراجع لكلمة المرور: ${(err as Error).message}`);
     }
-  } else if (opts.password) {
-    cfg.password = opts.password;
-  } else {
-    throw new Error("SFTP: مفتاح خاص أو كلمة مرور مطلوب");
+  }
+  if (!keyLoaded) {
+    if (opts.password) {
+      cfg.password = opts.password;
+    } else {
+      throw new Error("SFTP: مفتاح خاص أو كلمة مرور مطلوب");
+    }
   }
   return cfg;
 }
@@ -38,7 +46,7 @@ function getEnvOptions(): SftpConnectionOptions {
   if (!host) throw new Error("SSH_HOST غير مُعيّن");
   if (!username) throw new Error("SSH_USER غير مُعيّن");
   const port = process.env.SSH_PORT ? parseInt(process.env.SSH_PORT, 10) : 22;
-  const privateKeyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+  const privateKeyPath = process.env.SSH_KEY_PATH || undefined;
   const password = process.env.SSH_PASSWORD;
   return { host, port, username, privateKeyPath, password };
 }

@@ -11,9 +11,25 @@ import {
   Loader2,
   ArrowDownToLine,
   Sparkles,
+  PackageCheck,
 } from "lucide-react";
+import {
+  isApkUpdaterAvailable,
+  downloadApk,
+  installApk,
+  cancelDownload,
+  type ApkDownloadProgress,
+} from "@/services/apkUpdater";
 
-type UpdateState = "idle" | "preparing" | "downloading" | "retrying" | "copied" | "failed";
+type UpdateState =
+  | "idle"
+  | "preparing"
+  | "downloading"
+  | "ready_to_install"
+  | "installing"
+  | "retrying"
+  | "copied"
+  | "failed";
 
 export interface UpdateDialogInfo {
   updateAvailable: boolean;
@@ -38,99 +54,135 @@ interface AppUpdateDialogProps {
   onCopyLink: (url: string) => void;
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return "0 ميغابايت";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)} ميغابايت`;
+}
+
 export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: AppUpdateDialogProps) {
   const [state, setState] = useState<UpdateState>("idle");
   const [progress, setProgress] = useState(0);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [downloaded, setDownloaded] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [apkPath, setApkPath] = useState<string>("");
   const isForced = info.forceUpdate === true;
   const downloadUrl = info.latest.downloadUrl;
-
-  const stopProgress = useCallback(() => {
-    if (progressInterval.current) {
-      clearInterval(progressInterval.current);
-      progressInterval.current = null;
-    }
-  }, []);
+  const nativeReady = isApkUpdaterAvailable();
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
-    return () => stopProgress();
-  }, [stopProgress]);
-
-  const startFakeProgress = useCallback(() => {
-    stopProgress();
-    setProgress(0);
-    let current = 0;
-    progressInterval.current = setInterval(() => {
-      current += Math.random() * 8 + 2;
-      if (current >= 85) {
-        current = 85;
-        stopProgress();
+    return () => {
+      if (state === "downloading") {
+        cancelledRef.current = true;
+        cancelDownload().catch(() => {});
       }
-      setProgress(Math.min(current, 85));
-    }, 300);
-  }, [stopProgress]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleUpdate = useCallback(async () => {
+  const handleNativeUpdate = useCallback(async () => {
+    if (!downloadUrl) return;
+    cancelledRef.current = false;
+    setErrorMsg("");
+    setProgress(0);
+    setDownloaded(0);
+    setTotal(0);
+    setState("preparing");
+
+    try {
+      const result = await downloadApk(downloadUrl, {
+        onProgress: (p: ApkDownloadProgress) => {
+          if (cancelledRef.current) return;
+          setState("downloading");
+          setProgress(Math.min(99, Math.round(p.percent)));
+          setDownloaded(p.downloaded);
+          setTotal(p.total);
+        },
+      });
+
+      if (cancelledRef.current) return;
+      setProgress(100);
+      setDownloaded(result.size);
+      setTotal(result.size);
+      setApkPath(result.path);
+      setState("ready_to_install");
+    } catch (err: any) {
+      if (cancelledRef.current) return;
+      setErrorMsg(err?.message || "فشل التحميل");
+      setState("failed");
+    }
+  }, [downloadUrl]);
+
+  const handleInstall = useCallback(async () => {
+    if (!apkPath) return;
+    setState("installing");
+    try {
+      await installApk(apkPath);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "فشل فتح المثبّت");
+      setState("failed");
+    }
+  }, [apkPath]);
+
+  const handleBrowserFallback = useCallback(async () => {
     if (!downloadUrl) return;
     setState("preparing");
     setProgress(0);
-
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 300));
     setState("downloading");
-    startFakeProgress();
-
+    setProgress(50);
     const result = await onUpdateNow(downloadUrl);
-
-    stopProgress();
-
     if (result.success) {
       setProgress(100);
       setState("idle");
     } else {
+      setErrorMsg(result.error || "فشل فتح رابط التحميل");
       setState("failed");
     }
-  }, [downloadUrl, onUpdateNow, startFakeProgress, stopProgress]);
+  }, [downloadUrl, onUpdateNow]);
+
+  const handleUpdate = useCallback(async () => {
+    if (nativeReady) {
+      await handleNativeUpdate();
+    } else {
+      await handleBrowserFallback();
+    }
+  }, [nativeReady, handleNativeUpdate, handleBrowserFallback]);
 
   const handleRetry = useCallback(async () => {
     setState("retrying");
-    setProgress(0);
-
-    await new Promise((r) => setTimeout(r, 600));
-    setState("downloading");
-    startFakeProgress();
-
-    if (!downloadUrl) {
-      stopProgress();
-      setState("failed");
-      return;
-    }
-
-    const result = await onUpdateNow(downloadUrl);
-    stopProgress();
-
-    if (result.success) {
-      setProgress(100);
-      setState("idle");
-    } else {
-      setState("failed");
-    }
-  }, [downloadUrl, onUpdateNow, startFakeProgress, stopProgress]);
+    setErrorMsg("");
+    await new Promise((r) => setTimeout(r, 400));
+    await handleUpdate();
+  }, [handleUpdate]);
 
   const handleCopy = useCallback(() => {
     if (!downloadUrl) return;
     onCopyLink(downloadUrl);
     setState("copied");
-    setTimeout(() => {
-      if (state === "copied") setState("idle");
-    }, 3000);
-  }, [downloadUrl, onCopyLink, state]);
+    setTimeout(() => setState((s) => (s === "copied" ? "idle" : s)), 3000);
+  }, [downloadUrl, onCopyLink]);
 
-  const isProcessing = state === "preparing" || state === "downloading" || state === "retrying";
+  const handleCancel = useCallback(async () => {
+    cancelledRef.current = true;
+    await cancelDownload();
+    setState("idle");
+    setProgress(0);
+    setDownloaded(0);
+    setTotal(0);
+  }, []);
+
+  const isProcessing = state === "preparing" || state === "downloading" || state === "retrying" || state === "installing";
+  const showInstallButton = state === "ready_to_install" && nativeReady;
 
   const stateLabel: Record<UpdateState, string> = {
     idle: "",
     preparing: "جاري التجهيز...",
     downloading: "جاري التحميل...",
+    ready_to_install: "اكتمل التحميل",
+    installing: "فتح المثبّت...",
     retrying: "إعادة المحاولة...",
     copied: "تم نسخ الرابط",
     failed: "فشل التحميل",
@@ -158,6 +210,8 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               >
                 {isForced ? (
                   <AlertTriangle className="w-6 h-6 text-red-500" />
+                ) : showInstallButton ? (
+                  <PackageCheck className="w-6 h-6 text-emerald-500" />
                 ) : (
                   <ArrowDownToLine className="w-6 h-6 text-blue-500" />
                 )}
@@ -169,7 +223,11 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
                   }`}
                   data-testid="text-update-title"
                 >
-                  {isForced ? "تحديث إجباري مطلوب" : "تحديث جديد متاح"}
+                  {showInstallButton
+                    ? "جاهز للتثبيت"
+                    : isForced
+                    ? "تحديث إجباري مطلوب"
+                    : "تحديث جديد متاح"}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-version-info">
                   v{info.current.versionName} &larr; v{info.latest.versionName}
@@ -177,7 +235,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </div>
             </div>
 
-            {!isForced && !isProcessing && (
+            {!isForced && !isProcessing && state !== "ready_to_install" && (
               <button
                 onClick={onDismiss}
                 className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
@@ -194,7 +252,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </p>
           )}
 
-          {info.latest.releaseNotes && (
+          {info.latest.releaseNotes && state === "idle" && (
             <div
               className="bg-muted/50 rounded-xl p-3 text-right max-h-[160px] overflow-y-auto"
               data-testid="release-notes"
@@ -209,7 +267,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
-          {isProcessing && (
+          {(isProcessing || state === "ready_to_install") && (
             <div className="space-y-2" data-testid="progress-section">
               <Progress value={progress} className="h-2" />
               <div className="flex items-center justify-between">
@@ -217,19 +275,26 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
                   {stateLabel[state]}
                 </span>
                 <span className="text-xs font-mono text-muted-foreground" data-testid="text-progress-percent">
-                  {Math.round(progress)}%
+                  {progress}%
                 </span>
               </div>
+              {total > 0 && (
+                <div className="text-[11px] font-mono text-muted-foreground text-center" data-testid="text-bytes">
+                  {formatBytes(downloaded)} / {formatBytes(total)}
+                </div>
+              )}
             </div>
           )}
 
           {state === "failed" && (
             <div
-              className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+              className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
               data-testid="text-error-message"
             >
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span className="text-xs font-medium">فشل التحميل — جرّب نسخ الرابط وفتحه في المتصفح</span>
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="text-xs font-medium leading-relaxed">
+                {errorMsg || "فشل التحميل — جرّب نسخ الرابط وفتحه في المتصفح"}
+              </span>
             </div>
           )}
 
@@ -250,7 +315,18 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </p>
             )}
 
-            {downloadUrl && state !== "failed" && (
+            {showInstallButton && (
+              <Button
+                onClick={handleInstall}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                data-testid="button-install-now"
+              >
+                <PackageCheck className="w-4 h-4" />
+                <span>تثبيت الآن</span>
+              </Button>
+            )}
+
+            {downloadUrl && state !== "failed" && state !== "ready_to_install" && (
               <Button
                 onClick={handleUpdate}
                 disabled={isProcessing}
@@ -266,6 +342,18 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
+            {state === "downloading" && (
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="w-full"
+                data-testid="button-cancel-download"
+              >
+                <X className="w-4 h-4" />
+                <span>إلغاء التحميل</span>
+              </Button>
+            )}
+
             {downloadUrl && state === "failed" && (
               <Button
                 onClick={handleRetry}
@@ -277,7 +365,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
-            {downloadUrl && (
+            {downloadUrl && state !== "ready_to_install" && state !== "installing" && (
               <Button
                 variant="outline"
                 onClick={handleCopy}
@@ -294,7 +382,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
-            {!isForced && !isProcessing && (
+            {!isForced && !isProcessing && state !== "ready_to_install" && (
               <Button
                 variant="ghost"
                 onClick={onDismiss}

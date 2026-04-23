@@ -10,6 +10,22 @@ import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
 
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(ApkUpdaterPlugin.class);
+        super.onCreate(savedInstanceState);
+        applyEdgeToEdge();
+    }
+
+    private void applyEdgeToEdge() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsAppearance(0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
+            }
+        }
+    }
+
     /**
      * Force English (Western) numerals as the WebView default locale.
      * This prevents Arabic-Indic numerals (١٢٣) in JavaScript Intl API
@@ -25,18 +41,5 @@ public class MainActivity extends BridgeActivity {
         config.setLocale(locale);
         Context context = base.createConfigurationContext(config);
         super.attachBaseContext(context);
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        // Support edge-to-edge display on Android 15+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            WindowInsetsController controller = getWindow().getInsetsController();
-            if (controller != null) {
-                controller.setSystemBarsAppearance(0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
-            }
-        }
     }
 }

@@ -4982,7 +4982,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     const cmd = `${sshCmd} '
       AAPT=$(find /opt/android-sdk/build-tools -name aapt 2>/dev/null | sort -V | tail -1)
       if [ -z "$AAPT" ]; then echo "ERROR_NO_AAPT"; exit 1; fi
-      $AAPT dump badging "${apkPath}" 2>/dev/null | grep -oE "(versionCode|versionName)=\\x27[^\\x27]*\\x27" | head -2
+      $AAPT dump badging "${apkPath}" 2>/dev/null | head -1
       echo "===APK_SHA_SEPARATOR==="
       sha256sum "${apkPath}" | cut -d" " -f1
       echo "===APK_SIZE_SEPARATOR==="

@@ -18,10 +18,15 @@ export type StepName =
   | "prebuild-gate"
   | "android-readiness"
   | "sync-capacitor"
+  | "capture-plugin-manifest"
+  | "detect-plugin-drift"
+  | "bump-android-version"
   | "generate-icons"
   | "gradle-build"
   | "sign-apk"
   | "apk-integrity"
+  | "apk-plugin-smoke"
+  | "register-app-version"
   | "retrieve-artifact"
   | "firebase-test"
   | "transfer"
@@ -168,6 +173,23 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     retryPolicy: { maxRetries: 3, delayMs: 5000 },
     condition: { type: "appType", appTypes: ["android"] },
   },
+  "capture-plugin-manifest": {
+    name: "capture-plugin-manifest",
+    timeoutMs: 30000,
+    retryPolicy: { maxRetries: 2, delayMs: 3000 },
+    condition: { type: "appType", appTypes: ["android"] },
+  },
+  "detect-plugin-drift": {
+    name: "detect-plugin-drift",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["web-deploy", "hotfix", "git-push"] },
+  },
+  "bump-android-version": {
+    name: "bump-android-version",
+    timeoutMs: 30000,
+    retryPolicy: { maxRetries: 2, delayMs: 3000 },
+    condition: { type: "appType", appTypes: ["android"] },
+  },
   "generate-icons": {
     name: "generate-icons",
     timeoutMs: 60000,
@@ -190,6 +212,18 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     name: "apk-integrity",
     timeoutMs: 60000,
     retryPolicy: { maxRetries: 2, delayMs: 5000 },
+    condition: { type: "appType", appTypes: ["android"] },
+  },
+  "apk-plugin-smoke": {
+    name: "apk-plugin-smoke",
+    timeoutMs: 60000,
+    retryPolicy: { maxRetries: 1, delayMs: 3000 },
+    condition: { type: "appType", appTypes: ["android"] },
+  },
+  "register-app-version": {
+    name: "register-app-version",
+    timeoutMs: 30000,
+    retryPolicy: { maxRetries: 2, delayMs: 3000 },
     condition: { type: "appType", appTypes: ["android"] },
   },
   "retrieve-artifact": {
@@ -370,38 +404,38 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
 export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
   "web-deploy": {
     name: "web-deploy",
-    description: "Standard web deployment to production server",
+    description: "Standard web deployment — يكشف Plugin Drift قبل النشر لمنع كسر APK المثبَّت",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "detect-plugin-drift", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "detect-plugin-drift", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
     },
   },
   "android-build": {
     name: "android-build",
-    description: "Build Android APK on remote server",
+    description: "Build Android APK — auto bump versionCode + plugin manifest tracking + smoke test",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
     },
   },
   "full-deploy": {
     name: "full-deploy",
-    description: "Full deployment: web + Android build",
+    description: "Full deployment: web + Android build مع plugin drift safety",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
     },
   },
   "hotfix": {
     name: "hotfix",
-    description: "Quick hotfix deployment with minimal steps",
+    description: "Quick hotfix deployment — مع plugin drift detection",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
-      local: ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
+      server: ["validate", "hotfix-guard", "sync-version", "detect-plugin-drift", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
+      local: ["validate", "hotfix-guard", "sync-version", "detect-plugin-drift", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
     },
   },
   "android-build-test": {
@@ -409,26 +443,26 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     description: "Android build with Firebase Test Lab integration",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "firebase-test", "retrieve-artifact", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "firebase-test", "retrieve-artifact", "verify"],
     },
   },
   "git-push": {
     name: "git-push",
-    description: "Alias for web-deploy (git push workflow)",
+    description: "Alias for web-deploy (git push workflow) — مع drift detection",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "detect-plugin-drift", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "detect-plugin-drift", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
     },
   },
   "git-android-build": {
     name: "git-android-build",
-    description: "Alias for android-build (git workflow)",
+    description: "Alias for android-build (git workflow) — مع plugin tracking كامل",
     supportedTargets: ["server", "local"],
     steps: {
-      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-      local: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+      server: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
+      local: ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "capture-plugin-manifest", "generate-icons", "bump-android-version", "gradle-build", "sign-apk", "apk-integrity", "apk-plugin-smoke", "register-app-version", "retrieve-artifact", "verify"],
     },
   },
   "rollback": {

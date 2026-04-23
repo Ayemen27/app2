@@ -1,11 +1,11 @@
 import { db } from "../db.js";
-import { buildDeployments, deploymentEvents } from "@shared/schema";
+import { buildDeployments, deploymentEvents, appPluginManifests, appVersions } from "@shared/schema";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
 import { dirname } from "path";
-import { createHmac } from "crypto";
+import { createHmac, createHash } from "crypto";
 import type { Response } from "express";
 import { DeploymentNotificationPublisher } from "./deployment-notifications/DeploymentNotificationPublisher.js";
 import { DeploymentPayloadBuilder } from "./deployment-notifications/builders/deploymentPayloadBuilder.js";
@@ -1281,11 +1281,26 @@ export class DeploymentEngine {
       case "sync-capacitor":
         await this.stepSyncCapacitor(deploymentId, sshCmd);
         break;
+      case "capture-plugin-manifest":
+        await this.stepCapturePluginManifest(deploymentId, sshCmd);
+        break;
+      case "detect-plugin-drift":
+        await this.stepDetectPluginDrift(deploymentId, sshCmd);
+        break;
+      case "bump-android-version":
+        await this.stepBumpAndroidVersion(deploymentId, sshCmd);
+        break;
       case "gradle-build":
         await this.stepGradleBuild(deploymentId, sshCmd, config);
         break;
       case "sign-apk":
         await this.stepSignAPK(deploymentId, sshCmd);
+        break;
+      case "apk-plugin-smoke":
+        await this.stepApkPluginSmoke(deploymentId, sshCmd);
+        break;
+      case "register-app-version":
+        await this.stepRegisterAppVersion(deploymentId, sshCmd);
         break;
       case "retrieve-artifact":
         await this.stepRetrieveArtifact(deploymentId);
@@ -4583,8 +4598,463 @@ echo 'MAINACTIVITY_FIXED'"`,
     return `${major}.${minor}.${patch + 1}`;
   }
 
-  async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string; releaseNotes: string | null } | null> {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 5 خطوات pipeline متطورة (Plugin Manifest Tracking — Google Play / Expo EAS-grade)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * يحسب SHA-256 لمحتوى capacitor.plugins.json + capacitor.build.gradle المصدريّين (محلياً في Replit).
+   * يُستخدم في detect-plugin-drift و capture-plugin-manifest كمرجع موحَّد.
+   */
+  private async computeLocalPluginManifestHash(): Promise<{
+    hash: string;
+    pluginsList: Array<{ pkg: string; classpath: string }>;
+    pluginsCount: number;
+    capacitorBuildGradleHash: string | null;
+  } | null> {
     try {
+      const pluginsPath = `${process.cwd()}/capacitor.plugins.json`;
+      const buildGradlePath = `${process.cwd()}/android/app/capacitor.build.gradle`;
+
+      if (!existsSync(pluginsPath)) {
+        return null;
+      }
+
+      const pluginsRaw = readFileSync(pluginsPath, "utf-8");
+      const pluginsList = JSON.parse(pluginsRaw) as Array<{ pkg: string; classpath: string }>;
+
+      // ترتيب القائمة بحسب pkg لضمان hash مستقر بصرف النظر عن ترتيب @capacitor/cli
+      const sortedPlugins = [...pluginsList].sort((a, b) => a.pkg.localeCompare(b.pkg));
+      const canonical = JSON.stringify(sortedPlugins);
+
+      let buildGradleHash: string | null = null;
+      let combined = canonical;
+      if (existsSync(buildGradlePath)) {
+        const gradleRaw = readFileSync(buildGradlePath, "utf-8");
+        buildGradleHash = createHash("sha256").update(gradleRaw).digest("hex");
+        combined = `${canonical}|gradle:${buildGradleHash}`;
+      }
+
+      const hash = createHash("sha256").update(combined).digest("hex");
+      return {
+        hash,
+        pluginsList: sortedPlugins,
+        pluginsCount: sortedPlugins.length,
+        capacitorBuildGradleHash: buildGradleHash,
+      };
+    } catch (err: any) {
+      console.error("[computeLocalPluginManifestHash] خطأ:", err?.message);
+      return null;
+    }
+  }
+
+  /**
+   * يحسب SHA-256 لمحتوى capacitor.plugins.json على السيرفر (بعد cap sync).
+   * يُستخدم في capture-plugin-manifest للحصول على البصمة الحقيقية المُنشَّقة (synced).
+   */
+  private async computeRemotePluginManifestHash(sshCmd: string): Promise<{
+    hash: string;
+    pluginsList: Array<{ pkg: string; classpath: string }>;
+    pluginsCount: number;
+    capacitorBuildGradleHash: string | null;
+  } | null> {
+    try {
+      const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
+      const pluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+      const buildGradlePath = `${remoteRoot}/android/app/capacitor.build.gradle`;
+
+      const cmd = `${sshCmd} 'cat ${pluginsPath} 2>/dev/null && echo "===GRADLE_SEPARATOR===" && cat ${buildGradlePath} 2>/dev/null'`;
+      const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
+
+      const parts = stdout.split("===GRADLE_SEPARATOR===");
+      const pluginsRaw = (parts[0] || "").trim();
+      const gradleRaw = (parts[1] || "").trim();
+
+      if (!pluginsRaw) return null;
+
+      const pluginsList = JSON.parse(pluginsRaw) as Array<{ pkg: string; classpath: string }>;
+      const sortedPlugins = [...pluginsList].sort((a, b) => a.pkg.localeCompare(b.pkg));
+      const canonical = JSON.stringify(sortedPlugins);
+
+      let buildGradleHash: string | null = null;
+      let combined = canonical;
+      if (gradleRaw) {
+        buildGradleHash = createHash("sha256").update(gradleRaw).digest("hex");
+        combined = `${canonical}|gradle:${buildGradleHash}`;
+      }
+
+      const hash = createHash("sha256").update(combined).digest("hex");
+      return {
+        hash,
+        pluginsList: sortedPlugins,
+        pluginsCount: sortedPlugins.length,
+        capacitorBuildGradleHash: buildGradleHash,
+      };
+    } catch (err: any) {
+      console.error("[computeRemotePluginManifestHash] خطأ:", err?.message);
+      return null;
+    }
+  }
+
+  /**
+   * STEP: capture-plugin-manifest
+   * بعد cap sync — يلتقط بصمة capacitor.plugins.json من السيرفر ويسجلها في DB.
+   * ID البصمة الناتج يُستخدم لاحقاً في register-app-version لربط APK بـ manifest.
+   */
+  private async stepCapturePluginManifest(deploymentId: string, sshCmd: string): Promise<void> {
+    await this.addLog(deploymentId, "📋 التقاط بصمة الإضافات (Capacitor Plugin Manifest)...", "info");
+
+    const manifest = await this.computeRemotePluginManifestHash(sshCmd);
+    if (!manifest) {
+      throw new Error("فشل التقاط بصمة الإضافات: capacitor.plugins.json غير موجود على السيرفر بعد cap sync");
+    }
+
+    await this.addLog(deploymentId, `   📦 إضافات مُنشَّقة: ${manifest.pluginsCount}`, "info");
+    await this.addLog(deploymentId, `   🔐 البصمة (SHA-256): ${manifest.hash.substring(0, 16)}...`, "info");
+
+    // Idempotent insert: إن وُجدت نفس البصمة سابقاً نُعيد استخدام السجل
+    const [existing] = await db.select()
+      .from(appPluginManifests)
+      .where(eq(appPluginManifests.manifestHash, manifest.hash))
+      .limit(1);
+
+    let manifestId: string;
+    if (existing) {
+      manifestId = existing.id;
+      await this.addLog(deploymentId, `   ♻️ بصمة معروفة مسبقاً (id=${manifestId.substring(0, 8)}...)`, "info");
+    } else {
+      const [created] = await db.insert(appPluginManifests).values({
+        manifestHash: manifest.hash,
+        pluginsList: manifest.pluginsList,
+        pluginsCount: manifest.pluginsCount,
+        capacitorBuildGradleHash: manifest.capacitorBuildGradleHash,
+        capturedByDeploymentId: deploymentId,
+      }).returning();
+      manifestId = created.id;
+      await this.addLog(deploymentId, `   ✨ بصمة جديدة مُسجَّلة (id=${manifestId.substring(0, 8)}...)`, "success");
+    }
+
+    // نُخزّن manifestId في environmentSnapshot لاستخدامه في register-app-version
+    await db.update(buildDeployments)
+      .set({
+        environmentSnapshot: sql`COALESCE(${buildDeployments.environmentSnapshot}, '{}'::jsonb) || ${JSON.stringify({ pluginManifestId: manifestId, pluginManifestHash: manifest.hash })}::jsonb`,
+      })
+      .where(eq(buildDeployments.id, deploymentId));
+
+    await this.addLog(deploymentId, "✅ تم التقاط بصمة الإضافات", "success");
+  }
+
+  /**
+   * STEP: detect-plugin-drift
+   * يعمل في web-deploy/hotfix فقط — قبل git-push.
+   * يحسب bصمة المصدر المحلي ويقارنها بآخر app_version مُسجَّل.
+   * إن اختلفا → يفشل النشر بخطأ واضح ويوجه المستخدم لاستخدام full-deploy.
+   */
+  private async stepDetectPluginDrift(deploymentId: string, _sshCmd: string): Promise<void> {
+    await this.addLog(deploymentId, "🔍 فحص Plugin Drift (مقارنة الإضافات الحالية بآخر APK مُسلَّم)...", "info");
+
+    const localManifest = await this.computeLocalPluginManifestHash();
+    if (!localManifest) {
+      await this.addLog(deploymentId, "⚠️ لم يُعثر على capacitor.plugins.json محلياً — تخطي فحص drift", "warn");
+      return;
+    }
+
+    await this.addLog(deploymentId, `   📦 إضافات web bundle الحالية: ${localManifest.pluginsCount}`, "info");
+    await this.addLog(deploymentId, `   🔐 بصمة المصدر: ${localManifest.hash.substring(0, 16)}...`, "info");
+
+    // اقرأ آخر app_version نشط
+    const [latest] = await db.select({
+      av: appVersions,
+      manifestHash: appPluginManifests.manifestHash,
+      pluginsCount: appPluginManifests.pluginsCount,
+    })
+      .from(appVersions)
+      .leftJoin(appPluginManifests, eq(appVersions.manifestId, appPluginManifests.id))
+      .where(eq(appVersions.isActive, true))
+      .orderBy(desc(appVersions.versionCode))
+      .limit(1);
+
+    if (!latest || !latest.manifestHash) {
+      await this.addLog(deploymentId, "ℹ️ لا يوجد APK مُسجَّل سابقاً بـ manifest hash — تخطي فحص drift (سيُسجَّل عند أول android build)", "info");
+      return;
+    }
+
+    await this.addLog(deploymentId, `   🆚 بصمة آخر APK (v${latest.av.versionName}/code ${latest.av.versionCode}): ${latest.manifestHash.substring(0, 16)}...`, "info");
+
+    if (localManifest.hash === latest.manifestHash) {
+      await this.addLog(deploymentId, "✅ لا يوجد plugin drift — آمن للنشر web فقط", "success");
+      return;
+    }
+
+    // كشف الإضافات المُضافة/المُزالة لرسالة خطأ مفصَّلة
+    const latestPluginsList = await db.select({ list: appPluginManifests.pluginsList })
+      .from(appPluginManifests)
+      .where(eq(appPluginManifests.manifestHash, latest.manifestHash))
+      .limit(1);
+    const latestPlugins = (latestPluginsList[0]?.list as Array<{ pkg: string }>) || [];
+    const latestPkgs = new Set(latestPlugins.map(p => p.pkg));
+    const localPkgs = new Set(localManifest.pluginsList.map(p => p.pkg));
+    const added = [...localPkgs].filter(p => !latestPkgs.has(p));
+    const removed = [...latestPkgs].filter(p => !localPkgs.has(p));
+
+    await this.addLog(deploymentId, `   ➕ إضافات جديدة في المصدر: ${added.length > 0 ? added.join(", ") : "(لا شيء)"}`, "warn");
+    await this.addLog(deploymentId, `   ➖ إضافات محذوفة من المصدر: ${removed.length > 0 ? removed.join(", ") : "(لا شيء)"}`, "warn");
+
+    const errMsg = `🚫 Plugin Drift detected — لا يمكن نشر web bundle لأن إضافات Capacitor تغيَّرت منذ آخر APK.
+       APK المُسلَّم حالياً (v${latest.av.versionName}, code ${latest.av.versionCode}) يحوي ${latestPlugins.length} إضافة،
+       لكن المصدر الحالي يحوي ${localManifest.pluginsCount} إضافة بـ توقيع مختلف.
+       النشر web فقط سيكسر التطبيق على أجهزة المستخدمين.
+       الحل: استخدم pipeline=full-deploy أو android-build لإعادة بناء APK مع الإضافات الجديدة.`;
+    await this.addLog(deploymentId, errMsg, "error");
+    throw new Error("Plugin drift detected — استخدم full-deploy أو android-build (راجع السجل للتفاصيل)");
+  }
+
+  /**
+   * STEP: bump-android-version
+   * قبل gradle-build — يقرأ آخر versionCode من app_versions ويزيد بواحد.
+   * يكتب القيمة في android/variables.gradle عبر SSH.
+   * إن لم تُغيَّر versionName محلياً، نزيد patch تلقائياً.
+   */
+  private async stepBumpAndroidVersion(deploymentId: string, sshCmd: string): Promise<void> {
+    await this.addLog(deploymentId, "🔢 زيادة versionCode تلقائياً (Auto Bump)...", "info");
+
+    // اقرأ آخر versionCode مُسجَّل
+    const [latest] = await db.select({ versionCode: appVersions.versionCode, versionName: appVersions.versionName })
+      .from(appVersions)
+      .orderBy(desc(appVersions.versionCode))
+      .limit(1);
+
+    let nextCode: number;
+    if (latest) {
+      nextCode = latest.versionCode + 1;
+      await this.addLog(deploymentId, `   آخر versionCode مُسجَّل: ${latest.versionCode} (v${latest.versionName})`, "info");
+    } else {
+      // Bootstrap: ابدأ من max(buildDeployments.buildNumber) أو 84840 (التالي بعد آخر build المعروف)
+      const [maxBuild] = await db.select({ max: sql<number>`COALESCE(MAX(${buildDeployments.buildNumber}), 84839)` })
+        .from(buildDeployments);
+      nextCode = (maxBuild?.max || 84839) + 1;
+      await this.addLog(deploymentId, `   لا توجد سجلات app_versions — bootstrap من buildDeployments: ${nextCode}`, "info");
+    }
+
+    await this.addLog(deploymentId, `   versionCode الجديد: ${nextCode}`, "info");
+
+    // اكتب القيمة في android/variables.gradle على السيرفر
+    const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
+    const variablesPath = `${remoteRoot}/android/variables.gradle`;
+
+    // sed يبحث عن `buildVersionCode = X` ويستبدله. إن لم يوجد، نضيفه.
+    const ensureCmd = `${sshCmd} 'if grep -q "buildVersionCode" ${variablesPath}; then sed -i "s/buildVersionCode[[:space:]]*=[[:space:]]*[0-9]*/buildVersionCode = ${nextCode}/" ${variablesPath}; else sed -i "/^ext {/a\\    buildVersionCode = ${nextCode}" ${variablesPath}; fi && grep -E "buildVersionCode" ${variablesPath}'`;
+    const { stdout } = await execAsync(ensureCmd, { maxBuffer: 1024 * 1024 });
+    await this.addLog(deploymentId, `   ✅ ${variablesPath}: ${stdout.trim()}`, "success");
+
+    // خزّن next code في environmentSnapshot للاستخدام لاحقاً في register-app-version
+    await db.update(buildDeployments)
+      .set({
+        environmentSnapshot: sql`COALESCE(${buildDeployments.environmentSnapshot}, '{}'::jsonb) || ${JSON.stringify({ bumpedVersionCode: nextCode })}::jsonb`,
+      })
+      .where(eq(buildDeployments.id, deploymentId));
+
+    await this.addLog(deploymentId, `✅ Auto bump مكتمل — versionCode = ${nextCode}`, "success");
+  }
+
+  /**
+   * STEP: apk-plugin-smoke
+   * بعد apk-integrity — يستخرج capacitor.plugins.json من APK المبني ويقارنها بالمصدر.
+   * يفشل البناء إن اختلفت قائمة الإضافات.
+   */
+  private async stepApkPluginSmoke(deploymentId: string, sshCmd: string): Promise<void> {
+    await this.addLog(deploymentId, "🧪 Smoke Test: فحص الإضافات داخل APK المبني...", "info");
+
+    const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
+    const apkPath = `${remoteRoot}/android/app/build/outputs/apk/release/app-release.apk`;
+    const sourcePluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+
+    // استخرج capacitor.plugins.json من داخل APK + اقرأ المصدر — كلاهما عبر SSH
+    const cmd = `${sshCmd} 'unzip -p ${apkPath} assets/capacitor.plugins.json 2>/dev/null && echo "===APK_SOURCE_SEPARATOR===" && cat ${sourcePluginsPath} 2>/dev/null'`;
+    const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
+
+    const parts = stdout.split("===APK_SOURCE_SEPARATOR===");
+    const apkPluginsRaw = (parts[0] || "").trim();
+    const sourcePluginsRaw = (parts[1] || "").trim();
+
+    if (!apkPluginsRaw) {
+      throw new Error("APK لا يحوي assets/capacitor.plugins.json — البناء معطوب");
+    }
+    if (!sourcePluginsRaw) {
+      throw new Error("ملف المصدر capacitor.plugins.json غير موجود على السيرفر");
+    }
+
+    const apkPlugins = JSON.parse(apkPluginsRaw) as Array<{ pkg: string; classpath: string }>;
+    const sourcePlugins = JSON.parse(sourcePluginsRaw) as Array<{ pkg: string; classpath: string }>;
+
+    const apkPkgs = new Set(apkPlugins.map(p => p.pkg));
+    const sourcePkgs = new Set(sourcePlugins.map(p => p.pkg));
+    const missingInApk = [...sourcePkgs].filter(p => !apkPkgs.has(p));
+    const extraInApk = [...apkPkgs].filter(p => !sourcePkgs.has(p));
+
+    await this.addLog(deploymentId, `   📦 APK يحوي ${apkPlugins.length} إضافة، المصدر يحوي ${sourcePlugins.length}`, "info");
+
+    if (missingInApk.length > 0 || extraInApk.length > 0) {
+      const errMsg = `Plugin Mismatch بين APK والمصدر:\n` +
+        `   ➖ مفقودة في APK: ${missingInApk.length > 0 ? missingInApk.join(", ") : "(لا شيء)"}\n` +
+        `   ➕ زائدة في APK: ${extraInApk.length > 0 ? extraInApk.join(", ") : "(لا شيء)"}`;
+      await this.addLog(deploymentId, `❌ ${errMsg}`, "error");
+      throw new Error(`APK plugin smoke فشل — ${missingInApk.length} مفقودة + ${extraInApk.length} زائدة`);
+    }
+
+    await this.addLog(deploymentId, `✅ Smoke Test ناجح — كل الإضافات الـ ${apkPlugins.length} موجودة في APK`, "success");
+  }
+
+  /**
+   * STEP: register-app-version
+   * بعد apk-integrity (و apk-plugin-smoke) — يستخرج versionCode/versionName من APK عبر aapt،
+   * يحسب SHA-256 و size، يُنشئ سجل في app_versions، ويُعطّل السجلات السابقة (isActive=false).
+   */
+  private async stepRegisterAppVersion(deploymentId: string, sshCmd: string): Promise<void> {
+    await this.addLog(deploymentId, "📝 تسجيل إصدار التطبيق في app_versions (Source of Truth)...", "info");
+
+    // اقرأ environmentSnapshot للحصول على manifestId
+    const [deployment] = await db.select()
+      .from(buildDeployments)
+      .where(eq(buildDeployments.id, deploymentId))
+      .limit(1);
+
+    if (!deployment) throw new Error("سجل deployment غير موجود");
+
+    const snapshot = (deployment.environmentSnapshot as any) || {};
+    const manifestId: string | null = snapshot.pluginManifestId || null;
+
+    // ابحث عن APK في مسار releases الذي أنشأه stepSignAPK
+    const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
+    const apkPath = deployment.artifactUrl || `${remoteRoot}/android/app/build/outputs/apk/release/app-release.apk`;
+
+    // استخرج المعلومات من APK + sha256 + size عبر SSH
+    const cmd = `${sshCmd} '
+      AAPT=$(find /opt/android-sdk/build-tools -name aapt 2>/dev/null | sort -V | tail -1)
+      if [ -z "$AAPT" ]; then echo "ERROR_NO_AAPT"; exit 1; fi
+      $AAPT dump badging "${apkPath}" 2>/dev/null | grep -oE "(versionCode|versionName)=\\x27[^\\x27]*\\x27" | head -2
+      echo "===APK_SHA_SEPARATOR==="
+      sha256sum "${apkPath}" | cut -d" " -f1
+      echo "===APK_SIZE_SEPARATOR==="
+      stat -c %s "${apkPath}"
+    '`;
+    const { stdout } = await execAsync(cmd, { maxBuffer: 1024 * 1024 });
+
+    if (stdout.includes("ERROR_NO_AAPT")) {
+      throw new Error("aapt غير موجود في /opt/android-sdk/build-tools — لا يمكن استخراج معلومات APK");
+    }
+
+    const shaParts = stdout.split("===APK_SHA_SEPARATOR===");
+    const badgingPart = (shaParts[0] || "").trim();
+    const sizeParts = (shaParts[1] || "").split("===APK_SIZE_SEPARATOR===");
+    const apkSha256 = (sizeParts[0] || "").trim();
+    const apkSize = parseInt((sizeParts[1] || "").trim(), 10);
+
+    const versionCodeMatch = badgingPart.match(/versionCode='([^']*)'/);
+    const versionNameMatch = badgingPart.match(/versionName='([^']*)'/);
+    if (!versionCodeMatch || !versionNameMatch) {
+      throw new Error(`فشل استخراج versionCode/versionName من APK. badging output:\n${badgingPart}`);
+    }
+    const versionCode = parseInt(versionCodeMatch[1], 10);
+    const versionName = versionNameMatch[1];
+
+    if (!apkSha256 || apkSha256.length !== 64) {
+      throw new Error(`SHA-256 غير صالح: "${apkSha256}"`);
+    }
+    if (!apkSize || apkSize <= 0) {
+      throw new Error(`حجم APK غير صالح: ${apkSize}`);
+    }
+
+    await this.addLog(deploymentId, `   📱 APK Info: v${versionName} (code ${versionCode})`, "info");
+    await this.addLog(deploymentId, `   🔐 SHA-256: ${apkSha256.substring(0, 16)}...`, "info");
+    await this.addLog(deploymentId, `   📏 Size: ${(apkSize / 1024 / 1024).toFixed(2)} MB`, "info");
+    if (manifestId) {
+      await this.addLog(deploymentId, `   🔗 Manifest ID: ${manifestId.substring(0, 8)}...`, "info");
+    } else {
+      await this.addLog(deploymentId, `   ⚠️ لا يوجد manifest ID مرتبط — capture-plugin-manifest لم يُنفَّذ`, "warn");
+    }
+
+    // معاملة ذرية: إلغاء تنشيط جميع السجلات السابقة + إدراج السجل الجديد
+    await db.transaction(async (tx: any) => {
+      await tx.update(appVersions)
+        .set({ isActive: false })
+        .where(eq(appVersions.isActive, true));
+
+      // upsert: إن وُجد versionCode سابقاً (بسبب إعادة بناء)، نُحدِّثه
+      const [existing] = await tx.select()
+        .from(appVersions)
+        .where(eq(appVersions.versionCode, versionCode))
+        .limit(1);
+
+      if (existing) {
+        await tx.update(appVersions)
+          .set({
+            versionName,
+            apkUrl: apkPath,
+            apkSha256,
+            apkSize,
+            manifestId,
+            deploymentId,
+            releaseNotes: deployment.releaseNotes,
+            isActive: true,
+            releasedAt: new Date(),
+          })
+          .where(eq(appVersions.id, existing.id));
+      } else {
+        await tx.insert(appVersions).values({
+          versionName,
+          versionCode,
+          apkUrl: apkPath,
+          apkSha256,
+          apkSize,
+          manifestId,
+          deploymentId,
+          releaseNotes: deployment.releaseNotes,
+          forceUpdate: false,
+          minSupportedVersionCode: 0,
+          isActive: true,
+        });
+      }
+    });
+
+    await this.addLog(deploymentId, `✅ تم تسجيل الإصدار v${versionName} (code ${versionCode}) كـ active`, "success");
+  }
+
+  async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string; releaseNotes: string | null; pluginManifestHash: string | null; apkSha256: string | null; forceUpdate: boolean } | null> {
+    try {
+      // المصدر الموثوق الأول: جدول appVersions (يضم pluginManifestHash + apkSha256 الحقيقيين)
+      const activeRows = await db.select({
+        av: appVersions,
+        manifestHash: appPluginManifests.manifestHash,
+      })
+        .from(appVersions)
+        .leftJoin(appPluginManifests, eq(appVersions.manifestId, appPluginManifests.id))
+        .where(eq(appVersions.isActive, true))
+        .orderBy(desc(appVersions.versionCode))
+        .limit(1);
+
+      if (activeRows.length > 0) {
+        const row = activeRows[0];
+        const av = row.av;
+        let downloadUrl: string | null = null;
+        const linkId = av.deploymentId || av.id;
+        if (linkId && process.env.PRODUCTION_DOMAIN) {
+          const token = this.generateDownloadToken(linkId);
+          downloadUrl = `${process.env.PRODUCTION_DOMAIN}/api/deployment/app/download/${linkId}?token=${token}`;
+        }
+        return {
+          versionName: av.versionName,
+          versionCode: av.versionCode,
+          downloadUrl,
+          releasedAt: av.releasedAt.toISOString(),
+          releaseNotes: av.releaseNotes,
+          pluginManifestHash: row.manifestHash,
+          apkSha256: av.apkSha256,
+          forceUpdate: av.forceUpdate,
+        };
+      }
+
+      // Fallback (للتوافق العكسي قبل تشغيل أول pipeline يُسجِّل في appVersions):
       const [latest] = await db.select()
         .from(buildDeployments)
         .where(
@@ -4607,6 +5077,9 @@ echo 'MAINACTIVITY_FIXED'"`,
         downloadUrl,
         releasedAt: latest.created_at.toISOString(),
         releaseNotes: (latest as any).releaseNotes || null,
+        pluginManifestHash: null,
+        apkSha256: null,
+        forceUpdate: false,
       };
     } catch (err: any) {
       console.error("[getLatestAndroidRelease] خطأ:", err?.message);
@@ -5113,11 +5586,11 @@ echo 'MAINACTIVITY_FIXED'"`,
     if (results.nginx?.level === "critical") { score -= 15; issues.push("Nginx متوقف"); }
     if (results.latency?.level === "critical") { score -= 10; issues.push("زمن استجابة مرتفع جداً"); }
     if (results.logErrors?.level === "critical") { score -= 5; issues.push("أخطاء كثيرة في السجلات"); }
-    if (results.memory?.level === "warning") score -= 5;
-    if (results.cpu?.level === "warning") score -= 5;
-    if (results.disk?.disks?.some((d: any) => d.level === "warning")) score -= 5;
-    if (results.ssl?.level === "warning") score -= 5;
-    if (results.latency?.level === "warning") score -= 5;
+    if (results.memory?.level === "warn") score -= 5;
+    if (results.cpu?.level === "warn") score -= 5;
+    if (results.disk?.disks?.some((d: any) => d.level === "warn")) score -= 5;
+    if (results.ssl?.level === "warn") score -= 5;
+    if (results.latency?.level === "warn") score -= 5;
 
     score = Math.max(0, score);
     const overallStatus = score >= 80 ? "healthy" : score >= 50 ? "degraded" : "down";

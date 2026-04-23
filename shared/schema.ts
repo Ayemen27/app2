@@ -1464,7 +1464,77 @@ export type InsertBuildDeployment = z.infer<typeof insertBuildDeploymentSchema>;
 export type DeploymentEvent = typeof deploymentEvents.$inferSelect;
 export type InsertDeploymentEvent = z.infer<typeof insertDeploymentEventSchema>;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AXION Mobile Release Pipeline — Plugin Manifest + App Versions (T1)
+// المعايير: Google Play Console + Microsoft App Center + Expo EAS Update
+// ═══════════════════════════════════════════════════════════════════════════
 
+// جدول البصمات: يحفظ ملخص (sha256) لكل تركيبة إضافات Capacitor مُنشَّقة (synced)
+// الغرض: كشف Plugin Drift بين web bundle و APK المثبَّت على الجهاز
+export const appPluginManifests = pgTable("app_plugin_manifests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  manifestHash: text("manifest_hash").notNull().unique("app_plugin_manifests_hash_unique"),
+  pluginsList: jsonb("plugins_list").notNull(),
+  pluginsCount: integer("plugins_count").notNull(),
+  capacitorBuildGradleHash: text("capacitor_build_gradle_hash"),
+  capturedByDeploymentId: varchar("captured_by_deployment_id"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => ({
+    app_plugin_manifests_deployment_fkey: foreignKey({
+      name: "app_plugin_manifests_deployment_fkey",
+      columns: [table.capturedByDeploymentId],
+      foreignColumns: [buildDeployments.id],
+    }).onDelete("set null"),
+    app_plugin_manifests_hash_idx: index("app_plugin_manifests_hash_idx").on(table.manifestHash),
+    app_plugin_manifests_captured_idx: index("app_plugin_manifests_captured_idx").on(table.capturedAt.desc()),
+  }));
+
+// جدول إصدارات التطبيق المُسلَّمة (Source of truth — وليس buildDeployments)
+// كل سجل = APK مبني، مُوقَّع، مُتحقَّق منه، ومُسجَّل بـ versionCode حقيقي مستخرج من aapt
+export const appVersions = pgTable("app_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionName: text("version_name").notNull(),
+  versionCode: integer("version_code").notNull().unique("app_versions_version_code_unique"),
+  apkUrl: text("apk_url").notNull(),
+  apkSha256: text("apk_sha256").notNull(),
+  apkSize: integer("apk_size").notNull(),
+  manifestId: varchar("manifest_id"),
+  deploymentId: varchar("deployment_id"),
+  releaseNotes: text("release_notes"),
+  forceUpdate: boolean("force_update").notNull().default(false),
+  minSupportedVersionCode: integer("min_supported_version_code").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  releasedAt: timestamp("released_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => ({
+    app_versions_manifest_fkey: foreignKey({
+      name: "app_versions_manifest_fkey",
+      columns: [table.manifestId],
+      foreignColumns: [appPluginManifests.id],
+    }).onDelete("set null"),
+    app_versions_deployment_fkey: foreignKey({
+      name: "app_versions_deployment_fkey",
+      columns: [table.deploymentId],
+      foreignColumns: [buildDeployments.id],
+    }).onDelete("set null"),
+    app_versions_active_idx: index("app_versions_active_idx").on(table.isActive),
+    app_versions_released_idx: index("app_versions_released_idx").on(table.releasedAt.desc()),
+    app_versions_version_code_idx: index("app_versions_version_code_idx").on(table.versionCode.desc()),
+  }));
+
+export const insertAppPluginManifestSchema = createInsertSchema(appPluginManifests).omit({
+  id: true,
+  capturedAt: true,
+});
+
+export const insertAppVersionSchema = createInsertSchema(appVersions).omit({
+  id: true,
+  releasedAt: true,
+});
+
+export type AppPluginManifest = typeof appPluginManifests.$inferSelect;
+export type InsertAppPluginManifest = z.infer<typeof insertAppPluginManifestSchema>;
+export type AppVersion = typeof appVersions.$inferSelect;
+export type InsertAppVersion = z.infer<typeof insertAppVersionSchema>;
 
 // Insert schema for notification read states
 export const insertNotificationReadStateSchema = createInsertSchema(notificationReadStates).omit({

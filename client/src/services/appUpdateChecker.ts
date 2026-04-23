@@ -15,6 +15,7 @@ function getBundleVersion(): string {
 const CHECK_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = 'app_update_last_check';
 const DISMISSED_VERSION_KEY = 'app_update_dismissed_version';
+const PLUGIN_MANIFEST_HASH_KEY = 'app_plugin_manifest_hash';
 
 let resumeListenerAdded = false;
 let activeCallbacks: UpdateCallbacks | null = null;
@@ -27,6 +28,7 @@ interface UpdateInfo {
     versionCode: number;
     downloadUrl: string | null;
     releasedAt: string;
+    pluginManifestHash?: string;
   };
   current: {
     versionName: string;
@@ -110,8 +112,35 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
     }
   }
 
+  // Fallback to @capacitor/device if @capacitor/app failed or returned empty
+  try {
+    trackLog('GET_APP_VERSION_FALLBACK_DEVICE_START', {});
+    const { Device } = await import('@capacitor/device');
+    const info = await Device.getInfo();
+    
+    trackLog('GET_APP_VERSION_FALLBACK_DEVICE_RAW', {
+      version: (info as any).appVersion,
+      build: (info as any).appBuild,
+    });
+
+    const versionName = (info as any).appVersion || '';
+    const buildStr = (info as any).appBuild || '0';
+    const versionCode = parseInt(buildStr, 10) || 0;
+
+    if ((versionName && versionName !== '0.0.0' && versionName !== '') || versionCode > 0) {
+      trackLog('GET_APP_VERSION_FALLBACK_DEVICE_OK', { versionName, versionCode });
+      return { versionName: versionName || '0.0.0', versionCode, unknown: false };
+    }
+  } catch (deviceErr: any) {
+    trackLog('GET_APP_VERSION_FALLBACK_DEVICE_FAIL', { error: deviceErr?.message || String(deviceErr) });
+  }
+
   trackLog('GET_APP_VERSION_ALL_FAILED', { attempts: MAX_ATTEMPTS });
   return { versionName: '0.0.0', versionCode: 0, unknown: true };
+}
+
+function getStoredPluginManifestHash(): string {
+  return localStorage.getItem(PLUGIN_MANIFEST_HASH_KEY) || '';
 }
 
 function shouldCheck(): boolean {
@@ -147,6 +176,8 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
       ? (bundleVersion || '0.0.0')
       : current.versionName;
     const checkCode = current.unknown ? 0 : current.versionCode;
+    const manifestHash = getStoredPluginManifestHash();
+
     if (current.unknown) {
       trackLog('CHECK_FOR_UPDATE_UNKNOWN_FALLBACK', { usingVersion: checkVersion, bundleVersion, reason: 'native_version_unknown_using_bundle' });
     }
@@ -158,8 +189,8 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${checkCode}&versionName=${encodeURIComponent(checkVersion)}`;
-    trackLog('CHECK_FOR_UPDATE_FETCH', { url, currentVersion: current.versionName });
+    const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${checkCode}&versionName=${encodeURIComponent(checkVersion)}&pluginManifestHash=${encodeURIComponent(manifestHash)}`;
+    trackLog('CHECK_FOR_UPDATE_FETCH', { url, currentVersion: current.versionName, manifestHash });
 
     const res = await fetch(url, {
       headers: { 'Accept': 'application/json' },
@@ -174,12 +205,19 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     }
 
     localStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
-    const data = await res.json();
+    const data: UpdateInfo = await res.json();
+
+    if (data.latest?.pluginManifestHash) {
+      localStorage.setItem(PLUGIN_MANIFEST_HASH_KEY, data.latest.pluginManifestHash);
+      trackLog('CHECK_FOR_UPDATE_STORE_MANIFEST', { hash: data.latest.pluginManifestHash });
+    }
+
     trackLog('CHECK_FOR_UPDATE_RESULT', {
       updateAvailable: data.updateAvailable,
       forceUpdate: data.forceUpdate,
       latestVersion: data.latest?.versionName,
       hasDownloadUrl: !!data.latest?.downloadUrl,
+      pluginManifestHash: data.latest?.pluginManifestHash,
     });
     return data;
   } catch (err: any) {

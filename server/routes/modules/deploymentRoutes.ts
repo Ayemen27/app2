@@ -98,6 +98,9 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
   try {
     const clientVersionCode = parseInt(req.query.versionCode as string) || 0;
     const clientVersionName = (req.query.versionName as string || "0.0.0").replace(/[^0-9.]/g, "").substring(0, 20);
+    const clientPluginManifestHash = typeof req.query.pluginManifestHash === "string"
+      ? req.query.pluginManifestHash.replace(/[^a-fA-F0-9]/g, "").substring(0, 64)
+      : null;
 
     const latest = await deploymentEngine.getLatestAndroidRelease();
 
@@ -114,7 +117,18 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
 
     const byVersionName = compareVersions(latest.versionName, clientVersionName) > 0;
     const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;
-    const updateAvailable = clientVersionUnknown ? true : (byVersionName || byVersionCode);
+
+    // Plugin Drift Detection — معيار Expo EAS Update / Codepush.
+    // إن أرسل العميل manifestHash يختلف عن آخر APK مُسجَّل → التطبيق على الجهاز مكسور
+    // (web bundle يستدعي إضافات لا توجد في APK) → يجب تحديث APK فوراً.
+    const latestManifestHash = (latest as any).pluginManifestHash || null;
+    const pluginDrift = !!(
+      clientPluginManifestHash &&
+      latestManifestHash &&
+      clientPluginManifestHash !== latestManifestHash
+    );
+
+    const updateAvailable = clientVersionUnknown ? true : (byVersionName || byVersionCode || pluginDrift);
 
     const FORCE_UPDATE_MIN_VERSION = process.env.FORCE_UPDATE_MIN_VERSION || "1.0.28";
     const FORCE_UPDATE_EXEMPT_VERSIONS = new Set(
@@ -122,27 +136,33 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
     );
 
     let forceUpdate = false;
-    if (updateAvailable && !clientVersionUnknown) {
+    if (pluginDrift) {
+      // Plugin drift = حالة كسر فعلي → فرض تحديث دائماً (مهما كان الإصدار).
+      forceUpdate = true;
+    } else if (updateAvailable && !clientVersionUnknown) {
       const isExempt = FORCE_UPDATE_EXEMPT_VERSIONS.has(clientVersionName);
       const isAtOrAboveMinForce = compareVersions(clientVersionName, FORCE_UPDATE_MIN_VERSION) >= 0;
       forceUpdate = !isExempt && isAtOrAboveMinForce;
     }
 
-    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable} force=${forceUpdate} unknown=${clientVersionUnknown} minForce=${FORCE_UPDATE_MIN_VERSION}`);
+    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} drift=${pluginDrift} update=${updateAvailable} force=${forceUpdate} unknown=${clientVersionUnknown} clientHash=${clientPluginManifestHash?.substring(0,8) || 'none'} latestHash=${latestManifestHash?.substring(0,8) || 'none'}`);
 
     res.json({
       updateAvailable,
       forceUpdate,
+      pluginDrift,
       latest: {
         versionName: latest.versionName,
         versionCode: latest.versionCode,
         downloadUrl: latest.downloadUrl,
         releasedAt: latest.releasedAt,
         releaseNotes: latest.releaseNotes || null,
+        pluginManifestHash: latestManifestHash,
       },
       current: {
         versionName: clientVersionName,
         versionCode: clientVersionCode,
+        pluginManifestHash: clientPluginManifestHash,
       },
     });
   } catch (err: any) {

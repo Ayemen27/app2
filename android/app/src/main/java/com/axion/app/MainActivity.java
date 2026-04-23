@@ -5,13 +5,44 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowInsetsController;
+
+import com.byteowls.capacitor.filesharer.FileSharerPlugin;
+import com.capacitorjs.osinappbrowser.InAppBrowserPlugin;
+import com.capacitorjs.plugins.app.AppPlugin;
+import com.capacitorjs.plugins.browser.BrowserPlugin;
+import com.capacitorjs.plugins.device.DevicePlugin;
+import com.capacitorjs.plugins.filesystem.FilesystemPlugin;
+import com.capacitorjs.plugins.localnotifications.LocalNotificationsPlugin;
+import com.capacitorjs.plugins.network.NetworkPlugin;
+import com.capacitorjs.plugins.preferences.PreferencesPlugin;
+import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
+import com.capacitorjs.plugins.share.SharePlugin;
+import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.community.database.sqlite.CapacitorSQLitePlugin;
+
+import ee.forgr.biometric.NativeBiometric;
+
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AppPlugin.class);
+        registerPlugin(DevicePlugin.class);
+        registerPlugin(FilesystemPlugin.class);
+        registerPlugin(FileSharerPlugin.class);
+        registerPlugin(NativeBiometric.class);
+        registerPlugin(PreferencesPlugin.class);
+        registerPlugin(NetworkPlugin.class);
+        registerPlugin(SharePlugin.class);
+        registerPlugin(StatusBarPlugin.class);
+        registerPlugin(LocalNotificationsPlugin.class);
+        registerPlugin(PushNotificationsPlugin.class);
+        registerPlugin(BrowserPlugin.class);
+        registerPlugin(InAppBrowserPlugin.class);
+        registerPlugin(CapacitorSQLitePlugin.class);
         registerPlugin(ApkUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
         applyEdgeToEdge();

@@ -33,17 +33,7 @@ function isXhrPatchable(): boolean {
   }
 }
 
-/**
- * يتحقق من توافر Plugin معين على المنصة الحالية
- * مع اصطياد أي خطأ محتمل.
- */
-function isPluginAvailable(name: string): boolean {
-  try {
-    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable(name);
-  } catch {
-    return false;
-  }
-}
+// ملاحظة: لا نستخدم isPluginAvailable() — لا تعمل في Capacitor 8. نستدعي مباشرة.
 
 export async function initializeInstrumentation() {
   let deviceInfo: Record<string, unknown> = {};
@@ -51,16 +41,16 @@ export async function initializeInstrumentation() {
 
   if (Capacitor.isNativePlatform()) {
     try {
-      if (isPluginAvailable('Device')) {
-        const { Device } = await import('@capacitor/device');
-        deviceInfo = (await Device.getInfo().catch(() => ({}))) as Record<string, unknown>;
-      }
-      if (isPluginAvailable('App')) {
-        const { App } = await import('@capacitor/app');
-        appInfo = (await App.getInfo().catch(() => ({}))) as Record<string, unknown>;
-      }
+      const { Device } = await import('@capacitor/device');
+      deviceInfo = (await Device.getInfo().catch(() => ({}))) as Record<string, unknown>;
     } catch (e) {
-      console.warn('[instrumentation] Failed to get native device/app info:', e);
+      console.warn('[instrumentation] Device plugin unavailable:', e);
+    }
+    try {
+      const { App } = await import('@capacitor/app');
+      appInfo = (await App.getInfo().catch(() => ({}))) as Record<string, unknown>;
+    } catch (e) {
+      console.warn('[instrumentation] App plugin unavailable:', e);
     }
   }
 

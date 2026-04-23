@@ -57,13 +57,14 @@ async function getValidTokenWithRefresh(): Promise<string | null> {
 }
 
 async function checkNetworkOnNative(): Promise<boolean> {
-  try {
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Network')) {
+  // لا نستخدم isPluginAvailable('Network') — لا تعمل في Capacitor 8. نستدعي مباشرة.
+  if (Capacitor.isNativePlatform()) {
+    try {
       const { Network } = await import('@capacitor/network');
       const status = await Network.getStatus();
       return status.connected;
-    }
-  } catch {}
+    } catch {}
+  }
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 

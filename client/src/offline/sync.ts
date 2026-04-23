@@ -19,19 +19,20 @@ import * as performanceMonitor from './performance-monitor';
 import * as Sentry from '@sentry/react';
 
 async function isNetworkAvailable(): Promise<boolean> {
-  try {
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Network')) {
+  // لا نستخدم isPluginAvailable('Network') — لا تعمل في Capacitor 8. نستدعي مباشرة.
+  if (Capacitor.isNativePlatform()) {
+    try {
       const { Network } = await import('@capacitor/network');
       const status = await Network.getStatus();
       return status.connected;
+    } catch (err) {
+      intelligentMonitor.logEvent({ 
+        type: 'sync', 
+        severity: 'low', 
+        message: 'Network status check failed silently', 
+        metadata: { error: err } 
+      });
     }
-  } catch (err) {
-    intelligentMonitor.logEvent({ 
-      type: 'sync', 
-      severity: 'low', 
-      message: 'Network status check failed silently', 
-      metadata: { error: err } 
-    });
   }
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
@@ -674,8 +675,8 @@ async function _initSyncListenerAsync(): Promise<void> {
     }
   }, 30000);
 
-  try {
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('App')) {
+  if (Capacitor.isNativePlatform()) {
+    try {
       const { App } = await import('@capacitor/app');
       App.addListener('appStateChange', async ({ isActive }) => {
         if (isActive) {
@@ -693,14 +694,14 @@ async function _initSyncListenerAsync(): Promise<void> {
           }
         }
       });
+    } catch (err) {
+      intelligentMonitor.logEvent({
+        type: 'sync',
+        severity: 'low',
+        message: 'App state change listener registration failed',
+        metadata: { error: err }
+      });
     }
-  } catch (err) {
-    intelligentMonitor.logEvent({
-      type: 'sync',
-      severity: 'low',
-      message: 'App state change listener registration failed',
-      metadata: { error: err }
-    });
   }
 }
 

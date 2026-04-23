@@ -3,51 +3,44 @@ import { authFetch } from '@/lib/auth-token-store';
 import { PushNotifications, PermissionStatus, Token } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 
-function isPluginReady(name: string): boolean {
-  try { return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable(name); } catch { return false; }
-}
+// ملاحظة: لا نستخدم Capacitor.isPluginAvailable() لأنها تُرجع false في Capacitor 8
+// حتى للإضافات المُضمَّنة في APK. نستدعي كل إضافة مباشرة ونعالج الأخطاء.
 
 export const requestAllPermissions = async () => {
   if (!Capacitor.isNativePlatform()) return;
 
   // Push Notifications
-  if (isPluginReady('PushNotifications')) {
-    try {
-      const pushPerm = await PushNotifications.requestPermissions();
-      console.log('[Push] Push permission status:', pushPerm.receive);
-    } catch (err) {
-      console.warn('[Push] Failed to request push permissions:', err);
-    }
+  try {
+    const pushPerm = await PushNotifications.requestPermissions();
+    console.log('[Push] Push permission status:', pushPerm.receive);
+  } catch (err) {
+    console.warn('[Push] Failed to request push permissions:', err);
   }
 
   // Local Notifications
-  if (isPluginReady('LocalNotifications')) {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const localPerm = await LocalNotifications.requestPermissions();
+    console.log('[Push] Local notification permission:', localPerm.display);
     try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const localPerm = await LocalNotifications.requestPermissions();
-      console.log('[Push] Local notification permission:', localPerm.display);
-      try {
-        const exactSetting = await LocalNotifications.checkExactNotificationSetting();
-        if (exactSetting.exact_alarm !== 'granted') {
-          await LocalNotifications.changeExactNotificationSetting();
-        }
-      } catch (exactErr) {
-        console.warn('[Push] Could not check exact alarm setting:', exactErr);
+      const exactSetting = await LocalNotifications.checkExactNotificationSetting();
+      if (exactSetting.exact_alarm !== 'granted') {
+        await LocalNotifications.changeExactNotificationSetting();
       }
-    } catch (localErr) {
-      console.warn('[Push] Local notifications not available:', localErr);
+    } catch (exactErr) {
+      console.warn('[Push] Could not check exact alarm setting:', exactErr);
     }
+  } catch (localErr) {
+    console.warn('[Push] Local notifications not available:', localErr);
   }
 
   // Biometric — فحص التوافر فقط (لا يتطلب صلاحية)
-  if (isPluginReady('NativeBiometric')) {
-    try {
-      const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
-      const bioResult = await NativeBiometric.isAvailable();
-      console.log('[Biometric] Available:', bioResult.isAvailable, '| Type:', bioResult.biometryType);
-    } catch (bioErr) {
-      console.warn('[Biometric] Not available on this device:', bioErr);
-    }
+  try {
+    const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+    const bioResult = await NativeBiometric.isAvailable();
+    console.log('[Biometric] Available:', bioResult.isAvailable, '| Type:', bioResult.biometryType);
+  } catch (bioErr) {
+    console.warn('[Biometric] Not available on this device:', bioErr);
   }
 };
 
@@ -58,38 +51,28 @@ export const initializeNativePush = async (user_id: string) => {
   if (!Capacitor.isNativePlatform()) return;
 
   // إنشاء قنوات الإشعارات (LocalNotifications)
-  if (isPluginReady('LocalNotifications')) {
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-
-      await LocalNotifications.createChannel({
-        id: 'default', name: 'الإشعارات العامة',
-        description: 'الإشعارات الرئيسية لتطبيق AXION',
-        importance: 4, visibility: 1, vibration: true, sound: 'default',
-      });
-
-      await LocalNotifications.createChannel({
-        id: 'high_priority', name: 'إشعارات الأولوية العالية',
-        description: 'تنبيهات السلامة والطوارئ',
-        importance: 5, visibility: 1, vibration: true, sound: 'default',
-      });
-
-      await LocalNotifications.createChannel({
-        id: 'financial', name: 'الإشعارات المالية',
-        description: 'إشعارات الرواتب والتحويلات المالية',
-        importance: 4, visibility: 1, vibration: true, sound: 'default',
-      });
-    } catch (channelErr) {
-      console.warn('[Push] Failed to create notification channels:', channelErr);
-    }
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.createChannel({
+      id: 'default', name: 'الإشعارات العامة',
+      description: 'الإشعارات الرئيسية لتطبيق AXION',
+      importance: 4, visibility: 1, vibration: true, sound: 'default',
+    });
+    await LocalNotifications.createChannel({
+      id: 'high_priority', name: 'إشعارات الأولوية العالية',
+      description: 'تنبيهات السلامة والطوارئ',
+      importance: 5, visibility: 1, vibration: true, sound: 'default',
+    });
+    await LocalNotifications.createChannel({
+      id: 'financial', name: 'الإشعارات المالية',
+      description: 'إشعارات الرواتب والتحويلات المالية',
+      importance: 4, visibility: 1, vibration: true, sound: 'default',
+    });
+  } catch (channelErr) {
+    console.warn('[Push] Failed to create notification channels:', channelErr);
   }
 
   // تسجيل FCM (PushNotifications)
-  if (!isPluginReady('PushNotifications')) {
-    console.warn('[Push] PushNotifications plugin not available in this APK');
-    return;
-  }
-
   try {
     let permStatus: PermissionStatus = await PushNotifications.checkPermissions();
 
@@ -133,8 +116,6 @@ export const initializeNativePush = async (user_id: string) => {
 
     await PushNotifications.addListener('pushNotificationReceived', async (notification: any) => {
       console.log('[Push] Foreground notification:', notification.title);
-
-      if (!isPluginReady('LocalNotifications')) return;
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         await LocalNotifications.schedule({
@@ -165,7 +146,6 @@ export const initializeNativePush = async (user_id: string) => {
 
 export const unregisterPushToken = async () => {
   if (!Capacitor.isNativePlatform()) return;
-  if (!isPluginReady('PushNotifications')) return;
   try {
     await PushNotifications.unregister();
     console.log('[Push] FCM token unregistered');

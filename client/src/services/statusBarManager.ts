@@ -3,12 +3,10 @@ import { Capacitor } from '@capacitor/core';
 let StatusBarPlugin: any = null;
 let StyleEnum: any       = null;
 
-function isPluginReady(): boolean {
-  try { return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('StatusBar'); } catch { return false; }
-}
+// ملاحظة: لا نستخدم isPluginAvailable() — لا تعمل في Capacitor 8. نحمّل مباشرة.
 
 async function loadPlugin(): Promise<boolean> {
-  if (!isPluginReady()) return false;
+  if (!Capacitor.isNativePlatform()) return false;
   try {
     const mod      = await import('@capacitor/status-bar');
     StatusBarPlugin = mod.StatusBar;

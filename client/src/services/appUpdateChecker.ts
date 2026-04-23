@@ -57,22 +57,9 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
     return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
 
-  /*
-   * نتحقق أولاً من توافر إضافة App عبر Capacitor.isPluginAvailable
-   * قبل أي محاولة استدعاء. إذا لم تكن الإضافة مُجمَّعة في APK
-   * فلا جدوى من المحاولات المتعددة ونعود مباشرة بقيم unknown.
-   */
-  const appPluginAvailable = Capacitor.isPluginAvailable('App');
-  trackLog('GET_APP_VERSION_BRIDGE', { bridgeReady: appPluginAvailable });
-
-  if (!appPluginAvailable) {
-    trackLog('GET_APP_VERSION_UNIMPLEMENTED', {
-      reason: 'plugin_not_available_via_capacitor',
-      skipping_retries: true,
-    });
-    trackLog('GET_APP_VERSION_ALL_FAILED', { attempts: 0 });
-    return { versionName: '0.0.0', versionCode: 0, unknown: true };
-  }
+  // ملاحظة: لا نستخدم Capacitor.isPluginAvailable('App') — تُرجع false في Capacitor 8.
+  // نُحاول استدعاء App.getInfo() مباشرة ونعالج الأخطاء.
+  trackLog('GET_APP_VERSION_BRIDGE', { bridgeReady: true });
 
   await waitForCapacitorBridge(5000);
 
@@ -256,8 +243,8 @@ async function tryCopyToClipboard(fullUrl: string): Promise<boolean> {
 }
 
 async function tryCapacitorBrowser(fullUrl: string): Promise<boolean> {
+  // لا نستخدم isPluginAvailable() — لا تعمل في Capacitor 8. نستدعي مباشرة.
   try {
-    if (!Capacitor.isPluginAvailable('Browser')) return false;
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url: fullUrl, windowName: '_system' });
     return true;
@@ -397,7 +384,7 @@ const NOTIFIED_VERSION_KEY = 'app_update_notified_version';
 
 async function showUpdateNotification(info: UpdateInfo) {
   if (!Capacitor.isNativePlatform()) return;
-  if (!Capacitor.isPluginAvailable('LocalNotifications')) return;
+  // لا نستخدم isPluginAvailable() — لا تعمل في Capacitor 8. نستدعي مباشرة.
 
   const alreadyNotified = localStorage.getItem(NOTIFIED_VERSION_KEY);
   if (alreadyNotified === String(info.latest.versionCode)) return;
@@ -438,7 +425,6 @@ async function showUpdateNotification(info: UpdateInfo) {
 
 async function createUpdateNotificationChannel() {
   if (!Capacitor.isNativePlatform()) return;
-  if (!Capacitor.isPluginAvailable('LocalNotifications')) return;
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     await LocalNotifications.createChannel({
@@ -489,21 +475,20 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
 
   if (!resumeListenerAdded) {
     resumeListenerAdded = true;
-    if (Capacitor.isPluginAvailable('App')) {
-      try {
-        const { App } = await import('@capacitor/app');
-        App.addListener('appStateChange', async ({ isActive }) => {
-          if (!isActive || !activeCallbacks) return;
-          const fresh = await checkForUpdate(true);
-          if (fresh?.updateAvailable) {
-            if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
-            activeCallbacks.onUpdateAvailable(fresh);
-            showUpdateNotification(fresh);
-          }
-        });
-      } catch (e: any) {
-        trackLog('INIT_UPDATE_CHECKER_LISTENER_ERROR', { error: e?.message || String(e) });
-      }
+    // لا نستخدم isPluginAvailable('App') — لا تعمل في Capacitor 8. نستدعي مباشرة.
+    try {
+      const { App } = await import('@capacitor/app');
+      App.addListener('appStateChange', async ({ isActive }) => {
+        if (!isActive || !activeCallbacks) return;
+        const fresh = await checkForUpdate(true);
+        if (fresh?.updateAvailable) {
+          if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
+          activeCallbacks.onUpdateAvailable(fresh);
+          showUpdateNotification(fresh);
+        }
+      });
+    } catch (e: any) {
+      trackLog('INIT_UPDATE_CHECKER_LISTENER_ERROR', { error: e?.message || String(e) });
     }
   }
   trackLog('INIT_UPDATE_CHECKER_DONE', { success: true });

@@ -55,37 +55,35 @@ export async function checkAllPermissions(): Promise<PermissionInfo[]> {
   const storage = loadStorage();
   const result: PermissionInfo[] = [];
 
-  if (Capacitor.isPluginAvailable('PushNotifications')) {
-    try {
-      const { PushNotifications } = await import('@capacitor/push-notifications');
-      const status = await PushNotifications.checkPermissions();
-      const granted = status.receive === 'granted';
-      if (granted) storage.push.granted = true;
-      saveStorage(storage);
-      result.push({
-        id: 'push',
-        granted,
-        needsRationale: !granted && canAutoAsk(storage.push),
-        needsSettings: !granted && needsSettingsRedirect(storage.push),
-      });
-    } catch {}
-  }
+  // PushNotifications — نستدعي مباشرة بدون isPluginAvailable (لا تعمل في Capacitor 8)
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const status = await PushNotifications.checkPermissions();
+    const granted = status.receive === 'granted';
+    if (granted) storage.push.granted = true;
+    saveStorage(storage);
+    result.push({
+      id: 'push',
+      granted,
+      needsRationale: !granted && canAutoAsk(storage.push),
+      needsSettings: !granted && needsSettingsRedirect(storage.push),
+    });
+  } catch {}
 
-  if (Capacitor.isPluginAvailable('LocalNotifications')) {
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const status = await LocalNotifications.checkPermissions();
-      const granted = status.display === 'granted';
-      if (granted) storage.local.granted = true;
-      saveStorage(storage);
-      result.push({
-        id: 'local',
-        granted,
-        needsRationale: !granted && canAutoAsk(storage.local),
-        needsSettings: !granted && needsSettingsRedirect(storage.local),
-      });
-    } catch {}
-  }
+  // LocalNotifications
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const status = await LocalNotifications.checkPermissions();
+    const granted = status.display === 'granted';
+    if (granted) storage.local.granted = true;
+    saveStorage(storage);
+    result.push({
+      id: 'local',
+      granted,
+      needsRationale: !granted && canAutoAsk(storage.local),
+      needsSettings: !granted && needsSettingsRedirect(storage.local),
+    });
+  } catch {}
 
   return result;
 }
@@ -98,7 +96,7 @@ export async function requestPermission(id: PermissionId): Promise<boolean> {
   rec.askedAt = Date.now();
 
   try {
-    if (id === 'push' && Capacitor.isPluginAvailable('PushNotifications')) {
+    if (id === 'push') {
       const { PushNotifications } = await import('@capacitor/push-notifications');
       const result = await PushNotifications.requestPermissions();
       const granted = result.receive === 'granted';
@@ -121,7 +119,7 @@ export async function requestPermission(id: PermissionId): Promise<boolean> {
       }
     }
 
-    if (id === 'local' && Capacitor.isPluginAvailable('LocalNotifications')) {
+    if (id === 'local') {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       const result = await LocalNotifications.requestPermissions();
       const granted = result.display === 'granted';

@@ -109,11 +109,10 @@ export default function PermissionRequestDialog({ onDone }: Props) {
   }, [advance]);
 
   const handleOpenSettings = useCallback(async () => {
+    // لا نستخدم isPluginAvailable() — لا تعمل في Capacitor 8. نستدعي مباشرة.
     try {
-      if (Capacitor.isPluginAvailable('Browser')) {
-        const { Browser } = await import('@capacitor/browser');
-        await Browser.open({ url: 'package:com.axion.app', windowName: '_system' });
-      }
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url: 'package:com.axion.app', windowName: '_system' });
     } catch {}
     advance();
   }, [advance]);

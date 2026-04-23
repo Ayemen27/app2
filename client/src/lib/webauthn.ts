@@ -38,15 +38,10 @@ function isNativePlatform(): boolean {
 }
 
 function isNativeBiometricAvailable(): boolean {
+  // لا نستخدم isPluginAvailable() — تُرجع false في Capacitor 8 حتى للإضافات الموجودة.
+  // نعيد true على المنصة الأصلية ونترك الخطأ الفعلي لنداء الإضافة.
   try {
-    if (!isNativePlatform()) return false;
-
-    if (Capacitor.isPluginAvailable('NativeBiometric')) return true;
-
-    const plugins = (window as any)?.Capacitor?.Plugins;
-    if (plugins && typeof plugins === 'object' && 'NativeBiometric' in plugins) return true;
-
-    return false;
+    return isNativePlatform();
   } catch { return false; }
 }
 

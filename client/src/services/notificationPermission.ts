@@ -10,9 +10,8 @@ type PermissionState = 'granted' | 'prompt' | 'denied' | 'cooldown';
 
 let resumeListenerRegistered = false;
 
-function isPluginReady(name: string): boolean {
-  try { return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable(name); } catch { return false; }
-}
+// ملاحظة: لا نستخدم Capacitor.isPluginAvailable() — لا تعمل في Capacitor 8.
+// نستدعي الإضافات مباشرة ونعتمد على try/catch للمعالجة.
 
 function getCurrentUserId(): string {
   try {
@@ -24,7 +23,6 @@ function getCurrentUserId(): string {
 
 async function getPermissionState(): Promise<PermissionState> {
   if (!Capacitor.isNativePlatform()) return 'denied';
-  if (!isPluginReady('PushNotifications')) return 'denied';
 
   try {
     const status = await PushNotifications.checkPermissions();
@@ -42,7 +40,6 @@ async function getPermissionState(): Promise<PermissionState> {
 
 async function requestNotificationPermission(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false;
-  if (!isPluginReady('PushNotifications')) return false;
 
   try {
     const state = await getPermissionState();
@@ -94,26 +91,23 @@ async function registerResumeListener() {
   if (resumeListenerRegistered) return;
   if (!Capacitor.isNativePlatform()) return;
 
-  // التحقق من توافر إضافة App قبل الاستماع لأحداث دورة الحياة
-  if (!isPluginReady('App')) {
-    console.warn('[NotifPerm] App plugin not available — resume listener skipped');
-    return;
-  }
-
   resumeListenerRegistered = true;
 
-  const { App } = await import('@capacitor/app');
-  App.addListener('appStateChange', async ({ isActive }) => {
-    if (!isActive) return;
-    if (!isPluginReady('PushNotifications')) return;
-    try {
-      const status = await PushNotifications.checkPermissions();
-      if (status.receive === 'granted') {
-        localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
-        await initializeNativePush(getCurrentUserId());
-      }
-    } catch {}
-  });
+  try {
+    const { App } = await import('@capacitor/app');
+    App.addListener('appStateChange', async ({ isActive }) => {
+      if (!isActive) return;
+      try {
+        const status = await PushNotifications.checkPermissions();
+        if (status.receive === 'granted') {
+          localStorage.setItem(PERM_DENIED_COUNT_KEY, '0');
+          await initializeNativePush(getCurrentUserId());
+        }
+      } catch {}
+    });
+  } catch (appErr) {
+    console.warn('[NotifPerm] App plugin unavailable — resume listener skipped:', appErr);
+  }
 }
 
 export {

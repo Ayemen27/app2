@@ -36,18 +36,10 @@ interface ApkUpdaterPlugin {
 const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater');
 
 export function isApkUpdaterAvailable(): boolean {
+  // لا نستخدم isPluginAvailable() — تُرجع false في Capacitor 8 حتى للإضافات الموجودة.
+  // ApkUpdater مُدمجة في APK دائماً، نكتفي بفحص المنصة الأصلية.
   try {
-    if (!Capacitor.isNativePlatform()) return false;
-
-    if (Capacitor.isPluginAvailable('ApkUpdater')) return true;
-
-    const plugins = (window as any)?.Capacitor?.Plugins;
-    if (plugins && typeof plugins === 'object' && 'ApkUpdater' in plugins) return true;
-
-    const nativeImpl = (window as any)?.Capacitor?.nativeCallback;
-    if (nativeImpl) return true;
-
-    return false;
+    return Capacitor.isNativePlatform();
   } catch {
     return false;
   }

@@ -226,6 +226,15 @@ function buildFullUrl(url: string): string {
   return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
+async function tryWindowOpenSystem(fullUrl: string): Promise<boolean> {
+  try {
+    const w = window.open(fullUrl, '_system');
+    return w !== null || document.hidden;
+  } catch {
+    return false;
+  }
+}
+
 async function tryLocationAssign(fullUrl: string): Promise<boolean> {
   window.location.assign(fullUrl);
   return true;
@@ -286,6 +295,17 @@ async function openDownloadUrl(url: string): Promise<DownloadResult> {
       }
     } catch (e: any) {
       trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'capacitor_browser', error: e?.message || String(e) });
+    }
+
+    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'window_open_system' });
+    try {
+      const opened = await tryWindowOpenSystem(fullUrl);
+      if (opened) {
+        trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'window_open_system' });
+        return { success: true, method: 'window_open' };
+      }
+    } catch (e: any) {
+      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'window_open_system', error: e?.message || String(e) });
     }
 
     trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'location_assign' });

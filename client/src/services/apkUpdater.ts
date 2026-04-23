@@ -37,7 +37,17 @@ const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater');
 
 export function isApkUpdaterAvailable(): boolean {
   try {
-    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('ApkUpdater');
+    if (!Capacitor.isNativePlatform()) return false;
+
+    if (Capacitor.isPluginAvailable('ApkUpdater')) return true;
+
+    const plugins = (window as any)?.Capacitor?.Plugins;
+    if (plugins && typeof plugins === 'object' && 'ApkUpdater' in plugins) return true;
+
+    const nativeImpl = (window as any)?.Capacitor?.nativeCallback;
+    if (nativeImpl) return true;
+
+    return false;
   } catch {
     return false;
   }
@@ -53,10 +63,6 @@ export async function downloadApk(
   url: string,
   callbacks: DownloadAndInstallCallbacks = {},
 ): Promise<ApkDownloadResult> {
-  if (!isApkUpdaterAvailable()) {
-    throw new Error('ApkUpdater plugin غير متوفر — يجب بناء نسخة أحدث من التطبيق');
-  }
-
   const fileName = `AXION_update_${Date.now()}.apk`;
   const handles: PluginListenerHandle[] = [];
 
@@ -85,15 +91,11 @@ export async function downloadApk(
 }
 
 export async function cancelDownload(): Promise<void> {
-  if (!isApkUpdaterAvailable()) return;
   try {
     await ApkUpdater.cancel();
   } catch {}
 }
 
 export async function installApk(path: string): Promise<{ started?: boolean; requiresPermission?: boolean }> {
-  if (!isApkUpdaterAvailable()) {
-    throw new Error('ApkUpdater plugin غير متوفر');
-  }
   return ApkUpdater.install({ path });
 }

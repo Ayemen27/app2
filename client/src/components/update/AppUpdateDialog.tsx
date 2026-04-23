@@ -13,8 +13,8 @@ import {
   Sparkles,
   PackageCheck,
 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import {
-  isApkUpdaterAvailable,
   downloadApk,
   installApk,
   cancelDownload,
@@ -69,7 +69,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
   const [apkPath, setApkPath] = useState<string>("");
   const isForced = info.forceUpdate === true;
   const downloadUrl = info.latest.downloadUrl;
-  const nativeReady = isApkUpdaterAvailable();
+  const nativeReady = Capacitor.isNativePlatform();
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -81,6 +81,23 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleBrowserFallback = useCallback(async () => {
+    if (!downloadUrl) return;
+    setState("preparing");
+    setProgress(0);
+    await new Promise((r) => setTimeout(r, 300));
+    setState("downloading");
+    setProgress(50);
+    const result = await onUpdateNow(downloadUrl);
+    if (result.success) {
+      setProgress(100);
+      setState("idle");
+    } else {
+      setErrorMsg(result.error || "فشل فتح رابط التحميل");
+      setState("failed");
+    }
+  }, [downloadUrl, onUpdateNow]);
 
   const handleNativeUpdate = useCallback(async () => {
     if (!downloadUrl) return;
@@ -110,10 +127,21 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
       setState("ready_to_install");
     } catch (err: any) {
       if (cancelledRef.current) return;
-      setErrorMsg(err?.message || "فشل التحميل");
-      setState("failed");
+      const msg = err?.message || String(err);
+      const isPluginMissing =
+        msg.includes('not implemented') ||
+        msg.includes('UNIMPLEMENTED') ||
+        msg.includes('not found') ||
+        msg.includes('غير متوفر') ||
+        msg.includes('plugin');
+      if (isPluginMissing) {
+        await handleBrowserFallback();
+      } else {
+        setErrorMsg(msg || "فشل التحميل");
+        setState("failed");
+      }
     }
-  }, [downloadUrl]);
+  }, [downloadUrl, handleBrowserFallback]);
 
   const handleInstall = useCallback(async () => {
     if (!apkPath) return;
@@ -125,23 +153,6 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
       setState("failed");
     }
   }, [apkPath]);
-
-  const handleBrowserFallback = useCallback(async () => {
-    if (!downloadUrl) return;
-    setState("preparing");
-    setProgress(0);
-    await new Promise((r) => setTimeout(r, 300));
-    setState("downloading");
-    setProgress(50);
-    const result = await onUpdateNow(downloadUrl);
-    if (result.success) {
-      setProgress(100);
-      setState("idle");
-    } else {
-      setErrorMsg(result.error || "فشل فتح رابط التحميل");
-      setState("failed");
-    }
-  }, [downloadUrl, onUpdateNow]);
 
   const handleUpdate = useCallback(async () => {
     if (nativeReady) {

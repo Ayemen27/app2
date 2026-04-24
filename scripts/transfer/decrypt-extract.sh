@@ -11,7 +11,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.sh"
 
-require_tools tar gpg
+require_tools tar openssl
 
 DO_BACKUP=true
 while [ $# -gt 0 ]; do
@@ -51,14 +51,22 @@ if [ "$TRANSFER_ENCRYPTED" = "true" ]; then
     exit 2
   fi
 
-  if ! echo "$ENCRYPT_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 \
+  # محاولة 1: OpenSSL (تشفير جديد)
+  if openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+        -pass "pass:${ENCRYPT_PASSPHRASE}" \
+        -in "$TRANSFER_LOCAL_ARCHIVE" -out "$DECRYPTED_TAR" 2>/dev/null; then
+    log_ok "فك التشفير اكتمل (OpenSSL)"
+  # محاولة 2: GPG (أرشيفات قديمة مشفّرة قبل الترقية)
+  elif command -v gpg >/dev/null 2>&1 && \
+       echo "$ENCRYPT_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 \
         --decrypt --output "$DECRYPTED_TAR" "$TRANSFER_LOCAL_ARCHIVE" 2>/dev/null; then
+    log_ok "فك التشفير اكتمل (GPG — أرشيف قديم)"
+    log_warn "هذا الأرشيف مشفّر بـ GPG (قديم) — الأرشيفات الجديدة ستستخدم OpenSSL"
+  else
     log_error "فشل فك التشفير — كلمة السر غير صحيحة أو الأرشيف تالف"
     rm -f "$DECRYPTED_TAR"
     exit 1
   fi
-
-  log_ok "فك التشفير اكتمل"
   rm -f "$TRANSFER_LOCAL_ARCHIVE"
 else
   log_step "نسخ الأرشيف (غير مشفّر)"

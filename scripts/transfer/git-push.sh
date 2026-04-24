@@ -67,42 +67,37 @@ if [ "$uncommitted" -gt 0 ]; then
   log_ok "commit تلقائي اكتمل"
 fi
 
-# ----- الدفع -----
-push_result=0
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_USERNAME:-}" ]; then
-  log_info "استخدام GITHUB_TOKEN للمصادقة"
-  if [[ "$remote_url" =~ ^https://github.com/(.+)$ ]]; then
-    repo_path="${BASH_REMATCH[1]}"
-    auth_url="https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${repo_path}"
-    git push "$auth_url" "$branch" 2>&1 | grep -v "${GITHUB_TOKEN}" | tail -10 || true
-    push_result=${PIPESTATUS[0]}
-  else
-    git push origin "$branch" 2>&1 | tail -10
-    push_result=${PIPESTATUS[0]}
-  fi
-else
-  log_info "لا يوجد GITHUB_TOKEN — محاولة الدفع بـ credential helper المحفوظ"
-  git push origin "$branch" 2>&1 | tail -10
-  push_result=${PIPESTATUS[0]}
-fi
-
-if [ "$push_result" -eq 0 ]; then
-  log_ok "✅ تم دفع الكود لفرع: ${branch}"
-  exit 0
-fi
-
-# فشل الدفع
-log_error "فشل git push (كود: ${push_result})"
-log_warn "أسباب محتملة:"
-log_warn "  • GITHUB_TOKEN/USERNAME غير مضبوطين"
-log_warn "  • التوكن منتهي الصلاحية أو لا يملك صلاحية الكتابة"
-log_warn "  • الفرع البعيد فيه تعديلات أحدث (يحتاج pull أولاً)"
-
-if [ "$STRICT" = true ]; then
-  log_error "وضع --strict — إنهاء بفشل"
+# ----- التحقق من GITHUB_TOKEN و GITHUB_USERNAME -----
+if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USERNAME:-}" ]; then
+  log_error "GITHUB_TOKEN و GITHUB_USERNAME مطلوبان لدفع الكود"
+  log_error "أضِفهما في Replit Secrets ثم أعد المحاولة"
   exit 1
 fi
 
-log_warn "تخطي بدون كسر الأنبوب — يمكنك الدفع يدوياً لاحقاً:"
-log_info "    git push origin ${branch}"
+log_info "استخدام GITHUB_TOKEN للمصادقة"
+
+# ----- إعداد credential helper -----
+git config user.email "${GITHUB_USERNAME}@users.noreply.github.com"
+git config user.name "${GITHUB_USERNAME}"
+git config credential.helper '!f() { echo "username='"${GITHUB_USERNAME}"'"; echo "password='"${GITHUB_TOKEN}"'"; }; f'
+
+# ----- ضبط remote URL بـ HTTPS -----
+if [[ "$remote_url" =~ ^https://github.com/(.+)$ ]]; then
+  repo_path="${BASH_REMATCH[1]}"
+  git remote set-url origin "https://github.com/${repo_path}"
+fi
+
+# ----- الدفع -----
+push_output=$(git push origin "$branch" 2>&1) || {
+  push_result=$?
+  log_error "فشل git push (كود: ${push_result})"
+  echo "$push_output" | grep -v "${GITHUB_TOKEN}" | tail -10
+  log_warn "أسباب محتملة:"
+  log_warn "  • التوكن منتهي الصلاحية أو لا يملك صلاحية الكتابة"
+  log_warn "  • الفرع البعيد فيه تعديلات أحدث (يحتاج pull أولاً)"
+  exit 1
+}
+
+echo "$push_output" | grep -v "${GITHUB_TOKEN}" | tail -10
+log_ok "✅ تم دفع الكود لفرع: ${branch}"
 exit 0

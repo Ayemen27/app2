@@ -15,7 +15,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.sh"
 
-require_tools tar gpg gzip sha256sum
+require_tools tar openssl gzip sha256sum
 
 # ----- معالجة الوسيطات -----
 VERSION=""
@@ -140,9 +140,9 @@ if [ "$ENCRYPT" = true ]; then
     exit 2
   fi
 
-  if ! echo "$ENCRYPT_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 \
-        --symmetric --cipher-algo AES256 \
-        --output "$LOCAL_ARCHIVE" "$TAR_TMP" 2>/dev/null; then
+  if ! openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+        -pass "pass:${ENCRYPT_PASSPHRASE}" \
+        -in "$TAR_TMP" -out "$LOCAL_ARCHIVE" 2>/dev/null; then
     log_error "فشل التشفير"
     rm -f "$TAR_TMP" "$LOCAL_ARCHIVE"
     exit 1

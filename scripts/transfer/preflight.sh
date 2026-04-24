@@ -58,8 +58,7 @@ REQUIRED_TOOLS=(
   "scp|openssh|نقل الملفات|1"
   "sshpass|sshpass|مصادقة SSH بكلمة سر|1"
   "rsync|rsync|نقل تزايدي (للنسخ الكبيرة)|0"
-  "openssl|openssl|تشفير AES-256 (احتياطي)|1"
-  "gpg|gnupg|تشفير GPG AES-256 (افتراضي)|1"
+  "openssl|openssl|تشفير AES-256-CBC|1"
   "gzip|gzip|ضغط الأرشيف|1"
 )
 

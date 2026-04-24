@@ -35,48 +35,91 @@ pipeline_export() {
   local version="${1:-}"
   shift || true
 
-  log_step "🚀 أنبوب التصدير — Export Pipeline"
-  echo -e "${C_BOLD}الهدف:${C_RESET} حزم الملفات المُستثناة من Git ورفعها للسيرفر"
+  # تمرير الوسيطات الإضافية للسكربتات المعنية
+  local pack_extra=()
+  if [ -n "$version" ]; then
+    pack_extra+=("$version")
+  fi
+  for arg in "$@"; do
+    pack_extra+=("$arg")
+  done
+
+  log_step "🚀 أنبوب التصدير — Export Pipeline (8 خطوات)"
+  echo -e "${C_BOLD}الهدف:${C_RESET} نقل كامل: كود + ملفات .gitignore + متغيرات البيئة"
   echo
-  echo -e "  ${C_YELLOW}📋 تذكير القنوات الثلاث:${C_RESET}"
-  echo -e "    ${C_BLUE}1. GitHub${C_RESET}        ← الكود (تأكد من git push قبل المتابعة)"
-  echo -e "    ${C_BLUE}2. هذا الأنبوب${C_RESET}   ← ملفات .gitignore (assets/DBs/WA)"
-  echo -e "    ${C_BLUE}3. Replit Secrets${C_RESET} ← المتغيرات (snapshot سيُولَّد محلياً)"
+  echo -e "  ${C_YELLOW}📋 الترتيب التشغيلي:${C_RESET}"
+  echo -e "    ${C_BLUE}1.${C_RESET} preflight        فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH"
+  echo -e "    ${C_BLUE}2.${C_RESET} git push         دفع الكود لـ GitHub قبل تخزين بياناته"
+  echo -e "    ${C_BLUE}3.${C_RESET} snapshot         توليد .env.snapshot من البيئة الفعّالة"
+  echo -e "    ${C_BLUE}4.${C_RESET} pack + encrypt   حزم الأصول + .env.snapshot وتشفيرها AES-256"
+  echo -e "    ${C_BLUE}5.${C_RESET} upload           رفع الأرشيف للسيرفر"
+  echo -e "    ${C_BLUE}6.${C_RESET} verify           مقارنة SHA256 محلي/بعيد"
+  echo -e "    ${C_BLUE}7.${C_RESET} cleanup-old      حذف الإصدارات القديمة على السيرفر"
+  echo -e "    ${C_BLUE}8.${C_RESET} cleanup-local    تنظيف .transfer-tmp/ محلياً"
   echo
 
-  log_info "▶ المرحلة 1/4: فحص النظام"
-  if ! pipeline_test_silent; then
-    log_error "فشل اختبار الاتصال — راجع بيانات SSH"
+  # ----- 1/8: preflight -----
+  log_info "▶ المرحلة 1/8: preflight (أدوات + متغيرات + اتصال SSH)"
+  if ! bash "${SCRIPT_DIR}/preflight.sh" --full; then
+    log_error "فشل preflight — راجع الأخطاء أعلاه"
     exit 1
   fi
-  log_ok "  الاتصال بالسيرفر سليم"
-
-  log_info "▶ المرحلة 2/4: فحص الانجراف وتوليد snapshot"
-  if ! bash "${SCRIPT_DIR}/snapshot-secrets.sh" --check 2>&1 | tail -20 | sed 's/^/    /'; then
-    log_warn "  تحذيرات في snapshot — راجعها أعلاه"
-  fi
-
-  log_info "▶ المرحلة 3/4: الحزم والتشفير والرفع"
-  if [ -n "$version" ]; then
-    bash "${SCRIPT_DIR}/pack-and-publish.sh" "$version" "$@"
-  else
-    bash "${SCRIPT_DIR}/pack-and-publish.sh" "$@"
-  fi
-
-  log_info "▶ المرحلة 4/4: التحقق النهائي"
-  bash "${SCRIPT_DIR}/list-versions.sh" | tail -10
-
+  log_ok "  preflight ناجح"
   echo
-  log_ok "✅ أنبوب التصدير اكتمل بنجاح"
+
+  # ----- 2/8: git push -----
+  log_info "▶ المرحلة 2/8: git push (دفع الكود لـ GitHub)"
+  bash "${SCRIPT_DIR}/git-push.sh" || log_warn "  git push فشل — يستمر الأنبوب"
   echo
-  echo -e "  ${C_BOLD}الخطوات التالية للنقل الكامل:${C_RESET}"
-  echo -e "    ${C_GREEN}1.${C_RESET} تأكد أن الكود مرفوع على GitHub:"
-  echo "         bash scripts/transfer/gh-sync.sh push"
-  echo -e "    ${C_GREEN}2.${C_RESET} في الحساب الجديد:"
-  echo "         git clone <repo-url>"
-  echo "         bash scripts/transfer/transfer.sh import"
-  echo -e "    ${C_GREEN}3.${C_RESET} ألصق المتغيرات في أداة Replit Secrets:"
-  echo "         bash scripts/transfer/apply-secrets.sh --show"
+
+  # ----- 3/8: snapshot -----
+  log_info "▶ المرحلة 3/8: توليد .env.snapshot"
+  if ! bash "${SCRIPT_DIR}/snapshot-secrets.sh"; then
+    log_error "فشل توليد snapshot"
+    exit 1
+  fi
+  echo
+
+  # ----- 4/8: pack + encrypt -----
+  log_info "▶ المرحلة 4/8: حزم وتشفير الأصول + .env.snapshot"
+  if ! bash "${SCRIPT_DIR}/pack.sh" "${pack_extra[@]}"; then
+    log_error "فشل الحزم والتشفير"
+    exit 1
+  fi
+  echo
+
+  # ----- 5/8: upload -----
+  log_info "▶ المرحلة 5/8: رفع الأرشيف للسيرفر"
+  if ! bash "${SCRIPT_DIR}/upload.sh"; then
+    log_error "فشل رفع الأرشيف"
+    exit 1
+  fi
+  echo
+
+  # ----- 6/8: verify -----
+  log_info "▶ المرحلة 6/8: التحقق من سلامة الرفع (SHA256)"
+  if ! bash "${SCRIPT_DIR}/verify.sh"; then
+    log_error "فشل التحقق — لا تنظّف، احفظ النسخة المحلية للتشخيص"
+    exit 1
+  fi
+  echo
+
+  # ----- 7/8: cleanup-old -----
+  log_info "▶ المرحلة 7/8: حذف الإصدارات القديمة على السيرفر"
+  bash "${SCRIPT_DIR}/cleanup-old.sh" || log_warn "  cleanup-old فشل — غير حرج"
+  echo
+
+  # ----- 8/8: cleanup-local -----
+  log_info "▶ المرحلة 8/8: تنظيف الملفات المؤقتة المحلية"
+  bash "${SCRIPT_DIR}/cleanup-local.sh" || log_warn "  cleanup-local فشل — غير حرج"
+  echo
+
+  log_ok "✅ أنبوب التصدير اكتمل بنجاح (8/8)"
+  echo
+  echo -e "  ${C_BOLD}الخطوات التالية في الحساب الجديد:${C_RESET}"
+  echo -e "    ${C_GREEN}1.${C_RESET} استنسخ الكود من GitHub: ${C_BOLD}git clone <URL>${C_RESET}"
+  echo -e "    ${C_GREEN}2.${C_RESET} أضف ENCRYPT_PASSPHRASE في Replit Secrets (نفس الكلمة المُستخدَمة هنا)"
+  echo -e "    ${C_GREEN}3.${C_RESET} شغّل: ${C_BOLD}bash scripts/transfer/transfer.sh import${C_RESET}"
 }
 
 # ====================================================================
@@ -87,61 +130,93 @@ pipeline_import() {
   shift || true
 
   local apply_secrets=true
-  local extra_args=()
+  local download_extra=()
+  local extract_extra=()
+
   for arg in "$@"; do
     case "$arg" in
       --no-apply-secrets) apply_secrets=false ;;
-      *) extra_args+=("$arg") ;;
+      --no-backup)        extract_extra+=("--no-backup") ;;
+      *)                  download_extra+=("$arg") ;;
     esac
   done
 
-  log_step "📥 أنبوب الاستيراد — Import Pipeline"
-  echo -e "${C_BOLD}الهدف:${C_RESET} سحب الإصدار من السيرفر واستعادة ملفات .gitignore"
+  log_step "📥 أنبوب الاستيراد — Import Pipeline (4 خطوات)"
+  echo -e "${C_BOLD}الهدف:${C_RESET} استعادة الأصول والمتغيرات من السيرفر"
   echo
-  echo -e "  ${C_YELLOW}📋 ترتيب النقل الموصى به:${C_RESET}"
-  echo -e "    ${C_GREEN}✓${C_RESET} ${C_BLUE}الكود${C_RESET} يجب أن يكون مُستنسخاً من GitHub بالفعل (git clone)"
-  echo -e "    ${C_BLUE}▶${C_RESET} هذا الأنبوب يستعيد الملفات الكبيرة من السيرفر"
-  echo -e "    ${C_BLUE}↻${C_RESET} المتغيرات تُلصَق يدوياً في أداة Replit Secrets بعد الاستيراد"
+  echo -e "  ${C_YELLOW}📋 الترتيب التشغيلي:${C_RESET}"
+  echo -e "    ${C_BLUE}1.${C_RESET} preflight        فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH"
+  echo -e "    ${C_BLUE}2.${C_RESET} download         تنزيل آخر أرشيف (أو إصدار محدد) من السيرفر"
+  echo -e "    ${C_BLUE}3.${C_RESET} decrypt+extract  فك التشفير + استخراج الملفات (مع نسخة احتياطية)"
+  echo -e "    ${C_BLUE}4.${C_RESET} apply-secrets    تطبيق .env.snapshot على .env تلقائياً"
   echo
 
-  log_info "▶ المرحلة 1/5: فحص النظام"
-  if ! pipeline_test_silent; then
-    log_error "فشل اختبار الاتصال — راجع بيانات SSH"
+  echo -e "  ${C_GREEN}ℹ${C_RESET} الكود يجب أن يكون مُستنسخاً من GitHub بالفعل (${C_BOLD}git clone${C_RESET})"
+  echo
+
+  # ----- 1/4: preflight -----
+  log_info "▶ المرحلة 1/4: preflight (أدوات + متغيرات + اتصال SSH)"
+  if ! bash "${SCRIPT_DIR}/preflight.sh" --full; then
+    log_error "فشل preflight — راجع الأخطاء أعلاه"
     exit 1
   fi
-  log_ok "  الاتصال بالسيرفر سليم"
+  log_ok "  preflight ناجح"
+  echo
 
-  log_info "▶ المرحلة 2/5: عرض الإصدارات المتاحة"
-  bash "${SCRIPT_DIR}/list-versions.sh" | tail -10
+  log_info "  الإصدارات المتاحة على السيرفر:"
+  bash "${SCRIPT_DIR}/list-versions.sh" | tail -10 | sed 's/^/    /'
+  echo
 
-  log_info "▶ المرحلة 3/5: السحب وفك التشفير والاستعادة"
+  # ----- 2/4: download -----
+  log_info "▶ المرحلة 2/4: تنزيل الأرشيف"
   if [ -n "$version" ]; then
-    bash "${SCRIPT_DIR}/pull-and-restore.sh" "$version" "${extra_args[@]:-}"
-  else
-    bash "${SCRIPT_DIR}/pull-and-restore.sh" "${extra_args[@]:-}"
-  fi
-
-  if [ "$apply_secrets" = true ]; then
-    log_info "▶ المرحلة 4/5: عرض snapshot المتغيرات للنسخ في أداة Secrets"
-    if [ -f "${LOCAL_ROOT}/.env.snapshot" ]; then
-      # القناة الرسمية للأسرار في الحساب الجديد = أداة Replit Secrets
-      bash "${SCRIPT_DIR}/apply-secrets.sh" --show 2>&1 | sed 's/^/    /'
-    else
-      log_warn "  .env.snapshot غير موجود — يجب تشغيل snapshot-secrets في الحساب القديم أولاً"
+    if ! bash "${SCRIPT_DIR}/download.sh" "$version" "${download_extra[@]:-}"; then
+      log_error "فشل تنزيل الإصدار: $version"
+      exit 1
     fi
   else
-    log_info "▶ المرحلة 4/5: تخطي عرض المتغيرات (--no-apply-secrets)"
+    if ! bash "${SCRIPT_DIR}/download.sh" "${download_extra[@]:-}"; then
+      log_error "فشل تنزيل آخر إصدار"
+      exit 1
+    fi
   fi
-
-  log_info "▶ المرحلة 5/5: ملخص الاستعادة"
   echo
-  log_ok "✅ أنبوب الاستيراد اكتمل بنجاح"
+
+  # ----- 3/4: decrypt + extract -----
+  log_info "▶ المرحلة 3/4: فك التشفير واستخراج الملفات"
+  if ! bash "${SCRIPT_DIR}/decrypt-extract.sh" "${extract_extra[@]:-}"; then
+    log_error "فشل فك التشفير/الاستخراج"
+    exit 1
+  fi
+  echo
+
+  # ----- 4/4: apply-secrets -----
+  if [ "$apply_secrets" = true ]; then
+    log_info "▶ المرحلة 4/4: تطبيق .env.snapshot على .env"
+    if [ -f "${LOCAL_ROOT}/.env.snapshot" ]; then
+      # --write-env: كتابة .env تلقائياً (التطبيق يقرأها عبر dotenv في server/config/env.ts)
+      if ! bash "${SCRIPT_DIR}/apply-secrets.sh" --write-env; then
+        log_error "فشل تطبيق .env.snapshot"
+        exit 1
+      fi
+    else
+      log_warn "  .env.snapshot غير موجود في الأرشيف"
+      log_warn "  لا يوجد متغيرات للتطبيق — تأكد من تشغيل snapshot-secrets في الحساب القديم"
+    fi
+  else
+    log_info "▶ المرحلة 4/4: تخطي تطبيق المتغيرات (--no-apply-secrets)"
+  fi
+  echo
+
+  log_ok "✅ أنبوب الاستيراد اكتمل بنجاح (4/4)"
   echo
   echo -e "  ${C_BOLD}الخطوات التالية:${C_RESET}"
-  echo -e "    ${C_GREEN}1.${C_RESET} ألصق المتغيرات أعلاه في: Tools → Secrets"
-  echo -e "    ${C_GREEN}2.${C_RESET} npm install            # تثبيت الاعتماديات"
-  echo -e "    ${C_GREEN}3.${C_RESET} npm run db:push        # مزامنة قاعدة البيانات (لو لزم)"
-  echo -e "    ${C_GREEN}4.${C_RESET} npm run dev            # تشغيل التطبيق"
+  echo -e "    ${C_GREEN}1.${C_RESET} ${C_BOLD}npm install${C_RESET}            # تثبيت الاعتماديات"
+  echo -e "    ${C_GREEN}2.${C_RESET} ${C_BOLD}npm run db:push${C_RESET}        # مزامنة قاعدة البيانات (لو لزم)"
+  echo -e "    ${C_GREEN}3.${C_RESET} أعِد تشغيل الـ workflow ليلتقط القيم الجديدة من .env"
+  echo
+  echo -e "  ${C_YELLOW}ℹ ملاحظة:${C_RESET} التطبيق يقرأ .env تلقائياً عبر dotenv (server/config/env.ts)"
+  echo -e "       لا حاجة لإضافة المتغيرات يدوياً في Replit Secrets."
 }
 
 # ====================================================================

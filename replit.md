@@ -1,5 +1,17 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-24)
+- **إعادة هيكلة نظام نقل ملفات .gitignore بين حسابات Replit (8 خطوات تصدير + 4 استيراد)**: الترتيب القديم كان مدموجاً في سكربتين كبيرين (`pack-and-publish.sh`, `pull-and-restore.sh`) مع إخفاء خطوات حقيقية كـ no-ops في الـ runner. الإعادة بنت كل خطوة كسكربت bash مستقل يتشارك state عبر `.transfer-tmp/state.env`:
+  - **التصدير (`assets-export`)**: `preflight.sh --full` → `git-push.sh` → `snapshot-secrets.sh` → `pack.sh` → `upload.sh` → `verify.sh` → `cleanup-old.sh` → `cleanup-local.sh`. الترتيب يضمن: (1) فحص شامل قبل أي تعديل، (2) دفع الكود لـ GitHub قبل تخزين بياناته، (3) إنتاج `.env.snapshot` ضمن الأرشيف المشفّر AES-256، (4) تحقق SHA256 محلي/بعيد قبل أي حذف، (5) تنظيف محلي/بعيد بعد التأكد فقط.
+  - **الاستيراد (`assets-import`)**: `preflight.sh --full` → `download.sh` → `decrypt-extract.sh` → `apply-secrets.sh --write-env`. كتابة `.env` تلقائية في NONINTERACTIVE (التطبيق يقرأها عبر `dotenv` في `server/config/env.ts` — لا حاجة لـ Replit Secrets برمجياً، فهي مستحيلة تقنياً).
+  - **`preflight.sh --full`**: فحص الأدوات + `ENCRYPT_PASSPHRASE` + اختبار اتصال SSH فعلي (sshpass+timeout 15s). NONINTERACTIVE يفعّل `--full` تلقائياً.
+  - **`apply-secrets.sh`**: تقرير تحليلي قبل الكتابة (متطابق/متغيّر/جديد/محذوف) + نسخة احتياطية تلقائية `.env.before-restore-<timestamp>` + صلاحيات 600.
+  - **`config.sh`**: أُزيلت `.env.snapshot` من `ASSETS_FORBIDDEN` لأنها تُحزَم الآن ضمن الأرشيف المشفّر.
+  - **`pipeline-definitions.ts`**: أُضيفت `transfer-git-push|verify|cleanup-local` إلى `StepName` و `STEP_REGISTRY` مع timeouts مناسبة.
+  - **`transfer-pipeline-runner.ts`**: كل خطوة تستدعي سكربتها الفعلي (لا no-ops كاذبة كما كان سابقاً).
+  - **`deployment-console.tsx`**: تحديث `STEP_LABELS` للخطوات الجديدة الثلاث بأيقونات وعربية وصفية.
+  - **متطلبات يدوية**: `ENCRYPT_PASSPHRASE` يجب أن يُضاف في Replit Secrets يدوياً في الحساب الجديد قبل الاستيراد (نفس الكلمة المُستخدَمة في التصدير، لو فُقدت فالأرشيف غير قابل للاستعادة). `SSH_HOST/USER/PORT/PASSWORD` ضرورية في كلا الحسابين.
+
 ## التغييرات الأخيرة (2026-04-22)
 - **شارة المشروع المفلتر في كل صفحات البيانات (UX)**: إضافة مكوّن موحّد `client/src/components/selected-project-badge.tsx` يعرض اسم المشروع المفلتر حالياً (أو "جميع المشاريع") بشكل بصري واضح في رأس كل صفحة تعرض بيانات. لون أخضر للمشروع المحدد، أزرق لـ"جميع المشاريع". تم إدراج الشارة في 23 صفحة: workers, worker-attendance, worker-accounts, worker-rebalance, worker-settlements, material-purchase, daily-expenses, equipment-management, supplier-accounts, transport-management, dashboard, project-fund-custody, project-transfers, records-transfer, wells, well-accounting, well-crews, well-materials, well-receptions, well-reports, well-cost-report. الفلترة الفعلية بـ `project_id` كانت موجودة بالفعل في الـ Backend والـ Frontend queries — هذه الإضافة بصرية فقط لتأكيد السياق للمستخدم في كل بطاقة بيانات.
 

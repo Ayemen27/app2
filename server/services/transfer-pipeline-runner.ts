@@ -42,53 +42,82 @@ export interface StepResult {
 
 /**
  * خريطة كل خطوة → الأمر الفعلي الذي يُنفَّذ
+ *
+ * كل خطوة الآن مرتبطة بسكربت منفصل (لا no-ops كاذبة):
+ *
+ * أنبوب التصدير (assets-export):
+ *   transfer-preflight       → preflight.sh --full
+ *   transfer-git-push        → git-push.sh
+ *   transfer-snapshot        → snapshot-secrets.sh
+ *   transfer-pack-encrypt    → pack.sh
+ *   transfer-upload          → upload.sh
+ *   transfer-verify          → verify.sh
+ *   transfer-cleanup-old     → cleanup-old.sh
+ *   transfer-cleanup-local   → cleanup-local.sh
+ *
+ * أنبوب الاستيراد (assets-import):
+ *   transfer-preflight       → preflight.sh --full
+ *   transfer-download        → download.sh
+ *   transfer-decrypt-extract → decrypt-extract.sh
+ *   transfer-apply-secrets   → apply-secrets.sh --write-env
  */
 function getStepCommand(stepName: StepName, opts: TransferStepOptions): { script: string; args: string[] } | null {
   const versionArg = opts.version ? [opts.version] : [];
 
   switch (stepName) {
     case "transfer-preflight":
-      return { script: "preflight.sh", args: [] };
+      // فحص شامل: أدوات + ENCRYPT_PASSPHRASE + اتصال SSH
+      return { script: "preflight.sh", args: ["--full"] };
+
+    case "transfer-git-push":
+      // دفع الكود لـ GitHub (يفشل بهدوء لو GITHUB_TOKEN غير موجود)
+      return { script: "git-push.sh", args: [] };
 
     case "transfer-snapshot":
+      // توليد .env.snapshot من البيئة الفعّالة
       return { script: "snapshot-secrets.sh", args: [] };
 
     case "transfer-pack-encrypt":
-    case "transfer-upload":
-      // pack-and-publish.sh يُنفِّذ الحزم + التشفير + الرفع في خطوة واحدة
-      // نستدعيه مرة واحدة فقط (في transfer-pack-encrypt) ونتجاوز transfer-upload
-      if (stepName === "transfer-upload") return null; // dummy — done by pack-encrypt
+      // حزم + تشفير فقط (يكتب state.env)
       return {
-        script: "pack-and-publish.sh",
+        script: "pack.sh",
         args: [
           ...versionArg,
-          ...(opts.force ? ["--force"] : []),
           ...(opts.noEncrypt ? ["--no-encrypt"] : []),
         ],
       };
 
+    case "transfer-upload":
+      // رفع آخر أرشيف من state.env (يضيف REMOTE_* للحالة)
+      return { script: "upload.sh", args: [] };
+
+    case "transfer-verify":
+      // مقارنة SHA256 محلي/بعيد + التحقق من LATEST.txt
+      return { script: "verify.sh", args: [] };
+
     case "transfer-cleanup-old":
-      // ينفَّذ تلقائياً ضمن pack-and-publish.sh (يحتفظ بآخر KEEP_LAST)
-      return null; // no-op
+      // حذف الإصدارات القديمة على السيرفر (الاحتفاظ بآخر KEEP_LAST)
+      return { script: "cleanup-old.sh", args: [] };
+
+    case "transfer-cleanup-local":
+      // حذف .transfer-tmp/ + .env.snapshot المحليين بعد الرفع الناجح
+      return { script: "cleanup-local.sh", args: [] };
 
     case "transfer-download":
+      // تنزيل الأرشيف من السيرفر فقط (يكتب state.env)
+      return { script: "download.sh", args: versionArg };
+
     case "transfer-decrypt-extract":
-      if (stepName === "transfer-decrypt-extract") return null; // مدمج في pull
+      // فك التشفير + استخراج (مع نسخة احتياطية)
       return {
-        script: "pull-and-restore.sh",
-        args: [
-          ...versionArg,
-          ...(opts.force ? ["--force"] : []),
-          ...(opts.noBackup ? ["--no-backup"] : []),
-        ],
+        script: "decrypt-extract.sh",
+        args: opts.noBackup ? ["--no-backup"] : [],
       };
 
     case "transfer-apply-secrets":
       if (opts.noApplySecrets) return null;
-      return {
-        script: "apply-secrets.sh",
-        args: opts.force ? ["--write-env"] : [],
-      };
+      // في NONINTERACTIVE اعتمد write-env افتراضياً (مدمج في apply-secrets.sh نفسه)
+      return { script: "apply-secrets.sh", args: ["--write-env"] };
 
     default:
       return null;

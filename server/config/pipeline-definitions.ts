@@ -62,10 +62,13 @@ export type StepName =
   | "cl-apt-cache"
   | "cl-summary"
   | "transfer-preflight"
+  | "transfer-git-push"
   | "transfer-snapshot"
   | "transfer-pack-encrypt"
   | "transfer-upload"
+  | "transfer-verify"
   | "transfer-cleanup-old"
+  | "transfer-cleanup-local"
   | "transfer-download"
   | "transfer-decrypt-extract"
   | "transfer-apply-secrets";
@@ -414,8 +417,13 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   // ============================================================
   "transfer-preflight": {
     name: "transfer-preflight",
-    timeoutMs: 120000, // 2 دقيقة للتثبيت التلقائي عند الحاجة
+    timeoutMs: 120000, // 2 دقيقة للتثبيت التلقائي عند الحاجة + اختبار اتصال SSH
     condition: { type: "pipeline", pipelines: ["assets-export", "assets-import"] },
+  },
+  "transfer-git-push": {
+    name: "transfer-git-push",
+    timeoutMs: 180000, // 3 دقائق للدفع لمستودع كبير
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
   },
   "transfer-snapshot": {
     name: "transfer-snapshot",
@@ -433,9 +441,19 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     retryPolicy: { maxRetries: 2, delayMs: 10000 },
     condition: { type: "pipeline", pipelines: ["assets-export"] },
   },
+  "transfer-verify": {
+    name: "transfer-verify",
+    timeoutMs: 120000, // 2 دقيقة لحساب SHA256 على السيرفر للأرشيفات الكبيرة
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
   "transfer-cleanup-old": {
     name: "transfer-cleanup-old",
     timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-cleanup-local": {
+    name: "transfer-cleanup-local",
+    timeoutMs: 30000,
     condition: { type: "pipeline", pipelines: ["assets-export"] },
   },
   "transfer-download": {
@@ -549,20 +567,34 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
   },
   "assets-export": {
     name: "assets-export",
-    description: "تصدير ملفات .gitignore فقط للسيرفر (الكود يُنقَل عبر GitHub، الأسرار عبر أداة Replit Secrets)",
+    description: "تصدير شامل: دفع الكود لـ GitHub + حزم الأصول والمتغيرات (مشفّرة AES-256) ورفعها لسيرفر SSH خارجي",
     supportedTargets: ["local"],
     steps: {
       server: [],
-      local: ["transfer-preflight", "transfer-snapshot", "transfer-pack-encrypt", "transfer-upload", "transfer-cleanup-old"],
+      local: [
+        "transfer-preflight",      // 1. فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH
+        "transfer-git-push",       // 2. دفع الكود لـ GitHub قبل تخزين بياناته
+        "transfer-snapshot",       // 3. توليد .env.snapshot من البيئة الفعّالة
+        "transfer-pack-encrypt",   // 4. حزم الأصول + .env.snapshot وتشفيرها AES-256
+        "transfer-upload",         // 5. رفع الأرشيف + البيان للسيرفر
+        "transfer-verify",         // 6. مقارنة SHA256 محلي/بعيد للتأكد من سلامة الرفع
+        "transfer-cleanup-old",    // 7. حذف الإصدارات القديمة على السيرفر (KEEP_LAST=5)
+        "transfer-cleanup-local",  // 8. تنظيف .transfer-tmp/ و .env.snapshot المحليين
+      ],
     },
   },
   "assets-import": {
     name: "assets-import",
-    description: "استيراد ملفات .gitignore من السيرفر (الكود يُستنسَخ من GitHub، الأسرار تُلصَق في أداة Replit Secrets)",
+    description: "استيراد شامل: تنزيل الأرشيف من السيرفر + فك تشفيره + تطبيق المتغيرات تلقائياً عبر .env",
     supportedTargets: ["local"],
     steps: {
       server: [],
-      local: ["transfer-preflight", "transfer-download", "transfer-decrypt-extract", "transfer-apply-secrets"],
+      local: [
+        "transfer-preflight",       // 1. فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH
+        "transfer-download",        // 2. تنزيل الأرشيف المشفّر من السيرفر
+        "transfer-decrypt-extract", // 3. فك التشفير + استخراج الملفات (مع نسخة احتياطية)
+        "transfer-apply-secrets",   // 4. تطبيق .env.snapshot على .env تلقائياً (يقرأها dotenv)
+      ],
     },
   },
 };

@@ -121,7 +121,13 @@ if [ "$TOTAL_MISSING" -eq 0 ]; then
   echo
   echo -e "  ${C_GREEN}${C_BOLD}✅ جميع الأدوات المطلوبة مثبتة.${C_RESET}"
   echo
-  exit 0
+  # في --full أو NONINTERACTIVE: تابع لفحص ENCRYPT_PASSPHRASE و SSH
+  # في --check: اخرج هنا (فحص أدوات فقط)
+  if [ "$CHECK_ONLY" = true ] && [ "$FULL_CHECK" = false ]; then
+    exit 0
+  fi
+  # تخطّ مرحلة التثبيت التلقائي وانتقل لفحوصات البيئة
+  SKIP_INSTALL=true
 fi
 
 echo
@@ -221,4 +227,84 @@ if [ "${#INSTALLED[@]}" -gt 0 ]; then
 fi
 echo -e "  ${C_GREEN}${C_BOLD}✅ كل المتطلبات الإلزامية متوفرة.${C_RESET}"
 echo
+
+# ====================================================================
+# فحص المتغيرات الحساسة + اتصال SSH (يُفعَّل بـ --full أو في NONINTERACTIVE)
+# ====================================================================
+ENV_ERRORS=()
+
+if [ "$WITH_ENCRYPT" = true ]; then
+  echo -e "  ${C_BOLD}🔐 فحص متغيرات التشفير${C_RESET}"
+  echo "  ──────────────────────────────────"
+  if [ -z "${ENCRYPT_PASSPHRASE:-}" ]; then
+    echo -e "  ${C_RED}✗${C_RESET} ENCRYPT_PASSPHRASE     ${C_RED}مفقود${C_RESET}"
+    echo
+    echo -e "  ${C_RED}${C_BOLD}❌ ENCRYPT_PASSPHRASE غير معرّفة في البيئة.${C_RESET}"
+    echo -e "     هذه الكلمة هي ${C_BOLD}التأمين الوحيد${C_RESET} لفك تشفير الأرشيف."
+    echo -e "     أضِفها في Replit Secrets، ثم أعد المحاولة."
+    echo -e "     ⚠ لو فقدتها بعد التشفير، البيانات غير قابلة للاستعادة."
+    ENV_ERRORS+=("ENCRYPT_PASSPHRASE")
+  else
+    PSL=${#ENCRYPT_PASSPHRASE}
+    echo -e "  ${C_GREEN}✓${C_RESET} ENCRYPT_PASSPHRASE     موجود (${PSL} حرف)"
+  fi
+  echo
+fi
+
+if [ "$WITH_SSH" = true ]; then
+  echo -e "  ${C_BOLD}🌐 فحص بيانات SSH واتصال السيرفر${C_RESET}"
+  echo "  ──────────────────────────────────"
+
+  # المتغيرات الإلزامية لـ SSH
+  for v in SSH_HOST SSH_USER SSH_PORT; do
+    if [ -z "${!v:-}" ]; then
+      echo -e "  ${C_RED}✗${C_RESET} ${v}     ${C_RED}مفقود${C_RESET}"
+      ENV_ERRORS+=("$v")
+    else
+      echo -e "  ${C_GREEN}✓${C_RESET} ${v}     ${!v}"
+    fi
+  done
+
+  # كلمة سر SSH (إما SSHPASS أو SSH_PASSWORD)
+  if [ -z "${SSHPASS:-}" ] && [ -z "${SSH_PASSWORD:-}" ]; then
+    echo -e "  ${C_RED}✗${C_RESET} SSH_PASSWORD/SSHPASS  ${C_RED}مفقود${C_RESET}"
+    ENV_ERRORS+=("SSH_PASSWORD")
+  else
+    echo -e "  ${C_GREEN}✓${C_RESET} SSH_PASSWORD          موجود"
+  fi
+
+  # اختبار اتصال فعلي إن كانت كل المتغيرات موجودة
+  if [ ${#ENV_ERRORS[@]} -eq 0 ] || [ "${ENV_ERRORS[0]:-}" = "ENCRYPT_PASSPHRASE" ]; then
+    if [ -n "${SSH_HOST:-}" ] && [ -n "${SSH_USER:-}" ] && [ -n "${SSH_PORT:-}" ]; then
+      echo
+      echo -ne "  🔌 اختبار اتصال SSH (${SSH_USER}@${SSH_HOST}:${SSH_PORT})... "
+      export SSHPASS="${SSHPASS:-${SSH_PASSWORD:-}}"
+      if timeout 15 sshpass -e ssh \
+        -o StrictHostKeyChecking=accept-new \
+        -o ConnectTimeout=10 \
+        -o BatchMode=no \
+        -p "${SSH_PORT}" \
+        "${SSH_USER}@${SSH_HOST}" "echo OK" >/dev/null 2>&1; then
+        echo -e "${C_GREEN}✓ ناجح${C_RESET}"
+      else
+        echo -e "${C_RED}✗ فشل${C_RESET}"
+        echo -e "     ${C_RED}تأكد من صحة SSH_HOST/USER/PORT/PASSWORD${C_RESET}"
+        ENV_ERRORS+=("SSH_CONNECTION")
+      fi
+    fi
+  fi
+  echo
+fi
+
+if [ ${#ENV_ERRORS[@]} -gt 0 ]; then
+  echo -e "  ${C_RED}${C_BOLD}❌ فحص المتطلبات فشل بسبب: ${ENV_ERRORS[*]}${C_RESET}"
+  echo
+  exit 2
+fi
+
+if [ "$FULL_CHECK" = true ]; then
+  echo -e "  ${C_GREEN}${C_BOLD}✅ كل الفحوصات (الأدوات + المتغيرات + الاتصال) ناجحة.${C_RESET}"
+  echo
+fi
+
 exit 0

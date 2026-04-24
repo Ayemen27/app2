@@ -70,11 +70,9 @@ readonly ASSETS_INCLUDE=(
   "uploads"
   "wa-import-data"
   "local.db"
-  "ara.traineddata"
-  "eng.traineddata"
-  "wa-import-empty.png"
-  "تقرير_المقارنة.xlsx"
   "auth_info_baileys"
+  # ara.traineddata / eng.traineddata / wa-import-empty.png / تقرير_المقارنة.xlsx
+  # → مُتتبَّعة في Git ولا تحتاج نقلاً يدوياً (ستُستعاد من المستودع تلقائياً)
 )
 
 # ----- ملفات الأسرار: تُعالَج محلياً فقط، لا تُرفع للسيرفر -----
@@ -132,9 +130,13 @@ ssh_exec() {
 
 scp_upload() {
   local src="$1" dest="$2"
-  sshpass -e scp "${SSH_OPTS[@]/-p ${SSH_PORT}/-P ${SSH_PORT}}" \
-    -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
-    -P "${SSH_PORT}" "$src" "${SSH_USER}@${SSH_HOST}:$dest"
+  sshpass -e scp \
+    -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=15 \
+    -o ServerAliveInterval=15 \
+    -o ServerAliveCountMax=20 \
+    -P "${SSH_PORT}" \
+    "$src" "${SSH_USER}@${SSH_HOST}:$dest"
 }
 
 scp_download() {

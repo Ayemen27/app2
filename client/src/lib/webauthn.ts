@@ -232,14 +232,30 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
     throw new Error('البصمة غير متاحة على هذا الجهاز');
   }
 
-  await NativeBiometric.verifyIdentity({
-    reason: 'تسجيل البصمة لتطبيق Axion',
-    title: 'تسجيل البصمة',
-    subtitle: 'ضع بصمتك لتفعيل تسجيل الدخول السريع',
-    useFallback: true,
-    fallbackTitle: 'استخدام رمز PIN',
-    maxAttempts: 3,
-  });
+  try {
+    await NativeBiometric.verifyIdentity({
+      reason: 'تسجيل البصمة لتطبيق Axion',
+      title: 'تسجيل البصمة',
+      subtitle: 'ضع بصمتك لتفعيل تسجيل الدخول السريع',
+      useFallback: true,
+      fallbackTitle: 'استخدام رمز PIN',
+      maxAttempts: 3,
+    });
+  } catch (err: any) {
+    const code = err?.code || err?.errorCode || '';
+    const msg  = err?.message || String(err);
+    // BIOMETRIC_NOT_ENROLLED → الجهاز لا تحتوي على بصمة مسجّلة
+    if (code === 'BIOMETRIC_NOT_ENROLLED' || msg.includes('NOT_ENROLLED')) {
+      throw new Error('لم يتم تسجيل بصمة على هذا الجهاز — أضف بصمة من إعدادات الهاتف أولاً');
+    }
+    // USER_CANCELED / USER_CANCEL → المستخدم ألغى
+    if (code === 'USER_CANCELED' || code === 'USER_CANCEL' || err?.name === 'NotAllowedError') {
+      const e = new Error('تم إلغاء التحقق بالبصمة');
+      e.name = 'NotAllowedError';
+      throw e;
+    }
+    throw new Error(`فشل التحقق بالبصمة (${code || msg})`);
+  }
 
   const apiBase = ENV.getApiBaseUrl();
   const authHeader: Record<string, string> = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
@@ -275,11 +291,15 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
   if (!biometricToken) throw new Error('لم يتم استلام رمز البصمة من الخادم');
 
   // Persist the biometric refresh token in the OS Keystore via Capgo plugin
-  await NativeBiometric.setCredentials({
-    server: CREDENTIAL_SERVER,
-    username: userEmail,
-    password: biometricToken,
-  });
+  try {
+    await NativeBiometric.setCredentials({
+      server: CREDENTIAL_SERVER,
+      username: userEmail,
+      password: biometricToken,
+    });
+  } catch (err: any) {
+    throw new Error(`فشل حفظ بيانات البصمة في المخزن الآمن (${err?.message || err?.code || String(err)})`);
+  }
 
   localStorage.setItem(LS_REGISTERED_FLAG, 'true');
   localStorage.setItem(LS_USER_EMAIL, userEmail);
@@ -300,14 +320,25 @@ async function loginWithBiometricNative(): Promise<any> {
     if (checkErr.code === 'UNAVAILABLE') throw checkErr;
     throw new Error('إضافة البصمة غير متوفرة — يرجى تحديث التطبيق');
   }
-  await NativeBiometric.verifyIdentity({
-    reason: 'تسجيل الدخول بالبصمة',
-    title: 'تسجيل الدخول',
-    subtitle: 'ضع بصمتك للمتابعة',
-    useFallback: true,
-    fallbackTitle: 'استخدام رمز PIN',
-    maxAttempts: 3,
-  });
+  try {
+    await NativeBiometric.verifyIdentity({
+      reason: 'تسجيل الدخول بالبصمة',
+      title: 'تسجيل الدخول',
+      subtitle: 'ضع بصمتك للمتابعة',
+      useFallback: true,
+      fallbackTitle: 'استخدام رمز PIN',
+      maxAttempts: 3,
+    });
+  } catch (err: any) {
+    const code = err?.code || err?.errorCode || '';
+    const msg  = err?.message || String(err);
+    if (code === 'USER_CANCELED' || code === 'USER_CANCEL' || err?.name === 'NotAllowedError') {
+      const e = new Error('تم إلغاء تسجيل الدخول بالبصمة');
+      e.name = 'NotAllowedError';
+      throw e;
+    }
+    throw new Error(`فشل التحقق بالبصمة (${code || msg})`);
+  }
 
   let creds: any = null;
   try {

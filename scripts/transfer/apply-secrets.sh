@@ -28,6 +28,13 @@ case "${1:-}" in
     exit 0 ;;
 esac
 
+# في الوضع غير التفاعلي (مثلاً من الـ runner)، اعتمد write-env تلقائياً
+# بدلاً من التعليق على read أو الفشل بكود غير 0.
+if [ "$MODE" = "interactive" ] && { [ "${NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; }; then
+  MODE="write"
+  AUTO_WRITE_NOTICE=1
+fi
+
 # ----- التحقق من وجود الـ snapshot -----
 if [ ! -f "$SNAPSHOT_FILE" ]; then
   log_error ".env.snapshot غير موجود."
@@ -127,23 +134,87 @@ show_mode() {
 
 # ----- وضع الكتابة لـ .env -----
 write_env_mode() {
-  log_step "كتابة .env من snapshot"
+  log_step "تطبيق snapshot على .env"
 
+  if [ "${AUTO_WRITE_NOTICE:-0}" = "1" ]; then
+    log_info "الوضع غير التفاعلي — كتابة تلقائية لـ .env (اختير افتراضياً)."
+  fi
+
+  # ----- تحليل الفروقات قبل الكتابة -----
+  declare -A CURRENT=()
+  if [ -f "$ENV_FILE" ]; then
+    while IFS= read -r line; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "$line" ]] && continue
+      if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+        v="${BASH_REMATCH[2]}"
+        v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+        CURRENT["${BASH_REMATCH[1]}"]="$v"
+      fi
+    done < "$ENV_FILE"
+  fi
+
+  local same=0 changed=0 added=0 missing=0
+  local CHANGED_KEYS=() ADDED_KEYS=() MISSING_KEYS=()
+
+  for k in "${SNAPSHOT_KEYS[@]}"; do
+    if [ -z "${CURRENT[$k]+x}" ]; then
+      added=$((added+1))
+      ADDED_KEYS+=("$k")
+    elif [ "${CURRENT[$k]}" != "${SNAPSHOT_VALUES[$k]}" ]; then
+      changed=$((changed+1))
+      CHANGED_KEYS+=("$k")
+    else
+      same=$((same+1))
+    fi
+  done
+
+  for k in "${!CURRENT[@]}"; do
+    if [ -z "${SNAPSHOT_VALUES[$k]+x}" ]; then
+      missing=$((missing+1))
+      MISSING_KEYS+=("$k")
+    fi
+  done
+
+  echo
+  echo -e "${C_BOLD}── تحليل المتغيرات قبل الكتابة ──${C_RESET}"
+  printf "  ${C_GREEN}✓ موجودة ومتطابقة:${C_RESET}    %d\n" "$same"
+  printf "  ${C_YELLOW}~ موجودة لكن متغيّرة:${C_RESET}  %d\n" "$changed"
+  printf "  ${C_BLUE}+ غير موجودة (ستُضاف):${C_RESET}  %d\n" "$added"
+  printf "  ${C_RED}- في .env فقط (ستُحذف):${C_RESET} %d\n" "$missing"
+
+  if [ "$changed" -gt 0 ]; then
+    echo -e "\n  ${C_YELLOW}قيم متغيّرة:${C_RESET}"
+    for k in "${CHANGED_KEYS[@]}"; do printf "    ~ %s\n" "$k"; done
+  fi
+  if [ "$added" -gt 0 ]; then
+    echo -e "\n  ${C_BLUE}مفاتيح جديدة:${C_RESET}"
+    for k in "${ADDED_KEYS[@]}"; do printf "    + %s\n" "$k"; done
+  fi
+  if [ "$missing" -gt 0 ]; then
+    echo -e "\n  ${C_RED}مفاتيح موجودة في .env لكن ليست في snapshot:${C_RESET}"
+    for k in "${MISSING_KEYS[@]}"; do printf "    - %s\n" "$k"; done
+    log_warn "  هذه المفاتيح ستُحذف من .env بعد الكتابة (إن أردت إبقاءها أوقف التشغيل واحذف بعض المفاتيح من snapshot يدوياً)."
+  fi
+  echo
+
+  # ----- نسخة احتياطية -----
   if [ -f "$ENV_FILE" ]; then
     BACKUP="${ENV_FILE}.before-restore-$(date +%Y%m%d-%H%M%S)"
     cp -a "$ENV_FILE" "$BACKUP"
     log_info "نسخة احتياطية: $BACKUP"
   fi
 
+  # ----- الكتابة الفعلية -----
   cp -a "$SNAPSHOT_FILE" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   log_ok ".env كُتِب بنجاح من snapshot."
-  log_info "  المفاتيح: ${#SNAPSHOT_KEYS[@]}"
+  log_info "  المفاتيح المكتوبة: ${#SNAPSHOT_KEYS[@]} (متطابق=${same} | متغيّر=${changed} | جديد=${added})"
   log_info "  الصلاحيات: 600"
   echo
-  log_info "تطبيقك يستخدم dotenv، لذا سيقرأ القيم تلقائياً عند إعادة التشغيل."
-  log_warn "اختياري: يمكنك أيضاً نسخها إلى Replit Secrets عبر:"
-  echo "    ./scripts/transfer/apply-secrets.sh --show"
+  log_ok "🔄 التطبيق يستخدم dotenv (server/config/env.ts) — سيقرأ المتغيرات تلقائياً عند إعادة التشغيل."
+  log_info "إن كان الـ workflow شغالاً الآن، أعد تشغيله ليلتقط القيم الجديدة:"
+  echo "    npm run dev    # أو إعادة تشغيل الـ workflow من الواجهة"
 }
 
 # ----- وضع تفاعلي -----

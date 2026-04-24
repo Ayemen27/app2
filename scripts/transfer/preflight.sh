@@ -28,12 +28,25 @@ fi
 
 CHECK_ONLY=false
 VERBOSE=false
+FULL_CHECK=false   # فحص كامل: أدوات + متغيرات بيئة + اتصال SSH
+WITH_ENCRYPT=false # فحص ENCRYPT_PASSPHRASE فقط
+WITH_SSH=false     # فحص اتصال SSH فقط
 for arg in "$@"; do
   case "$arg" in
-    --check)   CHECK_ONLY=true ;;
-    --verbose) VERBOSE=true ;;
+    --check)        CHECK_ONLY=true ;;
+    --verbose)      VERBOSE=true ;;
+    --full)         FULL_CHECK=true; WITH_ENCRYPT=true; WITH_SSH=true ;;
+    --with-encrypt) WITH_ENCRYPT=true ;;
+    --with-ssh)     WITH_SSH=true ;;
   esac
 done
+
+# في الوضع غير التفاعلي (من runner)، اعتمد --full تلقائياً
+if [ "${NONINTERACTIVE:-0}" = "1" ] && [ "$FULL_CHECK" = false ]; then
+  FULL_CHECK=true
+  WITH_ENCRYPT=true
+  WITH_SSH=true
+fi
 
 # ====================================================================
 # قائمة الأدوات المطلوبة + اسم حزمة Nix المقابلة + وصف الاستخدام

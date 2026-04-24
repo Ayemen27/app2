@@ -103,7 +103,9 @@ readonly EXTRA_SECRET_KEYS=(
 )
 
 # ----- العناصر المحظورة دائماً (حماية إضافية) -----
-# يشمل ملفات الأسرار: لا تُرفع للسيرفر أبداً — تُنقَل عبر أداة Replit Secrets
+# ملاحظة: .env.snapshot مسموحة بعد التحديث الأخير — تُحزَم داخل الأرشيف المشفّر
+# ليصل المتغيرات معه للحساب الجديد (لأن Replit Secrets غير قابلة للنقل برمجياً).
+# .env و .env.production و google-services.json تبقى محظورة لأن snapshot يضم قيمها.
 readonly ASSETS_FORBIDDEN=(
   ".git"
   "node_modules"
@@ -117,7 +119,6 @@ readonly ASSETS_FORBIDDEN=(
   ".pythonlibs"
   ".env"
   ".env.production"
-  ".env.snapshot"
   ".env.example"
   "google-services.json"
   "firebase-service-account.json"

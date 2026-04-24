@@ -3293,9 +3293,6 @@ sys.exit(0 if actual == new_name else 3)
         `${freshSsh} "cd ${remoteDir}/android && ` +
           `sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 26/' variables.gradle 2>/dev/null; ` +
           `sed -i 's/minSdk [0-9]*/minSdk 26/' app/build.gradle 2>/dev/null; ` +
-          `grep -q 'onSaveInstanceState' app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || ` +
-          `{ cp app/src/main/java/com/axion/app/MainActivity.java app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; ` +
-          `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; }; ` +
           `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
             `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
           `{ [ -f /tmp/fix_kotlin_opt_in.py ] && python3 /tmp/fix_kotlin_opt_in.py build.gradle 2>/dev/null || true; }; ` +
@@ -3303,7 +3300,7 @@ sys.exit(0 if actual == new_name else 3)
         "Pre-build Auto-fix",
         15000
       );
-      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, MainActivity, Keystore, Kotlin opt-in", "success");
+      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, Keystore, Kotlin opt-in", "success");
     } catch {
       await this.addLog(deploymentId, "⚠️ تعذر تطبيق بعض الإصلاحات التلقائية", "warn");
     }
@@ -3850,7 +3847,7 @@ sys.exit(0 if actual == new_name else 3)
       `echo '=== MANIFEST_PERMISSIONS ==='`,
       `grep 'uses-permission' ${remoteDir}/android/app/src/main/AndroidManifest.xml 2>/dev/null | wc -l`,
       `echo '=== MAINACTIVITY_CHECK ==='`,
-      `grep -c 'onSaveInstanceState' ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || echo '0'`,
+      `REGISTER_PLUGIN_COUNT=$(grep -c 'registerPlugin(' ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || echo 0); echo "REGISTER_PLUGIN_COUNT=$REGISTER_PLUGIN_COUNT"`,
     ].join(" && ");
 
     try {
@@ -3997,34 +3994,27 @@ sys.exit(0 if actual == new_name else 3)
         await this.addLog(deploymentId, `✅ الصلاحيات في AndroidManifest: ${permCount?.[1] || '?'} صلاحية`, "success");
       }
 
-      if (output.includes("MAINACTIVITY_CHECK") && output.includes("\n0")) {
-        await this.addLog(deploymentId, "🔧 MainActivity بحاجة لإصلاح onSaveInstanceState لـ FileSharer...", "warn");
+      const registerPluginCount = (output.match(/REGISTER_PLUGIN_COUNT=(\d+)/)?.[1]) || "0";
+      if (parseInt(registerPluginCount) < 10) {
+        await this.addLog(deploymentId, `❌ MainActivity يحوي ${registerPluginCount} registerPlugin فقط — استعادة من git...`, "warn");
         try {
-          await this.execWithLog(
+          const restoreOut = await this.execWithLog(
             deploymentId,
-            `${sshCmd} "cp ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; cat > ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java << 'MAINEOF'
-package com.axion.app;
-
-import android.os.Bundle;
-import com.getcapacitor.BridgeActivity;
-
-public class MainActivity extends BridgeActivity {
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.clear();
-    }
-}
-MAINEOF
-echo 'MAINACTIVITY_FIXED'"`,
-            "Auto-fix MainActivity",
-            10000
+            `${sshCmd} "cd ${remoteDir} && git checkout HEAD -- android/app/src/main/java/com/axion/app/MainActivity.java && grep -c 'registerPlugin' android/app/src/main/java/com/axion/app/MainActivity.java && echo 'MAINACTIVITY_RESTORED_FROM_GIT'"`,
+            "Restore MainActivity from Git",
+            15000
           );
-          autoFixes.push("mainactivity-fix");
-          await this.addLog(deploymentId, "✅ تم إصلاح MainActivity (onSaveInstanceState) تلقائياً", "success");
-        } catch {
-          await this.addLog(deploymentId, "⚠️ تعذر إصلاح MainActivity تلقائياً", "warn");
+          if (restoreOut.includes("MAINACTIVITY_RESTORED_FROM_GIT")) {
+            autoFixes.push("mainactivity-restore-from-git");
+            await this.addLog(deploymentId, "✅ تم استعادة MainActivity من git (يحوي جميع registerPlugin)", "success");
+          } else {
+            errors.push("فشل استعادة MainActivity من git");
+          }
+        } catch (e: any) {
+          errors.push(`فشل استعادة MainActivity من git: ${e.message}`);
         }
+      } else {
+        await this.addLog(deploymentId, `✅ MainActivity سليم (${registerPluginCount} registerPlugin)`, "success");
       }
 
       if (!errors.some(e => e.includes("keystore"))) {

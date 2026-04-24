@@ -29,6 +29,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)    DRY_RUN=true; shift ;;
     --no-encrypt) ENCRYPT=false; shift ;;
+    --force|-y)   shift ;;  # وضع غير تفاعلي (passphrase يجب أن تكون في ENCRYPT_PASSPHRASE)
     -h|--help)
       grep -E '^#( |$)' "$0" | sed 's/^# \?//'
       exit 0 ;;
@@ -153,6 +154,13 @@ if [ "$ENCRYPT" = true ]; then
   log_step "الخطوة 4: تشفير الأرشيف"
 
   if [ -z "${ENCRYPT_PASSPHRASE:-}" ]; then
+    # في الوضع غير التفاعلي (مثلاً من محرك النشر) لا يمكن السؤال
+    if [ "${NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
+      log_error "ENCRYPT_PASSPHRASE غير معرّفة، والوضع غير تفاعلي."
+      log_error "أضف ENCRYPT_PASSPHRASE في Replit Secrets ثم أعد المحاولة."
+      log_error "أو نفّذ السكربت من Shell مباشرة لإدخالها تفاعلياً."
+      exit 2
+    fi
     read -s -p "أدخل كلمة سر التشفير (احتفظ بها): " ENCRYPT_PASSPHRASE
     echo
     read -s -p "أعد الإدخال للتأكيد: " ENCRYPT_CONFIRM

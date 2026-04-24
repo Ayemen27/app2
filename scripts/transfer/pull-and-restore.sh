@@ -116,6 +116,11 @@ if [ "$IS_ENCRYPTED" = true ]; then
   log_step "الخطوة 5: فك التشفير"
 
   if [ -z "${DECRYPT_PASSPHRASE:-}" ]; then
+    if [ "${NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
+      log_error "ENCRYPT_PASSPHRASE غير معرّفة، والوضع غير تفاعلي."
+      log_error "أضف ENCRYPT_PASSPHRASE في Replit Secrets ثم أعد المحاولة."
+      exit 2
+    fi
     read -s -p "أدخل كلمة سر فك التشفير: " DECRYPT_PASSPHRASE
     echo
   fi

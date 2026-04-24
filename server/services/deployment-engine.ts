@@ -5184,10 +5184,14 @@ sys.exit(0 if actual == new_name else 3)
         const row = activeRows[0];
         const av = row.av;
         let downloadUrl: string | null = null;
-        const linkId = av.deploymentId || av.id;
+        // ⚠️ يجب أن نستخدم deploymentId فقط (مفتاح build_deployments). لا يجوز fallback إلى av.id
+        // لأن endpoint التحميل يبحث في جدول build_deployments فقط، فأي ID غير موجود هناك → 404.
+        const linkId = av.deploymentId;
         if (linkId && process.env.PRODUCTION_DOMAIN) {
           const token = this.generateDownloadToken(linkId);
           downloadUrl = `${process.env.PRODUCTION_DOMAIN}/api/deployment/app/download/${linkId}?token=${token}`;
+        } else if (!linkId) {
+          console.warn(`[getLatestAndroidRelease] ⚠️ app_versions[${av.id}] (v${av.versionName}) لا يحتوي deployment_id — رابط التحميل غير متوفر`);
         }
         return {
           versionName: av.versionName,

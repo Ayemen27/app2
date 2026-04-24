@@ -870,6 +870,8 @@ export class DeploymentEngine {
       "android-build-test": "android",
       "health-check": "health-check",
       "server-cleanup": "server-cleanup",
+      "assets-export": "assets-transfer",
+      "assets-import": "assets-transfer",
     };
 
     const resolvedPipeline = resolvePipeline(config.pipeline);
@@ -1431,8 +1433,68 @@ export class DeploymentEngine {
       case "rollback-server":
         await this.addLog(deploymentId, `خطوة rollback-server تُنفَّذ عبر executeRollback مباشرة`, "info");
         break;
+      // ============================================================
+      // خطوات أنبوب نقل الأصول والمتغيرات (assets-export / assets-import)
+      // تُنفَّذ عبر transfer-pipeline-runner.ts الذي يستدعي scripts/transfer/*
+      // ============================================================
+      case "transfer-snapshot":
+      case "transfer-pack-encrypt":
+      case "transfer-upload":
+      case "transfer-cleanup-old":
+      case "transfer-download":
+      case "transfer-decrypt-extract":
+      case "transfer-apply-secrets":
+        await this.stepTransferPipeline(deploymentId, stepName as any, config);
+        break;
       default:
         throw new Error(`خطوة غير معروفة: ${stepName} — لا يمكن المتابعة`);
+    }
+  }
+
+  /**
+   * تنفيذ خطوة من أنبوب نقل الأصول عبر transfer-pipeline-runner
+   * يستدعي السكربتات في scripts/transfer/ مع تمرير معلومات الإصدار
+   */
+  private async stepTransferPipeline(
+    deploymentId: string,
+    stepName:
+      | "transfer-snapshot"
+      | "transfer-pack-encrypt"
+      | "transfer-upload"
+      | "transfer-cleanup-old"
+      | "transfer-download"
+      | "transfer-decrypt-extract"
+      | "transfer-apply-secrets",
+    config: DeploymentConfig,
+  ): Promise<void> {
+    await this.addLog(deploymentId, `▶ بدء ${stepName}`, "info");
+    try {
+      const { runTransferStep } = await import("./transfer-pipeline-runner.js");
+      const result = await runTransferStep(stepName, {
+        version: config.version,
+        force: true, // وضع غير تفاعلي من محرك النشر
+        encryptPassphrase: process.env.ENCRYPT_PASSPHRASE,
+      });
+
+      if (result.output) {
+        // تسجيل آخر 50 سطر فقط لتجنب إغراق السجلات
+        const lines = result.output.split("\n").filter(Boolean).slice(-50);
+        for (const line of lines) {
+          await this.addLog(deploymentId, line, "info");
+        }
+      }
+
+      if (!result.success) {
+        const err = result.error || "فشل دون رسالة";
+        await this.addLog(deploymentId, `❌ فشلت الخطوة ${stepName}: ${err}`, "error");
+        throw new Error(`Transfer step failed (${stepName}): ${err}`);
+      }
+
+      const sec = (result.durationMs / 1000).toFixed(1);
+      await this.addLog(deploymentId, `✅ اكتملت ${stepName} (${sec}s)`, "success");
+    } catch (err: any) {
+      await this.addLog(deploymentId, `❌ خطأ في ${stepName}: ${err?.message || err}`, "error");
+      throw err;
     }
   }
 

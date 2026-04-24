@@ -1,4 +1,4 @@
-export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback" | "health-check" | "server-cleanup";
+export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback" | "health-check" | "server-cleanup" | "assets-export" | "assets-import";
 
 export type BuildTarget = "server" | "local";
 
@@ -60,7 +60,14 @@ export type StepName =
   | "cl-git-gc"
   | "cl-orphans"
   | "cl-apt-cache"
-  | "cl-summary";
+  | "cl-summary"
+  | "transfer-snapshot"
+  | "transfer-pack-encrypt"
+  | "transfer-upload"
+  | "transfer-cleanup-old"
+  | "transfer-download"
+  | "transfer-decrypt-extract"
+  | "transfer-apply-secrets";
 
 export interface RetryPolicy {
   maxRetries: number;
@@ -399,6 +406,48 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     timeoutMs: 10000,
     condition: { type: "pipeline", pipelines: ["server-cleanup"] },
   },
+
+  // ============================================================
+  // خطوات أنبوب نقل الأصول والمتغيرات بين حسابات Replit
+  // (تُنفَّذ عبر scripts/transfer/transfer.sh)
+  // ============================================================
+  "transfer-snapshot": {
+    name: "transfer-snapshot",
+    timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-pack-encrypt": {
+    name: "transfer-pack-encrypt",
+    timeoutMs: 600000, // 10 دقائق للحزم والتشفير لـ ~500MB
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-upload": {
+    name: "transfer-upload",
+    timeoutMs: 1200000, // 20 دقيقة للرفع
+    retryPolicy: { maxRetries: 2, delayMs: 10000 },
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-cleanup-old": {
+    name: "transfer-cleanup-old",
+    timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-download": {
+    name: "transfer-download",
+    timeoutMs: 1200000, // 20 دقيقة للتنزيل
+    retryPolicy: { maxRetries: 2, delayMs: 10000 },
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
+  "transfer-decrypt-extract": {
+    name: "transfer-decrypt-extract",
+    timeoutMs: 600000, // 10 دقائق لفك التشفير والاستخراج
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
+  "transfer-apply-secrets": {
+    name: "transfer-apply-secrets",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
 };
 
 export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
@@ -490,6 +539,24 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     steps: {
       server: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
       local: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
+    },
+  },
+  "assets-export": {
+    name: "assets-export",
+    description: "أنبوب تصدير الأصول والمتغيرات إلى السيرفر — للحساب القديم",
+    supportedTargets: ["local"],
+    steps: {
+      server: [],
+      local: ["transfer-snapshot", "transfer-pack-encrypt", "transfer-upload", "transfer-cleanup-old"],
+    },
+  },
+  "assets-import": {
+    name: "assets-import",
+    description: "أنبوب استيراد الأصول والمتغيرات من السيرفر — للحساب الجديد",
+    supportedTargets: ["local"],
+    steps: {
+      server: [],
+      local: ["transfer-download", "transfer-decrypt-extract", "transfer-apply-secrets"],
     },
   },
 };

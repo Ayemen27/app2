@@ -1,6 +1,29 @@
 # Project: Professional AI Agent Workspace
 
 ## التغييرات الأخيرة (2026-04-24)
+
+### 🔥 إصلاح حاسم: محرك النشر كان يدمّر MainActivity في كل عملية نشر منذ شهور (P0)
+**الأعراض في الإنتاج**: جميع إضافات Capacitor (`Preferences`, `Device`, `App`, `FileSharer`, `Filesystem`, `Browser`, `NativeBiometric`) كانت تُرجع `"... not implemented on android"` رغم وجود الإضافات في `node_modules`، `capacitor.plugins.json`، و `capacitor.build.gradle`. أكثر من 76 ملف `MainActivity.java.bak.*` على السيرفر يثبت أن المشكلة تكررت في كل نشر لشهور.
+
+**السبب الجذري — ثلاث طبقات متراكمة**:
+1. **`server/services/deployment-engine.ts` (post-sync)**: كان السكربت يفحص `grep -q "onSaveInstanceState" MainActivity.java`، وإن لم يجدها يكتب stub فارغ يحوي فقط `onSaveInstanceState`. هذا حذف كل الـ 15 سطر `registerPlugin(...)` في كل نشر. النسخة الصحيحة في git **لا** تحوي `onSaveInstanceState` (لأن FileSharer لم يعد يحتاجه)، فالفحص كان يعتبرها "ناقصة" دائماً ويعيد كتابتها.
+2. **`android/app/build.gradle`**: قائمة `dependencies` يدوية (المشروع لا يستخدم `apply from: capacitor.build.gradle`) كانت تنقصها `implementation project(':capacitor-preferences')` رغم وجودها في `capacitor.build.gradle`. النتيجة: `compileReleaseJavaWithJavac` يفشل بـ `package com.capacitorjs.plugins.preferences does not exist`.
+3. **قراءة `KEYSTORE_PASSWORD` من `.env`**: عندما تكون القيمة محاطة بعلامات اقتباس مفردة `'imFmpEoExzgylhtQb9i1DJbCry5AU5'` في `.env`، كان `process.env.KEYSTORE_PASSWORD` يحتفظ بالـ quotes كجزء من القيمة (طول 32 بدلاً من 30)، مما يسبب `KeytoolException: keystore password was incorrect` في `:app:packageRelease`.
+
+**الإصلاحات المطبَّقة في `server/services/deployment-engine.ts`**:
+- **حذف بلوك إعادة كتابة MainActivity** (Pre-build + Post-sync). استُبدل بـ `git checkout HEAD -- MainActivity.java` عند اكتشاف أن `registerPlugin(` count < 10. المعيار الجديد عدد `registerPlugin` (≥10) بدلاً من وجود `onSaveInstanceState`.
+- **فحص جديد لـ `app/build.gradle`** في post-sync: يتأكد من وجود جميع 14 سطر `implementation project(':capacitor-*')`. إن نقص أي واحد، يستعيد الملف من git ويسجّل في log أي dependency كانت ناقصة.
+- **تجريد `quotes` من env vars**: `stripQuotes()` يُطبَّق على `KEYSTORE_PASSWORD`, `KEYSTORE_KEY_PASSWORD`, `KEYSTORE_ALIAS` في `stepGradleBuild` و `stepAndroidReadiness`.
+- **رسائل log جديدة**: `MAINACTIVITY_RESTORED_FROM_GIT`, `BUILD_GRADLE_RESTORED_FROM_GIT`, `BUILD_GRADLE_DEPS_OK` لتوفير رؤية واضحة في كل نشر.
+
+**ملف منفصل**: `android/app/build.gradle` تمت إضافة `implementation project(':capacitor-preferences')` بشكل دائم (يتم التأكد منه تلقائياً في كل نشر مستقبلي).
+
+**النتيجة**: نسخة `1.0.35 / build 84862` (SHA256 `ec2640290ae0903...`) جاهزة على `/api/ota/download/AXION_v1.0.35_build84862.apk`، مسجَّلة `is_active=true` في `app_versions`. التحقق من `classes.dex` أكد وجود `PreferencesPlugin`, `NativeBiometric`, `FileSharerPlugin`, `FilesystemPlugin`, `AppPlugin`, `BrowserPlugin`, `InAppBrowserPlugin` في الـ APK. توقيع الشهادة سليم (`CN=AXION, O=AZAIR Online, C=YE`).
+
+**ضمانات لمنع التكرار**: أي نشر مستقبلي (كامل أو android-only) سيعيد التحقق تلقائياً من `MainActivity` و `app/build.gradle` في خطوة post-sync ويستعيدهما من git إن نقص شيء، مع تسجيل واضح في سجل النشر.
+
+---
+
 - **إعادة هيكلة نظام نقل ملفات .gitignore بين حسابات Replit (8 خطوات تصدير + 4 استيراد)**: الترتيب القديم كان مدموجاً في سكربتين كبيرين (`pack-and-publish.sh`, `pull-and-restore.sh`) مع إخفاء خطوات حقيقية كـ no-ops في الـ runner. الإعادة بنت كل خطوة كسكربت bash مستقل يتشارك state عبر `.transfer-tmp/state.env`:
   - **التصدير (`assets-export`)**: `preflight.sh --full` → `git-push.sh` → `snapshot-secrets.sh` → `pack.sh` → `upload.sh` → `verify.sh` → `cleanup-old.sh` → `cleanup-local.sh`. الترتيب يضمن: (1) فحص شامل قبل أي تعديل، (2) دفع الكود لـ GitHub قبل تخزين بياناته، (3) إنتاج `.env.snapshot` ضمن الأرشيف المشفّر AES-256، (4) تحقق SHA256 محلي/بعيد قبل أي حذف، (5) تنظيف محلي/بعيد بعد التأكد فقط.
   - **الاستيراد (`assets-import`)**: `preflight.sh --full` → `download.sh` → `decrypt-extract.sh` → `apply-secrets.sh --write-env`. كتابة `.env` تلقائية في NONINTERACTIVE (التطبيق يقرأها عبر `dotenv` في `server/config/env.ts` — لا حاجة لـ Replit Secrets برمجياً، فهي مستحيلة تقنياً).

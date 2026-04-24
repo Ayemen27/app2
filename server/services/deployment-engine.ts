@@ -2869,27 +2869,41 @@ sys.exit(0 if actual == new_name else 3)
       `fi`,
       ``,
       `echo "=== POST_SYNC_MAINACTIVITY ==="`,
+      `# لا نكتب MainActivity stub أبداً — نستعيد من git فقط لأنها تحوي 15 registerPlugin call`,
       `mkdir -p "$(dirname "$MAIN_ACT")"`,
-      `if [ ! -f "$MAIN_ACT" ] || ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
-      `  cp "$MAIN_ACT" "$MAIN_ACT.bak.$(date +%s)" 2>/dev/null || true`,
-      `  cat > "$MAIN_ACT" << 'JAVAEOF'`,
-      `package com.axion.app;`,
-      ``,
-      `import android.os.Bundle;`,
-      `import com.getcapacitor.BridgeActivity;`,
-      ``,
-      `public class MainActivity extends BridgeActivity {`,
-      `    @Override`,
-      `    public void onSaveInstanceState(Bundle outState) {`,
-      `        super.onSaveInstanceState(outState);`,
-      `        outState.clear();`,
-      `    }`,
-      `}`,
-      `JAVAEOF`,
-      `  echo "MAINACTIVITY_FIXED"`,
-      `  FIXES=$((FIXES+1))`,
+      `REG_COUNT=$(grep -c "registerPlugin(" "$MAIN_ACT" 2>/dev/null || echo 0)`,
+      `if [ ! -f "$MAIN_ACT" ] || [ "$REG_COUNT" -lt 10 ]; then`,
+      `  echo "MAINACTIVITY_INCOMPLETE: registerPlugin=$REG_COUNT (يجب >=10) — استعادة من git"`,
+      `  cd "$DIR" && git checkout HEAD -- android/app/src/main/java/com/axion/app/MainActivity.java 2>&1 && cd - >/dev/null`,
+      `  NEW_COUNT=$(grep -c "registerPlugin(" "$MAIN_ACT" 2>/dev/null || echo 0)`,
+      `  if [ "$NEW_COUNT" -ge 10 ]; then`,
+      `    echo "MAINACTIVITY_RESTORED_FROM_GIT: $NEW_COUNT registerPlugin"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "MAINACTIVITY_RESTORE_FAILED: still $NEW_COUNT registerPlugin"`,
+      `  fi`,
       `else`,
-      `  echo "MAINACTIVITY_OK"`,
+      `  echo "MAINACTIVITY_OK: $REG_COUNT registerPlugin"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_BUILD_GRADLE_DEPS ==="`,
+      `# تأكد من وجود جميع capacitor plugins في app/build.gradle (المشروع لا يستخدم apply from: capacitor.build.gradle)`,
+      `if [ -f "$BUILD_GRADLE" ]; then`,
+      `  REQUIRED_DEPS="capacitor-app capacitor-browser capacitor-device capacitor-filesystem capacitor-inappbrowser capacitor-local-notifications capacitor-network capacitor-preferences capacitor-push-notifications capacitor-share capacitor-status-bar byteowls-capacitor-filesharer capacitor-community-sqlite capgo-capacitor-native-biometric"`,
+      `  MISSING_DEPS=""`,
+      `  for DEP in $REQUIRED_DEPS; do`,
+      `    if ! grep -qE "implementation[[:space:]]+project\\(['\\"]:$DEP['\\"]" "$BUILD_GRADLE" 2>/dev/null; then`,
+      `      MISSING_DEPS="$MISSING_DEPS $DEP"`,
+      `    fi`,
+      `  done`,
+      `  if [ -n "$MISSING_DEPS" ]; then`,
+      `    echo "BUILD_GRADLE_MISSING_DEPS:$MISSING_DEPS — استعادة app/build.gradle من git"`,
+      `    cd "$DIR" && git checkout HEAD -- android/app/build.gradle 2>&1 && cd - >/dev/null`,
+      `    echo "BUILD_GRADLE_RESTORED_FROM_GIT"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "BUILD_GRADLE_DEPS_OK: 14 plugins present"`,
+      `  fi`,
       `fi`,
       ``,
       `echo "=== POST_SYNC_KEYSTORE ==="`,
@@ -3042,8 +3056,21 @@ sys.exit(0 if actual == new_name else 3)
       await this.addLog(deploymentId, `✅ إجمالي الصلاحيات في AndroidManifest: ${permCountMatch[1]}`, "info");
     }
 
-    if (checksResult.includes("MAINACTIVITY_FIXED")) {
-      await this.addLog(deploymentId, "🔧 تم إصلاح MainActivity (onSaveInstanceState لـ FileSharer)", "success");
+    if (checksResult.includes("MAINACTIVITY_RESTORED_FROM_GIT")) {
+      const m = checksResult.match(/MAINACTIVITY_RESTORED_FROM_GIT: (\d+) registerPlugin/);
+      await this.addLog(deploymentId, `🔧 تم استعادة MainActivity من git (${m?.[1] || "?"} registerPlugin) — كانت ناقصة بعد cap sync`, "success");
+    } else if (checksResult.includes("MAINACTIVITY_RESTORE_FAILED")) {
+      await this.addLog(deploymentId, "❌ فشل استعادة MainActivity من git — البناء سيفشل! تحقق من حالة git", "error");
+      errors.push("mainactivity-restore-failed");
+    } else if (checksResult.includes("MAINACTIVITY_OK")) {
+      const m = checksResult.match(/MAINACTIVITY_OK: (\d+) registerPlugin/);
+      await this.addLog(deploymentId, `✅ MainActivity سليمة (${m?.[1] || "?"} registerPlugin)`, "info");
+    }
+    if (checksResult.includes("BUILD_GRADLE_RESTORED_FROM_GIT")) {
+      const m = checksResult.match(/BUILD_GRADLE_MISSING_DEPS:([^\n]+)/);
+      await this.addLog(deploymentId, `🔧 تم استعادة app/build.gradle من git — كان ناقصاً: ${(m?.[1] || "").trim()}`, "success");
+    } else if (checksResult.includes("BUILD_GRADLE_DEPS_OK")) {
+      await this.addLog(deploymentId, "✅ app/build.gradle يحوي جميع 14 إضافة Capacitor", "info");
     }
     if (checksResult.includes("KEYSTORE_RESTORED")) {
       await this.addLog(deploymentId, "🔧 تم استعادة Keystore تلقائياً", "success");
@@ -3246,9 +3273,11 @@ sys.exit(0 if actual == new_name else 3)
         }
       }
     }
-    const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
-    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
-    const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    // إزالة علامات الاقتباس المحيطة (تظهر عندما يكتب المستخدم القيمة بـ '...' أو "..." في .env)
+    const stripQuotes = (v: string) => v.replace(/^['"]|['"]$/g, "").trim();
+    const keystorePassword = stripQuotes(process.env.KEYSTORE_PASSWORD || "");
+    const keystoreAlias = stripQuotes(process.env.KEYSTORE_ALIAS || "axion-key");
+    const keystoreKeyPassword = stripQuotes(process.env.KEYSTORE_KEY_PASSWORD || "") || keystorePassword;
     const hasKeystorePassword = !!keystorePassword;
     const canSignRelease = hasKeystore && hasKeystorePassword;
     if (!canSignRelease) {
@@ -3815,9 +3844,11 @@ sys.exit(0 if actual == new_name else 3)
     const errors: string[] = [];
     const autoFixes: string[] = [];
 
-    let keystorePassword = process.env.KEYSTORE_PASSWORD || "";
-    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
-    let keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    // إزالة علامات الاقتباس المحيطة (تظهر عندما يكتب المستخدم القيمة بـ '...' أو "..." في .env)
+    const stripQuotes = (v: string) => v.replace(/^['"]|['"]$/g, "").trim();
+    let keystorePassword = stripQuotes(process.env.KEYSTORE_PASSWORD || "");
+    const keystoreAlias = stripQuotes(process.env.KEYSTORE_ALIAS || "axion-key");
+    let keystoreKeyPassword = stripQuotes(process.env.KEYSTORE_KEY_PASSWORD || "") || keystorePassword;
 
     if (keystoreAlias) {
       await this.addLog(deploymentId, `ℹ️ KEYSTORE_ALIAS: ${keystoreAlias}`, "info");

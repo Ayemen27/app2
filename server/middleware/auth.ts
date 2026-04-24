@@ -401,7 +401,8 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       '/api/auth/verify-email',
       '/api/auth/refresh',
       '/api/webauthn/login/options',
-      '/api/webauthn/login/verify'
+      '/api/webauthn/login/verify',
+      '/api/auth/biometric/exchange'
     ];
     const requestPath = req.originalUrl?.split('?')[0] || req.path;
     if (publicPaths.includes(requestPath) || publicPaths.includes(req.path)) {

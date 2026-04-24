@@ -292,7 +292,10 @@ export class DeploymentEngine {
   private static LOCAL_ONLY_STEPS = new Set<string>([
     'validate', 'preflight-check', 'sync-version', 'git-push', 'build-web',
     'verify', 'prebuild-gate', 'android-readiness', 'apk-integrity', 'post-deploy-smoke',
-    'hc-evaluate', 'cl-summary'
+    'hc-evaluate', 'cl-summary',
+    'transfer-preflight', 'transfer-git-push', 'transfer-snapshot', 'transfer-pack-encrypt',
+    'transfer-upload', 'transfer-verify', 'transfer-cleanup-old', 'transfer-cleanup-local',
+    'transfer-download', 'transfer-decrypt-extract', 'transfer-apply-secrets',
   ]);
 
   private isRemoteStep(stepName: string): boolean {
@@ -1438,10 +1441,13 @@ export class DeploymentEngine {
       // تُنفَّذ عبر transfer-pipeline-runner.ts الذي يستدعي scripts/transfer/*
       // ============================================================
       case "transfer-preflight":
+      case "transfer-git-push":
       case "transfer-snapshot":
       case "transfer-pack-encrypt":
       case "transfer-upload":
+      case "transfer-verify":
       case "transfer-cleanup-old":
+      case "transfer-cleanup-local":
       case "transfer-download":
       case "transfer-decrypt-extract":
       case "transfer-apply-secrets":
@@ -1460,10 +1466,13 @@ export class DeploymentEngine {
     deploymentId: string,
     stepName:
       | "transfer-preflight"
+      | "transfer-git-push"
       | "transfer-snapshot"
       | "transfer-pack-encrypt"
       | "transfer-upload"
+      | "transfer-verify"
       | "transfer-cleanup-old"
+      | "transfer-cleanup-local"
       | "transfer-download"
       | "transfer-decrypt-extract"
       | "transfer-apply-secrets",

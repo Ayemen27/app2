@@ -52,3 +52,9 @@ administrator/.axion-keystore/
 # Firebase service accounts and config
 google-services.json
 firebase-service-account*.json
+
+# snapshot المتغيرات (يحتوي أسرار، لا يُرفع لـ Git)
+.env.snapshot
+.env.before-restore-*
+.transfer-tmp/
+.transfer-backup-*/

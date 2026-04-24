@@ -172,4 +172,24 @@ if [ "$DO_BACKUP" = true ]; then
   echo -e "  ${C_BOLD}النسخ:${C_RESET}    ${BACKUP_DIR}"
 fi
 echo
-log_info "نصيحة: راجع .env وتأكد من ضبط Replit Secrets المناسبة."
+
+# ----- الخطوة الإضافية: تطبيق snapshot المتغيرات -----
+if [ -f "${LOCAL_ROOT}/.env.snapshot" ]; then
+  log_step "الخطوة 8: تطبيق .env.snapshot المُستعاد"
+  log_info "وُجد .env.snapshot يحوي متغيرات Replit Secrets الكاملة."
+  echo
+  if [ "$FORCE" = true ]; then
+    log_info "وضع force — تطبيق snapshot تلقائياً على .env"
+    bash "$(dirname "${BASH_SOURCE[0]}")/apply-secrets.sh" --write-env
+  else
+    log_info "للتطبيق، شغّل:"
+    echo "    ./scripts/transfer/apply-secrets.sh"
+    echo
+    log_info "أو مباشرة:"
+    echo "    ./scripts/transfer/apply-secrets.sh --write-env   # كتابة .env"
+    echo "    ./scripts/transfer/apply-secrets.sh --show         # عرض للصق في Secrets"
+    echo "    ./scripts/transfer/apply-secrets.sh --diff         # مقارنة قبل التطبيق"
+  fi
+else
+  log_warn ".env.snapshot غير موجود في الأرشيف — قد تحتاج ضبط Replit Secrets يدوياً."
+fi

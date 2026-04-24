@@ -55,6 +55,17 @@ ARCHIVE_NAME="assets-${VERSION}.tar.gz"
 LOCAL_ARCHIVE="${LOCAL_TMP}/${ARCHIVE_NAME}"
 LOCAL_MANIFEST="${LOCAL_TMP}/manifest-${VERSION}.txt"
 
+# ----- الخطوة 0: تحديث snapshot المتغيرات قبل الحزم -----
+log_step "الخطوة 0: توليد .env.snapshot من البيئة الحالية"
+
+if [ -x "$(dirname "${BASH_SOURCE[0]}")/snapshot-secrets.sh" ]; then
+  bash "$(dirname "${BASH_SOURCE[0]}")/snapshot-secrets.sh" 2>&1 | sed 's/^/  /' || {
+    log_warn "فشل توليد snapshot — سيُتابَع بدونه"
+  }
+else
+  log_warn "snapshot-secrets.sh غير قابل للتنفيذ — تخطي"
+fi
+
 # ----- الخطوة 1: التحقق من العناصر المحلية -----
 log_step "الخطوة 1: فحص العناصر القابلة للحزم"
 

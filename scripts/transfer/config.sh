@@ -75,8 +75,25 @@ readonly ASSETS_INCLUDE=(
   "تقرير_المقارنة.xlsx"
   ".env"
   ".env.production"
+  ".env.snapshot"
   "google-services.json"
   "auth_info_baileys"
+)
+
+# ----- مفاتيح Replit Secrets الإضافية (غير الموجودة عادة في .env) -----
+# تُضاف لـ snapshot لضمان عدم فقدان أي سرّ مدار من المنصة
+readonly EXTRA_SECRET_KEYS=(
+  "DATABASE_URL"
+  "SESSION_SECRET"
+  "PGHOST"
+  "PGPORT"
+  "PGUSER"
+  "PGPASSWORD"
+  "PGDATABASE"
+  "SSHPASS"
+  "SSH_PASSWORD"
+  "KEYSTORE_PASSWORD"
+  "KEYSTORE_KEY_PASSWORD"
 )
 
 # ----- العناصر المحظورة دائماً (حماية إضافية) -----

@@ -61,6 +61,7 @@ export type StepName =
   | "cl-orphans"
   | "cl-apt-cache"
   | "cl-summary"
+  | "transfer-preflight"
   | "transfer-snapshot"
   | "transfer-pack-encrypt"
   | "transfer-upload"
@@ -411,6 +412,11 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   // خطوات أنبوب نقل الأصول والمتغيرات بين حسابات Replit
   // (تُنفَّذ عبر scripts/transfer/transfer.sh)
   // ============================================================
+  "transfer-preflight": {
+    name: "transfer-preflight",
+    timeoutMs: 120000, // 2 دقيقة للتثبيت التلقائي عند الحاجة
+    condition: { type: "pipeline", pipelines: ["assets-export", "assets-import"] },
+  },
   "transfer-snapshot": {
     name: "transfer-snapshot",
     timeoutMs: 60000,
@@ -543,20 +549,20 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
   },
   "assets-export": {
     name: "assets-export",
-    description: "أنبوب تصدير الأصول والمتغيرات إلى السيرفر — للحساب القديم",
+    description: "تصدير ملفات .gitignore فقط للسيرفر (الكود يُنقَل عبر GitHub، الأسرار عبر أداة Replit Secrets)",
     supportedTargets: ["local"],
     steps: {
       server: [],
-      local: ["transfer-snapshot", "transfer-pack-encrypt", "transfer-upload", "transfer-cleanup-old"],
+      local: ["transfer-preflight", "transfer-snapshot", "transfer-pack-encrypt", "transfer-upload", "transfer-cleanup-old"],
     },
   },
   "assets-import": {
     name: "assets-import",
-    description: "أنبوب استيراد الأصول والمتغيرات من السيرفر — للحساب الجديد",
+    description: "استيراد ملفات .gitignore من السيرفر (الكود يُستنسَخ من GitHub، الأسرار تُلصَق في أداة Replit Secrets)",
     supportedTargets: ["local"],
     steps: {
       server: [],
-      local: ["transfer-download", "transfer-decrypt-extract", "transfer-apply-secrets"],
+      local: ["transfer-preflight", "transfer-download", "transfer-decrypt-extract", "transfer-apply-secrets"],
     },
   },
 };

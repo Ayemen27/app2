@@ -115,8 +115,8 @@ const PIPELINE_LABELS: Record<string, string> = {
   "full-deploy": "🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)",
   "hotfix": "⚡ إصلاح سريع (نشر فوري + حماية schema)",
   "android-build-test": "🧪 بناء أندرويد + اختبار Firebase",
-  "assets-export": "📤 تصدير الأصول والمتغيرات (للحساب القديم)",
-  "assets-import": "📥 استيراد الأصول والمتغيرات (للحساب الجديد)",
+  "assets-export": "📤 تصدير ملفات .gitignore للسيرفر (الحساب القديم)",
+  "assets-import": "📥 استيراد ملفات .gitignore من السيرفر (الحساب الجديد)",
 };
 
 const LEGACY_PIPELINES: Record<string, string> = {
@@ -151,6 +151,7 @@ const STEP_LABELS: Record<string, string> = {
   "rollback-server": "التراجع",
   "db-migrate": "تهجير قاعدة البيانات",
   "hotfix-sync": "مزامنة الإصلاح السريع",
+  "transfer-preflight": "🔍 فحص + تثبيت الأدوات المطلوبة",
   "transfer-snapshot": "📸 لقطة المتغيرات السرية",
   "transfer-pack-encrypt": "📦 حزم وتشفير الأصول",
   "transfer-upload": "☁️ رفع الإصدار للسيرفر",
@@ -903,8 +904,8 @@ export default function DeploymentConsole() {
                     <SelectItem value="full-deploy" data-testid="option-full-deploy">🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)</SelectItem>
                     <SelectItem value="hotfix" data-testid="option-hotfix">⚡ إصلاح سريع (نشر فوري + حماية schema)</SelectItem>
                     <SelectItem value="android-build-test" data-testid="option-android-build-test">🧪 بناء أندرويد + اختبار Firebase</SelectItem>
-                    <SelectItem value="assets-export" data-testid="option-assets-export">📤 تصدير الأصول والمتغيرات (للحساب القديم)</SelectItem>
-                    <SelectItem value="assets-import" data-testid="option-assets-import">📥 استيراد الأصول والمتغيرات (للحساب الجديد)</SelectItem>
+                    <SelectItem value="assets-export" data-testid="option-assets-export">📤 تصدير ملفات .gitignore للسيرفر (الحساب القديم)</SelectItem>
+                    <SelectItem value="assets-import" data-testid="option-assets-import">📥 استيراد ملفات .gitignore من السيرفر (الحساب الجديد)</SelectItem>
                   </SelectContent>
                 </Select>
 

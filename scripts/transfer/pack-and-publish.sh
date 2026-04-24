@@ -17,7 +17,13 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
-require_tools tar sshpass ssh scp
+# فحص + تثبيت تلقائي للأدوات المطلوبة
+PREFLIGHT="$(dirname "${BASH_SOURCE[0]}")/preflight.sh"
+if [ -x "$PREFLIGHT" ]; then
+  bash "$PREFLIGHT" || { log_error "فشل فحص المتطلبات — راجع الأخطاء أعلاه"; exit 1; }
+fi
+
+require_tools tar sshpass ssh scp gpg
 
 # ----- معالجة الوسيطات -----
 VERSION=""
@@ -56,13 +62,14 @@ ARCHIVE_NAME="assets-${VERSION}.tar.gz"
 LOCAL_ARCHIVE="${LOCAL_TMP}/${ARCHIVE_NAME}"
 LOCAL_MANIFEST="${LOCAL_TMP}/manifest-${VERSION}.txt"
 
-# ----- الخطوة 0: تحديث snapshot المتغيرات قبل الحزم -----
-log_step "الخطوة 0: توليد .env.snapshot من البيئة الحالية"
+# ----- الخطوة 0: تحديث snapshot المتغيرات (محلياً فقط) -----
+log_step "الخطوة 0: توليد .env.snapshot محلياً (لن يُرفع للسيرفر)"
 
 if [ -x "$(dirname "${BASH_SOURCE[0]}")/snapshot-secrets.sh" ]; then
   bash "$(dirname "${BASH_SOURCE[0]}")/snapshot-secrets.sh" 2>&1 | sed 's/^/  /' || {
     log_warn "فشل توليد snapshot — سيُتابَع بدونه"
   }
+  log_info "📌 snapshot محفوظ محلياً في .env.snapshot — انقله يدوياً عبر أداة Replit Secrets في الحساب الجديد."
 else
   log_warn "snapshot-secrets.sh غير قابل للتنفيذ — تخطي"
 fi

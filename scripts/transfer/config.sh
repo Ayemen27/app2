@@ -60,9 +60,10 @@ readonly REMOTE_MANIFEST_DIR="${REMOTE_BASE}/manifests"
 readonly LOCAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly LOCAL_TMP="${LOCAL_ROOT}/.transfer-tmp"
 
-# ----- قائمة العناصر التي ستُحزَم -----
-# كل عنصر سطر مستقل: المسار النسبي من جذر المشروع
-# يُترَك مرفوضاً ما يُعتبر سرياً جداً (مفاتيح، جلسات حية)
+# ----- قائمة العناصر التي ستُحزَم وتُرفع للسيرفر -----
+# ⚠ مهم: هذه فقط للملفات المُستثناة من Git (في .gitignore)
+# الكود المُتعقَّب يُنقَل عبر GitHub، والأسرار تُنقَل عبر أداة Replit Secrets.
+# لا تُضِف هنا أي ملف يحتوي مفاتيح/أسرار — استخدم snapshot-secrets بدلاً.
 readonly ASSETS_INCLUDE=(
   "attached_assets"
   "backups"
@@ -73,11 +74,16 @@ readonly ASSETS_INCLUDE=(
   "eng.traineddata"
   "wa-import-empty.png"
   "تقرير_المقارنة.xlsx"
+  "auth_info_baileys"
+)
+
+# ----- ملفات الأسرار: تُعالَج محلياً فقط، لا تُرفع للسيرفر -----
+# (تُجمع في .env.snapshot ليُستخدَم يدوياً مع أداة Replit Secrets)
+readonly SECRETS_FILES_LOCAL_ONLY=(
   ".env"
   ".env.production"
   ".env.snapshot"
   "google-services.json"
-  "auth_info_baileys"
 )
 
 # ----- مفاتيح Replit Secrets الإضافية (غير الموجودة عادة في .env) -----
@@ -97,6 +103,7 @@ readonly EXTRA_SECRET_KEYS=(
 )
 
 # ----- العناصر المحظورة دائماً (حماية إضافية) -----
+# يشمل ملفات الأسرار: لا تُرفع للسيرفر أبداً — تُنقَل عبر أداة Replit Secrets
 readonly ASSETS_FORBIDDEN=(
   ".git"
   "node_modules"
@@ -108,6 +115,13 @@ readonly ASSETS_FORBIDDEN=(
   "www"
   "client/www"
   ".pythonlibs"
+  ".env"
+  ".env.production"
+  ".env.snapshot"
+  ".env.example"
+  "google-services.json"
+  "firebase-service-account.json"
+  "SERVICE_ACCOUNT_KEY.json"
 )
 
 # ----- أدوات SSH -----

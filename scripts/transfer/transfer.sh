@@ -36,7 +36,12 @@ pipeline_export() {
   shift || true
 
   log_step "🚀 أنبوب التصدير — Export Pipeline"
-  echo -e "${C_BOLD}الهدف:${C_RESET} حزم الأصول والمتغيرات ورفعها للسيرفر كإصدار"
+  echo -e "${C_BOLD}الهدف:${C_RESET} حزم الملفات المُستثناة من Git ورفعها للسيرفر"
+  echo
+  echo -e "  ${C_YELLOW}📋 تذكير القنوات الثلاث:${C_RESET}"
+  echo -e "    ${C_BLUE}1. GitHub${C_RESET}        ← الكود (تأكد من git push قبل المتابعة)"
+  echo -e "    ${C_BLUE}2. هذا الأنبوب${C_RESET}   ← ملفات .gitignore (assets/DBs/WA)"
+  echo -e "    ${C_BLUE}3. Replit Secrets${C_RESET} ← المتغيرات (snapshot سيُولَّد محلياً)"
   echo
 
   log_info "▶ المرحلة 1/4: فحص النظام"
@@ -64,8 +69,14 @@ pipeline_export() {
   echo
   log_ok "✅ أنبوب التصدير اكتمل بنجاح"
   echo
-  log_info "للاستيراد في الحساب الجديد:"
-  echo "    ./scripts/transfer/transfer.sh import"
+  echo -e "  ${C_BOLD}الخطوات التالية للنقل الكامل:${C_RESET}"
+  echo -e "    ${C_GREEN}1.${C_RESET} تأكد أن الكود مرفوع على GitHub:"
+  echo "         bash scripts/transfer/gh-sync.sh push"
+  echo -e "    ${C_GREEN}2.${C_RESET} في الحساب الجديد:"
+  echo "         git clone <repo-url>"
+  echo "         bash scripts/transfer/transfer.sh import"
+  echo -e "    ${C_GREEN}3.${C_RESET} ألصق المتغيرات في أداة Replit Secrets:"
+  echo "         bash scripts/transfer/apply-secrets.sh --show"
 }
 
 # ====================================================================
@@ -85,7 +96,12 @@ pipeline_import() {
   done
 
   log_step "📥 أنبوب الاستيراد — Import Pipeline"
-  echo -e "${C_BOLD}الهدف:${C_RESET} سحب أحدث إصدار، فك التشفير، استعادة الأصول والمتغيرات"
+  echo -e "${C_BOLD}الهدف:${C_RESET} سحب الإصدار من السيرفر واستعادة ملفات .gitignore"
+  echo
+  echo -e "  ${C_YELLOW}📋 ترتيب النقل الموصى به:${C_RESET}"
+  echo -e "    ${C_GREEN}✓${C_RESET} ${C_BLUE}الكود${C_RESET} يجب أن يكون مُستنسخاً من GitHub بالفعل (git clone)"
+  echo -e "    ${C_BLUE}▶${C_RESET} هذا الأنبوب يستعيد الملفات الكبيرة من السيرفر"
+  echo -e "    ${C_BLUE}↻${C_RESET} المتغيرات تُلصَق يدوياً في أداة Replit Secrets بعد الاستيراد"
   echo
 
   log_info "▶ المرحلة 1/5: فحص النظام"
@@ -106,29 +122,26 @@ pipeline_import() {
   fi
 
   if [ "$apply_secrets" = true ]; then
-    log_info "▶ المرحلة 4/5: تطبيق snapshot المتغيرات"
+    log_info "▶ المرحلة 4/5: عرض snapshot المتغيرات للنسخ في أداة Secrets"
     if [ -f "${LOCAL_ROOT}/.env.snapshot" ]; then
-      # في الوضع غير التفاعلي (--force)، نطبّق تلقائياً على .env
-      if [[ " ${extra_args[*]:-} " =~ " --force " ]] || [[ " ${extra_args[*]:-} " =~ " -y " ]]; then
-        bash "${SCRIPT_DIR}/apply-secrets.sh" --write-env
-      else
-        bash "${SCRIPT_DIR}/apply-secrets.sh"
-      fi
+      # القناة الرسمية للأسرار في الحساب الجديد = أداة Replit Secrets
+      bash "${SCRIPT_DIR}/apply-secrets.sh" --show 2>&1 | sed 's/^/    /'
     else
-      log_warn "  .env.snapshot غير موجود — تخطي تطبيق المتغيرات"
+      log_warn "  .env.snapshot غير موجود — يجب تشغيل snapshot-secrets في الحساب القديم أولاً"
     fi
   else
-    log_info "▶ المرحلة 4/5: تخطي تطبيق المتغيرات (--no-apply-secrets)"
+    log_info "▶ المرحلة 4/5: تخطي عرض المتغيرات (--no-apply-secrets)"
   fi
 
   log_info "▶ المرحلة 5/5: ملخص الاستعادة"
   echo
   log_ok "✅ أنبوب الاستيراد اكتمل بنجاح"
   echo
-  log_info "الخطوات التالية:"
-  echo "    1. npm install            # تثبيت الاعتماديات"
-  echo "    2. npm run db:push        # مزامنة قاعدة البيانات (لو لزم)"
-  echo "    3. npm run dev            # تشغيل التطبيق"
+  echo -e "  ${C_BOLD}الخطوات التالية:${C_RESET}"
+  echo -e "    ${C_GREEN}1.${C_RESET} ألصق المتغيرات أعلاه في: Tools → Secrets"
+  echo -e "    ${C_GREEN}2.${C_RESET} npm install            # تثبيت الاعتماديات"
+  echo -e "    ${C_GREEN}3.${C_RESET} npm run db:push        # مزامنة قاعدة البيانات (لو لزم)"
+  echo -e "    ${C_GREEN}4.${C_RESET} npm run dev            # تشغيل التطبيق"
 }
 
 # ====================================================================
@@ -211,19 +224,27 @@ show_help() {
   ║         نظام نقل الأصول والمتغيرات بين حسابات Replit          ║
   ╚════════════════════════════════════════════════════════════════╝
 
+  معمارية القنوات الثلاث:
+    🐙 GitHub         → الكود المُتعقَّب
+    💾 السيرفر        → ملفات .gitignore (assets/DBs/WA)
+    🔐 Replit Secrets → المتغيرات السرية (يدوي)
+
   الأوامر الرئيسية:
 
-    export [version] [opts]    🚀 أنبوب التصدير الكامل (الحساب القديم)
-                                  - يولّد snapshot للمتغيرات
-                                  - يحزم الأصول
+    export [version] [opts]    🚀 أنبوب التصدير (الحساب القديم)
+                                  - يولّد snapshot المتغيرات (محلياً)
+                                  - يحزم ملفات .gitignore
                                   - يشفّر بـ AES-256
-                                  - يرفع للسيرفر بإصدار
+                                  - يرفع للسيرفر كإصدار
 
-    import [version] [opts]    📥 أنبوب الاستيراد الكامل (الحساب الجديد)
+    import [version] [opts]    📥 أنبوب الاستيراد (الحساب الجديد)
                                   - يسحب الإصدار من السيرفر
-                                  - يفك التشفير
-                                  - يستعيد الأصول مع نسخ احتياطي
-                                  - يطبّق snapshot المتغيرات
+                                  - يفك التشفير + يستعيد الأصول
+                                  - يعرض المتغيرات للصق في أداة Secrets
+
+    gh push                    🐙 رفع الكود لـ GitHub
+    gh status                  🐙 حالة المستودع وعلاقته بـ origin
+    guide                      📖 الدليل الكامل لطريقة النقل
 
   الأوامر المساعدة:
 
@@ -231,6 +252,8 @@ show_help() {
     check                      🔍 كشف الانجراف بين .env والبيئة
     status                     📊 حالة النظام الكاملة
     test                       🔌 اختبار الاتصال بالسيرفر
+    preflight                  🔧 فحص + تثبيت الأدوات المطلوبة
+    apply --show               📋 عرض snapshot للصق في Secrets
     help                       ❓ هذه الرسالة
 
   الخيارات:
@@ -282,6 +305,9 @@ case "$COMMAND" in
   import|restore|pull)
     pipeline_import "$@"
     ;;
+  preflight|deps|check-deps)
+    bash "${SCRIPT_DIR}/preflight.sh" "$@"
+    ;;
   list|ls)
     bash "${SCRIPT_DIR}/list-versions.sh"
     ;;
@@ -299,6 +325,12 @@ case "$COMMAND" in
     ;;
   apply)
     bash "${SCRIPT_DIR}/apply-secrets.sh" "$@"
+    ;;
+  gh|git|github)
+    bash "${SCRIPT_DIR}/gh-sync.sh" "$@"
+    ;;
+  guide|docs)
+    bash "${SCRIPT_DIR}/gh-sync.sh" guide
     ;;
   help|-h|--help|"")
     show_help

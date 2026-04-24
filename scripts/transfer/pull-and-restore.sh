@@ -18,6 +18,12 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
+# فحص + تثبيت تلقائي للأدوات المطلوبة
+PREFLIGHT="$(dirname "${BASH_SOURCE[0]}")/preflight.sh"
+if [ -x "$PREFLIGHT" ]; then
+  bash "$PREFLIGHT" || { log_error "فشل فحص المتطلبات — راجع الأخطاء أعلاه"; exit 1; }
+fi
+
 require_tools tar sshpass ssh scp
 
 VERSION=""

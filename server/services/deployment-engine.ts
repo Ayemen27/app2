@@ -1437,6 +1437,7 @@ export class DeploymentEngine {
       // خطوات أنبوب نقل الأصول والمتغيرات (assets-export / assets-import)
       // تُنفَّذ عبر transfer-pipeline-runner.ts الذي يستدعي scripts/transfer/*
       // ============================================================
+      case "transfer-preflight":
       case "transfer-snapshot":
       case "transfer-pack-encrypt":
       case "transfer-upload":
@@ -1458,6 +1459,7 @@ export class DeploymentEngine {
   private async stepTransferPipeline(
     deploymentId: string,
     stepName:
+      | "transfer-preflight"
       | "transfer-snapshot"
       | "transfer-pack-encrypt"
       | "transfer-upload"

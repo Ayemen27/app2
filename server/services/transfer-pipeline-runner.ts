@@ -47,6 +47,9 @@ function getStepCommand(stepName: StepName, opts: TransferStepOptions): { script
   const versionArg = opts.version ? [opts.version] : [];
 
   switch (stepName) {
+    case "transfer-preflight":
+      return { script: "preflight.sh", args: [] };
+
     case "transfer-snapshot":
       return { script: "snapshot-secrets.sh", args: [] };
 

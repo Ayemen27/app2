@@ -106,18 +106,23 @@ diff_mode() {
 
 # ----- وضع العرض للصق -----
 show_mode() {
-  log_step "المتغيرات جاهزة للنسخ إلى Replit Secrets"
+  log_step "المتغيرات جاهزة للنسخ إلى أداة Replit Secrets"
   echo
-  echo -e "${C_YELLOW}افتح Replit → Tools → Secrets، ثم أضف كل سطر بزر 'Add new secret':${C_RESET}"
+  echo -e "${C_YELLOW}الخطوات:${C_RESET}"
+  echo "  1. افتح Replit في الحساب الجديد"
+  echo "  2. اضغط على Tools → Secrets (أيقونة القفل)"
+  echo "  3. لكل سطر أدناه: اضغط 'New Secret'، ألصق الاسم والقيمة"
+  echo "  4. أعد تشغيل التطبيق بعد الانتهاء"
   echo
+  echo -e "${C_BOLD}── المتغيرات (${#SNAPSHOT_KEYS[@]}) ──${C_RESET}"
   for key in $(echo "${SNAPSHOT_KEYS[@]}" | tr ' ' '\n' | sort); do
     value="${SNAPSHOT_VALUES[$key]}"
     [ -z "$value" ] && continue
     echo -e "  ${C_BOLD}${key}${C_RESET} = ${value}"
   done
   echo
-  log_info "العدد الإجمالي للمتغيرات الجاهزة: ${#SNAPSHOT_KEYS[@]}"
-  log_warn "تنبيه: لا تشارك هذا الإخراج مع أحد، يحتوي أسراراً نشطة."
+  log_warn "🔒 تنبيه أمان: هذا الإخراج يحتوي أسراراً نشطة — لا تشاركه."
+  log_info "💡 لإخفاء القيم وعرض الأسماء فقط: bash apply-secrets.sh --diff"
 }
 
 # ----- وضع الكتابة لـ .env -----
@@ -145,19 +150,21 @@ write_env_mode() {
 interactive_mode() {
   echo
   echo -e "${C_BOLD}اختر طريقة التطبيق:${C_RESET}"
-  echo "  1) كتابة .env تلقائياً (موصى به — تطبيقك يستخدم dotenv)"
-  echo "  2) عرض المتغيرات للصق يدوي في Replit Secrets"
-  echo "  3) كلاهما (كتابة .env + عرض للصق)"
+  echo -e "  1) ${C_GREEN}عرض المتغيرات للصق يدوي في Replit Secrets (موصى به)${C_RESET}"
+  echo "  2) كتابة .env تلقائياً (مناسب لو تطبيقك يستخدم dotenv فقط)"
+  echo "  3) كلاهما (عرض للصق + كتابة .env)"
   echo "  4) مقارنة مع .env الحالي فقط (دون تطبيق)"
   echo "  5) إلغاء"
+  echo
+  echo -e "  ${C_YELLOW}ℹ القناة الرسمية للأسرار: أداة Replit Secrets (الخيار 1)${C_RESET}"
   echo
   read -p "اختيارك [1-5]: " -r choice
   echo
 
   case "$choice" in
-    1) write_env_mode ;;
-    2) show_mode ;;
-    3) write_env_mode; echo; show_mode ;;
+    1) show_mode ;;
+    2) write_env_mode ;;
+    3) show_mode; echo; write_env_mode ;;
     4) diff_mode ;;
     5) log_info "أُلغي."; exit 0 ;;
     *) log_error "اختيار غير صالح."; exit 1 ;;

@@ -192,9 +192,9 @@ write_env_mode() {
     for k in "${ADDED_KEYS[@]}"; do printf "    + %s\n" "$k"; done
   fi
   if [ "$missing" -gt 0 ]; then
-    echo -e "\n  ${C_RED}مفاتيح موجودة في .env لكن ليست في snapshot:${C_RESET}"
-    for k in "${MISSING_KEYS[@]}"; do printf "    - %s\n" "$k"; done
-    log_warn "  هذه المفاتيح ستُحذف من .env بعد الكتابة (إن أردت إبقاءها أوقف التشغيل واحذف بعض المفاتيح من snapshot يدوياً)."
+    echo -e "\n  ${C_BLUE}مفاتيح موجودة في .env لكن ليست في snapshot (${C_BOLD}ستُحفَظ${C_RESET}${C_BLUE}):${C_RESET}"
+    for k in "${MISSING_KEYS[@]}"; do printf "    ★ %s\n" "$k"; done
+    log_info "  ✓ هذه المفاتيح المحلية ستُدمج مع snapshot (لن تُحذف). مهم لمفاتيح مثل ENCRYPT_PASSPHRASE."
   fi
   echo
 
@@ -205,11 +205,60 @@ write_env_mode() {
     log_info "نسخة احتياطية: $BACKUP"
   fi
 
-  # ----- الكتابة الفعلية -----
-  cp -a "$SNAPSHOT_FILE" "$ENV_FILE"
+  # ----- الكتابة الفعلية: MERGE آمن (لا حذف للمفاتيح المحلية) -----
+  # الفلسفة:
+  #   - snapshot = source of truth للمفاتيح الموجودة فيه (تُكتب/تُحدَّث)
+  #   - أي مفتاح موجود في .env فقط (مثل ENCRYPT_PASSPHRASE) → يُحفَظ في قسم منفصل
+  #   - الترتيب: مفاتيح snapshot أولاً (كما هي)، ثم المفاتيح المحلية في النهاية
+  TMP_NEW=$(mktemp)
+
+  # رأس توثيقي
+  {
+    printf '# .env — مدموج تلقائياً من snapshot + .env المحلي\n'
+    printf '# تاريخ الدمج: %s\n' "$(date -Iseconds 2>/dev/null || date)"
+    printf '# مفاتيح من snapshot: %d | مفاتيح محلية محفوظة: %d\n' "${#SNAPSHOT_KEYS[@]}" "$missing"
+    printf '# هذا الملف يُقرأ تلقائياً عبر dotenv في server/config/env.ts\n'
+    printf '\n'
+  } > "$TMP_NEW"
+
+  # 1) كل مفاتيح snapshot (تحلّ محلّ القيم القديمة في .env)
+  for k in "${SNAPSHOT_KEYS[@]}"; do
+    v="${SNAPSHOT_VALUES[$k]}"
+    # حافظ على القيم بدون quotes (كما تكتبها snapshot-secrets.sh)
+    # لكن أضف quotes لو القيمة تحوي مسافات أو # في البداية
+    if [[ "$v" =~ [[:space:]] ]] || [[ "$v" =~ ^# ]]; then
+      printf '%s="%s"\n' "$k" "$v" >> "$TMP_NEW"
+    else
+      printf '%s=%s\n' "$k" "$v" >> "$TMP_NEW"
+    fi
+  done
+
+  # 2) المفاتيح المحلية المحفوظة (موجودة في .env فقط، ليست في snapshot)
+  if [ "$missing" -gt 0 ]; then
+    {
+      printf '\n'
+      printf '# ─── مفاتيح محلية محفوظة (ليست في snapshot، لم تُحذَف) ───\n'
+    } >> "$TMP_NEW"
+    # ترتيب أبجدي للمفاتيح المحفوظة لتسهيل المراجعة
+    for k in $(printf '%s\n' "${MISSING_KEYS[@]}" | sort); do
+      v="${CURRENT[$k]}"
+      if [[ "$v" =~ [[:space:]] ]] || [[ "$v" =~ ^# ]]; then
+        printf '%s="%s"\n' "$k" "$v" >> "$TMP_NEW"
+      else
+        printf '%s=%s\n' "$k" "$v" >> "$TMP_NEW"
+      fi
+    done
+  fi
+
+  # استبدال ذرّي + صلاحيات صارمة
+  mv "$TMP_NEW" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
-  log_ok ".env كُتِب بنجاح من snapshot."
-  log_info "  المفاتيح المكتوبة: ${#SNAPSHOT_KEYS[@]} (متطابق=${same} | متغيّر=${changed} | جديد=${added})"
+
+  local total=$((${#SNAPSHOT_KEYS[@]} + missing))
+  log_ok ".env كُتِب بنجاح (دمج آمن)."
+  log_info "  إجمالي المفاتيح: ${total}"
+  log_info "    من snapshot: ${#SNAPSHOT_KEYS[@]}  (متطابق=${same} | متغيّر=${changed} | جديد=${added})"
+  log_info "    محلية محفوظة: ${missing}"
   log_info "  الصلاحيات: 600"
   echo
   log_ok "🔄 التطبيق يستخدم dotenv (server/config/env.ts) — سيقرأ المتغيرات تلقائياً عند إعادة التشغيل."

@@ -49,6 +49,9 @@ auth_info_baileys/
 android/app/axion-release.keystore
 administrator/.axion-keystore/
 
+# Android built web assets — يُولَّد من cap sync، لا يُودَع في git
+android/app/src/main/assets/public/
+
 # Firebase service accounts and config
 google-services.json
 firebase-service-account*.json

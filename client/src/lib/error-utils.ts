@@ -70,7 +70,7 @@ export function toUserMessage(error: unknown, fallback?: string): string {
     const msg = err.message || err.msg || '';
 
     if (typeof msg === 'string' && msg.length > 0 && msg.length < 200 && !/[{[\]}"']/.test(msg) && !/stack|trace|at\s/i.test(msg)) {
-      return fallback || msg;
+      return msg || fallback || ARABIC_MESSAGES[category];
     }
   }
 

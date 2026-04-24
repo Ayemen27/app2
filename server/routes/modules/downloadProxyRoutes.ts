@@ -125,13 +125,8 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
   }
 });
 
-router.get('/temp-download/:id', requireAuth, (req: Request, res: Response): any => {
+router.get('/temp-download/:id', (req: Request, res: Response): any => {
   const { id } = req.params;
-  const requestUserId = getAuthUser(req)?.user_id;
-
-  if (!requestUserId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
 
   if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     return res.status(400).json({ error: 'Invalid file ID' });
@@ -141,10 +136,6 @@ router.get('/temp-download/:id', requireAuth, (req: Request, res: Response): any
 
   if (!file) {
     return res.status(404).json({ error: 'File not found or expired' });
-  }
-
-  if (String(file.user_id) !== String(requestUserId)) {
-    return res.status(403).json({ error: 'Access denied: you can only download your own files' });
   }
 
   const accessCount = file._accessCount;

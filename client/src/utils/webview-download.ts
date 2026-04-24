@@ -268,6 +268,58 @@ async function tryNativeBridge(blob: Blob, fileName: string, mimeType: string): 
 }
 
 /**
+ * الطريقة 4-ب: Server Proxy + Capacitor Browser
+ * ترفع الملف للسيرفر مؤقتاً ثم تفتح رابط التحميل عبر متصفح Capacitor.
+ * تُستخدم عندما تفشل FileSharer وFilesystem في التطبيق الأصلي.
+ */
+async function tryServerProxyBrowserDownload(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+  try {
+    const base64Data = await blobToBase64(blob);
+    debugLog('ServerProxyBrowser', 'UPLOADING', `${fileName} (${blob.size} bytes)`);
+
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(ENV.getApiUrl('/api/temp-download'), {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ base64Data, fileName, mimeType }),
+    });
+
+    if (!response.ok) {
+      debugLog('ServerProxyBrowser', 'UPLOAD_FAILED', `status=${response.status}`);
+      return false;
+    }
+
+    const result = await response.json();
+    if (!result.success || !result.downloadUrl) {
+      debugLog('ServerProxyBrowser', 'BAD_RESPONSE');
+      return false;
+    }
+
+    const fullUrl = result.downloadUrl.startsWith('http')
+      ? result.downloadUrl
+      : ENV.getApiUrl(result.downloadUrl);
+    debugLog('ServerProxyBrowser', 'URL_READY', fullUrl);
+
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
+
+    debugLog('ServerProxyBrowser', 'BROWSER_OPENED');
+    return true;
+  } catch (err: any) {
+    debugLog('ServerProxyBrowser', 'ERROR', String(err?.message || err));
+    return false;
+  }
+}
+
+/**
  * الطريقة 5: Server Proxy — رفع الملف للسيرفر ثم فتح رابط التحميل
  * يُستخدم كخيار احتياطي في WebViews التي لا تدعم الطرق السابقة.
  */
@@ -396,7 +448,9 @@ export async function downloadFile(
       if (await tryNativeBridge(blob, fileName, type)) return true;
     }
 
-    // في Capacitor لا نستخدم WebShare أو ServerProxy — نُبلّغ بفشل حقيقي
+    // 4. Server Proxy + Browser — رفع للسيرفر ثم فتح عبر المتصفح المدمج
+    if (await tryServerProxyBrowserDownload(blob, fileName, type)) return true;
+
     const errorDetails = Object.entries(lastErrors)
       .map(([m, e]) => `• ${m}: ${e}`)
       .join('\n');

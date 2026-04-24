@@ -3347,7 +3347,7 @@ sys.exit(0 if actual == new_name else 3)
       canSignRelease ? `export KEYSTORE_ALIAS='${keystoreAlias}'` : "",
       canSignRelease ? `export KEYSTORE_KEY_PASSWORD=$(cat /tmp/.ks_key_pass)` : "",
       `chmod +x gradlew`,
-      `./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`,
+      `./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace`,
     ].filter(Boolean).join("\n");
     const scriptB64 = Buffer.from(scriptLines).toString("base64");
 

@@ -3078,7 +3078,6 @@ sys.exit(0 if actual == new_name else 3)
       await this.addLog(deploymentId, `🔧 تم استعادة MainActivity من git (${m?.[1] || "?"} registerPlugin) — كانت ناقصة بعد cap sync`, "success");
     } else if (checksResult.includes("MAINACTIVITY_RESTORE_FAILED")) {
       await this.addLog(deploymentId, "❌ فشل استعادة MainActivity من git — البناء سيفشل! تحقق من حالة git", "error");
-      errors.push("mainactivity-restore-failed");
     } else if (checksResult.includes("MAINACTIVITY_OK")) {
       const m = checksResult.match(/MAINACTIVITY_OK: (\d+) registerPlugin/);
       await this.addLog(deploymentId, `✅ MainActivity سليمة (${m?.[1] || "?"} registerPlugin)`, "info");

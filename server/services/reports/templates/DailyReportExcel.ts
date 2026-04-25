@@ -246,32 +246,57 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     row++;
   }
 
-  // ─── مواد المخزن (اختيارية) ───────────────────────────────────────────
+  // ─── حركة المخزن (اختيارية) ──────────────────────────────────────────
   const invIssued = data.inventoryIssued || [];
   if (invIssued.length > 0) {
-    row = xlSectionHeader(ws, row, 'مواد المخزن المصروفة', COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الفئة', 'الوحدة', 'المصروف', 'إجمالي التوريد', 'المتبقي', 'المشروع', 'ملاحظات']);
+    row = xlSectionHeader(ws, row, 'حركة المخزن', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الفئة', 'النوع', 'الكمية', 'الوحدة', 'الحالة', 'المشروع / الوجهة', 'متبقي بالمشروع']);
     invIssued.forEach((rec, idx) => {
       const r = ws.getRow(row);
-      const vals = [idx + 1, rec.itemName, rec.category, rec.unit, rec.issuedQty, rec.receivedQty, rec.remainingQty, rec.projectName, rec.notes || '-'];
+      const isTransfer = rec.transactionType === 'نقل';
+      const projectCell = isTransfer && rec.targetProjectName
+        ? `${rec.projectName} ← ${rec.targetProjectName}`
+        : (rec.projectName || '-');
+      const vals = [idx + 1, rec.itemName, rec.category, rec.transactionType, rec.issuedQty, rec.unit, rec.status, projectCell, rec.remainingInProject];
       vals.forEach((v, i) => {
         r.getCell(i + 1).value = v;
-        const isTextCol = i === 1 || i === 2 || i === 3 || i === 7 || i === 8;
+        const isTextCol = i === 1 || i === 2 || i === 7;
         r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
         r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
         r.getCell(i + 1).border = BORDER;
-        if (i === 4) r.getCell(i + 1).font = { size: 10, name: 'Calibri', bold: true, color: { argb: COLORS.red } };
         if (idx % 2 === 1) {
           r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
         }
       });
+      // تلوين النوع/الحالة/الكمية
+      if (isTransfer) {
+        r.getCell(4).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF92400E' } };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        r.getCell(7).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF92400E' } };
+      } else {
+        r.getCell(4).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF1E40AF' } };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+        r.getCell(7).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF991B1B' } };
+      }
+      r.getCell(5).font = { size: 10, name: 'Calibri', bold: true, color: { argb: COLORS.red } };
       r.height = 24;
       row++;
     });
     const totalIssuedQty = invIssued.reduce((s, inv) => s + inv.issuedQty, 0);
+    const transferCount = invIssued.filter(i => i.transactionType === 'نقل').length;
+    const issueCount = invIssued.length - transferCount;
     row = xlMergedTotalsRow(ws, row,
-      [{ col: 1, value: `الإجمالي (${invIssued.length} مادة)` }, { col: 5, value: formatNum(totalIssuedQty) }],
+      [{ col: 1, value: `إجمالي ${invIssued.length} حركة • صرف: ${issueCount} • نقل: ${transferCount}` }, { col: 5, value: formatNum(totalIssuedQty) }],
       [[1, 4], [6, 9]], COL_COUNT);
+    {
+      const noteRow = ws.getRow(row);
+      ws.mergeCells(row, 1, row, COL_COUNT);
+      noteRow.getCell(1).value = 'ملاحظة: المواد المنقولة بين المشاريع لا تُحتسب ضمن "المشتريات الجديدة" — هي حركة مخزنية فقط بدون أثر مالي.';
+      noteRow.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF6B7280' }, name: 'Calibri' };
+      noteRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
+      noteRow.height = 18;
+      row++;
+    }
     row++;
   }
 

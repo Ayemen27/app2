@@ -6,7 +6,8 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, and, sql, gte, lte, desc, asc, between, inArray } from 'drizzle-orm';
+import { eq, and, sql, gte, lte, desc, asc, between, inArray, notInArray } from 'drizzle-orm';
+import { INVENTORY_TRANSFER_PURCHASE_TYPES } from '../../services/reports/ReportDataService';
 import { db, pool } from '../../db';
 import {
   projects,
@@ -154,7 +155,8 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .where(
         and(
           eq(materialPurchases.project_id, project_id as string),
-          eq(materialPurchases.purchaseDate, dateStr)
+          eq(materialPurchases.purchaseDate, dateStr),
+          notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES)
         )
       );
 
@@ -351,7 +353,8 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
         and(
           eq(materialPurchases.project_id, project_id as string),
           gte(materialPurchases.purchaseDate, dateFromStr),
-          lte(materialPurchases.purchaseDate, dateToStr)
+          lte(materialPurchases.purchaseDate, dateToStr),
+          notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES)
         )
       )
       .groupBy(materialPurchases.purchaseDate)
@@ -484,7 +487,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     // حساب الإجماليات الكلية للمشروع
     const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(${NUM(fundTransfers.amount)})` }).from(fundTransfers).where(eq(fundTransfers.project_id, project_id as string));
     const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(${NUM(workerAttendance.paidAmount)})` }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id as string));
-    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(eq(materialPurchases.project_id, project_id as string));
+    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(and(eq(materialPurchases.project_id, project_id as string), notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES)));
     const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(${NUM(transportationExpenses.amount)})` }).from(transportationExpenses).where(eq(transportationExpenses.project_id, project_id as string));
     const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(${NUM(workerMiscExpenses.amount)})` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
 
@@ -878,7 +881,10 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
           .where(and(...dateConditions));
 
         // إحصائيات المواد
-        let materialConditions: any[] = [eq(materialPurchases.project_id, project_id)];
+        let materialConditions: any[] = [
+          eq(materialPurchases.project_id, project_id),
+          notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES),
+        ];
         if (dateFrom && dateTo) {
           materialConditions.push(gte(materialPurchases.purchaseDate, dateFrom as string));
           materialConditions.push(lte(materialPurchases.purchaseDate, dateTo as string));

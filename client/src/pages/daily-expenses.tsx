@@ -1490,6 +1490,7 @@ function DailyExpensesContent() {
       team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
       paidAmount: purchaseType === 'نقد' ? total.toString() : '0',
       remainingAmount: purchaseType === 'آجل' ? total.toString() : '0',
+      addToInventory: purchaseAddToInventory,
     };
 
     if (editingMaterialPurchaseId) {
@@ -3867,6 +3868,22 @@ function DailyExpensesContent() {
                           onChange={(e) => setPurchaseNotes(e.target.value)}
                           placeholder="ملاحظات (اختياري)"
                         />
+                      </div>
+                      {/* Add to Inventory Checkbox */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <Checkbox
+                          id="quickPurchaseAddToInventory"
+                          checked={purchaseAddToInventory}
+                          onCheckedChange={(checked) => setPurchaseAddToInventory(checked === true)}
+                          data-testid="checkbox-quick-add-to-inventory"
+                        />
+                        <Label
+                          htmlFor="quickPurchaseAddToInventory"
+                          className="text-sm font-medium text-blue-700 dark:text-blue-300 cursor-pointer flex items-center gap-2"
+                        >
+                          <Package className="h-4 w-4" />
+                          إضافة للمخزن (المعدات)
+                        </Label>
                       </div>
                       {isWellsProject && (
                         <div className="grid grid-cols-3 gap-2">

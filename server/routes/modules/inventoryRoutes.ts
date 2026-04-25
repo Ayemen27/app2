@@ -283,7 +283,8 @@ inventoryRouter.put('/items/:id', async (req, res) => {
     res.json({ success: true, message: 'تم تحديث المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث المادة:', error);
-    res.status(400).json({ success: false, message: 'فشل في تحديث المادة' });
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    res.status(400).json({ success: false, message: `فشل في تحديث المادة: ${detail}`, error: detail });
   }
 });
 

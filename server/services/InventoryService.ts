@@ -681,7 +681,7 @@ export class InventoryService {
         [data.name, data.category || null, data.unit, data.min_quantity || 0, itemId]
       );
 
-      if (data.adjustment_quantity !== undefined && data.adjustment_quantity !== null) {
+      if (data.adjustment_quantity !== undefined && data.adjustment_quantity !== null && !Number.isNaN(Number(data.adjustment_quantity))) {
         const targetQty = Number(data.adjustment_quantity);
         const { rows: currentRows } = await client.query(
           `SELECT COALESCE(SUM(remaining_qty), 0) as current_remaining FROM inventory_lots WHERE item_id = $1`,
@@ -689,21 +689,25 @@ export class InventoryService {
         );
         const currentRemaining = parseFloat(currentRows[0].current_remaining);
         const diff = targetQty - currentRemaining;
+        const todayStr = new Date().toISOString().slice(0, 10);
 
         if (Math.abs(diff) > 0.001) {
           if (diff > 0) {
             await client.query(
               `INSERT INTO inventory_lots (item_id, received_qty, remaining_qty, unit_cost, receipt_date, notes)
-               VALUES ($1, $2, $3, 0, NOW(), 'تسوية مخزون - زيادة')`,
-              [itemId, diff, diff]
+               VALUES ($1, $2, $3, 0, $4, 'تسوية مخزون - زيادة')`,
+              [itemId, diff, diff, todayStr]
             );
             await client.query(
               `INSERT INTO inventory_transactions (item_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
-               VALUES ($1, 'ADJUSTMENT_IN', $2, 0, 0, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
-              [itemId, diff]
+               VALUES ($1, 'ADJUSTMENT_IN', $2, 0, 0, $3, 'تسوية مخزون - تعديل الكمية', 'system')`,
+              [itemId, diff, todayStr]
             );
           } else {
             const absAdjust = Math.abs(diff);
+            if (absAdjust > currentRemaining + 0.001) {
+              throw new Error(`الكمية المتاحة (${currentRemaining}) أقل من المطلوب خصمه (${absAdjust})`);
+            }
             const { rows: lots } = await client.query(
               `SELECT id, remaining_qty, unit_cost FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
               [itemId]
@@ -719,8 +723,8 @@ export class InventoryService {
               );
               await client.query(
                 `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
-                 VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
-                [itemId, lot.id, deduct, unitCost, deduct * unitCost]
+                 VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, $6, 'تسوية مخزون - تعديل الكمية', 'system')`,
+                [itemId, lot.id, deduct, unitCost, deduct * unitCost, todayStr]
               );
               remaining -= deduct;
             }

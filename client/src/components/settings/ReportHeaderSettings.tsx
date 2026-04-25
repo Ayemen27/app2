@@ -19,6 +19,7 @@ interface HeaderForm {
   website: string;
   logo_url: string;
   footer_text: string;
+  accountant_name: string;
   primary_color: string;
   secondary_color: string;
   accent_color: string;
@@ -33,6 +34,7 @@ const EMPTY: HeaderForm = {
   website: "",
   logo_url: "",
   footer_text: "",
+  accountant_name: "",
   primary_color: "#15807F",
   secondary_color: "#0F6B6B",
   accent_color: "#F4A14B",
@@ -60,6 +62,7 @@ export default function ReportHeaderSettings() {
         website: data.header.website || "",
         logo_url: data.header.logo_url || "",
         footer_text: data.header.footer_text || "",
+        accountant_name: data.header.accountant_name || "",
         primary_color: data.header.primary_color || "#15807F",
         secondary_color: data.header.secondary_color || "#0F6B6B",
         accent_color: data.header.accent_color || "#F4A14B",
@@ -79,6 +82,7 @@ export default function ReportHeaderSettings() {
         website: payload.website.trim() || null,
         logo_url: payload.logo_url.trim() || null,
         footer_text: payload.footer_text.trim() || null,
+        accountant_name: payload.accountant_name.trim() || null,
         primary_color: payload.primary_color,
         secondary_color: payload.secondary_color,
         accent_color: payload.accent_color,
@@ -239,16 +243,31 @@ export default function ReportHeaderSettings() {
             </div>
           </div>
           <Separator className="opacity-50" />
-          <div className="space-y-2">
-            <Label htmlFor="rh-footer">نص التذييل (اختياري)</Label>
-            <Textarea
-              id="rh-footer"
-              value={form.footer_text}
-              onChange={(e) => update("footer_text", e.target.value)}
-              placeholder="نص يظهر أسفل كل تقرير"
-              rows={2}
-              data-testid="textarea-footer"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="rh-accountant">اسم المحاسب (يظهر في توقيع التقارير)</Label>
+              <Input
+                id="rh-accountant"
+                value={form.accountant_name}
+                onChange={(e) => update("accountant_name", e.target.value)}
+                placeholder="مثال: أ. محمد علي"
+                data-testid="input-accountant-name"
+              />
+              <p className="text-xs text-muted-foreground">
+                يُستخدم تلقائياً في خانة "المحاسب" بتذييل تقارير PDF و Excel.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rh-footer">نص التذييل (اختياري)</Label>
+              <Textarea
+                id="rh-footer"
+                value={form.footer_text}
+                onChange={(e) => update("footer_text", e.target.value)}
+                placeholder="نص يظهر أسفل كل تقرير"
+                rows={2}
+                data-testid="textarea-footer"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

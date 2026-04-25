@@ -1,10 +1,11 @@
 import ExcelJS from 'exceljs';
 import { DailyReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
   xlTableHeader, xlDataRow, xlTotalsRow, xlGrandTotalRow,
-  xlFooter, xlApplyBorders,
+  xlFooter, xlApplyBorders, xlSignatures,
 } from './shared-styles';
 
 interface UnifiedExpense {
@@ -333,6 +334,13 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
       { label: 'المتبقي (يُرحّل لليوم التالي)', value: `${formatNum(dayBalance)} YER`, bold: true, bgColor: dayBalance >= 0 ? COLORS.green : COLORS.red, fontColor: COLORS.white },
     ], COL_COUNT);
 
+    row += 2;
+    // ✅ تذييل التوقيعات: المهندس والمدير من بيانات المشروع، والمحاسب من إعدادات الشركة
+    row = xlSignatures(ws, row, [
+      { title: 'المهندس المسؤول', name: (report.project as any)?.engineerName },
+      { title: 'المدير', name: (report.project as any)?.managerName },
+      { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+    ], [[1, 2], [3, 4], [5, 6]]);
     row += 2;
     row = xlFooter(ws, row, COL_COUNT);
 

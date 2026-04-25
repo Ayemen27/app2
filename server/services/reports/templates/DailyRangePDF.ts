@@ -2,8 +2,9 @@ import type { DailyReportData } from '../../../../shared/report-types';
 import {
   escapeHtml, formatNum, formatDateBR, PDF_COLORS,
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
-  pdfTotalRow, pdfGrandTotalRow, pdfFooter, pdfWrap,
+  pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 interface UnifiedExpense {
   category: string;
@@ -317,6 +318,14 @@ export function generateDailyRangeHTML(reports: DailyReportData[], dateFrom: str
   if (filteredReports.length === 0) {
     body += '<h2 style="text-align:center;padding:40px;color:#6C757D;">لا توجد بيانات في هذه الفترة</h2>';
   }
+
+  // ✅ تذييل التوقيعات: المهندس والمدير من بيانات أول مشروع، والمحاسب من إعدادات الشركة
+  const firstProj = reports[0]?.project as any;
+  body += pdfSignatures([
+    { title: 'المهندس المسؤول', name: firstProj?.engineerName },
+    { title: 'المدير', name: firstProj?.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
 
   body += pdfFooter(new Date().toISOString());
 

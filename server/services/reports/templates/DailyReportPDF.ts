@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function kpiDisplay(kpi: ReportKPI): { value: string; color?: string } {
   switch (kpi.format) {
@@ -242,6 +243,13 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     ${pdfTotalRow(['إجمالي المصروفات', `${formatNum(data.totals.totalExpenses)} YER`])}
     ${pdfGrandTotalRow(['الرصيد النهائي', `${formatNum(finalBalance)} YER`])}
   </table>`;
+
+  // ✅ تذييل التوقيعات: يعرض اسم المهندس والمدير من بيانات المشروع
+  body += pdfSignatures([
+    { title: 'المهندس المسؤول', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب' },
+  ]);
 
   body += pdfFooter(data.generatedAt);
 

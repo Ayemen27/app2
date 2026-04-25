@@ -1846,6 +1846,144 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
   }
 });
 
+// تحديث بيانات مورد
+financialRouter.patch('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    console.log('🏪 [API] تحديث بيانات المورد:', id, req.body);
+
+    // التحقق من وجود المورد
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'المورد غير موجود'
+      });
+    }
+
+    // Validation جزئي - يسمح بتحديث جزئي
+    const partialSchema = insertSupplierSchema.partial();
+    const validationResult = partialSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
+      return res.status(400).json({
+        success: false,
+        message: firstError,
+        details: errorMessages,
+      });
+    }
+
+    const [updated] = await db.update(suppliers)
+      .set(validationResult.data)
+      .where(eq(suppliers.id, id))
+      .returning();
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم تحديث المورد بنجاح في ${duration}ms`);
+
+    return res.json({
+      success: true,
+      data: updated,
+      message: `تم تحديث المورد "${updated.name}" بنجاح`,
+      processingTime: duration,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في تحديث المورد:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'فشل في تحديث المورد'
+    });
+  }
+});
+
+// PUT يقبل نفس وظيفة PATCH (للتوافق مع الواجهة)
+financialRouter.put('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'المورد غير موجود' });
+    }
+    const partialSchema = insertSupplierSchema.partial();
+    const validationResult = partialSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
+      return res.status(400).json({ success: false, message: firstError, details: errorMessages });
+    }
+    const [updated] = await db.update(suppliers)
+      .set(validationResult.data)
+      .where(eq(suppliers.id, id))
+      .returning();
+    return res.json({
+      success: true,
+      data: updated,
+      message: `تم تحديث المورد "${updated.name}" بنجاح`,
+      processingTime: Date.now() - startTime,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في تحديث المورد:', error);
+    return res.status(500).json({ success: false, message: 'فشل في تحديث المورد' });
+  }
+});
+
+// حذف مورد (soft delete - يجعله غير نشط لمنع كسر مشتريات سابقة)
+financialRouter.delete('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    console.log('🏪 [API] حذف المورد:', id);
+
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'المورد غير موجود' });
+    }
+
+    // فحص: هل لدى المورد مشتريات؟ إن وجدت → soft delete (تعطيل) لحماية التاريخ.
+    const linkedPurchases = await db
+      .select({ id: materialPurchases.id })
+      .from(materialPurchases)
+      .where(eq(materialPurchases.supplier_id, id))
+      .limit(1);
+
+    if (linkedPurchases.length > 0) {
+      // soft delete: تعطيل بدلاً من الحذف للحفاظ على بيانات المشتريات
+      await db.update(suppliers)
+        .set({ is_active: false })
+        .where(eq(suppliers.id, id));
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تعطيل المورد (له مشتريات سابقة) في ${duration}ms`);
+      return res.json({
+        success: true,
+        message: 'تم تعطيل المورد لوجود مشتريات مرتبطة به (لم يتم الحذف للحفاظ على السجلات).',
+        softDeleted: true,
+      });
+    }
+
+    const [deleted] = await db.delete(suppliers)
+      .where(eq(suppliers.id, id))
+      .returning();
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف المورد بنجاح في ${duration}ms`);
+    return res.json({
+      success: true,
+      data: deleted,
+      message: `تم حذف المورد "${deleted.name}" بنجاح`,
+      processingTime: duration,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في حذف المورد:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'فشل في حذف المورد'
+    });
+  }
+});
+
 /**
  * 🛒 المشتريات المادية
  * Material Purchases

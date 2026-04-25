@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function kpiDisplay(kpi: ReportKPI): { value: string; color?: string } {
   switch (kpi.format) {
@@ -214,7 +215,11 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     ${data.totals.budgetUtilization !== undefined ? `<tr class="total-row"><td class="label-cell">نسبة استهلاك الميزانية</td><td class="value-cell" style="color:${PDF_COLORS.amber};font-weight:800;">${data.totals.budgetUtilization.toFixed(1)}%</td></tr>` : ''}
   </table>`;
 
-  body += pdfSignatures(['المهندس', 'المدير', 'المدير المالي']);
+  body += pdfSignatures([
+    { title: 'المهندس', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(data.generatedAt);
 
   return pdfWrap(`التقرير النهائي للفترة - ${escapeHtml(data.project.name)}`, body);

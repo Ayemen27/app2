@@ -2327,6 +2327,7 @@ export const reportHeaderSettings = pgTable("report_header_settings", {
   website: text("website"),
   logo_url: text("logo_url"),
   footer_text: text("footer_text"),
+  accountant_name: text("accountant_name"), // اسم المحاسب الافتراضي في تذييل التقارير
   primary_color: text("primary_color").notNull().default('#1B2A4A'),
   secondary_color: text("secondary_color").notNull().default('#2E5090'),
   accent_color: text("accent_color").notNull().default('#4A90D9'),

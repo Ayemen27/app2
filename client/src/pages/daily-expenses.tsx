@@ -23,6 +23,7 @@ import { DollarSign, Calendar, Building, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { MultiWellSelector } from "@/components/multi-well-selector";
@@ -194,6 +195,7 @@ function DailyExpensesContent() {
   const [purchaseWellIds, setPurchaseWellIds] = useState<number[]>([]);
   const [purchaseTeamNames, setPurchaseTeamNames] = useState<string[]>([]);
   const [editingMaterialPurchaseId, setEditingMaterialPurchaseId] = useState<string | null>(null);
+  const [purchaseAddToInventory, setPurchaseAddToInventory] = useState<boolean>(false);
 
   // Worker transfer form
   const [workerTransferWorkerId, setWorkerTransferWorkerId] = useState<string>("");
@@ -1314,6 +1316,7 @@ function DailyExpensesContent() {
             team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
             paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
             remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+            addToInventory: purchaseAddToInventory,
           },
         });
         setShowGuardPurchaseDialog(true);
@@ -1338,6 +1341,7 @@ function DailyExpensesContent() {
           team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
           paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
           remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+          addToInventory: purchaseAddToInventory,
         };
         await queueForSync('create', '/api/material-purchases', purchaseData);
         toast({
@@ -1408,6 +1412,7 @@ function DailyExpensesContent() {
     setPurchaseWellIds([]);
     setPurchaseCrewTypes([]);
     setEditingMaterialPurchaseId(null);
+    setPurchaseAddToInventory(false);
   };
 
   const handleEditMaterialPurchase = (purchase: any) => {
@@ -1422,6 +1427,7 @@ function DailyExpensesContent() {
     setPurchaseWellIds(purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []));
     setPurchaseCrewTypes(purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : []);
     setEditingMaterialPurchaseId(purchase.id);
+    setPurchaseAddToInventory(purchase.addToInventory || purchase.add_to_inventory || false);
     setIsMaterialsExpanded(true);
   };
 

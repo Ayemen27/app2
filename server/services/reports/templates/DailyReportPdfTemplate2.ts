@@ -114,7 +114,11 @@ ${rows}
     </tr>
   </tbody>
 </table>
-${pdfSignatures(['المهندس المسؤول', 'المدير', 'المحاسب'])}`;
+${pdfSignatures([
+  { title: 'المهندس المسؤول', name: data.project?.engineerName },
+  { title: 'المدير', name: data.project?.managerName },
+  { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+])}`;
 
   return pdfWrap(`كشف مصروفات ${projectName}`, body);
 }

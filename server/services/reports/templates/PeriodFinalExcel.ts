@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { PeriodFinalReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
@@ -505,7 +506,11 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   }
 
   row += 2;
-  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, 3], [4, 6], [7, 9]]);
+  row = xlSignatures(ws, row, [
+    { title: 'المهندس', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 3], [4, 6], [7, 9]]);
 
   row += 2;
   row = xlFooter(ws, row, COL_COUNT);

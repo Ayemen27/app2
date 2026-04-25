@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData): string {
   const kpis = data.kpis.map(k => ({
@@ -233,7 +234,11 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
     ${pdfGrandTotalRow(['الرصيد النهائي', `${formatNum(data.combinedTotals.balance)} YER`])}
   </table>`;
 
-  body += pdfSignatures(['المهندس', 'المدير', 'المدير المالي']);
+  body += pdfSignatures([
+    { title: 'المهندس' },
+    { title: 'المدير' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(data.generatedAt);
 
   return pdfWrap(`التقرير الختامي المجمع - ${data.projectNames.join(' + ')}`, body);

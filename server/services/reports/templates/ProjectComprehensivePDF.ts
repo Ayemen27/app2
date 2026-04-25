@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function kpiDisplay(kpi: ReportKPI): { value: string; color?: string } {
   switch (kpi.format) {
@@ -280,7 +281,11 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     body += `</tbody></table>`;
   }
 
-  body += pdfSignatures(['مدير المشروع', 'المهندس المسؤول', 'المحاسب']);
+  body += pdfSignatures([
+    { title: 'مدير المشروع', name: data.project.managerName },
+    { title: 'المهندس المسؤول', name: data.project.engineerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(data.generatedAt);
 
   return pdfWrap('التقرير الشامل للمشروع', body);

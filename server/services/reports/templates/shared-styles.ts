@@ -292,13 +292,22 @@ export function xlFooter(ws: ExcelJS.Worksheet, rowNum: number, colCount: number
   return rowNum + 1;
 }
 
-export function xlSignatures(ws: ExcelJS.Worksheet, rowNum: number, names: string[], colRanges: [number, number][]): number {
+export function xlSignatures(
+  ws: ExcelJS.Worksheet,
+  rowNum: number,
+  blocks: Array<string | { title: string; name?: string | null }>,
+  colRanges: [number, number][],
+): number {
   const r = ws.getRow(rowNum);
-  r.height = 65;
-  names.forEach((name, i) => {
+  r.height = 75;
+  blocks.forEach((block, i) => {
+    const title = typeof block === 'string' ? block : block.title;
+    const name = typeof block === 'string' ? '' : (block.name || '').trim();
     ws.mergeCells(rowNum, colRanges[i][0], rowNum, colRanges[i][1]);
     const c = r.getCell(colRanges[i][0]);
-    c.value = `${name}\n\n.................................\nالتاريخ:     /     /`;
+    c.value = name
+      ? `${title}\nالاسم: ${name}\n.................................\nالتوقيع:                التاريخ:     /     /`
+      : `${title}\n\n.................................\nالتاريخ:     /     /`;
     c.font = { bold: true, size: 10, name: 'Calibri' };
     c.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
     c.border = BORDER;
@@ -506,7 +515,9 @@ table tbody tr:hover { background: #E3EBF3; }
   margin-top: 16px; display: flex; justify-content: space-around; padding: 0 6px;
 }
 .sig-block { text-align: center; min-width: 140px; }
-.sig-block .sig-title { font-size: 10px; font-weight: 700; margin-bottom: 24px; color: ${PDF_COLORS.navy}; }
+.sig-block .sig-title { font-size: 10px; font-weight: 700; margin-bottom: 6px; color: ${PDF_COLORS.navy}; }
+.sig-block .sig-name { font-size: 10px; font-weight: 700; color: ${PDF_COLORS.navy}; margin-bottom: 18px; min-height: 13px; }
+.sig-block .sig-name-empty { color: transparent; }
 .sig-block .sig-line { border-top: 2px solid ${PDF_COLORS.navy}; padding-top: 4px; font-size: 9px; color: ${PDF_COLORS.textMuted}; }
 .report-footer {
   text-align: center; font-size: 8px; color: ${PDF_COLORS.textMuted};
@@ -624,10 +635,30 @@ export function pdfGrandTotalRow(cells: string[], colspan?: number): string {
   return `<tr class="grand-total-row">${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
 }
 
-export function pdfSignatures(names: string[]): string {
-  return `<div class="signatures">${names.map(n =>
-    `<div class="sig-block"><div class="sig-title">${n}</div><div class="sig-line">التوقيع والختم</div></div>`
-  ).join('')}</div>`;
+export interface SignatureBlock {
+  title: string;
+  name?: string | null;
+}
+
+/**
+ * تذييل التوقيعات. يقبل إما:
+ *  - string[]  → عناوين فقط (التوافق الخلفي)
+ *  - SignatureBlock[]  → عنوان + اسم اختياري (يظهر فوق خط التوقيع)
+ *
+ * إذا تُرك الاسم فارغًا، يظهر العنوان وخط التوقيع فقط (السلوك القديم).
+ */
+export function pdfSignatures(blocks: Array<string | SignatureBlock>): string {
+  const items = blocks.map(b => (typeof b === 'string' ? { title: b } : b));
+  return `<div class="signatures">${items.map(b => {
+    const nameLine = b.name && b.name.trim()
+      ? `<div class="sig-name">${escapeHtml(b.name.trim())}</div>`
+      : `<div class="sig-name sig-name-empty">&nbsp;</div>`;
+    return `<div class="sig-block">
+      <div class="sig-title">${escapeHtml(b.title)}</div>
+      ${nameLine}
+      <div class="sig-line">التوقيع والختم</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 export function pdfFooter(generatedAt: string): string {

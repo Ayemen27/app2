@@ -2031,16 +2031,48 @@ export class ReportDataService {
       const costPerWell = totalWells > 0 ? totalExpenses / totalWells : 0;
       const costPerWorkerDay = totalWorkDays > 0 ? totalExpenses / totalWorkDays : 0;
 
+      // ✅ حساب عدد الألواح المشتراة/المتوفرة في المخزون لهذا المشروع
+      // يُستخدم لإظهار بطاقة "عدد الألواح" في التقرير عند وجود ألواح فعليًا
+      let totalPanelsCount = 0;
+      try {
+        const panelsRes = await client.query(`
+          SELECT COALESCE(SUM(safe_numeric(quantity::text)), 0) AS total
+          FROM material_purchases
+          WHERE project_id = $1
+            AND purchase_date::date >= $2::date
+            AND purchase_date::date <= $3::date
+            AND (
+              material_category ILIKE '%لوح%' OR material_category ILIKE '%ألواح%'
+              OR material_name ILIKE '%لوح%' OR material_name ILIKE '%ألواح%'
+              OR material_category ILIKE '%panel%' OR material_name ILIKE '%panel%'
+            )
+        `, [projectId, effectiveDateFrom, effectiveDateTo]);
+        totalPanelsCount = safeNum(panelsRes.rows[0]?.total) || 0;
+      } catch (e) {
+        totalPanelsCount = 0;
+      }
+      // إن وُجدت ألواح في الآبار فعليًا (totalPanels من جدول wells)، نأخذ الأكبر
+      const panelsForCard = Math.max(totalPanelsCount, totalPanels);
+
+      // ✅ بطاقات KPI الأساسية (تظهر دائمًا)
       const kpis: import('../../../shared/report-types').ReportKPI[] = [
         { label: 'إجمالي الإيرادات', value: totalIncome, format: 'currency' },
         { label: 'إجمالي المصروفات', value: totalExpenses, format: 'currency' },
         { label: 'الرصيد', value: balance, format: 'currency' },
         { label: 'عدد العمال', value: totalWorkers, format: 'number' },
-        { label: 'عدد الآبار', value: totalWells, format: 'number' },
         { label: 'أيام العمل', value: totalWorkDays, format: 'days' },
-        { label: 'تكلفة / بئر', value: costPerWell, format: 'currency' },
         { label: 'تكلفة / عامل / يوم', value: costPerWorkerDay, format: 'currency' },
       ];
+      // ✅ بطاقات خاصة بمشاريع الآبار فقط — تُضاف فقط عند وجود آبار فعلية
+      // يمنع ظهور "عدد الآبار = 0" و"تكلفة/بئر = 0" في مشاريع غير الآبار
+      if (totalWells > 0) {
+        kpis.splice(4, 0, { label: 'عدد الآبار', value: totalWells, format: 'number' });
+        kpis.push({ label: 'تكلفة / بئر', value: costPerWell, format: 'currency' });
+      }
+      // ✅ بطاقة "عدد الألواح" — تظهر فقط عند وجود ألواح مُشتراة أو في المخزون
+      if (panelsForCard > 0) {
+        kpis.push({ label: 'عدد الألواح', value: panelsForCard, format: 'number' });
+      }
       if (budgetUtilization !== undefined) {
         kpis.push({ label: 'نسبة استخدام الميزانية', value: budgetUtilization, format: 'percentage' });
       }

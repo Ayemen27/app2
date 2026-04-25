@@ -18,6 +18,7 @@ export interface ReportHeader {
   website?: string | null;
   logo_url?: string | null;
   footer_text?: string | null;
+  accountant_name?: string | null; // اسم المحاسب الافتراضي في تذييل التقارير
   primary_color: string;   // hex like #1B2A4A
   secondary_color: string;
   accent_color: string;
@@ -32,6 +33,7 @@ export const DEFAULT_REPORT_HEADER: ReportHeader = {
   website: null,
   logo_url: null,
   footer_text: null,
+  accountant_name: null,
   primary_color: '#15807F',
   secondary_color: '#0F6B6B',
   accent_color: '#F4A14B',

@@ -128,7 +128,7 @@ export function decorateTitleWithProject(title: string, projectName?: string | n
 }
 
 export async function generateTablePDF(options: TablePDFOptions): Promise<boolean> {
-  const { ensureBrandingLoaded, getBranding } = await import('@/lib/report-branding');
+  const { ensureBrandingLoaded, getBranding, getReportEngineer } = await import('@/lib/report-branding');
   await ensureBrandingLoaded();
   // 🏗️ توحيد تلقائي: دمج اسم المشروع (من القيمة المُمرَّرة أو من localStorage) + إزالة "تاريخ الإصدار" من subtitle
   const autoProj = _autoProjectName(options.projectName);
@@ -138,6 +138,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
     subtitle: _stripIssueDate(options.subtitle),
   };
   const _b = getBranding();
+  const engineerName = getReportEngineer() || '';
 
   const containerWidth = options.orientation === 'landscape' ? 1122 : 794;
   const colCount = options.columns.length;
@@ -198,7 +199,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
       ${buildLetterheadHeader(options.reportTitle)}
       ${options.subtitle ? `<div style="text-align:center;padding:6px 16px 2px;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}
-      <table style="width:auto;max-width:calc(100% - 32px);border-collapse:collapse;margin:12px auto;table-layout:auto;border:1.5px solid ${borderColor};">
+      <table style="width:calc(100% - 32px);border-collapse:collapse;margin:12px auto;table-layout:fixed;border:1.5px solid ${borderColor};">
         <thead>
           <tr style="background:${accColor};color:#fff;">${headerCells}</tr>
         </thead>
@@ -208,7 +209,7 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
         </tbody>
       </table>
       <div style="display:flex;justify-content:space-around;padding:20px 40px;margin-top:10px;">
-        <div style="text-align:center;font-size:10px;"><b>توقيع المهندس</b><br/>.................................</div>
+        <div style="text-align:center;font-size:10px;"><b>توقيع المهندس</b><br/><span style="font-size:11px;font-weight:700;color:#1E3A8A;">${engineerName || '.................................'}</span></div>
         <div style="text-align:center;font-size:10px;"><b>توقيع مدير المشروع</b><br/>.................................</div>
         <div style="text-align:center;font-size:10px;"><b>توقيع المدير العام</b><br/>.................................</div>
       </div>

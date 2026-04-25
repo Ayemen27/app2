@@ -2964,7 +2964,7 @@ function DailyExpensesContent() {
           amountStr: t.amount.toLocaleString('en-US')
         })),
         filename: `مصروفات_يومية_${selectedDate || new Date().toISOString().split('T')[0]}`,
-        orientation: "landscape",
+        orientation: "portrait",
       });
       
       if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });

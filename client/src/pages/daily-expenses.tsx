@@ -195,7 +195,17 @@ function DailyExpensesContent() {
   const [purchaseWellIds, setPurchaseWellIds] = useState<number[]>([]);
   const [purchaseTeamNames, setPurchaseTeamNames] = useState<string[]>([]);
   const [editingMaterialPurchaseId, setEditingMaterialPurchaseId] = useState<string | null>(null);
-  const [purchaseAddToInventory, setPurchaseAddToInventory] = useState<boolean>(false);
+  // وجهة إضافة المادة للمخزن: none = بدون | equipment = أصول/معدات | consumable = مواد مستهلكة
+  const [purchaseInventoryDest, setPurchaseInventoryDest] = useState<'none' | 'equipment' | 'consumable'>('none');
+  const purchaseAddToInventory = purchaseInventoryDest === 'equipment';
+  const setPurchaseAddToInventory = (val: boolean) => setPurchaseInventoryDest(val ? 'equipment' : 'none');
+
+  // وضع نموذج المخزن: شراء جديد أو صرف من المخزن
+  const [purchaseFormMode, setPurchaseFormMode] = useState<'purchase' | 'issue'>('purchase');
+  // حقول نموذج الصرف من المخزن
+  const [issueItemId, setIssueItemId] = useState<string>("");
+  const [issueQuantity, setIssueQuantity] = useState<string>("");
+  const [issueNotes, setIssueNotes] = useState<string>("");
 
   // Worker transfer form
   const [workerTransferWorkerId, setWorkerTransferWorkerId] = useState<string>("");
@@ -1277,6 +1287,13 @@ function DailyExpensesContent() {
       return apiRequest("/api/material-purchases", "POST", data);
     },
     onSuccess: () => {
+      // التقاط القيم قبل الـ reset لاستخدامها في الاستلام في المخزن إن لزم
+      const wasConsumable = purchaseInventoryDest === 'consumable';
+      const itemName = purchaseMaterialName.trim();
+      const qty = parseFloat(purchaseQuantity) || 0;
+      const unitV = purchaseUnit.trim() || 'وحدة';
+      const price = parseFloat(purchaseUnitPrice) || 0;
+
       refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
@@ -1285,6 +1302,20 @@ function DailyExpensesContent() {
         title: "تم إضافة الشراء",
         description: "تم إضافة شراء المواد بنجاح",
       });
+
+      // عند اختيار "مواد مستهلكة": أضف للمخزن FIFO عبر API منفصل
+      if (wasConsumable && itemName && qty > 0) {
+        receiveInventoryMutation.mutate({
+          itemName,
+          category: 'مواد بناء',
+          unit: unitV,
+          quantity: qty,
+          unitCost: price,
+          receiptDate: selectedDate,
+          projectId: (selectedProjectId && !isAllProjects) ? selectedProjectId : undefined,
+          notes: `استلام تلقائي من شراء: ${itemName}`,
+        });
+      }
     },
     onError: async (error: any) => {
       if (purchaseMaterialName) saveAutocompleteValue('materialNames', purchaseMaterialName).catch(() => {});
@@ -1400,6 +1431,79 @@ function DailyExpensesContent() {
     }
   });
 
+  // Mutation: استلام مادة في المخزن (للمواد المستهلكة) — تُستدعى بعد إنشاء material_purchase بنجاح
+  const receiveInventoryMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/inventory/receive', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stock'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/transactions'] });
+      toast({ title: "تم تحديث المخزن", description: "تم استلام المادة في المخزن (مواد مستهلكة)" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "تنبيه",
+        description: `الشراء حُفظ، لكن فشل تحديث المخزن: ${error?.message || 'خطأ غير معروف'}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation: صرف من المخزن
+  const issueInventoryMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/inventory/issue', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stock'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/transactions'] });
+      resetIssueForm();
+      toast({ title: "تم الصرف", description: "تم صرف المادة من المخزن بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "فشل الصرف",
+        description: error?.message || "حدث خطأ أثناء الصرف من المخزن",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // قائمة عناصر المخزن المتاحة (تُحمَّل عند فتح وضع الصرف فقط)
+  const { data: inventoryStockResp } = useQuery<any>({
+    queryKey: ['/api/inventory/stock', selectedProjectId],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (selectedProjectId && !isAllProjects) p.set('projectId', selectedProjectId);
+      return fetch(`/api/inventory/stock?${p.toString()}`, { credentials: 'include' }).then(r => r.json());
+    },
+    enabled: purchaseFormMode === 'issue',
+    staleTime: 30_000,
+  });
+  const inventoryStock: any[] = Array.isArray(inventoryStockResp?.data) ? inventoryStockResp.data : [];
+
+  const handleIssueFromInventory = () => {
+    if (!selectedProjectId || isAllProjects) {
+      toast({ title: "خطأ", description: "يرجى اختيار مشروع محدد قبل الصرف", variant: "destructive" });
+      return;
+    }
+    if (!issueItemId) {
+      toast({ title: "خطأ", description: "يرجى اختيار المادة من المخزن", variant: "destructive" });
+      return;
+    }
+    const qty = parseFloat(issueQuantity) || 0;
+    if (qty <= 0) {
+      toast({ title: "خطأ", description: "يرجى إدخال كمية صحيحة", variant: "destructive" });
+      return;
+    }
+    issueInventoryMutation.mutate({
+      itemId: parseInt(issueItemId),
+      quantity: qty,
+      toProjectId: selectedProjectId,
+      transactionDate: selectedDate,
+      notes: issueNotes.trim() || undefined,
+    });
+  };
+
   const resetMaterialPurchaseForm = () => {
     setPurchaseMaterialName("");
     setPurchaseQuantity("");
@@ -1412,7 +1516,13 @@ function DailyExpensesContent() {
     setPurchaseWellIds([]);
     setPurchaseCrewTypes([]);
     setEditingMaterialPurchaseId(null);
-    setPurchaseAddToInventory(false);
+    setPurchaseInventoryDest('none');
+  };
+
+  const resetIssueForm = () => {
+    setIssueItemId("");
+    setIssueQuantity("");
+    setIssueNotes("");
   };
 
   const handleEditMaterialPurchase = (purchase: any) => {
@@ -1427,8 +1537,11 @@ function DailyExpensesContent() {
     setPurchaseWellIds(purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []));
     setPurchaseCrewTypes(purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : []);
     setEditingMaterialPurchaseId(purchase.id);
-    setPurchaseAddToInventory(purchase.addToInventory || purchase.add_to_inventory || false);
+    // التعديل يدعم فقط الأصول حالياً (نفس السلوك السابق). 'consumable' للإضافات الجديدة فقط.
+    const isAsset = !!(purchase.addToInventory || purchase.add_to_inventory || purchase.equipmentId || purchase.equipment_id);
+    setPurchaseInventoryDest(isAsset ? 'equipment' : 'none');
     setIsMaterialsExpanded(true);
+    setPurchaseFormMode('purchase');
   };
 
   const handleAddMaterialPurchase = () => {
@@ -3761,6 +3874,36 @@ function DailyExpensesContent() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-2">
+                    {/* مفتاح التبديل بين نموذج الشراء ونموذج الصرف من المخزن */}
+                    <div className="flex gap-2 mb-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={purchaseFormMode === 'purchase' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => setPurchaseFormMode('purchase')}
+                        data-testid="button-mode-purchase"
+                      >
+                        <Plus className="ml-1 h-4 w-4" />
+                        شراء جديد
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={purchaseFormMode === 'issue' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => {
+                          if (editingMaterialPurchaseId) resetMaterialPurchaseForm();
+                          setPurchaseFormMode('issue');
+                        }}
+                        data-testid="button-mode-issue"
+                      >
+                        <TrendingDown className="ml-1 h-4 w-4" />
+                        صرف من المخزن
+                      </Button>
+                    </div>
+
+                    {purchaseFormMode === 'purchase' && (
                     <div className="space-y-3 mb-3 p-3 bg-muted/20 rounded-lg border border-dashed border-green-300">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -3869,21 +4012,49 @@ function DailyExpensesContent() {
                           placeholder="ملاحظات (اختياري)"
                         />
                       </div>
-                      {/* Add to Inventory Checkbox */}
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                        <Checkbox
-                          id="quickPurchaseAddToInventory"
-                          checked={purchaseAddToInventory}
-                          onCheckedChange={(checked) => setPurchaseAddToInventory(checked === true)}
-                          data-testid="checkbox-quick-add-to-inventory"
-                        />
-                        <Label
-                          htmlFor="quickPurchaseAddToInventory"
-                          className="text-sm font-medium text-blue-700 dark:text-blue-300 cursor-pointer flex items-center gap-2"
-                        >
+                      {/* وجهة الإضافة للمخزن */}
+                      <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <Label className="text-xs font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2 mb-2">
                           <Package className="h-4 w-4" />
-                          إضافة للمخزن (المعدات)
+                          إضافة للمخزن
                         </Label>
+                        <RadioGroup
+                          value={purchaseInventoryDest}
+                          onValueChange={(v: any) => setPurchaseInventoryDest(v)}
+                          className="grid grid-cols-3 gap-2"
+                        >
+                          <label
+                            htmlFor="dest-none"
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs ${purchaseInventoryDest === 'none' ? 'bg-white dark:bg-gray-800 border-blue-400' : 'bg-transparent border-blue-200/50'}`}
+                          >
+                            <RadioGroupItem value="none" id="dest-none" data-testid="radio-dest-none" />
+                            <span>بدون</span>
+                          </label>
+                          <label
+                            htmlFor="dest-equipment"
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs ${purchaseInventoryDest === 'equipment' ? 'bg-white dark:bg-gray-800 border-blue-400' : 'bg-transparent border-blue-200/50'}`}
+                          >
+                            <RadioGroupItem value="equipment" id="dest-equipment" data-testid="radio-dest-equipment" />
+                            <span>أصول (معدات)</span>
+                          </label>
+                          <label
+                            htmlFor="dest-consumable"
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs ${purchaseInventoryDest === 'consumable' ? 'bg-white dark:bg-gray-800 border-blue-400' : 'bg-transparent border-blue-200/50'} ${editingMaterialPurchaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <RadioGroupItem
+                              value="consumable"
+                              id="dest-consumable"
+                              data-testid="radio-dest-consumable"
+                              disabled={!!editingMaterialPurchaseId}
+                            />
+                            <span>مواد مستهلكة</span>
+                          </label>
+                        </RadioGroup>
+                        {purchaseInventoryDest === 'consumable' && (
+                          <p className="text-[10px] text-blue-600 dark:text-blue-300 mt-2">
+                            سيتم إضافة الكمية إلى المخزن (FIFO) تلقائياً بعد حفظ الشراء.
+                          </p>
+                        )}
                       </div>
                       {isWellsProject && (
                         <div className="grid grid-cols-3 gap-2">
@@ -3929,7 +4100,82 @@ function DailyExpensesContent() {
                         )}
                       </div>
                     </div>
-                    
+                    )}
+
+                    {/* نموذج الصرف من المخزن (مواد مستهلكة) */}
+                    {purchaseFormMode === 'issue' && (
+                      <div className="space-y-3 mb-3 p-3 bg-muted/20 rounded-lg border border-dashed border-red-300">
+                        <div>
+                          <Label className="text-xs">المادة من المخزن *</Label>
+                          <SearchableSelect
+                            value={issueItemId}
+                            onValueChange={setIssueItemId}
+                            options={inventoryStock.map((item: any) => ({
+                              value: String(item.id ?? item.item_id ?? ''),
+                              label: `${item.name || item.item_name || 'بدون اسم'} — متاح: ${parseFloat(item.available || item.quantity_available || item.balance || 0).toFixed(2)} ${item.unit || ''}`,
+                            }))}
+                            placeholder={inventoryStock.length === 0 ? "لا توجد مواد في المخزن" : "اختر المادة..."}
+                            data-testid="select-issue-item"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">الكمية المنصرفة *</Label>
+                            <Input
+                              type="number"
+                              value={issueQuantity}
+                              onChange={(e) => setIssueQuantity(e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              step="0.001"
+                              data-testid="input-issue-quantity"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">التاريخ</Label>
+                            <Input
+                              type="text"
+                              value={selectedDate}
+                              disabled
+                              className="bg-muted"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">سبب الصرف / ملاحظات</Label>
+                          <Input
+                            value={issueNotes}
+                            onChange={(e) => setIssueNotes(e.target.value)}
+                            placeholder="مثال: استخدام في موقع البئر..."
+                            data-testid="input-issue-notes"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleIssueFromInventory}
+                            disabled={issueInventoryMutation.isPending || !issueItemId || !issueQuantity}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                            data-testid="button-submit-issue"
+                          >
+                            {issueInventoryMutation.isPending ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent ml-2" />
+                            ) : (
+                              <TrendingDown className="ml-2 h-4 w-4" />
+                            )}
+                            تأكيد الصرف
+                          </Button>
+                          <Button variant="outline" onClick={resetIssueForm} data-testid="button-reset-issue">
+                            مسح
+                          </Button>
+                        </div>
+                        {inventoryStock.length === 0 && (
+                          <p className="text-[11px] text-muted-foreground text-center pt-2">
+                            المخزن فارغ. أضف مواد عبر "شراء جديد" مع اختيار "مواد مستهلكة" أولاً.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {safeMaterialPurchases.length > 0 && (
                       <div className="mt-3 space-y-2">
                         {safeMaterialPurchases.map((purchase: any, index: number) => {

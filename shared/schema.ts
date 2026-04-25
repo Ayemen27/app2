@@ -498,6 +498,14 @@ export const materials = pgTable("materials", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// أنواع شراء غير مالية - تستخدم للتوثيق فقط، يجب استبعادها من جميع الحسابات المالية والمديونيات
+export const NON_FINANCIAL_PURCHASE_TYPES = ['صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل'] as const;
+export type NonFinancialPurchaseType = typeof NON_FINANCIAL_PURCHASE_TYPES[number];
+export const isNonFinancialPurchaseType = (t?: string | null): boolean =>
+  !!t && (NON_FINANCIAL_PURCHASE_TYPES as readonly string[]).includes(t);
+// أنواع شراء مالية معروفة (للفلاتر والإحصائيات)
+export const FINANCIAL_PURCHASE_TYPES = ['نقد', 'نقداً', 'آجل', 'أجل', 'مخزن', 'توريد', 'مخزني'] as const;
+
 // Material purchases - محسن للمحاسبة الصحيحة
 export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

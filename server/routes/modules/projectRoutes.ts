@@ -893,8 +893,8 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
           `),
           db.execute(sql`
             SELECT
-              COUNT(*) as material_purchases,
-              COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as material_expenses
+              COUNT(*) FILTER (WHERE purchase_type NOT IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')) as material_purchases,
+              COALESCE(SUM(safe_numeric(total_amount::text, 0)) FILTER (WHERE purchase_type NOT IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')), 0) as material_expenses
             FROM material_purchases
             WHERE project_id = ${id}
           `),

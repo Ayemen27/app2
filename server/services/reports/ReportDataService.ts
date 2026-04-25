@@ -360,10 +360,10 @@ export class ReportDataService {
       pool.query(`
         SELECT
           supplier_name,
-          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
             THEN safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)
             ELSE 0 END), 0) AS previous_debt,
-          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
             THEN safe_numeric(total_amount::text, 0)
             ELSE 0 END), 0) AS today_purchases,
           COALESCE((
@@ -378,7 +378,7 @@ export class ReportDataService {
         WHERE project_id = $1
           AND supplier_name IS NOT NULL AND supplier_name <> ''
           AND supplier_name <> '-'
-          AND purchase_type NOT IN ('نقد', 'نقداً')
+          AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
         GROUP BY supplier_name
         HAVING
           SUM(CASE WHEN purchase_date::date < $2::date

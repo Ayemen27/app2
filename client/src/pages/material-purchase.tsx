@@ -3,7 +3,7 @@ import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp, Building2, Calendar, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp, Building2, Calendar, FileSpreadsheet, ArrowRightLeft, Wrench, ArrowUpFromLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -836,17 +836,23 @@ export default function MaterialPurchase() {
     });
   }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
-  // Calculate stats
-  const stats = useMemo(() => ({
-    total: allMaterialPurchases.length,
-    cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
-    credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
-    supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
-    totalValue: allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
-    avgValue: allMaterialPurchases.length > 0 
-      ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
-      : 0,
-  }), [allMaterialPurchases]);
+  // Calculate stats - تستثني النوع غير المالي من حسابات المبالغ
+  const NON_FIN = ['صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل'];
+  const stats = useMemo(() => {
+    const financialOnly = allMaterialPurchases.filter((p: any) => !NON_FIN.includes(p.purchaseType));
+    const totalValueFinancial = financialOnly.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0);
+    return {
+      total: allMaterialPurchases.length,
+      cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
+      credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
+      supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
+      transferConsumable: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقل مواد مستهلكة').length,
+      transferAsset: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقل أصل').length,
+      issueFromStock: allMaterialPurchases.filter((p: any) => p.purchaseType === 'صرف مخزن').length,
+      totalValue: totalValueFinancial,
+      avgValue: financialOnly.length > 0 ? totalValueFinancial / financialOnly.length : 0,
+    };
+  }, [allMaterialPurchases]);
 
   // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ
   // THIS IS THE LINE THAT WAS REMOVED: const materialPurchases = filteredPurchases;
@@ -957,7 +963,7 @@ export default function MaterialPurchase() {
         },
         {
           key: 'totalValue',
-          label: 'إجمالي القيمة',
+          label: 'إجمالي القيمة (المالية فقط)',
           value: formatCurrency(stats.totalValue),
           icon: TrendingUp,
           color: 'teal',
@@ -968,6 +974,33 @@ export default function MaterialPurchase() {
           value: formatCurrency(stats.avgValue),
           icon: ChartGantt,
           color: 'indigo',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'transferConsumable',
+          label: 'مواد منقولة من مشاريع',
+          value: stats.transferConsumable,
+          icon: ArrowRightLeft,
+          color: 'yellow',
+        },
+        {
+          key: 'transferAsset',
+          label: 'أصول منقولة من مشاريع',
+          value: stats.transferAsset,
+          icon: Wrench,
+          color: 'orange',
+        },
+        {
+          key: 'issueFromStock',
+          label: 'صرف من المخزن',
+          value: stats.issueFromStock,
+          icon: ArrowUpFromLine,
+          color: 'blue',
         },
       ]
     }
@@ -1000,7 +1033,10 @@ export default function MaterialPurchase() {
         { value: 'all', label: 'جميع الأنواع' },
         { value: 'نقد', label: 'نقد' },
         { value: 'آجل', label: 'آجل' },
-        { value: 'توريد', label: 'توريد' }
+        { value: 'توريد', label: 'توريد' },
+        { value: 'صرف مخزن', label: 'صرف من المخزن' },
+        { value: 'نقل مواد مستهلكة', label: 'نقل مواد بين مشاريع' },
+        { value: 'نقل أصل', label: 'نقل أصل بين مشاريع' },
       ],
     },
     {
@@ -1526,21 +1562,40 @@ export default function MaterialPurchase() {
               const isCash = purchaseType === 'نقد';
               const isCredit = purchaseType === 'آجل' || purchaseType === 'أجل';
               const isStorage = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+              const isTransferConsumable = purchaseType === 'نقل مواد مستهلكة';
+              const isTransferAsset = purchaseType === 'نقل أصل';
+              const isIssueFromStock = purchaseType === 'صرف مخزن';
+              const isNonFinancial = isTransferConsumable || isTransferAsset || isIssueFromStock;
 
-              const headerColor = isCash ? '#22c55e' : isCredit ? '#f97316' : isStorage ? '#3b82f6' : '#6366f1'; 
+              const headerColor = isCash ? '#22c55e'
+                : isCredit ? '#f97316'
+                : isStorage ? '#3b82f6'
+                : isTransferConsumable ? '#eab308'
+                : isTransferAsset ? '#a855f7'
+                : isIssueFromStock ? '#0ea5e9'
+                : '#6366f1';
+
+              const cardIcon = isTransferConsumable ? ArrowRightLeft
+                : isTransferAsset ? Wrench
+                : isIssueFromStock ? ArrowUpFromLine
+                : ShoppingCart;
 
               return (
                 <UnifiedCard
                   key={purchase.id}
                   title={purchase.materialName || 'مادة غير محددة'}
                   subtitle={formatDate(purchase.purchaseDate)}
-                  titleIcon={ShoppingCart}
+                  titleIcon={cardIcon}
                   headerColor={headerColor}
                   badges={[
                     {
                       label: purchaseType,
-                      variant: (isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'default' : 'default') as "success" | "warning" | "default",
-                    }
+                      variant: (isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'default' : isNonFinancial ? 'secondary' : 'default') as "success" | "warning" | "default" | "secondary",
+                    },
+                    ...(isNonFinancial ? [{
+                      label: 'توثيق فقط (لا أثر مالي)',
+                      variant: 'outline' as "outline",
+                    }] : []),
                   ]}
                   fields={[
                     ...(isAllProjects || !selectedProjectId ? [{

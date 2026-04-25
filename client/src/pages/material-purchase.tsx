@@ -3,7 +3,7 @@ import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp, Building2, Calendar, FileSpreadsheet, ArrowRightLeft, Wrench, ArrowUpFromLine } from "lucide-react";
+import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp, Building2, Calendar, FileSpreadsheet, ArrowRightLeft, Wrench, ArrowUpFromLine, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ export default function MaterialPurchase() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     if (key === 'selectedDate') {
@@ -1053,6 +1054,63 @@ export default function MaterialPurchase() {
     },
   ], [materialCategories]);
 
+  // Export to PDF function
+  const handleExportPdf = useCallback(async () => {
+    if (filteredPurchases.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const totalAmount = filteredPurchases.reduce((sum: number, p: any) => sum + Number(p.totalAmount || 0), 0);
+      const totalPaid = filteredPurchases.reduce((sum: number, p: any) => sum + Number(p.paidAmount || 0), 0);
+      const totalRemaining = filteredPurchases.reduce((sum: number, p: any) => sum + Number(p.remainingAmount || 0), 0);
+
+      const data = filteredPurchases.map((purchase: any, idx: number) => ({
+        index: idx + 1,
+        date: purchase.purchaseDate ? format(new Date(purchase.purchaseDate), "dd/MM/yyyy") : "-",
+        material: purchase.materialName || purchase.material?.name || "-",
+        quantity: `${purchase.quantity || 0} ${purchase.materialUnit || purchase.unit || ""}`,
+        unitPrice: formatCurrency(Number(purchase.unitPrice || 0)),
+        totalAmount: formatCurrency(Number(purchase.totalAmount || 0)),
+        paidAmount: formatCurrency(Number(purchase.paidAmount || 0)),
+        remainingAmount: formatCurrency(Number(purchase.remainingAmount || 0)),
+        supplier: purchase.supplierName || "-",
+        paymentType: purchase.purchaseType || "-",
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف مشتريات المواد",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي المشتريات", value: formatCurrency(totalAmount) },
+          { label: "إجمالي المدفوع", value: formatCurrency(totalPaid) },
+          { label: "إجمالي المتبقي", value: formatCurrency(totalRemaining) },
+        ],
+        columns: [
+          { header: "م", key: "index", width: 5 },
+          { header: "التاريخ", key: "date", width: 12 },
+          { header: "المادة", key: "material", width: 20 },
+          { header: "الكمية", key: "quantity", width: 12 },
+          { header: "سعر الوحدة", key: "unitPrice", width: 12 },
+          { header: "الإجمالي", key: "totalAmount", width: 15 },
+          { header: "المدفوع", key: "paidAmount", width: 15 },
+          { header: "المتبقي", key: "remainingAmount", width: 15 },
+          { header: "المورد", key: "supplier", width: 18 },
+          { header: "طريقة الدفع", key: "paymentType", width: 12 },
+        ],
+        data,
+        filename: `كشف_مشتريات_المواد_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [filteredPurchases, toast]);
+
   // Export to Excel function
   const handleExportExcel = useCallback(async () => {
     if (filteredPurchases.length === 0) {
@@ -1089,6 +1147,16 @@ export default function MaterialPurchase() {
   // تكوين الأزرار الإضافية - زر التصدير
   const actions = useMemo(() => [
     {
+      key: "export-pdf",
+      icon: FileText,
+      label: "تصدير PDF",
+      onClick: handleExportPdf,
+      variant: "outline" as const,
+      loading: isExportingPdf,
+      disabled: filteredPurchases.length === 0,
+      tooltip: "تصدير إلى ملف PDF",
+    },
+    {
       key: 'export',
       label: isExporting ? 'جاري التصدير...' : 'تصدير إكسل',
       icon: FileSpreadsheet,
@@ -1096,7 +1164,7 @@ export default function MaterialPurchase() {
       variant: 'outline' as const,
       disabled: isExporting || filteredPurchases.length === 0,
     }
-  ], [handleExportExcel, isExporting, filteredPurchases.length]);
+  ], [handleExportExcel, handleExportPdf, isExporting, isExportingPdf, filteredPurchases.length]);
 
   return (
     <div className="p-4 slide-in space-y-4">

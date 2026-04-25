@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import SelectedProjectBadge from "@/components/selected-project-badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download, Briefcase } from "lucide-react";
+import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download, Briefcase, FileText, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,6 +75,7 @@ export default function WorkerAttendance() {
   const [showSharedSettings, setShowSharedSettings] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showDateFilter, setShowDateFilter] = useState(true);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -1036,6 +1037,51 @@ export default function WorkerAttendance() {
     return result;
   }, [todayRecords, workers, searchValue, filterValues.dateRange, filterValues.type]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (filteredAttendance.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const data = filteredAttendance.map((record: any, idx: number) => ({
+        index: idx + 1,
+        workerName: record.workerName || '-',
+        projectName: record.projectName || '-',
+        date: record.date || '-',
+        type: record.recordType === 'advance' ? 'سحب' : 'عمل',
+        workDays: record.workDays || '-',
+        amount: record.paidAmount || '-',
+        description: record.workDescription || '-',
+      }));
+      const success = await generateTablePDF({
+        reportTitle: "كشف حضور وانصراف العمال",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي السجلات", value: data.length },
+          { label: "المشروع", value: isAllProjects ? "جميع المشاريع" : (projects.find(p => p.id === selectedProjectId)?.name || selectedProjectId || '-') },
+        ],
+        columns: [
+          { header: 'م', key: 'index', width: 5 },
+          { header: 'اسم العامل', key: 'workerName', width: 20 },
+          { header: 'المشروع', key: 'projectName', width: 15 },
+          { header: 'التاريخ', key: 'date', width: 12 },
+          { header: 'النوع', key: 'type', width: 10 },
+          { header: 'أيام العمل', key: 'workDays', width: 10 },
+          { header: 'المبلغ', key: 'amount', width: 12 },
+          { header: 'الوصف', key: 'description', width: 25 },
+        ],
+        data,
+        filename: `حضور_العمال_${selectedDate || 'تقرير'}`,
+        orientation: "landscape",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [filteredAttendance, selectedProjectId, isAllProjects, projects, selectedDate, toast]);
+
   const stats = useMemo(() => {
     const presentWorkers = filteredAttendance.length;
     const totalWorkDays = filteredAttendance.reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
@@ -1205,6 +1251,16 @@ export default function WorkerAttendance() {
             unit: 'ر.ي',
           } : undefined}
           actions={[
+            {
+              key: 'export-pdf',
+              icon: FileText,
+              label: 'تصدير PDF',
+              onClick: handleExportPdf,
+              variant: 'outline' as const,
+              loading: isExportingPdf,
+              disabled: filteredAttendance.length === 0,
+              tooltip: 'تصدير سجل الحضور إلى ملف PDF'
+            },
             {
               key: 'export',
               icon: Download,

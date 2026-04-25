@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet, ChevronRight, ChevronLeft, BarChart3 } from "lucide-react";
+import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet, ChevronRight, ChevronLeft, BarChart3, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,6 +115,7 @@ function DailyExpensesContent() {
     });
   }, [toast]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
@@ -2848,8 +2849,160 @@ function DailyExpensesContent() {
     await handleExportToExcel();
   }, [handleExportToExcel]);
 
+  const handleExportPdf = useCallback(async () => {
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      
+      const transactions: any[] = [];
+      const carriedAmount = cleanNumber(carriedForward);
+      if (carriedAmount !== 0) {
+        transactions.push({
+          type: 'وارد',
+          category: 'رصيد سابق',
+          details: carriedAmount > 0 ? 'رصيد مرحل (موجب)' : 'عجز مرحل (سالب)',
+          amount: Math.abs(carriedAmount),
+        });
+      }
+
+      filteredFundTransfers.forEach((transfer: any) => {
+        transactions.push({
+          type: 'وارد',
+          category: 'عهدة',
+          details: `عهدة من ${transfer.senderName || 'غير محدد'} - رقم: ${transfer.transferNumber || '-'}`,
+          amount: cleanNumber(transfer.amount),
+        });
+      });
+
+      safeProjectTransfers.forEach((transfer: any) => {
+        const isIncoming = transfer.toProjectId === selectedProjectId;
+        transactions.push({
+          type: isIncoming ? 'وارد' : 'منصرف',
+          category: isIncoming ? 'ترحيل وارد' : 'ترحيل صادر',
+          details: isIncoming 
+            ? `ترحيل من ${projects.find(p => p.id === transfer.fromProjectId)?.name || 'مشروع آخر'}`
+            : `ترحيل إلى ${projects.find(p => p.id === transfer.toProjectId)?.name || 'مشروع آخر'}`,
+          amount: cleanNumber(transfer.amount),
+        });
+      });
+
+      filteredAttendance.forEach((record: any) => {
+        const paidAmount = cleanNumber(record.paidAmount);
+        if (paidAmount > 0) {
+          const worker = workers.find((w: any) => w.id === record.worker_id);
+          transactions.push({
+            type: 'منصرف',
+            category: 'أجور عمال',
+            details: `أجر: ${worker?.name || '-'} | ${record.workDescription || 'أجر يومي'}`,
+            amount: paidAmount,
+          });
+        }
+      });
+
+      filteredTransportation.forEach((expense: any) => {
+        transactions.push({
+          type: 'منصرف',
+          category: 'مواصلات',
+          details: expense.description || 'مصروف مواصلات',
+          amount: cleanNumber(expense.amount),
+        });
+      });
+
+      filteredMaterialPurchases.forEach((purchase: any) => {
+        const pType = purchase.purchaseType || 'نقد';
+        if (pType === 'نقد') {
+          const material = materials.find((m: any) => m.id === purchase.material_id);
+          transactions.push({
+            type: 'منصرف',
+            category: 'مشتريات مواد',
+            details: `شراء ${material?.name || purchase.materialName || 'مادة'} - ${purchase.supplier || '-'}`,
+            amount: cleanNumber(purchase.paidAmount) > 0 ? cleanNumber(purchase.paidAmount) : cleanNumber(purchase.totalAmount),
+          });
+        }
+      });
+
+      filteredWorkerTransfers.forEach((transfer: any) => {
+        const worker = workers.find((w: any) => w.id === transfer.worker_id);
+        transactions.push({
+          type: 'منصرف',
+          category: 'حوالات عمال',
+          details: `حوالة للعامل: ${worker?.name || '-'} | ${transfer.notes || ''}`,
+          amount: cleanNumber(transfer.amount),
+        });
+      });
+
+      filteredMiscExpenses.forEach((expense: any) => {
+        transactions.push({
+          type: 'منصرف',
+          category: 'نثريات',
+          details: expense.description || 'مصروف متنوع',
+          amount: cleanNumber(expense.amount),
+        });
+      });
+
+      const totalIn = transactions.filter(t => t.type === 'وارد').reduce((sum, t) => sum + t.amount, 0);
+      const totalOut = transactions.filter(t => t.type === 'منصرف').reduce((sum, t) => sum + t.amount, 0);
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف المصروفات اليومية",
+        subtitle: `التاريخ: ${selectedDate ? new Date(selectedDate).toLocaleDateString("en-GB") : 'غير محدد'}`,
+        infoItems: [
+          { label: "إجمالي الوارد", value: `${totalIn.toLocaleString('en-US')} ر.ي`, color: "green" },
+          { label: "إجمالي المنصرف", value: `${totalOut.toLocaleString('en-US')} ر.ي`, color: "red" },
+          { label: "الصافي", value: `${(totalIn - totalOut).toLocaleString('en-US')} ر.ي` },
+        ],
+        columns: [
+          { header: 'م', key: 'idx', width: 5 },
+          { header: 'النوع', key: 'type', width: 10 },
+          { header: 'التصنيف', key: 'category', width: 15 },
+          { header: 'البيان والتفاصيل', key: 'details', width: 45 },
+          { header: 'المبلغ', key: 'amountStr', width: 15 },
+        ],
+        data: transactions.map((t, i) => ({ 
+          ...t, 
+          idx: i + 1,
+          amountStr: t.amount.toLocaleString('en-US')
+        })),
+        filename: `مصروفات_يومية_${selectedDate || new Date().toISOString().split('T')[0]}`,
+        orientation: "landscape",
+      });
+      
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [
+    filteredFundTransfers,
+    filteredAttendance,
+    filteredTransportation,
+    filteredMaterialPurchases,
+    filteredWorkerTransfers,
+    filteredMiscExpenses,
+    safeProjectTransfers,
+    workers,
+    materials,
+    projects,
+    selectedProjectId,
+    selectedDate,
+    toast,
+    carriedForward,
+    totalsValue
+  ]);
+
   // تكوين أزرار الإجراءات
   const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'export-pdf',
+      icon: FileText,
+      label: 'تصدير PDF',
+      onClick: handleExportPdf,
+      variant: 'outline',
+      loading: isExportingPdf,
+      tooltip: 'تصدير كشف المصروفات اليومية إلى PDF',
+    },
     {
       key: 'export',
       icon: FileSpreadsheet,
@@ -2859,7 +3012,7 @@ function DailyExpensesContent() {
       loading: isExporting,
       tooltip: 'اختر قالب التصدير إلى Excel',
     }
-  ], [isExporting]);
+  ], [isExporting, isExportingPdf, handleExportPdf]);
 
   // حساب مؤشرات البيانات المتوفرة مع معالجة آمنة
   const dataIndicators = {

@@ -122,6 +122,7 @@ export default function WorkerAccountsPage() {
   const [dateTo, setDateTo] = useState('');
   const [specificDate, setSpecificDate] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showGuardDialog, setShowGuardDialog] = useState(false);
   const [guardData, setGuardData] = useState<FinancialGuardData | null>(null);
   const [allocationMode, setAllocationMode] = useState(false);
@@ -822,6 +823,54 @@ export default function WorkerAccountsPage() {
     setIsRefreshing(false);
   }, [queryClient, selectedProjectId]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (filteredTransfers.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      
+      const data = filteredTransfers.map((transfer, index) => ({
+        index: index + 1,
+        date: formatDate(transfer.transferDate),
+        workerName: workers.find(w => w.id === transfer.worker_id)?.name || "غير معروف",
+        projectName: projects.find(p => p.id === transfer.project_id)?.name || "غير معروف",
+        recipientName: transfer.recipientName,
+        method: getTransferMethodLabel(transfer.transferMethod),
+        amount: formatCurrency(transfer.amount),
+        notes: transfer.notes || "-"
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف حسابات وحوالات العمال",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي الحوالات", value: filteredTransfers.length },
+          { label: "إجمالي المبلغ", value: formatCurrency(filteredTransfers.reduce((s, t) => s + Number(t.amount || 0), 0)) },
+        ],
+        columns: [
+          { header: "م", key: "index", width: 5 },
+          { header: "التاريخ", key: "date", width: 12 },
+          { header: "العامل", key: "workerName", width: 15 },
+          { header: "المشروع", key: "projectName", width: 15 },
+          { header: "المستلم", key: "recipientName", width: 15 },
+          { header: "الطريقة", key: "method", width: 10 },
+          { header: "المبلغ", key: "amount", width: 12 },
+          { header: "ملاحظات", key: "notes", width: 16 },
+        ],
+        data,
+        filename: `كشف_حسابات_العمال_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+      
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [filteredTransfers, workers, projects, toast]);
+
   const exportToExcel = async () => {
     if (filteredTransfers.length === 0) return;
 
@@ -890,6 +939,16 @@ export default function WorkerAccountsPage() {
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
         actions={[
+          {
+            key: "export-pdf",
+            icon: FileText,
+            label: "تصدير PDF",
+            onClick: handleExportPdf,
+            variant: "outline",
+            loading: isExportingPdf,
+            disabled: filteredTransfers.length === 0,
+            tooltip: "تصدير إلى ملف PDF",
+          },
           {
             key: 'export',
             icon: Download,

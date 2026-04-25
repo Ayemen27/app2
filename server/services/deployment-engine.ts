@@ -1481,8 +1481,25 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, `▶ بدء ${stepName}`, "info");
     try {
       const { runTransferStep } = await import("./transfer-pipeline-runner.js");
+
+      // فصل دورة حياة الأصول عن دورة حياة نشر الكود:
+      // رقم النشر (config.version) يخص الكود/APK ويُحدَّث في كل نشر،
+      // بينما أرشيفات الأصول تُرفع يدوياً عبر pack-and-publish.sh ولها دورة مستقلة.
+      // عند السحب من السيرفر نعتمد LATEST.txt بدلاً من فرض رقم النشر،
+      // إلا إذا مرّر المستخدم صراحةً assetsVersion للنشر الحالي.
+      const PULL_FROM_SERVER_STEPS = new Set([
+        "transfer-download",
+        "transfer-decrypt-extract",
+        "transfer-apply-secrets",
+      ]);
+      const isPullStep = PULL_FROM_SERVER_STEPS.has(stepName);
+      const assetsVersionOverride = (config as any).assetsVersion as string | undefined;
+      const versionForStep = isPullStep
+        ? (assetsVersionOverride || undefined)
+        : config.version;
+
       const result = await runTransferStep(stepName, {
-        version: config.version,
+        version: versionForStep,
         force: true, // وضع غير تفاعلي من محرك النشر
         encryptPassphrase: process.env.ENCRYPT_PASSPHRASE,
       });

@@ -36,12 +36,25 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 function sanitizeFileName(name: string): string {
-  const cleaned = name
-    .replace(/\.\./g, '_')
+  // فصل الامتداد لحمايته من التلاعب (مشكلة xl.sx على Android)
+  const cleanedRaw = name
     .replace(/[\/\\:*?"<>|]/g, '_')
     .replace(/[\x00-\x1f\x7f]/g, '')
     .trim();
-  return cleaned.length > 0 ? cleaned.substring(0, 200) : 'download';
+
+  const lastDot = cleanedRaw.lastIndexOf('.');
+  let base = lastDot > 0 ? cleanedRaw.substring(0, lastDot) : cleanedRaw;
+  let ext  = lastDot > 0 ? cleanedRaw.substring(lastDot + 1) : '';
+
+  // استبدال كل النقاط الداخلية بـ _ لمنع تشويش الامتدادات
+  base = base.replace(/\./g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  if (base.length > 180) base = base.substring(0, 180);
+  if (!base) base = 'download';
+
+  // الامتداد: أحرف أبجدية رقمية فقط
+  ext = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  return ext ? `${base}.${ext}` : base;
 }
 
 function sanitizeMimeType(type: string): string {

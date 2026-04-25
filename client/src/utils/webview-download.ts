@@ -89,6 +89,33 @@ function getMimeType(fileName: string, fallback: string): string {
   return ext ? (map[ext] || fallback) : fallback;
 }
 
+/**
+ * تنظيف اسم الملف للمشاركة الآمنة على Android/iOS:
+ * - يحمي الامتداد من الاقتطاع (مشكلة xl.sx) باستبدال كل النقاط الداخلية بـ _
+ * - يُبقي الأحرف العربية والإنجليزية والأرقام والشرطات
+ * - يحدّ الطول إلى 120 محرفاً للاسم الأساسي (بعض الأنظمة تقطع عند 128)
+ */
+function sanitizeFileName(fileName: string): string {
+  const lastDot = fileName.lastIndexOf('.');
+  let base = lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+  let ext  = lastDot > 0 ? fileName.substring(lastDot + 1) : '';
+
+  // استبدل النقاط الداخلية بـ _ لمنع تشويش الامتدادات على Android
+  base = base
+    .replace(/\./g, '_')
+    .replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (base.length > 120) base = base.substring(0, 120);
+  if (!base) base = 'file';
+
+  // الامتداد: ASCII فقط بدون نقاط
+  ext = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  return ext ? `${base}.${ext}` : base;
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -140,7 +167,7 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
     }
 
     const base64Data   = await blobToBase64(blob);
-    const sanitized    = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const sanitized    = sanitizeFileName(fileName);
     const contentType  = getMimeType(sanitized, mimeType);
 
     debugLog('FileSharer', 'START', `${sanitized} (${blob.size} bytes)`);
@@ -178,7 +205,7 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
     const { Share }                 = await import('@capacitor/share');
 
     const base64Data = await blobToBase64(blob);
-    const sanitized  = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const sanitized  = sanitizeFileName(fileName);
 
     debugLog('CapFS', 'WRITING', sanitized);
 
@@ -406,8 +433,8 @@ function downloadForBrowser(blob: Blob, fileName: string): boolean {
  * downloadFile — نقطة دخول موحّدة لتصدير الملفات
  *
  * على Android (Capacitor):
- *   1. FileSharer  → يعرض قائمة المشاركة الأصلية (Save to Downloads + تطبيقات أخرى)
- *   2. CapFS+Share → يكتب في Cache ثم يعرض قائمة المشاركة
+ *   1. CapFS+Share → يكتب الملف في Cache ثم يعرض قائمة المشاركة (الأفضل لاسم الملف)
+ *   2. FileSharer  → احتياطي: يعرض قائمة المشاركة عبر intent extras
  *   3. NativeBridge → جسر Java إن وُجد
  *
  * على الويب / المتصفح:
@@ -437,11 +464,14 @@ export async function downloadFile(
   // ── تطبيق Capacitor (Android / iOS) ──
   // نستدعي الإضافات الأصلية مباشرة بدون فحص isPluginAvailable()
   if (onCapacitor) {
-    // 1. FileSharer — يعرض Share Sheet: يمكن للمستخدم الحفظ في Downloads
-    if (await tryFileSharer(blob, fileName, type)) return true;
-
-    // 2. Filesystem + Share — يكتب الملف في Cache ثم يفتح Share Sheet
+    // 1. Filesystem + Share — يكتب الملف فعلياً على القرص باسمه الكامل،
+    //    فتقرأه WhatsApp/Drive/Gmail من content://URI بالاسم الصحيح.
+    //    هذا الترتيب يضمن ظهور اسم وصفي كامل (تقرير_يومي_2026-04-24.pdf)
+    //    بدلاً من اسم عام مثل "report-daily.pdf" الذي تولّده FileSharer.
     if (await tryCapacitorFsShare(blob, fileName, type)) return true;
+
+    // 2. FileSharer — احتياطي: يعرض Share Sheet عبر intent extras
+    if (await tryFileSharer(blob, fileName, type)) return true;
 
     // 3. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
     if (hasAndroidBridge() || hasIOSBridge()) {

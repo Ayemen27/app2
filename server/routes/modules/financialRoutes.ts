@@ -2572,7 +2572,23 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    const alreadyHasEquipment = !!existing.equipmentId;
+    // التحقق من وجود الأصل المرتبط فعلياً في جدول equipment.
+    // قد يحدث أن يبقى equipmentId مرجعاً يتيماً إذا تم حذف الأصل قبل تطبيق إصلاح تنظيف المرجع.
+    let alreadyHasEquipment = !!existing.equipmentId;
+    if (alreadyHasEquipment) {
+      const eqExistsResult = await pool.query('SELECT 1 FROM equipment WHERE id = $1 LIMIT 1', [existing.equipmentId]);
+      if (eqExistsResult.rowCount === 0) {
+        // مرجع يتيم: نظّفه الآن واسمح بإعادة الإنشاء عند الحفظ بـ "أضف للأصول"
+        await pool.query(
+          'UPDATE material_purchases SET equipment_id = NULL, add_to_inventory = false WHERE id = $1',
+          [req.params.id]
+        );
+        console.log(`🔗 [MaterialPurchases] تنظيف مرجع أصل يتيم (equipmentId=${existing.equipmentId}) للمشتراة ${req.params.id}`);
+        alreadyHasEquipment = false;
+        existing.equipmentId = null;
+        existing.addToInventory = false;
+      }
+    }
     const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
     const purchaseId = req.params.id;
 

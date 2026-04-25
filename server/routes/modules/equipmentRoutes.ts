@@ -307,7 +307,15 @@ equipmentRouter.delete('/:id', async (req: Request, res: Response) => {
 
     await withTransaction(async (client) => {
       await client.query('DELETE FROM equipment_movements WHERE equipment_id = $1', [id]);
+      // تنظيف مرجع الأصل في المشتريات حتى يتمكن المستخدم من إعادة إضافته للأصول لاحقاً
+      const cleanup = await client.query(
+        'UPDATE material_purchases SET equipment_id = NULL, add_to_inventory = false WHERE equipment_id = $1',
+        [id]
+      );
       await client.query('DELETE FROM equipment WHERE id = $1', [id]);
+      if ((cleanup.rowCount ?? 0) > 0) {
+        console.log(`🔗 [Equipment] تم تصفير مرجع الأصل في ${cleanup.rowCount} مشتراة مرتبطة (ID: ${id})`);
+      }
     });
 
     console.log(`✅ [Equipment] تم حذف معدة: ${existing.name} (ID: ${id})`);
@@ -599,7 +607,15 @@ equipmentRouter.post('/bulk-delete', async (req: Request, res: Response) => {
 
     await withTransaction(async (client) => {
       await client.query('DELETE FROM equipment_movements WHERE equipment_id = ANY($1::int[])', [foundIds]);
+      // تنظيف مراجع الأصول في المشتريات حتى يتمكن المستخدم من إعادة إضافتها للأصول لاحقاً
+      const cleanup = await client.query(
+        'UPDATE material_purchases SET equipment_id = NULL, add_to_inventory = false WHERE equipment_id = ANY($1::int[])',
+        [foundIds]
+      );
       await client.query('DELETE FROM equipment WHERE id = ANY($1::int[])', [foundIds]);
+      if ((cleanup.rowCount ?? 0) > 0) {
+        console.log(`🔗 [Equipment] تم تصفير مرجع الأصل في ${cleanup.rowCount} مشتراة مرتبطة بحذف جماعي`);
+      }
     });
 
     console.log(`✅ [Equipment] حذف جماعي: ${foundIds.length} معدة`);

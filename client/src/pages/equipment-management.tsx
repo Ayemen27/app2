@@ -1257,7 +1257,7 @@ export function EquipmentManagement() {
                   );
                 })}
               </UnifiedCardGrid>
-              {assetSelectionMode && <div className="h-24" aria-hidden="true" />}
+              {assetSelectionMode && <div className="h-40 md:h-24" aria-hidden="true" />}
             </>
           )}
         </TabsContent>
@@ -1265,10 +1265,12 @@ export function EquipmentManagement() {
 
       {assetSelectionMode && activeTab === 'assets' && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-2xl px-3 py-3 sm:px-4"
+          className="fixed left-0 right-0 z-[101] bg-background/95 backdrop-blur-md border-t border-border shadow-2xl px-3 py-3 sm:px-4 md:bottom-0"
           dir="rtl"
           data-testid="bar-bulk-selection"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          style={{
+            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+          }}
         >
           <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-2 justify-between">
             <div className="flex items-center gap-2 flex-shrink-0">

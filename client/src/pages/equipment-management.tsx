@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
   Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
-  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft
+  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft, ArrowRightLeft
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -85,6 +85,7 @@ export function EquipmentManagement() {
   const [txTypeFilter, setTxTypeFilter] = useState("all");
   const [showIssueDialog, setShowIssueDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [showTransferStockDialog, setShowTransferStockDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [reportGroupBy, setReportGroupBy] = useState("item");
 
@@ -780,6 +781,23 @@ export function EquipmentManagement() {
     },
   });
 
+  const transferStockMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/inventory/transfer', 'POST', data),
+    onSuccess: () => {
+      invalidateAll();
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return typeof k === 'string' && (k.startsWith('/api/material-purchases') || k.startsWith('/api/projects'));
+      }});
+      setShowTransferStockDialog(false);
+      setSelectedItem(null);
+      toast({ title: "تم نقل المواد بنجاح", description: "ستظهر العملية في سجل المشتريات للمشروع المستلم" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في النقل", description: err.message, variant: "destructive" });
+    },
+  });
+
   const updateItemMutation = useMutation({
     mutationFn: (data: { id: number; name: string; category: string; unit: string; min_quantity: string; adjustment_quantity?: string }) =>
       apiRequest(`/api/inventory/items/${data.id}`, 'PUT', data),
@@ -1003,6 +1021,7 @@ export function EquipmentManagement() {
                     ]}
                     actions={[
                       { icon: ArrowUpFromLine, label: "صرف", onClick: () => { setSelectedItem(item); setShowIssueDialog(true); }, color: "red" as const, disabled: isOut },
+                      { icon: ArrowRightLeft, label: "نقل", onClick: () => { setSelectedItem(item); setShowTransferStockDialog(true); }, color: "yellow" as const, disabled: isOut },
                       { icon: Pencil, label: "تعديل", onClick: () => handleEditClick(item), color: "blue" as const },
                       { icon: Trash2, label: "حذف", onClick: () => handleDeleteClick(item), color: "red" as const },
                     ]}
@@ -1197,6 +1216,15 @@ export function EquipmentManagement() {
         projects={projects}
         onSubmit={(data) => receiveMutation.mutate(data)}
         isPending={receiveMutation.isPending}
+      />
+
+      <TransferStockDialog
+        open={showTransferStockDialog}
+        onClose={() => { setShowTransferStockDialog(false); setSelectedItem(null); }}
+        selectedItem={selectedItem}
+        projects={projects}
+        onSubmit={(data) => transferStockMutation.mutate(data)}
+        isPending={transferStockMutation.isPending}
       />
 
       <Dialog open={showEditItemDialog} onOpenChange={(open) => { if (!open) { setShowEditItemDialog(false); setEditingItem(null); } }}>
@@ -1630,6 +1658,119 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
             className="bg-red-600 hover:bg-red-700"
           >
             {isPending ? 'جاري الصرف...' : 'تأكيد الصرف'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, isPending }: {
+  open: boolean; onClose: () => void; selectedItem: InventoryItem | null;
+  projects: any[]; onSubmit: (data: any) => void; isPending: boolean;
+}) {
+  const [fromProjectId, setFromProjectId] = useState('');
+  const [toProjectId, setToProjectId] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (open && selectedItem) {
+      const inferredFrom = (selectedItem as any).project_id || '';
+      setFromProjectId(inferredFrom);
+      setToProjectId('');
+      setQuantity('');
+      setNotes('');
+      setTransactionDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [open, selectedItem]);
+
+  const available = selectedItem ? parseFloat(selectedItem.total_remaining || '0') : 0;
+  const qtyNum = parseFloat(quantity || '0');
+  const isQtyInvalid = !quantity || qtyNum <= 0 || qtyNum > available;
+  const isProjectsInvalid = !fromProjectId || !toProjectId || fromProjectId === toProjectId;
+
+  const handleSubmit = () => {
+    if (!selectedItem) return;
+    onSubmit({
+      itemId: selectedItem.id,
+      quantity: qtyNum,
+      fromProjectId,
+      toProjectId,
+      transactionDate,
+      notes: notes || undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+            نقل مواد مستهلكة بين المشاريع
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {selectedItem && (
+            <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg">
+              <p className="font-semibold" data-testid="text-transfer-item-name">{selectedItem.name}</p>
+              <p className="text-sm text-purple-700 dark:text-purple-300">
+                المتاح إجمالاً: {available.toFixed(1)} {selectedItem.unit}
+              </p>
+            </div>
+          )}
+          <div>
+            <Label>من مشروع (المصدر)</Label>
+            <Select value={fromProjectId} onValueChange={setFromProjectId}>
+              <SelectTrigger data-testid="select-transfer-from-project">
+                <SelectValue placeholder="اختر المشروع المصدر" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}{p.status ? ` (${p.status})` : ''}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">يجب أن يكون للمشروع رصيد متبقي من هذه المادة</p>
+          </div>
+          <div>
+            <Label>إلى مشروع (المستلم)</Label>
+            <Select value={toProjectId} onValueChange={setToProjectId}>
+              <SelectTrigger data-testid="select-transfer-to-project">
+                <SelectValue placeholder="اختر المشروع المستلم" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.filter((p: any) => p.id !== fromProjectId).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>الكمية المنقولة</Label>
+            <Input data-testid="input-transfer-quantity" type="number" step="0.1" min="0.1" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available.toFixed(1)}`} />
+            {qtyNum > available && quantity && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح في المخزن!</p>}
+            <p className="text-xs text-gray-500 mt-1">سيتم خصم الكمية من المشروع المصدر فقط (FIFO)، فإن لم يكفِ يفشل النقل.</p>
+          </div>
+          <div>
+            <Label>تاريخ النقل</Label>
+            <Input data-testid="input-transfer-date" type="date" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>ملاحظات (اختياري)</Label>
+            <Textarea data-testid="input-transfer-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="مثال: تحويل المتبقي بعد إنهاء المشروع" />
+          </div>
+          {fromProjectId && toProjectId && fromProjectId === toProjectId && (
+            <p className="text-xs text-red-500">لا يمكن النقل من المشروع نفسه إلى نفسه</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-transfer">إلغاء</Button>
+          <Button 
+            data-testid="button-submit-transfer"
+            onClick={handleSubmit} 
+            disabled={isPending || isQtyInvalid || isProjectsInvalid}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {isPending ? 'جاري النقل...' : 'تأكيد النقل'}
           </Button>
         </DialogFooter>
       </DialogContent>

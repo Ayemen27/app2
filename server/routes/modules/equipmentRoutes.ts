@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db, withTransaction } from '../../db.js';
+import { db, withTransaction, pool } from '../../db.js';
 import { equipment, equipmentMovements, projects, insertEquipmentSchema } from '@shared/schema.js';
 import { eq, and, ilike, sql, desc, inArray, or, isNull } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
@@ -381,11 +381,46 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       .set({ project_id: toProjectId || null })
       .where(eq(equipment.id, id));
 
+    // إدراج صف في سجل المشتريات للمشروع المستقبل (للتوثيق - بدون أثر مالي)
+    let purchaseLogId: string | null = null;
+    if (toProjectId) {
+      let fromProjectName = 'المستودع';
+      if (item.project_id) {
+        const [fp] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, item.project_id));
+        if (fp) fromProjectName = fp.name;
+      }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const purchasePriceNum = item.purchasePrice ? parseFloat(item.purchasePrice as any) : 0;
+      const { rows: purchaseRows } = await pool.query(
+        `INSERT INTO material_purchases (
+           project_id, material_name, material_category, material_unit,
+           quantity, unit, unit_price, total_amount,
+           purchase_type, paid_amount, remaining_amount,
+           supplier_name, notes, purchase_date
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, $9, $10, $11)
+         RETURNING id`,
+        [
+          toProjectId,
+          item.name,
+          item.type || 'أصول',
+          item.unit || 'قطعة',
+          transferQty,
+          item.unit || 'قطعة',
+          purchasePriceNum,
+          'نقل أصل',
+          `نقل من: ${fromProjectName}`,
+          `أصل/معدة منقولة من ${fromProjectName} - السبب: ${reason}${notes ? ' | ' + notes : ''}`,
+          todayStr,
+        ]
+      );
+      purchaseLogId = purchaseRows[0].id;
+    }
+
     console.log(`✅ [Equipment] تم نقل معدة "${item.name}" من ${item.project_id || 'المخزن'} إلى ${toProjectId || 'المخزن'}`);
 
     res.status(201).json({
       success: true,
-      data: movement,
+      data: { ...movement, purchaseLogId },
       message: 'تم نقل المعدة بنجاح'
     });
   } catch (error: any) {

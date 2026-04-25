@@ -299,7 +299,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'in_count', label: 'عدد حركات الوارد', value: incomingTx.length, icon: ArrowDownToLine, color: 'green' },
-          { key: 'in_qty', label: 'إجمالي الكمية الواردة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+          { key: 'in_qty', label: 'إجمالي الكمية الواردة', value: totalQty.toFixed(2), icon: Package, color: 'blue' },
         ]},
         { columns: 1, gap: 'sm' as const, items: [
           { key: 'in_cost', label: 'إجمالي تكلفة الوارد', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
@@ -312,7 +312,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'out_count', label: 'عدد حركات الصرف', value: outgoingTx.length, icon: ArrowUpFromLine, color: 'red' },
-          { key: 'out_qty', label: 'إجمالي الكمية المصروفة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+          { key: 'out_qty', label: 'إجمالي الكمية المصروفة', value: totalQty.toFixed(2), icon: Package, color: 'blue' },
         ]},
         { columns: 1, gap: 'sm' as const, items: [
           { key: 'out_cost', label: 'إجمالي تكلفة الصرف', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
@@ -324,7 +324,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'ret_count', label: 'عدد حركات المرتجع', value: returnTx.length, icon: RefreshCw, color: 'blue' },
-          { key: 'ret_qty', label: 'إجمالي الكمية المرتجعة', value: totalQty.toFixed(1), icon: Package, color: 'green' },
+          { key: 'ret_qty', label: 'إجمالي الكمية المرتجعة', value: totalQty.toFixed(2), icon: Package, color: 'green' },
         ]},
       ];
     }
@@ -431,7 +431,7 @@ export function EquipmentManagement() {
       item_name: tx.item_name,
       category: tx.item_category || '-',
       unit: tx.item_unit,
-      quantity: parseFloat(tx.quantity).toFixed(1),
+      quantity: parseFloat(tx.quantity).toFixed(2),
       cost: parseFloat(tx.total_cost || '0') > 0 ? formatCurrency(parseFloat(tx.total_cost || '0')) : '-',
       date: typeof tx.transaction_date === 'string' ? tx.transaction_date.split('T')[0] : tx.transaction_date,
       project: tx.to_project_name || '-',
@@ -516,10 +516,10 @@ export function EquipmentManagement() {
         totals: {
           label: 'الإجمالي',
           values: {
-            received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0).toFixed(1),
-            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0).toFixed(1),
-            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0).toFixed(1),
-            remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0).toFixed(1),
+            received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0).toFixed(2),
+            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0).toFixed(2),
+            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0).toFixed(2),
+            remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0).toFixed(2),
           },
         },
         excelTotals: {
@@ -576,7 +576,7 @@ export function EquipmentManagement() {
         fileName: `المرتجعات_${dateFile}`,
         pdfInfoItems: [
           { label: 'عدد المرتجعات', value: returnTx.length, color: '#06B6D4' },
-          { label: 'إجمالي الكمية', value: returnTx.reduce((s, t) => s + parseFloat(t.quantity), 0).toFixed(1), color: '#0891B2' },
+          { label: 'إجمالي الكمية', value: returnTx.reduce((s, t) => s + parseFloat(t.quantity), 0).toFixed(2), color: '#0891B2' },
         ],
         excelInfoLines: [`عدد المرتجعات: ${returnTx.length}`, `تاريخ: ${dateStr}`],
         columns: txColumns.map(c => c.key === 'quantity' ? { ...c, color: () => '#06B6D4' } : c),
@@ -1068,11 +1068,11 @@ export function EquipmentManagement() {
                     ]}
                     fields={[
                       { label: "المشروع", value: projectLabel, icon: FolderKanban, color: "info" as const },
-                      { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
+                      { label: "المتبقي", value: `${remaining.toFixed(2)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
                       { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
-                      { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
-                      { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
-                      ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(1), icon: RefreshCw, color: "info" as const }] : []),
+                      { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(2), icon: ArrowDownToLine, color: "success" as const },
+                      { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(2), icon: ArrowUpFromLine, color: "danger" as const },
+                      ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(2), icon: RefreshCw, color: "info" as const }] : []),
                       { label: "الوحدة", value: item.unit, icon: Box },
                       { label: "المورد", value: supplierLabel, icon: Truck, color: "info" as const },
                     ]}
@@ -1126,9 +1126,9 @@ export function EquipmentManagement() {
                       <td className="p-3 font-medium">{r.name}</td>
                       <td className="p-3 text-gray-500">{r.category || '-'}</td>
                       <td className="p-3 text-gray-500">{r.unit}</td>
-                      <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1154,9 +1154,9 @@ export function EquipmentManagement() {
                     <tr key={r.supplier_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="p-3 font-medium">{r.supplier_name}</td>
                       <td className="p-3 text-center">{r.item_count}</td>
-                      <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(2)}</td>
                       <td className="p-3 text-center">{formatCurrency(parseFloat(r.total_value || 0))}</td>
                     </tr>
                   ))}
@@ -1181,7 +1181,7 @@ export function EquipmentManagement() {
                     <tr key={r.project_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="p-3 font-medium">{r.project_name}</td>
                       <td className="p-3 text-center">{r.item_count}</td>
-                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(2)}</td>
                       <td className="p-3 text-center font-bold">{formatCurrency(parseFloat(r.total_cost || 0))}</td>
                     </tr>
                   ))}
@@ -1401,7 +1401,7 @@ export function EquipmentManagement() {
               <Input data-testid="input-edit-quantity" type="number" step="0.001" value={editForm.adjustment_quantity} onChange={(e) => setEditForm(f => ({ ...f, adjustment_quantity: e.target.value }))} />
               {editingItem && parseFloat(editForm.adjustment_quantity || '0') !== parseFloat(editingItem.total_remaining || '0') && (
                 <p className="text-xs text-amber-600 mt-1">
-                  سيتم إنشاء تسوية مخزنية: الكمية الحالية {parseFloat(editingItem.total_remaining || '0').toFixed(1)} → {parseFloat(editForm.adjustment_quantity || '0').toFixed(1)}
+                  سيتم إنشاء تسوية مخزنية: الكمية الحالية {parseFloat(editingItem.total_remaining || '0').toFixed(2)} → {parseFloat(editForm.adjustment_quantity || '0').toFixed(2)}
                 </p>
               )}
             </div>
@@ -1733,7 +1733,7 @@ function TransactionList({ transactions, loading, emptyMessage, onDelete, deleti
               ...(isPurchaseLinked ? [{ label: 'من مشتراة', variant: "secondary" as const }] : []),
             ]}
             fields={[
-              { label: "الكمية", value: `${parseFloat(tx.quantity).toFixed(1)} ${tx.item_unit}`, emphasis: true, color: isIn ? "success" as const : "danger" as const },
+              { label: "الكمية", value: `${parseFloat(tx.quantity).toFixed(2)} ${tx.item_unit}`, emphasis: true, color: isIn ? "success" as const : "danger" as const },
               ...(cost > 0 ? [{ label: "القيمة", value: formatCurrency(cost), icon: DollarSign, color: "info" as const }] : []),
               { label: "التاريخ", value: typeof tx.transaction_date === 'string' ? tx.transaction_date.split('T')[0] : tx.transaction_date },
               ...(tx.to_project_name ? [{ label: "المشروع", value: tx.to_project_name, icon: FolderKanban, color: "info" as const }] : []),
@@ -1806,7 +1806,7 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
                 <SelectContent>
                   {stockItems.filter(i => parseFloat(i.total_remaining || '0') > 0).map(i => (
                     <SelectItem key={i.id} value={String(i.id)}>
-                      {i.name} ({parseFloat(i.total_remaining || '0').toFixed(1)} {i.unit})
+                      {i.name} ({parseFloat(i.total_remaining || '0').toFixed(2)} {i.unit})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1816,12 +1816,12 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
           {selectedItem && (
             <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
               <p className="font-semibold">{selectedItem.name}</p>
-              <p className="text-sm text-blue-600">المتاح: {available.toFixed(1)} {selectedItem.unit}</p>
+              <p className="text-sm text-blue-600">المتاح: {available.toFixed(2)} {selectedItem.unit}</p>
             </div>
           )}
           <div>
             <Label>الكمية</Label>
-            <Input data-testid="input-issue-quantity" type="number" step="0.1" min="0.1" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available}`} />
+            <Input data-testid="input-issue-quantity" type="number" step="0.01" min="0.01" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available}`} />
             {parseFloat(quantity) > available && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح!</p>}
           </div>
           <div>
@@ -1875,7 +1875,8 @@ function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, 
       const inferredFrom = (selectedItem as any).project_id || '';
       setFromProjectId(inferredFrom);
       setToProjectId('');
-      setQuantity('');
+      const inferredAvailable = parseFloat(selectedItem.total_remaining || '0');
+      setQuantity(inferredAvailable > 0 ? inferredAvailable.toString() : '');
       setNotes('');
       setTransactionDate(new Date().toISOString().slice(0, 10));
     }
@@ -1885,6 +1886,7 @@ function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, 
   const qtyNum = parseFloat(quantity || '0');
   const isQtyInvalid = !quantity || qtyNum <= 0 || qtyNum > available;
   const isProjectsInvalid = !fromProjectId || !toProjectId || fromProjectId === toProjectId;
+  const isPartialTransfer = qtyNum > 0 && qtyNum < available;
 
   const handleSubmit = () => {
     if (!selectedItem) return;
@@ -1912,7 +1914,7 @@ function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, 
             <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg">
               <p className="font-semibold" data-testid="text-transfer-item-name">{selectedItem.name}</p>
               <p className="text-sm text-purple-700 dark:text-purple-300">
-                المتاح إجمالاً: {available.toFixed(1)} {selectedItem.unit}
+                المتاح إجمالاً: {available.toFixed(2)} {selectedItem.unit}
               </p>
             </div>
           )}
@@ -1940,9 +1942,28 @@ function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, 
             </Select>
           </div>
           <div>
-            <Label>الكمية المنقولة</Label>
-            <Input data-testid="input-transfer-quantity" type="number" step="0.1" min="0.1" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available.toFixed(1)}`} />
+            <div className="flex items-center justify-between">
+              <Label>الكمية المنقولة</Label>
+              {available > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-purple-600 hover:text-purple-700"
+                  onClick={() => setQuantity(available.toString())}
+                  data-testid="button-fill-max-quantity"
+                >
+                  نقل الكل ({available.toFixed(2)})
+                </Button>
+              )}
+            </div>
+            <Input data-testid="input-transfer-quantity" type="number" step="0.01" min="0.01" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available.toFixed(2)}`} />
             {qtyNum > available && quantity && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح في المخزن!</p>}
+            {isPartialTransfer && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1" data-testid="text-partial-transfer-warning">
+                ⚠️ سينتقل {qtyNum} فقط من أصل {available.toFixed(2)} المتاحة، وسيبقى {(available - qtyNum).toFixed(2)} في المشروع المصدر.
+              </p>
+            )}
             <p className="text-xs text-gray-500 mt-1">سيتم خصم الكمية من المشروع المصدر فقط (FIFO)، فإن لم يكفِ يفشل النقل.</p>
           </div>
           <div>
@@ -2023,7 +2044,7 @@ function ReceiveDialog({ open, onClose, categories, projects, onSubmit, isPendin
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>الكمية</Label>
-              <Input data-testid="input-receive-quantity" type="number" step="0.1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+              <Input data-testid="input-receive-quantity" type="number" step="0.01" value={quantity} onChange={e => setQuantity(e.target.value)} />
             </div>
             <div>
               <Label>سعر الوحدة</Label>
@@ -2108,7 +2129,7 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
               </SelectContent>
             </Select>
             {selectedItem && (
-              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued_gross || selectedItem.total_issued || '0').toFixed(1)} {selectedItem.unit}</p>
+              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued_gross || selectedItem.total_issued || '0').toFixed(2)} {selectedItem.unit}</p>
             )}
           </div>
           <div>
@@ -2125,7 +2146,7 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>الكمية المرتجعة</Label>
-              <Input data-testid="input-return-quantity" type="number" step="0.1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+              <Input data-testid="input-return-quantity" type="number" step="0.01" value={quantity} onChange={e => setQuantity(e.target.value)} />
             </div>
             <div>
               <Label>التاريخ</Label>
@@ -2211,8 +2232,8 @@ function EditTransactionDialog({ open, onClose, transaction, onSubmit, isPending
             <Input
               data-testid="input-edit-tx-quantity"
               type="number"
-              step="0.1"
-              min="0.1"
+              step="0.01"
+              min="0.01"
               value={quantity}
               onChange={e => setQuantity(e.target.value)}
             />

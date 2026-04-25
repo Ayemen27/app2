@@ -13,6 +13,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSelectedProject } from '@/hooks/use-selected-project';
+import { useAuth } from '@/components/AuthProvider';
 
 export interface ReportBranding {
   companyName: string;
@@ -175,20 +176,40 @@ export function ReportBrandingSync() {
  */
 export function AutoReportEngineerSync() {
   const { selectedProjectId, isAllProjects, projects } = useSelectedProject();
+  const { user } = useAuth();
 
   useEffect(() => {
+    // اسم المهندس الافتراضي = اسم المستخدم الحالي (المهندس المسجَّل دخوله)
+    // يُستخدم كـ fallback في حالة "جميع المشاريع" أو عندما لا يكون للمشروع
+    // المختار مهندس مُسند صراحةً.
+    const fallbackName = (
+      user?.name ||
+      `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
+      ''
+    ).trim();
+
+    // حالة "جميع المشاريع" أو لا يوجد مشروع مختار → نستخدم اسم المستخدم الحالي
     if (isAllProjects || !selectedProjectId) {
-      clearReportEngineer();
+      if (fallbackName) {
+        setReportEngineer(fallbackName);
+      } else {
+        clearReportEngineer();
+      }
       return;
     }
+
+    // مشروع محدد: أولوية للمهندس المسؤول المسجَّل في بيانات المشروع، وإلا
+    // نسقط على اسم المستخدم الحالي بدلاً من ترك السطر فارغاً.
     const proj: any = (projects || []).find((p: any) => p.id === selectedProjectId);
-    const engineerName = proj?.engineerName || null;
+    const engineerName = (proj?.engineerName || '').toString().trim();
     if (engineerName) {
       setReportEngineer(engineerName);
+    } else if (fallbackName) {
+      setReportEngineer(fallbackName);
     } else {
       clearReportEngineer();
     }
-  }, [selectedProjectId, isAllProjects, projects]);
+  }, [selectedProjectId, isAllProjects, projects, user]);
 
   return null;
 }

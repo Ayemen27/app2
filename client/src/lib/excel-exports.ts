@@ -48,22 +48,21 @@ export function buildExcelLetterhead(
   const secondary = argb(_b.secondaryColor);
   const lastCol = colCount;
 
-  // الصف 1: شريط الشركة الرئيسي
+  // الصف 1: شريط الشركة الرئيسي — مُكبَّر لاستيعاب شعار أكبر
   worksheet.mergeCells(1, 1, 1, lastCol);
   const r1 = worksheet.getRow(1);
   const tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
   r1.getCell(1).value = `${_b.companyName}${tagline}`;
-  r1.getCell(1).font = { name: 'Calibri', bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+  r1.getCell(1).font = { name: 'Calibri', bold: true, size: 18, color: { argb: 'FFFFFFFF' } };
   r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
   r1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  r1.height = tagline ? 64 : 50;
+  r1.height = tagline ? 92 : 76;
 
-  // الشعار يطفو في يمين الصف الأول (في وضع RTL: العمود A هو اليمين البصري)
-  // الحجم محسوب لينسجم مع ارتفاع الصف ويحافظ على نسبة الأبعاد المربّعة
+  // 🔍 الشعار مُكبَّر (يطفو في يمين الصف الأول؛ في وضع RTL العمود A هو اليمين البصري)
   if (_b.logoUrl) {
     addBrandingLogo(workbook, worksheet, _b.logoUrl, {
-      tl: { col: 0.1, row: 0.08 } as any,
-      br: { col: 1.2, row: 0.92 } as any,
+      tl: { col: 0.05, row: 0.04 } as any,
+      br: { col: 1.95, row: 0.96 } as any,
     });
   }
 

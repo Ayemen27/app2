@@ -215,7 +215,7 @@ export class ReportDataService {
         t.reference_type,
         t.from_project_id,
         t.to_project_id,
-        t.transaction_date,
+        t.transaction_date::text AS transaction_date,
         'material' AS movement_kind
       FROM inventory_transactions t
       JOIN inventory_items i ON i.id = t.item_id
@@ -245,7 +245,7 @@ export class ReportDataService {
         'asset_transfer' AS reference_type,
         em.from_project_id,
         em.to_project_id,
-        em.movement_date::date AS transaction_date,
+        to_char(em.movement_date, 'YYYY-MM-DD') AS transaction_date,
         'asset' AS movement_kind
       FROM equipment_movements em
       JOIN equipment e ON e.id = em.equipment_id
@@ -1322,7 +1322,7 @@ export class ReportDataService {
         t.reference_type,
         t.from_project_id,
         t.to_project_id,
-        t.transaction_date,
+        t.transaction_date::text AS transaction_date,
         'material' AS movement_kind
       FROM inventory_transactions t
       JOIN inventory_items i ON i.id = t.item_id
@@ -1352,7 +1352,7 @@ export class ReportDataService {
         'asset_transfer' AS reference_type,
         em.from_project_id,
         em.to_project_id,
-        em.movement_date::date AS transaction_date,
+        to_char(em.movement_date, 'YYYY-MM-DD') AS transaction_date,
         'asset' AS movement_kind
       FROM equipment_movements em
       JOIN equipment e ON e.id = em.equipment_id

@@ -2047,9 +2047,40 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
-    const filteredPurchases = isAdminUser
+    const filteredBase = isAdminUser
       ? purchases
       : purchases.filter((p: any) => p.project_id && accessibleIds.includes(p.project_id));
+
+    // إثراء النتائج بمعلومات ربط المخزن (وجود lots)
+    let filteredPurchases: any[] = filteredBase;
+    if (filteredBase.length > 0) {
+      const ids = filteredBase.map((p: any) => p.id);
+      const lotsRes = await pool.query(
+        `SELECT purchase_id,
+                COALESCE(SUM(remaining_qty), 0)::numeric as remaining_qty,
+                COALESCE(SUM(received_qty), 0)::numeric as received_qty
+         FROM inventory_lots
+         WHERE purchase_id = ANY($1::text[])
+         GROUP BY purchase_id`,
+        [ids]
+      );
+      const lotsMap = new Map<string, { remaining: number; received: number }>();
+      for (const r of lotsRes.rows) {
+        lotsMap.set(r.purchase_id, {
+          remaining: parseFloat(r.remaining_qty || '0'),
+          received: parseFloat(r.received_qty || '0'),
+        });
+      }
+      filteredPurchases = filteredBase.map((p: any) => {
+        const link = lotsMap.get(p.id);
+        return {
+          ...p,
+          hasInventoryLot: !!link,
+          inventoryRemaining: link?.remaining ?? 0,
+          inventoryReceived: link?.received ?? 0,
+        };
+      });
+    }
     
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم جلب ${filteredPurchases.length} مشترية في ${duration}ms`);
@@ -2353,7 +2384,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
-    const isInventoryPurchase = purchaseData.purchaseType === 'مخزن' || purchaseData.purchaseType === 'توريد' || purchaseData.purchaseType === 'مخزني';
+    const shouldAddToInventoryConsumable = req.body.addToInventoryConsumable === true || req.body.addToInventoryConsumable === 'true';
+    const isInventoryPurchase = (purchaseData.purchaseType === 'مخزن' || purchaseData.purchaseType === 'توريد' || purchaseData.purchaseType === 'مخزني') || shouldAddToInventoryConsumable;
 
     const { newPurchase, createdEquipment, inventoryResult } = await withTransaction(async (client) => {
       const camelToSnake: Record<string, string> = {
@@ -2627,8 +2659,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     const oldPurchaseType = existing.purchaseType;
     const newPurchaseType = validated.purchaseType || oldPurchaseType;
     const isStorageType = (t: string | null) => t === 'مخزن' || t === 'توريد' || t === 'مخزني';
-    const wasInventoryPurchase = isStorageType(oldPurchaseType);
-    const isInventoryPurchase = isStorageType(newPurchaseType);
+    // المصدر الموثوق: وجود inventory_lots مرتبطة بهذه المشتراة (لا الاعتماد فقط على purchaseType)
+    const lotsCheck = await pool.query(
+      `SELECT COUNT(*)::int as cnt FROM inventory_lots WHERE purchase_id = $1`,
+      [purchaseId]
+    );
+    const hasInventoryLots = (lotsCheck.rows[0]?.cnt || 0) > 0;
+    const wantConsumable = req.body.addToInventoryConsumable === true || req.body.addToInventoryConsumable === 'true';
+    const wasInventoryPurchase = hasInventoryLots || isStorageType(oldPurchaseType);
+    const isInventoryPurchase = wantConsumable || isStorageType(newPurchaseType);
 
     const { updated, createdEquipment } = await db.transaction(async (tx: any) => {
       const updatedResult = await tx
@@ -2752,9 +2791,16 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [MaterialPurchases] خطأ في تحديث المشتراة:', error);
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    // اكتشاف خطأ "تم صرف من المخزن" المحدد لإرجاع رسالة واضحة للمستخدم
+    const isInventoryConsumedError = /تم صرف|لا يمكن تقليل الكمية/.test(detail);
     res.status(400).json({
       success: false,
-      message: 'فشل في تحديث المشتراة',
+      message: isInventoryConsumedError
+        ? `لا يمكن التعديل: ${detail}. يجب تعديل أو حذف عمليات الصرف السابقة لهذه المادة من المخزن أولاً.`
+        : `فشل في تحديث المشتراة: ${detail}`,
+      error: detail,
+      inventoryConflict: isInventoryConsumedError,
       data: null,
       processingTime: duration
     });
@@ -2778,15 +2824,27 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     }
 
     const purchaseType = existingPurchase[0].purchaseType;
-    const isInventoryPurchase = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+    const isStorageType = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+    // فحص وجود lots مرتبطة (يشمل المشتريات نقد/آجل التي أُضيفت كاستهلاك)
+    const lotsCheckDel = await pool.query(
+      `SELECT COUNT(*)::int as cnt FROM inventory_lots WHERE purchase_id = $1`,
+      [req.params.id]
+    );
+    const hasInventoryLotsDel = (lotsCheckDel.rows[0]?.cnt || 0) > 0;
+    const isInventoryPurchase = isStorageType || hasInventoryLotsDel;
 
     const deleted = await withTransaction(async (client) => {
       const txDb = createDrizzle(client);
 
       if (isInventoryPurchase) {
         const { InventoryService } = await import('../../services/InventoryService.js');
-        await InventoryService.reverseFromPurchaseWithClient(req.params.id, client);
-        console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
+        try {
+          await InventoryService.reverseFromPurchaseWithClient(req.params.id, client);
+          console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
+        } catch (revErr: any) {
+          // إذا كان قد صُرف من المخزن، الخدمة سترفض ويجب رفع الخطأ بوضوح
+          throw new Error(revErr?.message || 'فشل عكس المخزن - قد تكون هناك عمليات صرف معتمدة على هذه المشتراة');
+        }
       }
 
       await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id);
@@ -2826,9 +2884,15 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [MaterialPurchases] خطأ في حذف المشتراة:', error);
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    const isInventoryConsumedError = /تم صرف|لا يمكن تقليل الكمية|عمليات صرف/.test(detail);
     res.status(400).json({
       success: false,
-      message: 'فشل في حذف المشتراة',
+      message: isInventoryConsumedError
+        ? `لا يمكن الحذف: ${detail}. احذف أو عدّل عمليات الصرف من المخزن أولاً.`
+        : `فشل في حذف المشتراة: ${detail}`,
+      error: detail,
+      inventoryConflict: isInventoryConsumedError,
       data: null,
       processingTime: duration
     });

@@ -1288,35 +1288,20 @@ function DailyExpensesContent() {
       return apiRequest("/api/material-purchases", "POST", data);
     },
     onSuccess: () => {
-      // التقاط القيم قبل الـ reset لاستخدامها في الاستلام في المخزن إن لزم
+      // الباك اند يتولى ربط المخزن مباشرة عبر addToInventoryConsumable (purchase_id في inventory_lots)
       const wasConsumable = purchaseInventoryDest === 'consumable';
-      const itemName = purchaseMaterialName.trim();
-      const qty = parseFloat(purchaseQuantity) || 0;
-      const unitV = purchaseUnit.trim() || 'وحدة';
-      const price = parseFloat(purchaseUnitPrice) || 0;
-
       refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
+      if (wasConsumable) {
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/lots'] });
+      }
       resetMaterialPurchaseForm();
       toast({
-        title: "تم إضافة الشراء",
-        description: "تم إضافة شراء المواد بنجاح",
+        title: wasConsumable ? "تم إضافة الشراء وربطه بالمخزن" : "تم إضافة الشراء",
+        description: wasConsumable ? "أُضيفت الكمية للمخزن FIFO ومرتبطة بالشراء" : "تم إضافة شراء المواد بنجاح",
       });
-
-      // عند اختيار "مواد مستهلكة": أضف للمخزن FIFO عبر API منفصل
-      if (wasConsumable && itemName && qty > 0) {
-        receiveInventoryMutation.mutate({
-          itemName,
-          category: 'مواد بناء',
-          unit: unitV,
-          quantity: qty,
-          unitCost: price,
-          receiptDate: selectedDate,
-          projectId: (selectedProjectId && !isAllProjects) ? selectedProjectId : undefined,
-          notes: `استلام تلقائي من شراء: ${itemName}`,
-        });
-      }
     },
     onError: async (error: any) => {
       if (purchaseMaterialName) saveAutocompleteValue('materialNames', purchaseMaterialName).catch(() => {});
@@ -1396,15 +1381,16 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest(`/api/material-purchases/${id}`, "PATCH", data),
     onSuccess: async () => {
-      // التقاط القيم قبل الـ reset للاستخدام في الإضافة للمخزن إن لزم
+      // الباك اند يقوم بمزامنة inventory_lots تلقائياً (تعديل الكمية/السعر للوت المرتبط)
       const wasConsumable = purchaseInventoryDest === 'consumable';
-      const itemName = purchaseMaterialName.trim();
-      const qty = parseFloat(purchaseQuantity) || 0;
-      const unitV = purchaseUnit.trim() || 'وحدة';
-      const price = parseFloat(purchaseUnitPrice) || 0;
 
       refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
+      if (wasConsumable) {
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/lots'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/transactions'] });
+      }
 
       if (purchaseMaterialName) await saveAutocompleteValue('materialNames', purchaseMaterialName);
       if (purchaseSupplierName) await saveAutocompleteValue('supplierNames', purchaseSupplierName);
@@ -1413,23 +1399,9 @@ function DailyExpensesContent() {
 
       resetMaterialPurchaseForm();
       toast({
-        title: "تم التحديث",
-        description: "تم تحديث شراء المواد بنجاح",
+        title: wasConsumable ? "تم تحديث الشراء ومزامنة المخزن" : "تم التحديث",
+        description: wasConsumable ? "تم تحديث الكمية/السعر في المخزن FIFO المرتبط" : "تم تحديث شراء المواد بنجاح",
       });
-
-      // عند تحويل الشراء إلى "مواد مستهلكة": أضف الكمية للمخزن
-      if (wasConsumable && itemName && qty > 0) {
-        receiveInventoryMutation.mutate({
-          itemName,
-          category: 'مواد بناء',
-          unit: unitV,
-          quantity: qty,
-          unitCost: price,
-          receiptDate: selectedDate,
-          projectId: (selectedProjectId && !isAllProjects) ? selectedProjectId : undefined,
-          notes: `إضافة من تعديل شراء: ${itemName}`,
-        });
-      }
     },
     onError: (error: any) => {
       if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
@@ -1445,10 +1417,14 @@ function DailyExpensesContent() {
         setShowGuardPurchaseDialog(true);
         return;
       }
+      // عرض رسالة الرفض من الباك اند بوضوح (مثل: تم صرف من المخزن)
+      const rd = error?.responseData;
+      const isInventoryConflict = rd?.inventoryConflict === true;
       toast({
-        title: "فشل في تحديث الشراء",
-        description: error?.message || "حدث خطأ أثناء تحديث شراء المواد",
+        title: isInventoryConflict ? "تعذّر تعديل الكمية" : "فشل في تحديث الشراء",
+        description: rd?.message || error?.message || "حدث خطأ أثناء تحديث شراء المواد",
         variant: "destructive",
+        duration: isInventoryConflict ? 10000 : 5000,
       });
     }
   });
@@ -1559,9 +1535,10 @@ function DailyExpensesContent() {
     setPurchaseWellIds(purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []));
     setPurchaseCrewTypes(purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : []);
     setEditingMaterialPurchaseId(purchase.id);
-    // التعديل يدعم فقط الأصول حالياً (نفس السلوك السابق). 'consumable' للإضافات الجديدة فقط.
+    // استعادة وجهة المخزن: مستهلك إن وُجد lot مرتبط، وإلا معدة إن كان addToInventory، وإلا لا شيء.
+    const hasLot = !!(purchase.hasInventoryLot || purchase.has_inventory_lot);
     const isAsset = !!(purchase.addToInventory || purchase.add_to_inventory || purchase.equipmentId || purchase.equipment_id);
-    setPurchaseInventoryDest(isAsset ? 'equipment' : 'none');
+    setPurchaseInventoryDest(hasLot ? 'consumable' : (isAsset ? 'equipment' : 'none'));
     setIsMaterialsExpanded(true);
     setPurchaseFormMode('purchase');
   };
@@ -1626,6 +1603,7 @@ function DailyExpensesContent() {
       paidAmount: purchaseType === 'نقد' ? total.toString() : '0',
       remainingAmount: purchaseType === 'آجل' ? total.toString() : '0',
       addToInventory: purchaseAddToInventory,
+      addToInventoryConsumable: purchaseInventoryDest === 'consumable',
     };
 
     if (editingMaterialPurchaseId) {

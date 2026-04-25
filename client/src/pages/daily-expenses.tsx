@@ -1459,7 +1459,7 @@ function DailyExpensesContent() {
       return;
     }
 
-    const isPriceRequired = purchaseType !== 'مخزن';
+    const isPriceRequired = purchaseType === 'نقد';
     if (isPriceRequired && (!purchaseUnitPrice || parseFloat(purchaseUnitPrice) <= 0)) {
       toast({
         title: "خطأ",
@@ -3816,7 +3816,7 @@ function DailyExpensesContent() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">سعر الوحدة {purchaseType !== 'مخزن' ? '*' : ''}</Label>
+                          <Label className="text-xs">سعر الوحدة {purchaseType === 'نقد' ? '*' : ''}</Label>
                           <Input
                             data-testid="input-purchase-unit-price"
                             type="number"

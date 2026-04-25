@@ -12,6 +12,7 @@
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSelectedProject } from '@/hooks/use-selected-project';
 
 export interface ReportBranding {
   companyName: string;
@@ -45,8 +46,28 @@ let _cache: ReportBranding = { ...DEFAULT_BRANDING };
 let _loadedFromServer = false;
 let _inflight: Promise<ReportBranding> | null = null;
 
+// 🧑‍💼 سياق المهندس المسؤول الحالي — يُحقَن في تذييل كل التقارير المُصدَّرة (PDF/Excel)
+// يتم ضبطه تلقائياً عبر <AutoReportEngineerSync/> بناءً على المشروع المختار حالياً،
+// أو يدوياً عبر setReportEngineer(name).
+let _engineerName: string = '';
+
 export function getBranding(): ReportBranding {
   return _cache;
+}
+
+/** اسم المهندس المسؤول الحالي (يُعرض في تذييل التقارير) */
+export function getReportEngineer(): string {
+  return _engineerName;
+}
+
+/** يضبط اسم المهندس المسؤول الذي سيظهر في تذييل أي تصدير لاحق. مرّر '' أو null للمسح. */
+export function setReportEngineer(name: string | null | undefined): void {
+  _engineerName = (name || '').trim();
+}
+
+/** يمسح اسم المهندس المسؤول من سياق التقارير. */
+export function clearReportEngineer(): void {
+  _engineerName = '';
 }
 
 /**
@@ -145,5 +166,51 @@ export function useReportBranding() {
 /** مكوّن صامت يُركَّب مرة واحدة في جذر التطبيق لتفعيل المزامنة. */
 export function ReportBrandingSync() {
   useReportBranding();
+  return null;
+}
+
+/**
+ * Hook + مكوّن صامت لمزامنة اسم المهندس المسؤول مع المشروع المختار حالياً.
+ * يُركَّب داخل <SelectedProjectProvider/> ليعمل تلقائياً دون أي إعداد في صفحات التصدير.
+ *
+ * المنطق:
+ *  - إذا كان المستخدم يعمل ضمن مشروع محدد، نبحث عن engineerId الخاص به في قائمة /api/users/list.
+ *  - إذا وُجد، نضع اسم المهندس في سياق التقارير.
+ *  - إذا لم يكن هناك مشروع محدد (وضع "جميع المشاريع")، نمسح الاسم.
+ */
+export function AutoReportEngineerSync() {
+  const { selectedProjectId, isAllProjects, projects } = useSelectedProject();
+
+  // قائمة المهندسين/المستخدمين لاستنباط اسم المهندس من engineerId
+  const usersQuery = useQuery<any>({
+    queryKey: ['/api/users/list'],
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (isAllProjects || !selectedProjectId) {
+      clearReportEngineer();
+      return;
+    }
+    const list: any[] = Array.isArray(usersQuery.data?.data)
+      ? usersQuery.data.data
+      : Array.isArray(usersQuery.data)
+        ? usersQuery.data
+        : [];
+    const proj: any = (projects || []).find((p: any) => p.id === selectedProjectId);
+    const engId = proj?.engineerId || proj?.engineer_id || null;
+    if (!engId) {
+      clearReportEngineer();
+      return;
+    }
+    const eng = list.find((u: any) => u.id === engId);
+    if (eng?.name) {
+      setReportEngineer(eng.name);
+    } else {
+      clearReportEngineer();
+    }
+  }, [selectedProjectId, isAllProjects, projects, usersQuery.data]);
+
   return null;
 }

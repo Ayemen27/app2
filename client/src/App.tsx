@@ -1,7 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReportBrandingSync } from "@/lib/report-branding";
+import { ReportBrandingSync, AutoReportEngineerSync } from "@/lib/report-branding";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import React, { Suspense, lazy, useEffect, useState } from "react";
@@ -656,6 +656,7 @@ function App() {
                       <ProtectedRoute>
                         <EmailVerificationGuard>
                           <SelectedProjectProvider>
+                            <AutoReportEngineerSync />
                             <LayoutShell>
                               <Router />
                             </LayoutShell>

@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import { downloadFile } from '@/utils/webview-download';
-import { getBranding , ensureBrandingLoaded } from '@/lib/report-branding';
+import { getBranding , ensureBrandingLoaded, getReportEngineer } from '@/lib/report-branding';
 
 /**
  * ترويسة Letterhead الموحّدة لكل تقارير العميل (مطابقة لتصميم الصورة).
@@ -41,14 +41,23 @@ export function buildLetterheadHeader(subtitle?: string): string {
 
 export function buildLetterheadFooter(): string {
   const b = getBranding();
+  const eng = getReportEngineer();
   const phone = b.phone
     ? `<div style="flex:1;display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${b.accentColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;">☎</div><div><div style="font-size:9px;opacity:.75;">Phone</div><div style="font-size:11px;font-weight:700;" dir="ltr">${b.phone}</div></div></div>`
     : '<div style="flex:1;"></div>';
   const addr = b.address
     ? `<div style="flex:1;display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${b.accentColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;">📍</div><div><div style="font-size:9px;opacity:.75;">Address</div><div style="font-size:11px;font-weight:700;">${b.address}</div></div></div>`
     : '<div style="flex:1;"></div>';
+  // 🧑‍💼 شريط المهندس المسؤول — يظهر تلقائياً فوق التذييل عند وجود مشروع له مهندس مسجّل
+  const engineerBar = eng
+    ? `<div style="background:#fff;color:${b.primaryColor};padding:6px 24px;display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid ${b.accentColor};font-family:'Cairo','Segoe UI',Tahoma,sans-serif;font-size:11px;">
+        <span style="font-weight:700;">👷‍♂️ المهندس المسؤول:</span>
+        <span style="font-weight:700;">${eng}</span>
+      </div>`
+    : '';
   return `
   <div style="height:6px;background:${b.accentColor};margin-top:16px;"></div>
+  ${engineerBar}
   <div style="display:flex;background:${b.primaryColor};color:#fff;min-height:60px;padding:12px 24px;gap:24px;align-items:center;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;">
     ${phone}
     ${addr}

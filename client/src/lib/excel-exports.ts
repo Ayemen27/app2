@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import { getBranding, argb, ensureBrandingLoaded } from '@/lib/report-branding';
+import { getBranding, argb, ensureBrandingLoaded, getReportEngineer } from '@/lib/report-branding';
 
 /**
  * 🖼️ يضيف شعار الشركة (data URL) إلى ورقة Excel ضمن النطاق المحدد.
@@ -127,15 +127,36 @@ export function buildExcelLetterheadFooter(
   const _b = getBranding();
   const mainBlue = argb(_b.primaryColor);
   const accentBlue = argb(_b.accentColor);
+  const eng = getReportEngineer();
 
+  // 1. شريط accent العلوي
   worksheet.mergeCells(startRow, 1, startRow, colCount);
   const ra = worksheet.getRow(startRow);
   ra.getCell(1).value = '';
   ra.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentBlue } };
   ra.height = 6;
 
-  worksheet.mergeCells(startRow + 1, 1, startRow + 1, colCount);
-  const rf = worksheet.getRow(startRow + 1);
+  let cursor = startRow + 1;
+
+  // 2. 🧑‍💼 شريط المهندس المسؤول (اختياري — يظهر إذا كان للمشروع المختار مهندس مسجّل)
+  if (eng) {
+    worksheet.mergeCells(cursor, 1, cursor, colCount);
+    const re = worksheet.getRow(cursor);
+    re.getCell(1).value = `👷‍♂️  المهندس المسؤول: ${eng}`;
+    re.getCell(1).font = { name: 'Calibri', bold: true, size: 11, color: { argb: mainBlue } };
+    re.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+    re.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    re.getCell(1).border = {
+      top: { style: 'thin', color: { argb: accentBlue } },
+      bottom: { style: 'thin', color: { argb: accentBlue } },
+    };
+    re.height = 22;
+    cursor += 1;
+  }
+
+  // 3. شريط بيانات الاتصال (هاتف + عنوان)
+  worksheet.mergeCells(cursor, 1, cursor, colCount);
+  const rf = worksheet.getRow(cursor);
   const phone = _b.phone ? `☎  ${_b.phone}` : '';
   const addr = _b.address ? `📍  ${_b.address}` : '';
   rf.getCell(1).value = [phone, addr].filter(Boolean).join('     |     ') || _b.companyName;
@@ -144,7 +165,7 @@ export function buildExcelLetterheadFooter(
   rf.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
   rf.height = 32;
 
-  return startRow + 2;
+  return cursor + 1;
 }
 
 export const exportWorkerStatement = async (data: any, worker: any): Promise<boolean> => {

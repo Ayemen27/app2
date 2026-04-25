@@ -14,6 +14,23 @@ export interface ProjectFinancialStats {
   id: string;
   name: string;
   status: string;
+  // الحقول الأصلية للمشروع (مطلوبة للعرض في البطاقة والتعديل)
+  project_type_id: number | null;
+  engineerId: string | null;
+  imageUrl: string | null;
+  description: string | null;
+  location: string | null;
+  clientName: string | null;
+  managerName: string | null;
+  contactPhone: string | null;
+  notes: string | null;
+  budget: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  // إحصائيات
   totalWorkers: number;
   activeWorkers: number;
   completedDays: number;
@@ -149,6 +166,21 @@ export class BatchFinancialStatsService {
         p.id,
         p.name,
         COALESCE(p.status, 'active') AS status,
+        p.project_type_id,
+        p.engineer_id,
+        p.image_url,
+        p.description,
+        p.location,
+        p.client_name,
+        p.manager_name,
+        p.contact_phone,
+        p.notes,
+        p.budget,
+        p.start_date,
+        p.end_date,
+        p.is_active,
+        p.created_at,
+        p.updated_at,
         COALESCE(wa.total_workers, 0)            AS total_workers,
         COALESCE(wa.active_workers, 0)           AS active_workers,
         COALESCE(ww.completed_days, 0)           AS completed_days,
@@ -204,6 +236,21 @@ export class BatchFinancialStatsService {
         id:                      String(row.id),
         name:                    row.name,
         status:                  row.status,
+        project_type_id:         row.project_type_id ?? null,
+        engineerId:              row.engineer_id ?? null,
+        imageUrl:                row.image_url ?? null,
+        description:             row.description ?? null,
+        location:                row.location ?? null,
+        clientName:              row.client_name ?? null,
+        managerName:             row.manager_name ?? null,
+        contactPhone:            row.contact_phone ?? null,
+        notes:                   row.notes ?? null,
+        budget:                  row.budget ?? null,
+        startDate:               row.start_date ?? null,
+        endDate:                 row.end_date ?? null,
+        is_active:               row.is_active === false ? false : true,
+        created_at:              row.created_at ? new Date(row.created_at).toISOString() : null,
+        updated_at:              row.updated_at ? new Date(row.updated_at).toISOString() : null,
         totalWorkers:            parseInt(row.total_workers)    || 0,
         activeWorkers:           parseInt(row.active_workers)   || 0,
         completedDays:           parseInt(row.completed_days)   || 0,

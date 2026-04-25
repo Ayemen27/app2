@@ -26,7 +26,8 @@ import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
 import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
 import { runStartupValidation, getSchemaStatus } from "./services/schema-guard";
-import { users } from '@shared/schema';
+import { users, workers } from '@shared/schema';
+import { or, like, eq as eqOp, and as andOp } from 'drizzle-orm';
 import http from 'http';
 import { Server } from 'socket.io';
 import compression from "compression"; 
@@ -715,36 +716,108 @@ registerRoutes(app).catch(err => console.error("Failed to initialize services:",
 import { runAllStartupMigrations } from "./db/startup-migration-coordinator.js";
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
-app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
+// يطبق الصلاحيات: الأدمن يرى الكل، المستخدم العادي يرى نفسه + المهندسين الذين أنشأهم في جدول العمال
+app.get("/api/users/list", requireAuth, async (req: any, res: Response) => {
   try {
-    console.log('📊 [API] جلب قائمة المستخدمين');
-    const usersList = await db.select({
-      id: users.id,
-      first_name: users.first_name,
-      last_name: users.last_name,
-      email: users.email,
-      role: users.role,
-    }).from(users).orderBy(users.first_name);
-    
-    const usersWithName = usersList.map((user: { id: string; first_name: string | null; last_name: string | null; email: string; role: string }) => ({
-      id: user.id,
-      name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
-      email: user.email,
-      role: user.role,
-    }));
-    
-    console.log(`✅ [API] تم جلب ${usersWithName.length} مستخدم`);
-    res.json({ 
-      success: true, 
-      data: usersWithName,
-      message: `تم جلب ${usersWithName.length} مستخدم بنجاح`
+    const currentUser = req.user;
+    const isAdmin = currentUser?.role === 'admin';
+    const currentUserId = currentUser?.user_id;
+
+    console.log(`📊 [API] جلب قائمة المهندسين — userId=${currentUserId}, isAdmin=${isAdmin}`);
+
+    let combined: Array<{ id: string; name: string; email?: string | null; role?: string | null; source: 'user' | 'worker' }> = [];
+
+    if (isAdmin) {
+      // الأدمن: يرى جميع المستخدمين + جميع العمال من نوع "مهندس"
+      const usersList = await db.select({
+        id: users.id,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email: users.email,
+        role: users.role,
+      }).from(users).orderBy(users.first_name);
+
+      combined = usersList.map((u: any) => ({
+        id: u.id,
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+        email: u.email,
+        role: u.role,
+        source: 'user' as const,
+      }));
+
+      const engineerWorkers = await db.select({
+        id: workers.id,
+        name: workers.name,
+        type: workers.type,
+      }).from(workers).where(like(workers.type, '%مهندس%'));
+
+      const userIds = new Set(combined.map(c => c.id));
+      for (const w of engineerWorkers as any[]) {
+        if (!userIds.has(w.id)) {
+          combined.push({
+            id: w.id,
+            name: w.name,
+            email: null,
+            role: 'engineer',
+            source: 'worker' as const,
+          });
+        }
+      }
+    } else {
+      // المستخدم العادي: نفسه فقط + المهندسين (workers) الذين أنشأهم بنفسه
+      if (currentUserId) {
+        const meRow = await db.select({
+          id: users.id,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          email: users.email,
+          role: users.role,
+        }).from(users).where(eqOp(users.id, currentUserId)).limit(1);
+
+        if (meRow[0]) {
+          const me: any = meRow[0];
+          combined.push({
+            id: me.id,
+            name: `${me.first_name || ''} ${me.last_name || ''}`.trim() || me.email,
+            email: me.email,
+            role: me.role,
+            source: 'user' as const,
+          });
+        }
+
+        const myEngineers = await db.select({
+          id: workers.id,
+          name: workers.name,
+          type: workers.type,
+        }).from(workers).where(andOp(
+          like(workers.type, '%مهندس%'),
+          eqOp(workers.created_by, currentUserId)
+        ));
+
+        for (const w of myEngineers as any[]) {
+          combined.push({
+            id: w.id,
+            name: w.name,
+            email: null,
+            role: 'engineer',
+            source: 'worker' as const,
+          });
+        }
+      }
+    }
+
+    console.log(`✅ [API] تم جلب ${combined.length} عنصر (مستخدمين + مهندسين)`);
+    res.json({
+      success: true,
+      data: combined,
+      message: `تم جلب ${combined.length} عنصر بنجاح`
     });
   } catch (error: any) {
-    console.error('❌ [API] خطأ في جلب المستخدمين:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
-      message: "فشل في جلب قائمة المستخدمين"
+    console.error('❌ [API] خطأ في جلب قائمة المهندسين:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      message: "فشل في جلب قائمة المهندسين"
     });
   }
 });

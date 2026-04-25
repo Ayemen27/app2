@@ -32,6 +32,9 @@ interface Project {
   status?: string;
   budget?: number;
   project_type_id?: number | null;
+  engineerId?: string | null;
+  engineer_id?: string | null;
+  engineerName?: string | null;
 }
 
 interface SelectedProjectContextType {

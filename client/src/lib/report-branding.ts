@@ -170,47 +170,25 @@ export function ReportBrandingSync() {
 }
 
 /**
- * Hook + مكوّن صامت لمزامنة اسم المهندس المسؤول مع المشروع المختار حالياً.
- * يُركَّب داخل <SelectedProjectProvider/> ليعمل تلقائياً دون أي إعداد في صفحات التصدير.
- *
- * المنطق:
- *  - إذا كان المستخدم يعمل ضمن مشروع محدد، نبحث عن engineerId الخاص به في قائمة /api/users/list.
- *  - إذا وُجد، نضع اسم المهندس في سياق التقارير.
- *  - إذا لم يكن هناك مشروع محدد (وضع "جميع المشاريع")، نمسح الاسم.
+ * مكوّن صامت لمزامنة اسم المهندس المسؤول مع المشروع المختار حالياً.
+ * يقرأ حقل engineerName المُرفق مباشرةً من بيانات المشروع (يأتي من الخادم).
  */
 export function AutoReportEngineerSync() {
   const { selectedProjectId, isAllProjects, projects } = useSelectedProject();
-
-  // قائمة المهندسين/المستخدمين لاستنباط اسم المهندس من engineerId
-  const usersQuery = useQuery<any>({
-    queryKey: ['/api/users/list'],
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
 
   useEffect(() => {
     if (isAllProjects || !selectedProjectId) {
       clearReportEngineer();
       return;
     }
-    const list: any[] = Array.isArray(usersQuery.data?.data)
-      ? usersQuery.data.data
-      : Array.isArray(usersQuery.data)
-        ? usersQuery.data
-        : [];
     const proj: any = (projects || []).find((p: any) => p.id === selectedProjectId);
-    const engId = proj?.engineerId || proj?.engineer_id || null;
-    if (!engId) {
-      clearReportEngineer();
-      return;
-    }
-    const eng = list.find((u: any) => u.id === engId);
-    if (eng?.name) {
-      setReportEngineer(eng.name);
+    const engineerName = proj?.engineerName || null;
+    if (engineerName) {
+      setReportEngineer(engineerName);
     } else {
       clearReportEngineer();
     }
-  }, [selectedProjectId, isAllProjects, projects, usersQuery.data]);
+  }, [selectedProjectId, isAllProjects, projects]);
 
   return null;
 }

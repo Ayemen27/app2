@@ -13,6 +13,7 @@ import {
   fundTransfers, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
   journalEntries, journalLines, financialAuditLog, reconciliationRecords, equipment,
+  users,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -75,6 +76,27 @@ projectRouter.get('/', async (req: Request, res: Response) => {
         projectsList = await storage.getProjects(ids);
       }
     }
+
+    // إثراء البيانات: إضافة اسم المهندس المسؤول لكل مشروع
+    const engineerIds = [...new Set(
+      projectsList.map((p: any) => p.engineerId || p.engineer_id).filter(Boolean)
+    )];
+    if (engineerIds.length > 0) {
+      const engineerRows = await db
+        .select({ id: users.id, full_name: users.full_name, first_name: users.first_name, last_name: users.last_name, email: users.email })
+        .from(users)
+        .where(inArray(users.id, engineerIds));
+      const engineerMap = new Map<string, string>();
+      for (const u of engineerRows) {
+        const name = u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || '';
+        engineerMap.set(u.id, name);
+      }
+      projectsList = projectsList.map((p: any) => ({
+        ...p,
+        engineerName: engineerMap.get(p.engineerId || p.engineer_id) || null,
+      }));
+    }
+
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
     return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: safeErrorMessage(error, 'حدث خطأ داخلي') }]);

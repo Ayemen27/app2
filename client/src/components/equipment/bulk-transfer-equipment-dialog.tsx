@@ -8,29 +8,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Package } from "lucide-react";
 
-interface Equipment {
-  id: string;
-  name: string;
-  code?: string;
-  type?: string;
-  status?: string;
-  description?: string;
-  purchaseDate?: string;
-  purchasePrice?: string;
-  currentProjectId?: string | null;
-  imageUrl?: string;
-}
-
-const transferSchema = z.object({
+const bulkTransferSchema = z.object({
   toProjectId: z.string().nullable(),
   reason: z.string().min(1, "سبب النقل مطلوب"),
   performedBy: z.string().min(1, "اسم من قام بالنقل مطلوب"),
@@ -38,29 +24,36 @@ const transferSchema = z.object({
   transferDate: z.string().min(1, "تاريخ النقل مطلوب"),
 });
 
-type TransferFormData = z.infer<typeof transferSchema>;
+type BulkTransferFormData = z.infer<typeof bulkTransferSchema>;
 
-interface TransferEquipmentDialogProps {
-  equipment: Equipment | null;
+interface BulkTransferEquipmentDialogProps {
+  equipmentIds: number[];
+  equipmentNames?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
   projects: any[];
 }
 
-export function TransferEquipmentDialog({ equipment, open, onOpenChange, projects }: TransferEquipmentDialogProps) {
+export function BulkTransferEquipmentDialog({
+  equipmentIds,
+  equipmentNames = [],
+  open,
+  onOpenChange,
+  onSuccess,
+  projects,
+}: BulkTransferEquipmentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-
-  const form = useForm<TransferFormData>({
-    resolver: zodResolver(transferSchema),
+  const form = useForm<BulkTransferFormData>({
+    resolver: zodResolver(bulkTransferSchema),
     defaultValues: {
       toProjectId: null,
       reason: "",
       performedBy: "",
       notes: "",
-      transferDate: todayIso,
+      transferDate: new Date().toISOString().slice(0, 10),
     },
   });
 
@@ -77,46 +70,43 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
   }, [open]);
 
   const transferMutation = useMutation({
-    mutationFn: (data: TransferFormData) => 
-      apiRequest(`/api/equipment/${equipment?.id}/transfer`, "POST", data),
+    mutationFn: (data: BulkTransferFormData) =>
+      apiRequest(`/api/equipment/bulk-transfer`, "POST", {
+        ...data,
+        equipmentIds,
+        toProjectId: data.toProjectId || null,
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipment });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipmentMovements });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
-      
       toast({
         title: "نجح النقل",
-        description: "تم نقل المعدة بنجاح",
+        description: `تم نقل ${equipmentIds.length} معدة بنجاح`,
         variant: "default",
       });
       form.reset();
+      onSuccess?.();
       onOpenChange(false);
     },
     onError: (error: any) => {
       toast({
-        title: "خطأ",
-        description: toUserMessage(error, "فشل في نقل المعدة"),
+        title: "خطأ في النقل الجماعي",
+        description: toUserMessage(error, "فشل في نقل المعدات"),
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: TransferFormData) => {
-    transferMutation.mutate({
-      ...data,
-      toProjectId: data.toProjectId || null,
-    });
+  const onSubmit = (data: BulkTransferFormData) => {
+    transferMutation.mutate(data);
   };
 
-  const getCurrentLocationName = () => {
-    if (!equipment) return "";
-    if (!equipment.currentProjectId) return "المستودع";
-    const project = Array.isArray(projects) ? projects.find(p => p.id === equipment.currentProjectId) : undefined;
-    return project ? project.name : "مشروع غير معروف";
-  };
-
-  if (!equipment) return null;
+  const projectOptions: SelectOption[] = [
+    { value: "warehouse", label: "المستودع" },
+    ...projects.map((p) => ({ value: p.id, label: p.name })),
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,32 +114,31 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <ArrowUpDown className="h-5 w-5" />
-            نقل المعدة
+            نقل جماعي للأصول
           </DialogTitle>
           <DialogDescription className="text-sm">
-            نقل المعدة "{equipment.name}" إلى موقع جديد
+            نقل {equipmentIds.length} معدة محددة إلى موقع جديد
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-              <div className="flex justify-between items-center text-sm">
-                <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">الموقع الحالي:</p>
-                  <p className="font-medium" data-testid="text-current-location">{getCurrentLocationName()}</p>
-                </div>
-                <ArrowUpDown className="h-4 w-4 text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">الموقع الجديد:</p>
-                  <p className="font-medium text-blue-600" data-testid="text-new-location">
-                    {form.watch('toProjectId') && form.watch('toProjectId') !== 'warehouse'
-                      ? projects.find(p => p.id === form.watch('toProjectId'))?.name || 'المستودع'
-                      : 'المستودع'
-                    }
-                  </p>
-                </div>
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  المعدات المحددة ({equipmentIds.length})
+                </span>
               </div>
+              {equipmentNames.length > 0 && (
+                <div
+                  className="text-xs text-blue-800 dark:text-blue-300 max-h-20 overflow-y-auto leading-relaxed"
+                  data-testid="text-bulk-equipment-names"
+                >
+                  {equipmentNames.slice(0, 8).join("، ")}
+                  {equipmentNames.length > 8 && ` ... و${equipmentNames.length - 8} أخرى`}
+                </div>
+              )}
             </div>
 
             <FormField
@@ -163,7 +152,7 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                       type="date"
                       className="h-9 text-sm"
                       {...field}
-                      data-testid="input-transfer-date"
+                      data-testid="input-bulk-transfer-date"
                     />
                   </FormControl>
                   <FormMessage />
@@ -174,35 +163,23 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
             <FormField
               control={form.control}
               name="toProjectId"
-              render={({ field }) => {
-                const isCurrentlyInWarehouse = !equipment?.currentProjectId;
-                const projectOptions: SelectOption[] = [
-                  ...(isCurrentlyInWarehouse ? [] : [{ value: "warehouse", label: "المستودع" }]),
-                  ...projects
-                    .filter(p => p.id !== equipment?.currentProjectId)
-                    .map((project) => ({
-                      value: project.id,
-                      label: project.name,
-                    }))
-                ];
-                return (
-                  <FormItem>
-                    <FormLabel className="text-sm">المشروع المقصود</FormLabel>
-                    <FormControl>
-                      <SearchableSelect
-                        value={field.value || ""}
-                        onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
-                        options={projectOptions}
-                        placeholder="اختر المشروع المقصود"
-                        searchPlaceholder="ابحث عن مشروع..."
-                        emptyText="لا توجد مشاريع"
-                        triggerClassName="h-9"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm">المشروع المقصود *</FormLabel>
+                  <FormControl>
+                    <SearchableSelect
+                      value={field.value || ""}
+                      onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
+                      options={projectOptions}
+                      placeholder="اختر المشروع المقصود (أو المستودع)"
+                      searchPlaceholder="ابحث عن مشروع..."
+                      emptyText="لا توجد مشاريع"
+                      triggerClassName="h-9"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <CompactFieldGroup columns={2}>
@@ -213,11 +190,11 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                   <FormItem>
                     <FormLabel className="text-sm">سبب النقل *</FormLabel>
                     <FormControl>
-                      <Input 
+                      <Input
                         placeholder="سبب النقل"
                         className="h-9 text-sm"
-                        {...field} 
-                        data-testid="input-transfer-reason"
+                        {...field}
+                        data-testid="input-bulk-transfer-reason"
                       />
                     </FormControl>
                     <FormMessage />
@@ -232,11 +209,11 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                   <FormItem>
                     <FormLabel className="text-sm">تم بواسطة *</FormLabel>
                     <FormControl>
-                      <Input 
+                      <Input
                         placeholder="اسم المسؤول"
                         className="h-9 text-sm"
-                        {...field} 
-                        data-testid="input-performed-by"
+                        {...field}
+                        data-testid="input-bulk-performed-by"
                       />
                     </FormControl>
                     <FormMessage />
@@ -252,14 +229,14 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                 <FormItem>
                   <FormLabel className="text-sm">ملاحظات إضافية</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="ملاحظات أو تفاصيل إضافية..."
                       className="resize-none text-sm"
-                      {...field} 
+                      {...field}
                       autoHeight
                       minRows={2}
                       maxRows={6}
-                      data-testid="textarea-transfer-notes"
+                      data-testid="textarea-bulk-transfer-notes"
                     />
                   </FormControl>
                   <FormMessage />
@@ -268,22 +245,24 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
             />
 
             <div className="flex justify-end space-x-2 space-x-reverse pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => onOpenChange(false)}
                 className="h-9 text-sm"
-                data-testid="button-cancel-transfer"
+                data-testid="button-cancel-bulk-transfer"
               >
                 إلغاء
               </Button>
-              <Button 
-                type="submit" 
-                disabled={transferMutation.isPending}
+              <Button
+                type="submit"
+                disabled={transferMutation.isPending || equipmentIds.length === 0}
                 className="h-9 text-sm"
-                data-testid="button-confirm-transfer"
+                data-testid="button-confirm-bulk-transfer"
               >
-                {transferMutation.isPending ? "جاري النقل..." : "تأكيد النقل"}
+                {transferMutation.isPending
+                  ? "جاري النقل..."
+                  : `تأكيد نقل ${equipmentIds.length} معدة`}
               </Button>
             </div>
           </form>

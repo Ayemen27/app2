@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
-import { Edit, Trash2, Eye, MoreVertical, LucideIcon, ChevronDown } from "lucide-react";
+import { Edit, Trash2, Eye, MoreVertical, LucideIcon, ChevronDown, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +53,9 @@ export interface UnifiedCardProps {
   compact?: boolean;
   headerColor?: string;
   "data-testid"?: string;
+  onLongPress?: () => void;
+  selected?: boolean;
+  selectionMode?: boolean;
 }
 
 const fieldColorClasses = {
@@ -146,6 +149,9 @@ export function UnifiedCard({
   compact = false,
   headerColor,
   "data-testid": dataTestId,
+  onLongPress,
+  selected = false,
+  selectionMode = false,
 }: UnifiedCardProps) {
   if (isLoading) {
     return <UnifiedCardSkeleton compact={compact} />;
@@ -154,18 +160,94 @@ export function UnifiedCard({
   const visibleFields = (fields || []).filter((f) => !f.hidden);
   const visibleActions = (actions || []).filter((a) => !a.hidden);
 
+  const longPressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = React.useRef(false);
+  const startPos = React.useRef<{ x: number; y: number } | null>(null);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!onLongPress) return;
+    if ((e.target as HTMLElement).closest('button, a, [role="menuitem"]')) return;
+    longPressFired.current = false;
+    startPos.current = { x: e.clientX, y: e.clientY };
+    clearLongPressTimer();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      try {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          (navigator as any).vibrate?.(40);
+        }
+      } catch {}
+      onLongPress();
+    }, 500);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!longPressTimer.current || !startPos.current) return;
+    const dx = Math.abs(e.clientX - startPos.current.x);
+    const dy = Math.abs(e.clientY - startPos.current.y);
+    if (dx > 8 || dy > 8) clearLongPressTimer();
+  };
+
+  const handlePointerEnd = () => {
+    clearLongPressTimer();
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (longPressFired.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      longPressFired.current = false;
+      return;
+    }
+    onClick?.();
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (onLongPress) e.preventDefault();
+  };
+
   return (
     <div
       className={cn(
         "group relative rounded-2xl border-2 bg-card text-card-foreground shadow-sm overflow-hidden transition-all duration-300",
         "hover:shadow-xl hover:border-primary/30 hover:-translate-y-1",
-        onClick && "cursor-pointer",
+        (onClick || onLongPress) && "cursor-pointer",
+        selected && "border-primary ring-2 ring-primary/40 bg-primary/5",
+        selectionMode && !selected && "border-dashed",
         compact ? "p-3" : "p-6",
         className
       )}
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
+      onContextMenu={handleContextMenu}
+      style={{ touchAction: onLongPress ? 'pan-y' : undefined, userSelect: onLongPress ? 'none' : undefined }}
       data-testid={dataTestId}
+      data-selected={selected || undefined}
     >
+      {selectionMode && (
+        <div
+          className={cn(
+            "absolute top-2 right-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+            selected
+              ? "bg-primary border-primary text-primary-foreground"
+              : "bg-background border-muted-foreground/40"
+          )}
+          data-testid={dataTestId ? `${dataTestId}-selection-mark` : undefined}
+        >
+          {selected && <Check className="h-3.5 w-3.5" />}
+        </div>
+      )}
       {headerColor && (
         <div 
           className="absolute top-0 left-0 right-0 h-1.5 shadow-sm" 

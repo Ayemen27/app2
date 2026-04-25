@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
   Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
-  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft, ArrowRightLeft
+  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft, ArrowRightLeft,
+  CheckSquare, X
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -28,6 +29,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { generateTablePDF } from '@/utils/pdfGenerator';
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
+import { BulkTransferEquipmentDialog } from "@/components/equipment/bulk-transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
 
 interface InventoryItem {
@@ -106,6 +108,11 @@ export function EquipmentManagement() {
   const [showEditEquipmentDialog, setShowEditEquipmentDialog] = useState(false);
   const [showDeleteEquipmentConfirm, setShowDeleteEquipmentConfirm] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+
+  const [assetSelectionMode, setAssetSelectionMode] = useState(false);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
+  const [showBulkTransferDialog, setShowBulkTransferDialog] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [editEquipmentForm, setEditEquipmentForm] = useState({ name: '', type: '', unit: '', quantity: '', description: '' });
   const [selectedNewStatus, setSelectedNewStatus] = useState('');
   const [customStatusInput, setCustomStatusInput] = useState('');
@@ -892,6 +899,50 @@ export function EquipmentManagement() {
     },
   });
 
+  const bulkDeleteEquipmentMutation = useMutation({
+    mutationFn: (ids: number[]) => apiRequest(`/api/equipment/bulk-delete`, 'POST', { equipmentIds: ids }),
+    onSuccess: (res: any) => {
+      invalidateAll();
+      const count = res?.data?.deletedCount ?? selectedAssetIds.size;
+      setShowBulkDeleteConfirm(false);
+      setSelectedAssetIds(new Set());
+      setAssetSelectionMode(false);
+      toast({ title: `تم حذف ${count} معدة بنجاح` });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في الحذف الجماعي", description: toUserMessage(err), variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (activeTab !== 'assets') {
+      setAssetSelectionMode(false);
+      setSelectedAssetIds(new Set());
+    }
+  }, [activeTab]);
+
+  const exitSelectionMode = useCallback(() => {
+    setAssetSelectionMode(false);
+    setSelectedAssetIds(new Set());
+  }, []);
+
+  const toggleAssetSelection = useCallback((id: number) => {
+    setSelectedAssetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const enterSelectionWith = useCallback((id: number) => {
+    setAssetSelectionMode(true);
+    setSelectedAssetIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
   const handleEditEquipmentClick = useCallback((eq: any) => {
     setSelectedEquipment(eq);
     setEditEquipmentForm({
@@ -1151,53 +1202,142 @@ export function EquipmentManagement() {
               <p className="text-sm mt-2">استخدم الزر العائم لإضافة معدة جديدة</p>
             </Card>
           ) : (
-            <UnifiedCardGrid columns={1}>
-              {filteredEquipmentList.map((eq: any) => {
-                const statusColor: 'success' | 'info' | 'warning' | 'danger' | 'default' =
-                  eq.status === 'available' ? 'success'
-                  : eq.status === 'assigned' || eq.status === 'active' ? 'info'
-                  : eq.status === 'maintenance' ? 'warning'
-                  : (eq.status === 'lost' || eq.status === 'damaged') ? 'danger'
-                  : 'default';
-                const headerColor =
-                  statusColor === 'success' ? '#10b981'
-                  : statusColor === 'info' ? '#3b82f6'
-                  : statusColor === 'warning' ? '#f59e0b'
-                  : statusColor === 'danger' ? '#ef4444'
-                  : '#6b7280';
-                const projectName = eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || (eq.project_id ? '-' : 'غير مرتبط بمشروع');
-                return (
-                  <UnifiedCard
-                    key={eq.id}
-                    data-testid={`card-equipment-${eq.id}`}
-                    title={eq.name}
-                    titleIcon={Settings}
-                    compact
-                    headerColor={headerColor}
-                    badges={[
-                      { label: typeLabel(eq.type), variant: "outline" as const },
-                      { label: statusLabel(eq.status), variant: statusColor === 'danger' ? 'destructive' as const : statusColor === 'warning' ? 'warning' as const : statusColor === 'success' ? 'success' as const : 'secondary' as const },
-                    ]}
-                    fields={[
-                      { label: "المشروع", value: projectName, icon: FolderKanban, color: "info" as const },
-                      ...(eq.code ? [{ label: "الكود", value: eq.code, icon: Box }] : []),
-                      ...(eq.serial_number ? [{ label: "الرقم التسلسلي", value: eq.serial_number, icon: Box }] : []),
-                      { label: "الكمية", value: `${eq.quantity ?? '-'} ${eq.unit || ''}`.trim(), color: "info" as const, emphasis: true },
-                    ]}
-                    actions={[
-                      { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
-                      { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
-                      { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
-                      { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "yellow" as const },
-                      { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
-                    ]}
-                  />
-                );
-              })}
-            </UnifiedCardGrid>
+            <>
+              {assetSelectionMode && (
+                <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg" data-testid="hint-selection-mode">
+                  وضع التحديد المتعدد مفعّل — اضغط على البطاقات لتحديدها أو إلغائها.
+                </div>
+              )}
+              <UnifiedCardGrid columns={1}>
+                {filteredEquipmentList.map((eq: any) => {
+                  const statusColor: 'success' | 'info' | 'warning' | 'danger' | 'default' =
+                    eq.status === 'available' ? 'success'
+                    : eq.status === 'assigned' || eq.status === 'active' ? 'info'
+                    : eq.status === 'maintenance' ? 'warning'
+                    : (eq.status === 'lost' || eq.status === 'damaged') ? 'danger'
+                    : 'default';
+                  const headerColor =
+                    statusColor === 'success' ? '#10b981'
+                    : statusColor === 'info' ? '#3b82f6'
+                    : statusColor === 'warning' ? '#f59e0b'
+                    : statusColor === 'danger' ? '#ef4444'
+                    : '#6b7280';
+                  const projectName = eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || (eq.project_id ? '-' : 'غير مرتبط بمشروع');
+                  const isSelected = selectedAssetIds.has(eq.id);
+                  return (
+                    <UnifiedCard
+                      key={eq.id}
+                      data-testid={`card-equipment-${eq.id}`}
+                      title={eq.name}
+                      titleIcon={Settings}
+                      compact
+                      headerColor={headerColor}
+                      selectionMode={assetSelectionMode}
+                      selected={isSelected}
+                      onLongPress={() => enterSelectionWith(eq.id)}
+                      onClick={assetSelectionMode ? () => toggleAssetSelection(eq.id) : undefined}
+                      badges={[
+                        { label: typeLabel(eq.type), variant: "outline" as const },
+                        { label: statusLabel(eq.status), variant: statusColor === 'danger' ? 'destructive' as const : statusColor === 'warning' ? 'warning' as const : statusColor === 'success' ? 'success' as const : 'secondary' as const },
+                      ]}
+                      fields={[
+                        { label: "المشروع", value: projectName, icon: FolderKanban, color: "info" as const },
+                        ...(eq.code ? [{ label: "الكود", value: eq.code, icon: Box }] : []),
+                        ...(eq.serial_number ? [{ label: "الرقم التسلسلي", value: eq.serial_number, icon: Box }] : []),
+                        { label: "الكمية", value: `${eq.quantity ?? '-'} ${eq.unit || ''}`.trim(), color: "info" as const, emphasis: true },
+                      ]}
+                      actions={assetSelectionMode ? [] : [
+                        { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
+                        { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
+                        { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
+                        { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "yellow" as const },
+                        { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
+                      ]}
+                    />
+                  );
+                })}
+              </UnifiedCardGrid>
+              {assetSelectionMode && <div className="h-24" aria-hidden="true" />}
+            </>
           )}
         </TabsContent>
       </Tabs>
+
+      {assetSelectionMode && activeTab === 'assets' && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-2xl px-3 py-3 sm:px-4"
+          dir="rtl"
+          data-testid="bar-bulk-selection"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exitSelectionMode}
+                className="h-9 w-9 p-0"
+                title="إلغاء التحديد"
+                data-testid="button-cancel-selection"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Badge variant="secondary" className="text-sm font-semibold" data-testid="badge-selected-count">
+                {selectedAssetIds.size} محدد
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {(() => {
+                const allIds = filteredEquipmentList.map((eq: any) => eq.id);
+                const allSelected = allIds.length > 0 && allIds.every((id: number) => selectedAssetIds.has(id));
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs"
+                    onClick={() => {
+                      if (allSelected) {
+                        setSelectedAssetIds(new Set());
+                      } else {
+                        setSelectedAssetIds(new Set(allIds));
+                      }
+                    }}
+                    data-testid="button-select-all"
+                  >
+                    <CheckSquare className="h-4 w-4 ml-1" />
+                    {allSelected ? 'إلغاء تحديد الكل' : `تحديد الكل (${allIds.length})`}
+                  </Button>
+                );
+              })()}
+
+              <Button
+                variant="default"
+                size="sm"
+                className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={selectedAssetIds.size === 0}
+                onClick={() => setShowBulkTransferDialog(true)}
+                data-testid="button-bulk-transfer"
+              >
+                <Truck className="h-4 w-4 ml-1" />
+                نقل المحدد
+              </Button>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-9 text-xs"
+                disabled={selectedAssetIds.size === 0}
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="h-4 w-4 ml-1" />
+                حذف المحدد
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <IssueDialog 
         open={showIssueDialog} 
@@ -1321,6 +1461,53 @@ export function EquipmentManagement() {
           projects={projects}
         />
       )}
+
+      {showBulkTransferDialog && (
+        <BulkTransferEquipmentDialog
+          open={showBulkTransferDialog}
+          onOpenChange={setShowBulkTransferDialog}
+          equipmentIds={Array.from(selectedAssetIds)}
+          equipmentNames={filteredEquipmentList
+            .filter((eq: any) => selectedAssetIds.has(eq.id))
+            .map((eq: any) => eq.name)}
+          projects={projects}
+          onSuccess={() => {
+            setSelectedAssetIds(new Set());
+            setAssetSelectionMode(false);
+          }}
+        />
+      )}
+
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={(open) => { if (!open) setShowBulkDeleteConfirm(false); }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">تأكيد الحذف الجماعي</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            هل أنت متأكد من حذف <strong>{selectedAssetIds.size}</strong> معدة محددة؟
+          </p>
+          <p className="text-xs text-amber-600 mt-1">
+            سيتم حذف جميع سجلات الحركات المرتبطة بهذه المعدات. لا يمكن التراجع عن هذه العملية.
+          </p>
+          <DialogFooter className="gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteConfirm(false)}
+              data-testid="button-cancel-bulk-delete"
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteEquipmentMutation.isPending || selectedAssetIds.size === 0}
+              onClick={() => bulkDeleteEquipmentMutation.mutate(Array.from(selectedAssetIds))}
+              data-testid="button-confirm-bulk-delete"
+            >
+              {bulkDeleteEquipmentMutation.isPending ? 'جاري الحذف...' : `حذف ${selectedAssetIds.size} معدة`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showMovementHistoryDialog && selectedEquipment && (
         <EquipmentMovementHistoryDialog

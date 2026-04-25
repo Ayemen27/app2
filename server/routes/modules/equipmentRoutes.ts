@@ -343,7 +343,18 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       }
     }
 
-    const { toProjectId, reason, performedBy, notes, quantity: moveQty } = req.body;
+    const { toProjectId, reason, performedBy, notes, quantity: moveQty, transferDate } = req.body;
+
+    let movementDate: Date | undefined;
+    let transferDateStr: string | null = null;
+    if (transferDate) {
+      const parsed = new Date(transferDate);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({ success: false, message: 'تاريخ النقل غير صالح' });
+      }
+      movementDate = parsed;
+      transferDateStr = parsed.toISOString().slice(0, 10);
+    }
 
     if (!isAdminUser && toProjectId) {
       const ids = accessReq.accessibleProjectIds ?? [];
@@ -375,6 +386,7 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       reason: reason || null,
       performedBy: performedBy || null,
       notes: notes || null,
+      ...(movementDate ? { movementDate } : {}),
     }).returning();
 
     await db.update(equipment)
@@ -389,7 +401,7 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
         const [fp] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, item.project_id));
         if (fp) fromProjectName = fp.name;
       }
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const purchaseDateStr = transferDateStr || new Date().toISOString().slice(0, 10);
       const purchasePriceNum = item.purchasePrice ? parseFloat(item.purchasePrice as any) : 0;
       const { rows: purchaseRows } = await pool.query(
         `INSERT INTO material_purchases (
@@ -410,7 +422,7 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
           'نقل أصل',
           `نقل من: ${fromProjectName}`,
           `أصل/معدة منقولة من ${fromProjectName} - السبب: ${reason}${notes ? ' | ' + notes : ''}`,
-          todayStr,
+          purchaseDateStr,
         ]
       );
       purchaseLogId = purchaseRows[0].id;
@@ -426,6 +438,180 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ خطأ في نقل المعدة:', error);
     res.status(500).json({ success: false, message: 'فشل في نقل المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
+  }
+});
+
+equipmentRouter.post('/bulk-transfer', async (req: Request, res: Response) => {
+  try {
+    const { equipmentIds, toProjectId, reason, performedBy, notes, transferDate } = req.body || {};
+
+    if (!Array.isArray(equipmentIds) || equipmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'يجب تحديد معدة واحدة على الأقل' });
+    }
+    const ids: number[] = equipmentIds
+      .map((v: any) => parseInt(v))
+      .filter((n: number) => !isNaN(n));
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'معرفات المعدات غير صالحة' });
+    }
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ success: false, message: 'سبب النقل مطلوب' });
+    }
+
+    let movementDate: Date | undefined;
+    let transferDateStr: string | null = null;
+    if (transferDate) {
+      const parsed = new Date(transferDate);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({ success: false, message: 'تاريخ النقل غير صالح' });
+      }
+      movementDate = parsed;
+      transferDateStr = parsed.toISOString().slice(0, 10);
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && toProjectId && !accessibleIds.includes(toProjectId)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية النقل لهذا المشروع', code: 'PROJECT_ACCESS_DENIED' });
+    }
+
+    const items = await db.select().from(equipment).where(inArray(equipment.id, ids));
+    if (items.length === 0) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على المعدات المطلوبة' });
+    }
+
+    if (!isAdminUser) {
+      const denied = items.find((it: any) => it.project_id && !accessibleIds.includes(it.project_id));
+      if (denied) {
+        return res.status(403).json({ success: false, message: `ليس لديك صلاحية نقل المعدة "${denied.name}"`, code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
+
+    const purchaseDateStr = transferDateStr || new Date().toISOString().slice(0, 10);
+    const projectsCache: Record<string, string> = { warehouse: 'المستودع' };
+    const results: any[] = [];
+
+    for (const item of items) {
+      const transferQty = item.quantity ?? 1;
+      const [movement] = await db.insert(equipmentMovements).values({
+        equipmentId: item.id,
+        fromProjectId: item.project_id || null,
+        toProjectId: toProjectId || null,
+        quantity: transferQty,
+        reason: reason || null,
+        performedBy: performedBy || null,
+        notes: notes || null,
+        ...(movementDate ? { movementDate } : {}),
+      }).returning();
+
+      await db.update(equipment)
+        .set({ project_id: toProjectId || null })
+        .where(eq(equipment.id, item.id));
+
+      let purchaseLogId: string | null = null;
+      if (toProjectId) {
+        let fromProjectName = 'المستودع';
+        if (item.project_id) {
+          if (projectsCache[item.project_id]) {
+            fromProjectName = projectsCache[item.project_id];
+          } else {
+            const [fp] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, item.project_id));
+            if (fp) {
+              fromProjectName = fp.name;
+              projectsCache[item.project_id] = fp.name;
+            }
+          }
+        }
+        const purchasePriceNum = item.purchasePrice ? parseFloat(item.purchasePrice as any) : 0;
+        const { rows: purchaseRows } = await pool.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, $9, $10, $11)
+           RETURNING id`,
+          [
+            toProjectId,
+            item.name,
+            item.type || 'أصول',
+            item.unit || 'قطعة',
+            transferQty,
+            item.unit || 'قطعة',
+            purchasePriceNum,
+            'نقل أصل',
+            `نقل من: ${fromProjectName}`,
+            `أصل/معدة منقولة من ${fromProjectName} - السبب: ${reason}${notes ? ' | ' + notes : ''}`,
+            purchaseDateStr,
+          ]
+        );
+        purchaseLogId = purchaseRows[0].id;
+      }
+
+      results.push({ ...movement, equipmentName: item.name, purchaseLogId });
+    }
+
+    console.log(`✅ [Equipment] نقل جماعي: ${results.length} معدة إلى ${toProjectId || 'المخزن'}`);
+
+    res.status(201).json({
+      success: true,
+      data: results,
+      message: `تم نقل ${results.length} معدة بنجاح`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في النقل الجماعي:', error);
+    res.status(500).json({ success: false, message: 'فشل في النقل الجماعي', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
+  }
+});
+
+equipmentRouter.post('/bulk-delete', async (req: Request, res: Response) => {
+  try {
+    const { equipmentIds } = req.body || {};
+    if (!Array.isArray(equipmentIds) || equipmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'يجب تحديد معدة واحدة على الأقل' });
+    }
+    const ids: number[] = equipmentIds
+      .map((v: any) => parseInt(v))
+      .filter((n: number) => !isNaN(n));
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'معرفات المعدات غير صالحة' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const items = await db.select().from(equipment).where(inArray(equipment.id, ids));
+    if (items.length === 0) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على المعدات المطلوبة' });
+    }
+
+    if (!isAdminUser) {
+      const denied = items.find((it: any) => it.project_id && !accessibleIds.includes(it.project_id));
+      if (denied) {
+        return res.status(403).json({ success: false, message: `ليس لديك صلاحية حذف المعدة "${denied.name}"`, code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
+
+    const foundIds = items.map((i: any) => i.id);
+
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM equipment_movements WHERE equipment_id = ANY($1::int[])', [foundIds]);
+      await client.query('DELETE FROM equipment WHERE id = ANY($1::int[])', [foundIds]);
+    });
+
+    console.log(`✅ [Equipment] حذف جماعي: ${foundIds.length} معدة`);
+
+    res.json({
+      success: true,
+      data: { deletedCount: foundIds.length, ids: foundIds },
+      message: `تم حذف ${foundIds.length} معدة بنجاح`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في الحذف الجماعي:', error);
+    res.status(500).json({ success: false, message: 'فشل في الحذف الجماعي', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

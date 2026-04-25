@@ -1,5 +1,27 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-25)
+
+### تحديد متعدد للأصول + نقل/حذف جماعي + حقل تاريخ النقل (إدارة المخزن)
+**المشكلة**: في تبويب "الأصول" بصفحة `equipment-management`، كان نقل الأصول يتم واحداً واحداً فقط، ولا يوجد طريقة لتحديد عدة أصول معاً. كذلك نموذج النقل لم يكن يدعم اختيار تاريخ النقل (كان يُسجَّل بـ `defaultNow()` تلقائياً في `equipment_movements.movementDate`).
+
+**التنفيذ**:
+- **`UnifiedCard`** (`client/src/components/ui/unified-card.tsx`): إضافة `onLongPress` و `selectionMode` و `selected` كـ props. منطق Pointer events موحّد (Touch+Mouse) بـ delay 500ms مع إلغاء عند الحركة >8px أو لمس زر داخل البطاقة. يضيف اهتزاز خفيف 40ms عند تفعيل التحديد، يمنع `contextMenu` (لمنع قائمة المتصفح من الظهور)، ويعرض دائرة تحديد مع علامة `Check` في الزاوية + إطار `ring-primary` عند التحديد.
+- **`equipmentRoutes.ts`** (الخادم):
+  - دعم `transferDate` (ISO date) في `POST /:id/transfer` — يُمرَّر كـ `movementDate` لـ `equipment_movements` ويُستخدم كـ `purchase_date` لصف `material_purchases` التوثيقي.
+  - مسار جديد `POST /bulk-transfer`: يستقبل `equipmentIds[]` + `toProjectId` + `reason` + `performedBy` + `notes` + `transferDate`، يتحقق من صلاحية المستخدم على المصدر والوجهة، ينفّذ insert + update + material_purchases لكل معدة في حلقة مع cache لأسماء المشاريع.
+  - مسار جديد `POST /bulk-delete`: يحذف `equipment_movements` ثم `equipment` في transaction واحد عبر `ANY($1::int[])` (دفعة واحدة بدل N استعلام).
+- **`TransferEquipmentDialog`**: إضافة حقل `transferDate` إلزامي مع zod validation، افتراضه اليوم، يُعاد تعيينه عند فتح النموذج.
+- **`BulkTransferEquipmentDialog`** (مكوّن جديد): نموذج نقل جماعي مماثل للفردي مع شارة زرقاء تعرض عدد + أسماء المعدات المحددة (أول 8 + "و N أخرى").
+- **`equipment-management.tsx`**:
+  - حالة `assetSelectionMode` + `selectedAssetIds: Set<number>`.
+  - تنظيف تلقائي عند الخروج من تبويب "الأصول".
+  - الضغط المطول على بطاقة → يفعّل وضع التحديد ويضيف البطاقة للتحديد.
+  - في وضع التحديد: الإجراءات الفردية تختفي، النقر يحدد/يلغي التحديد، تلميح أعلى القائمة، spacer سفلي 24px لمنع تغطية الشريط للمحتوى.
+  - شريط عائم سفلي ثابت (`fixed bottom-0`, `z-50`, `backdrop-blur`, يحترم `safe-area-inset-bottom`) يحوي: زر إلغاء، شارة عدّاد، زر "تحديد الكل/إلغاء تحديد الكل" (يتبدّل ديناميكياً)، زر "نقل المحدد"، زر "حذف المحدد".
+  - مربع تأكيد للحذف الجماعي مع تحذير صريح أن سجلات الحركات ستُحذف معها.
+- **اختبار**: صفر أخطاء TypeScript، HMR طبّق كل التعديلات بنجاح في سجلات `Start application`.
+
 ## التغييرات الأخيرة (2026-04-24)
 
 ### 🔥 إصلاح حاسم: محرك النشر كان يدمّر MainActivity في كل عملية نشر منذ شهور (P0)

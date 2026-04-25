@@ -1396,6 +1396,13 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest(`/api/material-purchases/${id}`, "PATCH", data),
     onSuccess: async () => {
+      // التقاط القيم قبل الـ reset للاستخدام في الإضافة للمخزن إن لزم
+      const wasConsumable = purchaseInventoryDest === 'consumable';
+      const itemName = purchaseMaterialName.trim();
+      const qty = parseFloat(purchaseQuantity) || 0;
+      const unitV = purchaseUnit.trim() || 'وحدة';
+      const price = parseFloat(purchaseUnitPrice) || 0;
+
       refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
 
@@ -1409,6 +1416,20 @@ function DailyExpensesContent() {
         title: "تم التحديث",
         description: "تم تحديث شراء المواد بنجاح",
       });
+
+      // عند تحويل الشراء إلى "مواد مستهلكة": أضف الكمية للمخزن
+      if (wasConsumable && itemName && qty > 0) {
+        receiveInventoryMutation.mutate({
+          itemName,
+          category: 'مواد بناء',
+          unit: unitV,
+          quantity: qty,
+          unitCost: price,
+          receiptDate: selectedDate,
+          projectId: (selectedProjectId && !isAllProjects) ? selectedProjectId : undefined,
+          notes: `إضافة من تعديل شراء: ${itemName}`,
+        });
+      }
     },
     onError: (error: any) => {
       if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
@@ -4040,13 +4061,12 @@ function DailyExpensesContent() {
                           </label>
                           <label
                             htmlFor="dest-consumable"
-                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs ${purchaseInventoryDest === 'consumable' ? 'bg-white dark:bg-gray-800 border-blue-400' : 'bg-transparent border-blue-200/50'} ${editingMaterialPurchaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs ${purchaseInventoryDest === 'consumable' ? 'bg-white dark:bg-gray-800 border-blue-400' : 'bg-transparent border-blue-200/50'}`}
                           >
                             <RadioGroupItem
                               value="consumable"
                               id="dest-consumable"
                               data-testid="radio-dest-consumable"
-                              disabled={!!editingMaterialPurchaseId}
                             />
                             <span>مواد مستهلكة</span>
                           </label>

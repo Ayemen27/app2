@@ -589,36 +589,62 @@ export class InventoryService {
   static async getCurrentStock(filters?: { category?: string; search?: string; projectId?: string }): Promise<any[]> {
     const params: any[] = [];
     let paramIdx = 1;
-    let projectCondition = '';
-    let projectConditionLot = '';
-    let projectConditionTx = '';
+    let lotProjectFilter = '';
 
+    // عند تحديد مشروع → JOIN صارم على il.project_id = $1 (لا تظهر مواد ليس لها lots بهذا المشروع)
+    // عند "جميع المشاريع" → INNER JOIN بدون فلترة + GROUP BY (item, project) ⇒ بطاقة لكل (مادة × مشروع)
     if (filters?.projectId) {
-      projectCondition = ` AND il.project_id = $${paramIdx}`;
-      projectConditionLot = ` AND il2.project_id = $${paramIdx}`;
-      projectConditionTx = ` AND (it2.to_project_id = $${paramIdx} OR it2.from_project_id = $${paramIdx})`;
+      lotProjectFilter = ` AND il.project_id = $${paramIdx}`;
       params.push(filters.projectId);
       paramIdx++;
     }
 
-    const projectConditionTxReturn = projectConditionTx.replace(/it2\./g, 'it3.');
-
-    const joinType = filters?.projectId ? 'JOIN' : 'LEFT JOIN';
-
     let query = `
       SELECT 
         ii.id, ii.name, ii.category, ii.unit, ii.sku, ii.min_quantity, ii.is_active,
+        il.project_id,
+        p.name as project_name,
         COALESCE(SUM(il.received_qty), 0) as total_received,
         COALESCE(SUM(il.remaining_qty), 0) as total_remaining,
         COALESCE(SUM(il.received_qty), 0) - COALESCE(SUM(il.remaining_qty), 0) as total_issued,
         COALESCE(SUM(il.remaining_qty * il.unit_cost), 0) as stock_value,
-        COALESCE((SELECT SUM(it2.quantity) FROM inventory_transactions it2 WHERE it2.item_id = ii.id AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')${projectConditionTx}), 0) as total_issued_gross,
-        COALESCE((SELECT SUM(it3.quantity) FROM inventory_transactions it3 WHERE it3.item_id = ii.id AND it3.type = 'RETURN'${projectConditionTxReturn}), 0) as total_returned,
-        (SELECT COUNT(DISTINCT il2.supplier_id) FROM inventory_lots il2 WHERE il2.item_id = ii.id AND il2.supplier_id IS NOT NULL${projectConditionLot}) as supplier_count,
-        MAX(il.receipt_date) as last_receipt_date,
-        (SELECT string_agg(DISTINCT p2.name, '، ') FROM inventory_lots il3 JOIN projects p2 ON p2.id = il3.project_id WHERE il3.item_id = ii.id${projectConditionLot.replace(/il2\./g, 'il3.')}) as project_name
+        COALESCE((
+          SELECT SUM(it2.quantity)
+          FROM inventory_transactions it2
+          WHERE it2.item_id = ii.id
+            AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')
+            AND (
+              il.project_id IS NULL
+              OR it2.from_project_id = il.project_id
+              OR it2.to_project_id = il.project_id
+            )
+        ), 0) as total_issued_gross,
+        COALESCE((
+          SELECT SUM(it3.quantity)
+          FROM inventory_transactions it3
+          WHERE it3.item_id = ii.id
+            AND it3.type = 'RETURN'
+            AND (
+              il.project_id IS NULL
+              OR it3.from_project_id = il.project_id
+              OR it3.to_project_id = il.project_id
+            )
+        ), 0) as total_returned,
+        COUNT(DISTINCT il.supplier_id) FILTER (WHERE il.supplier_id IS NOT NULL) as supplier_count,
+        COALESCE(
+          (
+            SELECT string_agg(DISTINCT s2.name, '، ' ORDER BY s2.name)
+            FROM inventory_lots il_s
+            JOIN suppliers s2 ON s2.id = il_s.supplier_id
+            WHERE il_s.item_id = ii.id
+              AND il_s.supplier_id IS NOT NULL
+              AND (il.project_id IS NULL OR il_s.project_id = il.project_id)
+          ),
+          '—'
+        ) as supplier_names,
+        MAX(il.receipt_date) as last_receipt_date
       FROM inventory_items ii
-      ${joinType} inventory_lots il ON il.item_id = ii.id${projectCondition}
+      JOIN inventory_lots il ON il.item_id = ii.id${lotProjectFilter}
       LEFT JOIN projects p ON p.id = il.project_id
       WHERE ii.is_active = true
     `;
@@ -632,7 +658,13 @@ export class InventoryService {
       params.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
-    query += ` GROUP BY ii.id ORDER BY ii.name ASC`;
+    if (filters?.projectId) {
+      // مشروع محدد: صف واحد لكل مادة (محصور بهذا المشروع)
+      query += ` GROUP BY ii.id, il.project_id, p.name ORDER BY ii.name ASC`;
+    } else {
+      // جميع المشاريع: صف لكل (مادة × مشروع) — بطاقة لكل ظهور
+      query += ` GROUP BY ii.id, il.project_id, p.name ORDER BY ii.name ASC, p.name ASC NULLS LAST`;
+    }
 
     const { rows } = await pool.query(query, params);
     return rows;

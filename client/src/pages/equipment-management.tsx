@@ -34,7 +34,8 @@ import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment
 
 interface InventoryItem {
   id: number;
-  project_name?: string;
+  project_id?: string | null;
+  project_name?: string | null;
   name: string;
   category: string | null;
   unit: string;
@@ -48,6 +49,7 @@ interface InventoryItem {
   total_returned: string;
   stock_value: string;
   supplier_count: string;
+  supplier_names?: string | null;
   last_receipt_date: string | null;
 }
 
@@ -1047,10 +1049,14 @@ export function EquipmentManagement() {
                 const isLow = remaining <= parseFloat(item.min_quantity || '0') && remaining > 0;
                 const isOut = remaining <= 0;
 
+                const projectLabel = item.project_name || (item.project_id ? (projectsMap[item.project_id] || '-') : 'غير مرتبط بمشروع');
+                const supplierLabel = (item.supplier_names && item.supplier_names.trim() && item.supplier_names !== '—')
+                  ? item.supplier_names
+                  : 'لا يوجد مورد';
                 return (
                   <UnifiedCard
-                    key={item.id}
-                    data-testid={`card-stock-item-${item.id}`}
+                    key={`${item.id}-${item.project_id ?? 'none'}`}
+                    data-testid={`card-stock-item-${item.id}-${item.project_id ?? 'none'}`}
                     title={item.name}
                     titleIcon={Package}
                     compact
@@ -1061,14 +1067,14 @@ export function EquipmentManagement() {
                       ...(isLow && !isOut ? [{ label: 'منخفض', variant: "warning" as const }] : []),
                     ]}
                     fields={[
-                      ...(!projectId && item.project_name ? [{ label: "المشروع", value: item.project_name, icon: FolderKanban, color: "info" as const }] : []),
+                      { label: "المشروع", value: projectLabel, icon: FolderKanban, color: "info" as const },
                       { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
                       { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
                       { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
                       { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
                       ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(1), icon: RefreshCw, color: "info" as const }] : []),
                       { label: "الوحدة", value: item.unit, icon: Box },
-                      { label: "الموردين", value: item.supplier_count, icon: Truck, color: "info" as const },
+                      { label: "المورد", value: supplierLabel, icon: Truck, color: "info" as const },
                     ]}
                     actions={[
                       { icon: ArrowUpFromLine, label: "صرف", onClick: () => { setSelectedItem(item); setShowIssueDialog(true); }, color: "red" as const, disabled: isOut },

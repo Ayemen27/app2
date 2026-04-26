@@ -1,5 +1,6 @@
 import { ENV } from "@/lib/env";
 import { Capacitor } from '@capacitor/core';
+import { streamExport } from '@/native/axion-file-export';
 
 // ─── كشف المنصة ──────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ export function enableDownloadDebug(enable = true) {
 
 const lastErrors: Record<string, string> = {};
 
-function debugLog(method: string, status: string, detail?: string) {
+export function debugLog(method: string, status: string, detail?: string) {
   const msg = `[DL] ${method}: ${status}${detail ? ' — ' + detail : ''}`;
   console.log(msg);
   if (status === 'ERROR' || status === 'UPLOAD_FAILED' || status === 'SKIP') {
@@ -148,6 +149,31 @@ function debugLog(method: string, status: string, detail?: string) {
 }
 
 // ─── طرق التصدير — مرتبة من الأفضل إلى الأقل ─────────────────────────────────
+
+/**
+ * الطريقة 0: Axion Streaming Native Export (الأحدث والأكثر أماناً من OOM)
+ * تدفق البيانات في أجزاء صغيرة لمنع تعليق التطبيق.
+ */
+async function tryStreamingNativeExport(blob: Blob, fileName: string, mimeType: string, mode: 'share' | 'downloads' | 'saveAs' = 'share'): Promise<boolean> {
+  if (!isCapacitorNative()) return false;
+
+  try {
+    const sanitized = sanitizeFileName(fileName);
+    const contentType = getMimeType(sanitized, mimeType);
+
+    debugLog('StreamingNative', 'START', `${sanitized} via mode=${mode}`);
+    const result = await streamExport(blob, sanitized, contentType, mode);
+
+    if (result.success) {
+      debugLog('StreamingNative', 'OK');
+      return true;
+    }
+    return false;
+  } catch (err: any) {
+    debugLog('StreamingNative', 'ERROR', String(err?.message || err));
+    return false;
+  }
+}
 
 /**
  * الطريقة 1: FileSharer (Capacitor native — الأفضل والأسرع)
@@ -464,21 +490,22 @@ export async function downloadFile(
   // ── تطبيق Capacitor (Android / iOS) ──
   // نستدعي الإضافات الأصلية مباشرة بدون فحص isPluginAvailable()
   if (onCapacitor) {
-    // 1. Filesystem + Share — يكتب الملف فعلياً على القرص باسمه الكامل،
-    //    فتقرأه WhatsApp/Drive/Gmail من content://URI بالاسم الصحيح.
-    //    هذا الترتيب يضمن ظهور اسم وصفي كامل (تقرير_يومي_2026-04-24.pdf)
-    //    بدلاً من اسم عام مثل "report-daily.pdf" الذي تولّده FileSharer.
-    if (await tryCapacitorFsShare(blob, fileName, type)) return true;
+    // 1. Axion Streaming Native — الطريقة الأصلية المعتمدة (streaming بدون OOM)
+    //    تستخدم MediaStore + FileProvider + SAF حسب المعايير العالمية
+    if (await tryStreamingNativeExport(blob, fileName, type)) return true;
 
-    // 2. FileSharer — احتياطي: يعرض Share Sheet عبر intent extras
+    // 2. FileSharer — احتياطي: كانت تعمل في الإصدار v1.0.46 لملفات Excel
     if (await tryFileSharer(blob, fileName, type)) return true;
 
-    // 3. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
+    // 3. Filesystem + Share — احتياطي ثانٍ
+    if (await tryCapacitorFsShare(blob, fileName, type)) return true;
+
+    // 4. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
     if (hasAndroidBridge() || hasIOSBridge()) {
       if (await tryNativeBridge(blob, fileName, type)) return true;
     }
 
-    // 4. Server Proxy + Browser — رفع للسيرفر ثم فتح عبر المتصفح المدمج
+    // 5. Server Proxy + Browser — رفع للسيرفر ثم فتح عبر المتصفح المدمج
     if (await tryServerProxyBrowserDownload(blob, fileName, type)) return true;
 
     const errorDetails = Object.entries(lastErrors)

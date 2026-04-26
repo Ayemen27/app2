@@ -44,6 +44,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(InAppBrowserPlugin.class);
         registerPlugin(CapacitorSQLitePlugin.class);
         registerPlugin(ApkUpdaterPlugin.class);
+        registerPlugin(AxionFileExportPlugin.class);
         super.onCreate(savedInstanceState);
         applyEdgeToEdge();
     }

@@ -35,6 +35,7 @@ public class AxionFileExportPlugin extends Plugin {
 
     private final ConcurrentHashMap<String, FileOutputStream> activeSessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, File> sessionFiles = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, File> sessionDirs = new ConcurrentHashMap<>();
 
     @PluginMethod
     public void startWrite(PluginCall call) {
@@ -46,17 +47,25 @@ public class AxionFileExportPlugin extends Plugin {
 
         String sessionId = UUID.randomUUID().toString();
         try {
-            File exportDir = new File(getContext().getCacheDir(), "axion_exports");
-            if (!exportDir.exists() && !exportDir.mkdirs()) {
-                call.reject("ERR_WRITE_FAILED", "Could not create export directory");
+            File exportRoot = new File(getContext().getCacheDir(), "axion_exports");
+            if (!exportRoot.exists() && !exportRoot.mkdirs()) {
+                call.reject("ERR_WRITE_FAILED", "Could not create export root directory");
                 return;
             }
 
-            File file = new File(exportDir, sessionId + "_" + fileName);
+            // كل جلسة في مجلد فرعي خاص بها — حتى يبقى اسم الملف نظيفاً عند المشاركة
+            File sessionDir = new File(exportRoot, sessionId);
+            if (!sessionDir.exists() && !sessionDir.mkdirs()) {
+                call.reject("ERR_WRITE_FAILED", "Could not create session directory");
+                return;
+            }
+
+            File file = new File(sessionDir, fileName);
             FileOutputStream fos = new FileOutputStream(file);
 
             activeSessions.put(sessionId, fos);
             sessionFiles.put(sessionId, file);
+            sessionDirs.put(sessionId, sessionDir);
 
             JSObject ret = new JSObject();
             ret.put("sessionId", sessionId);
@@ -123,14 +132,18 @@ public class AxionFileExportPlugin extends Plugin {
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(chooser);
 
+            // ملاحظة: لا نحذف الملف هنا — مستلم المشاركة يحتاج وقتاً لقراءته.
+            // التنظيف التلقائي عبر cleanupOldExports يتولى الحذف بعد ساعة.
             sessionFiles.remove(sessionId);
+            sessionDirs.remove(sessionId);
 
             JSObject ret = new JSObject();
             ret.put("shared", true);
             call.resolve(ret);
         } catch (Exception e) {
+            File sessionDir = sessionDirs.remove(sessionId);
             sessionFiles.remove(sessionId);
-            file.delete();
+            deleteRecursive(sessionDir);
             call.reject("ERR_SHARE_FAILED", e.getMessage());
         }
     }
@@ -146,13 +159,31 @@ public class AxionFileExportPlugin extends Plugin {
             File exportDir = new File(getContext().getCacheDir(), "axion_exports");
             if (!exportDir.exists() || !exportDir.isDirectory()) return;
             long cutoff = System.currentTimeMillis() - (60L * 60L * 1000L);
-            File[] files = exportDir.listFiles();
-            if (files == null) return;
-            for (File f : files) {
-                if (f.isFile() && f.lastModified() < cutoff) {
-                    f.delete();
+            File[] entries = exportDir.listFiles();
+            if (entries == null) return;
+            for (File entry : entries) {
+                // مجلدات الجلسات الجديدة (sessionId)
+                if (entry.isDirectory() && entry.lastModified() < cutoff) {
+                    deleteRecursive(entry);
+                }
+                // ملفات قديمة من الإصدار السابق (UUID_filename) — تُحذف للتنظيف
+                else if (entry.isFile() && entry.lastModified() < cutoff) {
+                    entry.delete();
                 }
             }
+        } catch (Exception ignored) {}
+    }
+
+    private void deleteRecursive(File f) {
+        if (f == null || !f.exists()) return;
+        try {
+            if (f.isDirectory()) {
+                File[] children = f.listFiles();
+                if (children != null) {
+                    for (File c : children) deleteRecursive(c);
+                }
+            }
+            f.delete();
         } catch (Exception ignored) {}
     }
 
@@ -173,7 +204,7 @@ public class AxionFileExportPlugin extends Plugin {
         }
 
         try {
-            String fileName = file.getName().substring(sessionId.length() + 1);
+            String fileName = file.getName();
             ContentResolver resolver = getContext().getContentResolver();
             Uri downloadUri;
 
@@ -214,8 +245,9 @@ public class AxionFileExportPlugin extends Plugin {
         } catch (IOException e) {
             call.reject("ERR_MEDIASTORE_FAILED", e.getMessage());
         } finally {
+            File sessionDir = sessionDirs.remove(sessionId);
             sessionFiles.remove(sessionId);
-            file.delete();
+            deleteRecursive(sessionDir);
         }
     }
 
@@ -235,7 +267,7 @@ public class AxionFileExportPlugin extends Plugin {
             return;
         }
 
-        String fileName = file.getName().substring(sessionId.length() + 1);
+        String fileName = file.getName();
 
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -250,18 +282,21 @@ public class AxionFileExportPlugin extends Plugin {
     private void saveAsCallback(PluginCall call, ActivityResult result) {
         String sessionId = call.getString("sessionId");
         File file = sessionFiles.get(sessionId);
-        
+        File sessionDir = sessionDirs.get(sessionId);
+
         if (result.getResultCode() == Activity.RESULT_CANCELED) {
-            if (file != null) file.delete();
             sessionFiles.remove(sessionId);
+            sessionDirs.remove(sessionId);
+            deleteRecursive(sessionDir);
             call.reject("ERR_USER_CANCELLED");
             return;
         }
 
         Intent data = result.getData();
         if (data == null || data.getData() == null) {
-            if (file != null) file.delete();
             sessionFiles.remove(sessionId);
+            sessionDirs.remove(sessionId);
+            deleteRecursive(sessionDir);
             call.reject("ERR_WRITE_FAILED", "No URI returned from picker");
             return;
         }
@@ -280,8 +315,9 @@ public class AxionFileExportPlugin extends Plugin {
         } catch (IOException e) {
             call.reject("ERR_WRITE_FAILED", e.getMessage());
         } finally {
-            if (file != null) file.delete();
             sessionFiles.remove(sessionId);
+            sessionDirs.remove(sessionId);
+            deleteRecursive(sessionDir);
         }
     }
 
@@ -294,10 +330,9 @@ public class AxionFileExportPlugin extends Plugin {
         }
 
         finalizeSession(sessionId); // Closes stream
-        File file = sessionFiles.remove(sessionId);
-        if (file != null && file.exists()) {
-            file.delete();
-        }
+        sessionFiles.remove(sessionId);
+        File sessionDir = sessionDirs.remove(sessionId);
+        deleteRecursive(sessionDir);
         call.resolve();
     }
 

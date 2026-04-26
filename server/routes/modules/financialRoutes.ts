@@ -2419,7 +2419,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
         const eqInsert = await client.query(
-          `INSERT INTO equipment (name, type, unit, quantity, status, condition, description, "purchaseDate", "purchasePrice", project_id)
+          `INSERT INTO equipment (name, type, unit, quantity, status, condition, description, purchase_date, purchase_price, project_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
           [p.material_name, p.material_category || null, p.material_unit || p.unit || 'قطعة', qty, 'available', 'excellent', p.notes || null, p.purchase_date, safePurchasePrice, p.project_id]
         );

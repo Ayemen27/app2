@@ -514,6 +514,59 @@ export class InventoryService {
         ]
       );
 
+      // ✅ قيود التسوية المحاسبية (Cost Reallocation) — تمنع ازدواج المصروف
+      // المرجع: AICPA Construction Contractors Guide — Job Costing WIP-to-WIP Transfer
+      // المنطق: تخفيض مصروفات المشروع المصدر بقيمة المواد المنقولة، وإضافتها كمصروف للمشروع المستلم
+      if (totalCost > 0) {
+        // 1) قيد خصم في المشروع المصدر A (يقلل مصروفاته بقيمة المتبقي المنقول)
+        await client.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, 0, $10, $11, $12)`,
+          [
+            data.fromProjectId,
+            itemInfo.name,
+            itemInfo.category || null,
+            itemInfo.unit,
+            data.quantity,
+            itemInfo.unit,
+            avgUnitCost,
+            totalCost,
+            'تسوية نقل صادر',
+            `مشروع: ${toProjectName}`,
+            `تسوية محاسبية: تخفيض مصروف بقيمة مواد منقولة إلى مشروع: ${toProjectName} (الكمية: ${data.quantity} ${itemInfo.unit})`,
+            data.transactionDate,
+          ]
+        );
+
+        // 2) قيد إضافة في المشروع المستلم B (يضيف قيمة المواد المستلمة كمصروف)
+        await client.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, 0, $10, $11, $12)`,
+          [
+            data.toProjectId,
+            itemInfo.name,
+            itemInfo.category || null,
+            itemInfo.unit,
+            data.quantity,
+            itemInfo.unit,
+            avgUnitCost,
+            totalCost,
+            'تسوية نقل وارد',
+            `مشروع: ${fromProjectName}`,
+            `تسوية محاسبية: إضافة قيمة مواد مستلمة من مشروع: ${fromProjectName} (الكمية: ${data.quantity} ${itemInfo.unit})`,
+            data.transactionDate,
+          ]
+        );
+      }
+
       await client.query('COMMIT');
       console.log(`📦 [Inventory] تم نقل ${data.quantity} ${itemInfo.unit} من ${itemInfo.name} من مشروع ${fromProjectName} إلى ${toProjectName}`);
       return { success: true, movedLots, purchaseLogId: purchaseRows[0].id };

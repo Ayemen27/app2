@@ -200,7 +200,12 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل')`, [project_id]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني')`, [project_id]),
+          pool.query(`SELECT COUNT(*) FILTER (WHERE purchase_type IN ('مخزن','توريد','مخزني')) as count, COALESCE(SUM(
+            CASE
+              WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+              ELSE safe_numeric(total_amount::text, 0)
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND purchase_type IN ('مخزن','توريد','مخزني','تسوية نقل صادر','تسوية نقل وارد')`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total, COUNT(DISTINCT COALESCE(NULLIF(date,''), attendance_date)) as completed_days FROM worker_attendance WHERE project_id = $1 AND (safe_numeric(paid_amount::text, 0) > 0 OR safe_numeric(work_days::text, 0) > 0)`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM transportation_expenses WHERE project_id = $1`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1`, [project_id]),
@@ -223,7 +228,12 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
+          pool.query(`SELECT COUNT(*) FILTER (WHERE purchase_type IN ('مخزن','توريد','مخزني')) as count, COALESCE(SUM(
+            CASE
+              WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+              ELSE safe_numeric(total_amount::text, 0)
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND purchase_type IN ('مخزن','توريد','مخزني','تسوية نقل صادر','تسوية نقل وارد') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total, COUNT(DISTINCT COALESCE(NULLIF(date,''), attendance_date)) as completed_days FROM worker_attendance WHERE project_id = $1 AND (safe_numeric(paid_amount::text, 0) > 0 OR safe_numeric(work_days::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date)::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
@@ -246,7 +256,12 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) FILTER (WHERE purchase_type IN ('مخزن','توريد','مخزني')) as count, COALESCE(SUM(
+            CASE
+              WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+              ELSE safe_numeric(total_amount::text, 0)
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND purchase_type IN ('مخزن','توريد','مخزني','تسوية نقل صادر','تسوية نقل وارد') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total, COUNT(DISTINCT COALESCE(NULLIF(date,''), attendance_date)) as completed_days FROM worker_attendance WHERE project_id = $1 AND (safe_numeric(paid_amount::text, 0) > 0 OR safe_numeric(work_days::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date)::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),

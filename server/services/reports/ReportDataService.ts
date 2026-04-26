@@ -429,10 +429,10 @@ export class ReportDataService {
       pool.query(`
         SELECT
           supplier_name,
-          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
+          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
             THEN safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)
             ELSE 0 END), 0) AS previous_debt,
-          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
+          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
             THEN safe_numeric(total_amount::text, 0)
             ELSE 0 END), 0) AS today_purchases,
           COALESCE((
@@ -447,7 +447,7 @@ export class ReportDataService {
         WHERE project_id = $1
           AND supplier_name IS NOT NULL AND supplier_name <> ''
           AND supplier_name <> '-'
-          AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')
+          AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
         GROUP BY supplier_name
         HAVING
           SUM(CASE WHEN purchase_date::date < $2::date
@@ -1975,8 +1975,18 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
-            COALESCE(SUM(safe_numeric(paid_amount::text)), 0) AS total_paid,
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                ELSE safe_numeric(total_amount::text, 0)
+              END
+            ), 0) AS total,
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(paid_amount::text, 0)
+                ELSE safe_numeric(paid_amount::text, 0)
+              END
+            ), 0) AS total_paid,
             COALESCE(SUM(CASE WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0) WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) AS total_cash
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
@@ -1986,8 +1996,13 @@ export class ReportDataService {
         client.query(`
           SELECT
             COALESCE(NULLIF(TRIM(material_category), ''), 'غير مصنف') AS category,
-            COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
-            COUNT(*) AS count
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                ELSE safe_numeric(total_amount::text, 0)
+              END
+            ), 0) AS total,
+            COUNT(*) FILTER (WHERE purchase_type NOT IN ('تسوية نقل صادر', 'تسوية نقل وارد')) AS count
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
             AND COALESCE(purchase_type, '') NOT IN ('نقل مواد مستهلكة', 'نقل أصل', 'صرف مخزن')

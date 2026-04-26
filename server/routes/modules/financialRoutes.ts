@@ -2217,8 +2217,15 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         const projectBudget = parseAmount(projectResult.rows[0]?.budget);
 
         if (projectBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent 
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent 
              FROM material_purchases WHERE project_id = $1`,
             [validated.project_id]
           );
@@ -2248,12 +2255,13 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           }
         }
 
-        // 3) حارس المبالغ الكبيرة غير الاعتيادية
+        // 3) حارس المبالغ الكبيرة غير الاعتيادية (يستثني التسويات والأنواع غير المالية)
         const avgResult = await pool.query(
           `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, 
                   COUNT(*) as purchase_count
            FROM material_purchases 
-           WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0`,
+           WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0
+             AND purchase_type NOT IN ('صرف مخزن','نقل مواد مستهلكة','نقل أصل','تسوية نقل صادر','تسوية نقل وارد')`,
           [validated.project_id]
         );
         const avgAmount = parseAmount(avgResult.rows[0]?.avg_amount);
@@ -2603,8 +2611,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         const pBudget = parseAmount(projResult.rows[0]?.budget);
 
         if (pBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
             [existing.project_id, purchaseId]
           );
           const totalSpentExcluding = parseAmount(spentResult.rows[0]?.total_spent);
@@ -2620,7 +2635,8 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         }
 
         const avgResult = await pool.query(
-          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0`,
+          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0
+             AND purchase_type NOT IN ('صرف مخزن','نقل مواد مستهلكة','نقل أصل','تسوية نقل صادر','تسوية نقل وارد')`,
           [existing.project_id, purchaseId]
         );
         const avgAmt = parseAmount(avgResult.rows[0]?.avg_amount);

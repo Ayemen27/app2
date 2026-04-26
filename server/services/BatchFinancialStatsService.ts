@@ -161,6 +161,20 @@ export class BatchFinancialStatsService {
         FROM supplier_payments
         ${hasFilter ? 'WHERE project_id = ANY($1::text[])' : ''}
         GROUP BY project_id
+      ),
+      material_transfer_adjust AS (
+        SELECT project_id,
+          COALESCE(SUM(
+            CASE
+              WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+              WHEN purchase_type = 'تسوية نقل وارد' THEN safe_numeric(total_amount::text, 0)
+              ELSE 0
+            END
+          ), 0) AS total
+        FROM material_purchases
+        WHERE purchase_type IN ('تسوية نقل صادر', 'تسوية نقل وارد')
+          ${hasFilter ? 'AND project_id = ANY($1::text[])' : ''}
+        GROUP BY project_id
       )
       SELECT
         p.id,
@@ -193,7 +207,8 @@ export class BatchFinancialStatsService {
         COALESCE(ft.total, 0)                    AS fund_transfers_total,
         COALESCE(pto.total, 0)                   AS project_transfers_out_total,
         COALESCE(pti.total, 0)                   AS project_transfers_in_total,
-        COALESCE(sp.total, 0)                    AS supplier_payments_total
+        COALESCE(sp.total, 0)                    AS supplier_payments_total,
+        COALESCE(mta.total, 0)                   AS material_transfer_adjust_total
       FROM projects p
       LEFT JOIN material_cash mc     ON mc.project_id   = p.id
       LEFT JOIN material_credit mcr  ON mcr.project_id  = p.id
@@ -206,6 +221,7 @@ export class BatchFinancialStatsService {
       LEFT JOIN proj_trf_in pti      ON pti.project_id  = p.id
       LEFT JOIN workers_agg wa       ON wa.project_id   = p.id
       LEFT JOIN supplier_pay sp      ON sp.project_id   = p.id
+      LEFT JOIN material_transfer_adjust mta ON mta.project_id = p.id
       ${projectFilter}
       ORDER BY p.created_at
     `;
@@ -223,9 +239,12 @@ export class BatchFinancialStatsService {
       const projectTransfersOutTotal = parseFloat(row.project_transfers_out_total) || 0;
       const projectTransfersInTotal  = parseFloat(row.project_transfers_in_total)  || 0;
       const supplierPaymentsTotal   = parseFloat(row.supplier_payments_total)   || 0;
+      // ✅ صافي تأثير قيود التسوية المحاسبية لنقل المخزون بين المشاريع (موجب للوارد، سالب للصادر)
+      const materialTransferAdjustTotal = parseFloat(row.material_transfer_adjust_total) || 0;
 
       const totalExpenses = materialCashTotal + workerWagesTotal + transportationTotal
-        + workerTransfersTotal + miscExpensesTotal + projectTransfersOutTotal + supplierPaymentsTotal;
+        + workerTransfersTotal + miscExpensesTotal + projectTransfersOutTotal + supplierPaymentsTotal
+        + materialTransferAdjustTotal;
 
       const totalIncome = fundTransfersTotal + projectTransfersInTotal;
 

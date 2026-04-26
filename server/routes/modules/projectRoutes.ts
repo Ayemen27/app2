@@ -685,8 +685,15 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
         const pBudget = parseFloat(projectResult.rows[0]?.budget || '0');
 
         if (pBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1`,
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent FROM material_purchases WHERE project_id = $1`,
             [project_id]
           );
           const totalSpent = parseFloat(spentResult.rows[0]?.total_spent || '0');
@@ -916,7 +923,13 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
           db.execute(sql`
             SELECT
               COUNT(*) FILTER (WHERE purchase_type NOT IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')) as material_purchases,
-              COALESCE(SUM(safe_numeric(total_amount::text, 0)) FILTER (WHERE purchase_type NOT IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')), 0) as material_expenses
+              COALESCE(SUM(
+                CASE
+                  WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                  WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                  ELSE safe_numeric(total_amount::text, 0)
+                END
+              ), 0) as material_expenses
             FROM material_purchases
             WHERE project_id = ${id}
           `),

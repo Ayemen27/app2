@@ -15,10 +15,10 @@ import { useSelectedProjectContext } from "@/contexts/SelectedProjectContext";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import type { ProjectComprehensiveReportData } from "@shared/report-types";
-import { COLORS, LoadingSpinner, EmptyState, safeFormatDate, secureDownloadExport } from "./utils";
+import { COLORS, LoadingSpinner, EmptyState, safeFormatDate, secureDownloadExport, buildArabicReportFileName } from "./utils";
 
 export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
-  const { selectedProjectId, isAllProjects } = useSelectedProjectContext();
+  const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
@@ -107,7 +107,13 @@ export function ProjectComprehensiveTab({ onStatsReady }: { onStatsReady?: (stat
     const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
     setLoading(true);
     try {
-      await secureDownloadExport("project-comprehensive", fmt, { project_id: projectIdForApi, dateFrom, dateTo }, toast);
+      await secureDownloadExport(
+        "project-comprehensive",
+        fmt,
+        { project_id: projectIdForApi, dateFrom, dateTo },
+        toast,
+        buildArabicReportFileName({ type: "project-comprehensive", fmt, projectName: selectedProjectName, dateFrom, dateTo }),
+      );
     } finally {
       setLoading(false);
     }

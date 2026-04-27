@@ -20,7 +20,65 @@ export function buildExportUrl(type: string, fmt: string, params: Record<string,
   return `/api/reports/v2/export/${type}?${searchParams.toString()}`;
 }
 
-export async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any): Promise<void> {
+function sanitizeForFileName(s: string): string {
+  return (s || '')
+    .replace(/[\/\\:*?"<>|\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function buildArabicReportFileName(opts: {
+  type: string;
+  fmt: string;
+  projectName?: string;
+  workerName?: string;
+  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  template?: string;
+}): string {
+  const { type, fmt, projectName, workerName, date, dateFrom, dateTo, template } = opts;
+  const proj = sanitizeForFileName(projectName || 'مشروع');
+  const worker = sanitizeForFileName(workerName || 'عامل');
+  let base = '';
+  switch (type) {
+    case 'daily':
+      base = template === '2'
+        ? `كشف-مصروفات-يومي-${proj}-${date || ''}`
+        : `التقرير-اليومي-${proj}-${date || ''}`;
+      break;
+    case 'daily-range':
+      base = `التقارير-اليومية-${proj}-${dateFrom || ''}-${dateTo || ''}`;
+      break;
+    case 'worker-statement':
+      base = `كشف-حساب-عامل-${worker}${dateFrom ? '-' + dateFrom : ''}${dateTo ? '-' + dateTo : ''}`;
+      break;
+    case 'period-final':
+      base = `التقرير-الختامي-${proj}-${dateFrom || ''}-${dateTo || ''}`;
+      break;
+    case 'multi-project-final':
+      base = `تقرير-متعدد-المشاريع-${proj}-${dateFrom || ''}-${dateTo || ''}`;
+      break;
+    case 'multi-project-compare':
+      base = `مقارنة-المشاريع-${proj}-${dateFrom || ''}-${dateTo || ''}`;
+      break;
+    case 'project-comprehensive':
+      base = `تقرير-شامل-${proj}-${dateFrom || ''}-${dateTo || ''}`;
+      break;
+    default:
+      base = `تقرير-${type}`;
+  }
+  base = base.replace(/-+$/g, '').replace(/-{2,}/g, '-');
+  return `${base}.${fmt}`;
+}
+
+export async function secureDownloadExport(
+  type: string,
+  fmt: string,
+  params: Record<string, string>,
+  toast: any,
+  suggestedFileName?: string,
+): Promise<void> {
   const url = buildExportUrl(type, fmt, params);
   let phase = 'fetch';
   try {
@@ -62,20 +120,25 @@ export async function secureDownloadExport(type: string, fmt: string, params: Re
       throw new Error('استجابة غير متوقعة من الخادم');
     }
 
-    const contentDisposition = response.headers.get('content-disposition');
-    let fileName = `report-${type}.${fmt}`;
-    if (contentDisposition) {
-      const starMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)/);
-      if (starMatch && starMatch[1]) {
-        try {
-          fileName = decodeURIComponent(starMatch[1].trim());
-        } catch {
-          fileName = starMatch[1].trim();
-        }
-      } else {
-        const plainMatch = contentDisposition.match(/filename\s*=\s*"?([^";\n]+)"?/);
-        if (plainMatch && plainMatch[1]) {
-          fileName = plainMatch[1].trim();
+    let fileName = suggestedFileName && suggestedFileName.trim()
+      ? suggestedFileName.trim()
+      : `report-${type}.${fmt}`;
+
+    if (!suggestedFileName) {
+      const contentDisposition = response.headers.get('content-disposition');
+      if (contentDisposition) {
+        const starMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)/);
+        if (starMatch && starMatch[1]) {
+          try {
+            fileName = decodeURIComponent(starMatch[1].trim());
+          } catch {
+            fileName = starMatch[1].trim();
+          }
+        } else {
+          const plainMatch = contentDisposition.match(/filename\s*=\s*"?([^";\n]+)"?/);
+          if (plainMatch && plainMatch[1]) {
+            fileName = plainMatch[1].trim();
+          }
         }
       }
     }

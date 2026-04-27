@@ -18,7 +18,7 @@ import { useSelectedProjectContext } from "@/contexts/SelectedProjectContext";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import type { DailyReportData } from "@shared/report-types";
-import { LoadingSpinner, EmptyState, secureDownloadExport } from "./utils";
+import { LoadingSpinner, EmptyState, secureDownloadExport, buildArabicReportFileName } from "./utils";
 import { SingleDayReport } from "./SingleDayReport";
 import { RangeDayPage } from "./RangeDayPage";
 import { exportTransactionsToExcelTemplate2 } from "@/components/ui/export-transactions-excel-template2";
@@ -162,13 +162,23 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     setLoading(true);
     try {
       if (isRangeMode && dateRange.from && dateRange.to) {
-        await secureDownloadExport("daily-range", fmt, {
-          project_id: projectIdForApi,
-          dateFrom: format(dateRange.from, "yyyy-MM-dd"),
-          dateTo: format(dateRange.to, "yyyy-MM-dd"),
-        }, toast);
+        const dFrom = format(dateRange.from, "yyyy-MM-dd");
+        const dTo = format(dateRange.to, "yyyy-MM-dd");
+        await secureDownloadExport(
+          "daily-range",
+          fmt,
+          { project_id: projectIdForApi, dateFrom: dFrom, dateTo: dTo },
+          toast,
+          buildArabicReportFileName({ type: "daily-range", fmt, projectName: selectedProjectName, dateFrom: dFrom, dateTo: dTo }),
+        );
       } else {
-        await secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
+        await secureDownloadExport(
+          "daily",
+          fmt,
+          { project_id: projectIdForApi, date: dateStr },
+          toast,
+          buildArabicReportFileName({ type: "daily", fmt, projectName: selectedProjectName, date: dateStr }),
+        );
       }
     } finally {
       setLoading(false);
@@ -275,7 +285,13 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     setShowPdfTemplateDialog(false);
     setIsExportingPdf(true);
     try {
-      await secureDownloadExport("daily", "pdf", { project_id: projectIdForApi, date: dateStr, template: '2' }, toast);
+      await secureDownloadExport(
+        "daily",
+        "pdf",
+        { project_id: projectIdForApi, date: dateStr, template: '2' },
+        toast,
+        buildArabicReportFileName({ type: "daily", fmt: "pdf", projectName: selectedProjectName, date: dateStr, template: "2" }),
+      );
     } catch (err: any) {
       toast({ title: "فشل التصدير", description: toUserMessage(err, "حدث خطأ أثناء التصدير"), variant: "destructive" });
     } finally {

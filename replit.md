@@ -359,3 +359,32 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 **1) capture-plugin-manifest:** Capacitor v6+ لم يعد يكتب `capacitor.plugins.json` في جذر المشروع، بل في `android/app/src/main/assets/`. الكود في `computeLocalPluginManifestHash` و `computeRemotePluginManifestHash` و `stepApkPluginSmoke` كان يفترض المسار القديم فيفشل بـ "capacitor.plugins.json غير موجود على السيرفر بعد cap sync". الإصلاح: قراءة من المسار الجديد أولاً ثم الجذر القديم كـ fallback (توافق v5–v8+).
 
 **2) syncBotTInventory:** نمط `sed` للنطاق كان معطوباً — نمط نهاية النطاق `^  [a-z][a-z0-9_-]*:$` يطابق سطر `axion:` نفسه، فيُغلق النطاق فوراً ولا يصل لـ `pm2_name`. النتيجة: `pm2_name` لا يُحدَّث أبداً، التحقق يفشل بـ "القيمة الفعلية: ...". الإصلاح: استبدال sed بـ Python+PyYAML مع backup ذرّي و atomic rename و post-write verify (المعيار في Ansible/Kubernetes).
+
+## 2026-04-27 — توحيد ترويسة وتذييل التقارير + تكرار رأس الـ PDF في كل صفحة
+
+**المشكلة المُبلَّغ عنها:** عبر صفحات متعددة (مشتريات المواد، حسابات العمال، الموردين، المشاريع…) كانت تقارير Excel/PDF لا تستخدم ألوان/شعار/تذييل صفحة الإعدادات بشكل موحَّد، الشعار يختفي من بعض ملفات Excel، والترويسة في تقارير PDF متعددة الصفحات تظهر فقط في الصفحة الأولى.
+
+**الأسباب الجذرية:**
+1. `axion-export.ts/createProfessionalReport` (المستخدمة في 14 صفحة تصدير) كانت تستدعي `addAlFatihiHeader` المُبسّطة (اسم شركة فقط بدون شعار/أكسنت/بيانات اتصال/تذييل).
+2. `pdfGenerator.ts/generatePDF` كان يحوّل HTML بأكمله إلى صورة واحدة ثم يُقسّمها على صفحات → الترويسة تظهر مرة واحدة فقط.
+3. ألوان ثابتة `#475569`/`FF334155`/`FF475569` في `excel-exports.ts` و `pdfGenerator.ts` لا تتأثر بإعدادات المستخدم.
+4. `addBrandingLogo`/`addLogoToWorksheet` كانتا ترفضان أي logoUrl ليس Data URL (روابط `/uploads/...` و HTTP تفشل بصمت).
+
+**الإصلاحات:**
+- **`client/src/lib/excel-exports.ts`:**
+  - أضفت `logoToDataUrl()` helper async يجلب الصور عبر HTTP/HTTPS أو مسارات نسبية ويحولها إلى Data URL (يدعم png/jpeg/gif).
+  - حوَّلت `addBrandingLogo` إلى async مع دعم HTTP URLs.
+  - حوَّلت `buildExcelLetterhead` إلى async، وأضفت `printTitlesRow` لجعل صفوف الترويسة تتكرر تلقائياً عند طباعة ملف Excel.
+  - استبدلت الألوان الثابتة `FF334155`/`FF475569` في `exportWorkerStatement` بـ `argb(_b.secondaryColor)` و `argb(_b.primaryColor)` المقروءَين من إعدادات المستخدم.
+  - حدَّثت كل المستدعين الداخليين لإضافة `await`.
+- **`client/src/utils/axion-export.ts`:**
+  - استوردت `buildExcelLetterhead` و `buildExcelLetterheadFooter` من `@/lib/excel-exports`.
+  - أعدت كتابة `addAlFatihiHeader` لتستدعي `buildExcelLetterhead` (شعار + شريط primary + شريط accent + بيانات اتصال + شريط عنوان + تاريخ استخراج)، مما يوحِّد ترويسة كل التقارير الـ 14 (مشتريات المواد، عمال، نقل، موردين، مشاريع، عُهَد، معدات، آبار…).
+  - استبدلت `addReportFooter` في `createProfessionalReport` بـ `buildExcelLetterheadFooter` (مطابق لتذييل PDF).
+- **`client/src/utils/pdfGenerator.ts` — إعادة هيكلة جوهرية:**
+  - أضفت وضعاً جديداً يقبل `headerHtml`/`contentHtml`/`footerHtml` منفصلة بدلاً من HTML واحد.
+  - في الوضع الجديد: التقاط 3 canvases منفصلة، ثم لكل صفحة A4: رسم الترويسة في الأعلى، شريحة من المحتوى وسط الصفحة (مع `clip()` لمنع التداخل)، التذييل في الأسفل.
+  - أُبقي على الوضع القديم (`html`) للتوافق مع المستدعين القُدامى الذين لم أُعِد هيكلتهم.
+  - حدَّثت `generateTablePDF` لتُنشئ ثلاث قطع HTML منفصلة وتمرّرها للوضع الجديد ⇒ الترويسة تظهر الآن في كل صفحة من تقارير PDF متعددة الصفحات.
+  - استبدلت `borderColor = '#475569'` الثابت بـ `_b.secondaryColor` ⇒ لون حدود الجدول يطابق لون الشريط من إعدادات المستخدم.
+  - أضفت انتظار تحميل صور الشعار قبل التقاط canvas (`img.complete + load event`) لمنع التقاط ترويسة بدون شعار.

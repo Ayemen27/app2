@@ -5,21 +5,60 @@ import { arSA } from 'date-fns/locale';
 import { getBranding, argb, ensureBrandingLoaded, getReportEngineer } from '@/lib/report-branding';
 
 /**
- * 🖼️ يضيف شعار الشركة (data URL) إلى ورقة Excel ضمن النطاق المحدد.
- * يُتجاهل بصمت إذا لم يكن هناك شعار أو فشل التحويل.
+ * 🖼️ يحوّل أي logoUrl (data URL أو HTTP/HTTPS أو مسار مطلق /uploads/…) إلى data URL.
+ * يعيد null إذا فشل التحويل أو كان الرابط فارغاً.
  */
-export function addBrandingLogo(
+export async function logoToDataUrl(logoUrl: string | undefined): Promise<{ dataUrl: string; ext: 'png' | 'jpeg' | 'gif' } | null> {
+  if (!logoUrl) return null;
+  try {
+    // الحالة 1: data URL جاهز
+    const m = /^data:image\/(png|jpeg|jpg|gif);base64,/i.exec(logoUrl);
+    if (m) {
+      const ext = (m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase()) as 'png' | 'jpeg' | 'gif';
+      return { dataUrl: logoUrl, ext };
+    }
+    // الحالة 2: رابط HTTP/HTTPS أو مسار نسبي (/uploads/..) — نجلبه ونحوّله
+    const res = await fetch(logoUrl, { credentials: 'include' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const ctype = (blob.type || '').toLowerCase();
+    let ext: 'png' | 'jpeg' | 'gif' = 'png';
+    if (ctype.includes('jpeg') || ctype.includes('jpg')) ext = 'jpeg';
+    else if (ctype.includes('gif')) ext = 'gif';
+    else if (ctype.includes('png')) ext = 'png';
+    else {
+      // محاولة استنتاج من الامتداد
+      const lower = logoUrl.toLowerCase();
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) ext = 'jpeg';
+      else if (lower.endsWith('.gif')) ext = 'gif';
+    }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return { dataUrl, ext };
+  } catch (e) {
+    console.warn('[excel] logoToDataUrl failed:', (e as Error)?.message);
+    return null;
+  }
+}
+
+/**
+ * 🖼️ يضيف شعار الشركة إلى ورقة Excel ضمن النطاق المحدد.
+ * يدعم data URL أو رابط HTTP/HTTPS. يُتجاهل بصمت عند الفشل.
+ */
+export async function addBrandingLogo(
   workbook: ExcelJS.Workbook,
   worksheet: ExcelJS.Worksheet,
   logoUrl: string | undefined,
   range: { tl: { col: number; row: number }; br: { col: number; row: number } }
-): void {
-  if (!logoUrl) return;
+): Promise<void> {
+  const logo = await logoToDataUrl(logoUrl);
+  if (!logo) return;
   try {
-    const m = /^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/i.exec(logoUrl);
-    if (!m) return;
-    const ext = (m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase()) as 'png' | 'jpeg' | 'gif';
-    const imageId = workbook.addImage({ base64: logoUrl, extension: ext });
+    const imageId = workbook.addImage({ base64: logo.dataUrl, extension: logo.ext });
     worksheet.addImage(imageId, range as any);
   } catch (e) {
     console.warn('[excel] addBrandingLogo failed:', (e as Error)?.message);
@@ -36,12 +75,13 @@ export function addBrandingLogo(
  *   - صف 5: تاريخ الاستخراج
  * يعيد رقم الصف التالي للاستخدام.
  */
-export function buildExcelLetterhead(
+export async function buildExcelLetterhead(
   workbook: ExcelJS.Workbook,
   worksheet: ExcelJS.Worksheet,
   colCount: number,
-  reportTitle: string
-): number {
+  reportTitle: string,
+  options?: { repeatOnEveryPage?: boolean }
+): Promise<number> {
   const _b = getBranding();
   const mainBlue = argb(_b.primaryColor);
   const accentBlue = argb(_b.accentColor);
@@ -60,7 +100,7 @@ export function buildExcelLetterhead(
 
   // 🔍 الشعار مُكبَّر (يطفو في يمين الصف الأول؛ في وضع RTL العمود A هو اليمين البصري)
   if (_b.logoUrl) {
-    addBrandingLogo(workbook, worksheet, _b.logoUrl, {
+    await addBrandingLogo(workbook, worksheet, _b.logoUrl, {
       tl: { col: 0.05, row: 0.04 } as any,
       br: { col: 1.95, row: 0.96 } as any,
     });
@@ -110,6 +150,17 @@ export function buildExcelLetterhead(
   rd.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
   rd.height = 18;
   cursor++;
+
+  // 📌 تكرار الترويسة عند الطباعة على كل صفحة (Excel print titles)
+  // يجعل الصفوف 1..(cursor-1) ثابتة في رأس كل صفحة عند طباعة الملف
+  if (options?.repeatOnEveryPage !== false) {
+    try {
+      worksheet.pageSetup = {
+        ...(worksheet.pageSetup || {}),
+        printTitlesRow: `1:${cursor - 1}`,
+      } as any;
+    } catch {}
+  }
 
   return cursor;
 }
@@ -201,7 +252,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
 
   // 1. ترويسة letterhead الموحّدة (مطابقة لـ PDF) — اسم شركة + شعار + بيانات اتصال + شريط accent + شريط عنوان
   const COL_COUNT_WS = 10; // الأعمدة A→J في كشف حساب العامل
-  const nextRow = buildExcelLetterhead(workbook, worksheet, COL_COUNT_WS, 'التقرير المالي التفصيلي - كشف حساب عامل');
+  const nextRow = await buildExcelLetterhead(workbook, worksheet, COL_COUNT_WS, 'التقرير المالي التفصيلي - كشف حساب عامل');
 
   // 3. قسم معلومات الكيان (Worker Info Section) - تصميم بطاقة حديثة
   const infoStartRow = nextRow + 1; // فراغ صف واحد بعد الترويسة
@@ -239,7 +290,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; // Slate 700
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(_b.secondaryColor) } }; // 🎨 من إعدادات المستخدم
     cell.font = { ...whiteText, color: { argb: 'FFFFFFFF' } }; // Force pure white for contrast
     cell.alignment = centerAlign;
     cell.border = borderLight;
@@ -309,7 +360,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   totalsLabel.value = 'إجماليات الحساب النهائية';
   totalsLabel.font = whiteText;
   totalsLabel.alignment = centerAlign;
-  totalsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+  totalsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(_b.primaryColor) } };
 
   const sumDays = worksheet.getCell(`F${currentRow}`);
   const sumEarned = worksheet.getCell(`H${currentRow}`);
@@ -322,7 +373,7 @@ export const exportWorkerStatement = async (data: any, worker: any): Promise<boo
   finalBalanceCell.value = parseFloat(data.summary.finalBalance || 0);
   
   [sumDays, sumEarned, sumPaid, finalBalanceCell].forEach(c => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(_b.primaryColor) } };
     c.font = whiteText;
     if (c.address.startsWith('F')) {
       c.numFmt = '#,##0.00';
@@ -449,7 +500,7 @@ export const exportWorkersListReport = async (
   const lastColLetter = String.fromCharCode(64 + COLS); // 'J'
 
   // 1) ترويسة letterhead الموحّدة (مطابقة لـ PDF)
-  const headerNextRow = buildExcelLetterhead(workbook, worksheet, COLS, meta.title || 'كشف العمال - تقرير شامل');
+  const headerNextRow = await buildExcelLetterhead(workbook, worksheet, COLS, meta.title || 'كشف العمال - تقرير شامل');
 
   // 2) صف معلومات الفلاتر
   const infoRow = headerNextRow + 1; // فراغ صف بعد الترويسة

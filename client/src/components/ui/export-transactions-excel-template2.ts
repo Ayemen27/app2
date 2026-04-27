@@ -149,7 +149,7 @@ export async function exportTransactionsToExcelTemplate2(
   // 🏛️ الترويسة الموحَّدة (مطابقة لكل التقارير) — تتضمن الشعار المُكبَّر
   // وبيانات الشركة وعنوان التقرير وتاريخ الاستخراج تلقائياً.
   const reportTitle = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
-  let r = buildExcelLetterhead(wb, ws, COL, reportTitle);
+  let r = await buildExcelLetterhead(wb, ws, COL, reportTitle);
 
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
   ws.getRow(r).height = 22;

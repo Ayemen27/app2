@@ -72,7 +72,59 @@ export function buildArabicReportFileName(opts: {
   return `${base}.${fmt}`;
 }
 
-function xhrDownload(url: string, headers: Record<string, string>, withCredentials: boolean): Promise<{ blob: Blob; status: number; contentType: string; contentDisposition: string }> {
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const byteChars = atob(base64);
+  const len = byteChars.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = byteChars.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function nativeBinaryDownload(url: string, headers: Record<string, string>): Promise<{ blob: Blob; status: number; contentType: string; contentDisposition: string }> {
+  const { CapacitorHttp } = await import('@capacitor/core');
+  const res: any = await CapacitorHttp.request({
+    method: 'GET',
+    url,
+    headers,
+    responseType: 'blob',
+    readTimeout: 120000,
+    connectTimeout: 30000,
+  });
+
+  const respHeaders: Record<string, string> = {};
+  if (res.headers && typeof res.headers === 'object') {
+    for (const [k, v] of Object.entries(res.headers)) {
+      respHeaders[k.toLowerCase()] = String(v);
+    }
+  }
+  const contentType = respHeaders['content-type'] || '';
+  const contentDisposition = respHeaders['content-disposition'] || '';
+  const status: number = res.status || 0;
+
+  let blob: Blob;
+  const data = res.data;
+  if (data instanceof Blob) {
+    blob = data;
+  } else if (typeof data === 'string') {
+    if (contentType.includes('json') || contentType.includes('text')) {
+      blob = new Blob([data], { type: contentType || 'text/plain' });
+    } else {
+      try {
+        blob = base64ToBlob(data, contentType || 'application/octet-stream');
+      } catch {
+        blob = new Blob([data], { type: contentType || 'application/octet-stream' });
+      }
+    }
+  } else if (data && typeof data === 'object') {
+    blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  } else {
+    blob = new Blob([], { type: contentType || 'application/octet-stream' });
+  }
+
+  return { blob, status, contentType, contentDisposition };
+}
+
+function webBinaryDownload(url: string, headers: Record<string, string>, withCredentials: boolean): Promise<{ blob: Blob; status: number; contentType: string; contentDisposition: string }> {
   return new Promise((resolve, reject) => {
     try {
       const xhr = new XMLHttpRequest();
@@ -96,6 +148,16 @@ function xhrDownload(url: string, headers: Record<string, string>, withCredentia
       reject(e);
     }
   });
+}
+
+async function downloadBinary(url: string, headers: Record<string, string>, withCredentials: boolean) {
+  let isNative = false;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    isNative = Capacitor.isNativePlatform();
+  } catch {}
+  if (isNative) return nativeBinaryDownload(url, headers);
+  return webBinaryDownload(url, headers, withCredentials);
 }
 
 async function blobToText(blob: Blob): Promise<string> {
@@ -124,7 +186,7 @@ export async function secureDownloadExport(
     };
     const withCredentials = getFetchCredentials() !== 'omit';
 
-    const { blob: rawBlob, status, contentType, contentDisposition } = await xhrDownload(url, headers, withCredentials);
+    const { blob: rawBlob, status, contentType, contentDisposition } = await downloadBinary(url, headers, withCredentials);
 
     if (status >= 400) {
       phase = 'server';

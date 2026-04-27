@@ -72,6 +72,42 @@ export function buildArabicReportFileName(opts: {
   return `${base}.${fmt}`;
 }
 
+function xhrDownload(url: string, headers: Record<string, string>, withCredentials: boolean): Promise<{ blob: Blob; status: number; contentType: string; contentDisposition: string }> {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'blob';
+      xhr.withCredentials = withCredentials;
+      for (const [k, v] of Object.entries(headers || {})) {
+        try { xhr.setRequestHeader(k, v); } catch {}
+      }
+      xhr.onload = () => {
+        const contentType = xhr.getResponseHeader('content-type') || '';
+        const contentDisposition = xhr.getResponseHeader('content-disposition') || '';
+        const blob: Blob = xhr.response instanceof Blob ? xhr.response : new Blob([xhr.response || '']);
+        resolve({ blob, status: xhr.status, contentType, contentDisposition });
+      };
+      xhr.onerror = () => reject(new Error('فشل الاتصال بالخادم'));
+      xhr.ontimeout = () => reject(new Error('انتهت مهلة الاتصال بالخادم'));
+      xhr.timeout = 120000;
+      xhr.send();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function blobToText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') return blob.text();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = () => reject(new Error('فشل قراءة الرد'));
+    r.readAsText(blob, 'utf-8');
+  });
+}
+
 export async function secureDownloadExport(
   type: string,
   fmt: string,
@@ -82,40 +118,43 @@ export async function secureDownloadExport(
   const url = buildExportUrl(type, fmt, params);
   let phase = 'fetch';
   try {
-    const response = await fetch(url, {
-      credentials: getFetchCredentials(),
-      headers: {
-        ...getClientPlatformHeader(),
-        ...getAuthHeaders(),
-      },
-    });
+    const headers: Record<string, string> = {
+      ...getClientPlatformHeader(),
+      ...getAuthHeaders(),
+    };
+    const withCredentials = getFetchCredentials() !== 'omit';
 
-    if (!response.ok) {
+    const { blob: rawBlob, status, contentType, contentDisposition } = await xhrDownload(url, headers, withCredentials);
+
+    if (status >= 400) {
       phase = 'server';
       let errorDetail = '';
       try {
-        const errBody = await response.text();
-        const parsed = JSON.parse(errBody);
+        const errText = await blobToText(rawBlob);
+        const parsed = JSON.parse(errText);
         errorDetail = parsed.error || parsed.message || '';
       } catch {
         errorDetail = '';
       }
-
-      if (response.status === 401 || response.status === 403) {
+      if (status === 401 || status === 403) {
         throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً');
       }
-      if (response.status === 404) {
+      if (status === 404) {
         throw new Error('البيانات المطلوبة غير موجودة');
       }
-      throw new Error(errorDetail || `خطأ من الخادم (${response.status})`);
+      throw new Error(errorDetail || `خطأ من الخادم (${status})`);
     }
 
-    const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       phase = 'server';
-      const errBody = await response.json();
-      if (errBody.success === false) {
-        throw new Error(errBody.error || 'فشل إنشاء التقرير');
+      const errText = await blobToText(rawBlob);
+      try {
+        const errBody = JSON.parse(errText);
+        if (errBody.success === false) {
+          throw new Error(errBody.error || 'فشل إنشاء التقرير');
+        }
+      } catch (parseErr: any) {
+        if (parseErr?.message && !parseErr.message.includes('JSON')) throw parseErr;
       }
       throw new Error('استجابة غير متوقعة من الخادم');
     }
@@ -124,34 +163,29 @@ export async function secureDownloadExport(
       ? suggestedFileName.trim()
       : `report-${type}.${fmt}`;
 
-    if (!suggestedFileName) {
-      const contentDisposition = response.headers.get('content-disposition');
-      if (contentDisposition) {
-        const starMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)/);
-        if (starMatch && starMatch[1]) {
-          try {
-            fileName = decodeURIComponent(starMatch[1].trim());
-          } catch {
-            fileName = starMatch[1].trim();
-          }
-        } else {
-          const plainMatch = contentDisposition.match(/filename\s*=\s*"?([^";\n]+)"?/);
-          if (plainMatch && plainMatch[1]) {
-            fileName = plainMatch[1].trim();
-          }
-        }
+    if (!suggestedFileName && contentDisposition) {
+      const starMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)/);
+      if (starMatch && starMatch[1]) {
+        try { fileName = decodeURIComponent(starMatch[1].trim()); } catch { fileName = starMatch[1].trim(); }
+      } else {
+        const plainMatch = contentDisposition.match(/filename\s*=\s*"?([^";\n]+)"?/);
+        if (plainMatch && plainMatch[1]) fileName = plainMatch[1].trim();
       }
     }
 
     phase = 'download';
-    const blob = await response.blob();
+
+    const expectedMime = fmt === 'pdf'
+      ? 'application/pdf'
+      : (fmt === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : (contentType || 'application/octet-stream'));
+    const blob = rawBlob.type ? rawBlob : new Blob([rawBlob], { type: expectedMime });
 
     if (blob.size === 0) {
       throw new Error('الخادم أرجع ملفاً فارغاً');
     }
 
     const { downloadFile } = await import('@/utils/webview-download');
-    await downloadFile(blob, fileName);
+    await downloadFile(blob, fileName, expectedMime);
   } catch (error: any) {
     const defaultMessages: Record<string, string> = {
       fetch: 'فشل الاتصال بالخادم - تحقق من الإنترنت',

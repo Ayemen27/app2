@@ -322,15 +322,26 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 
 const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttempt: number; blockedUntil: number }>();
 const SUSPICIOUS_WINDOW_MS = 15 * 60 * 1000;
-const SUSPICIOUS_MAX_ATTEMPTS = 50;
+// 🛡️ رفعنا الحد لأن انتهاء access token (كل 15 دقيقة) ينتج موجة 401 طبيعية
+// عبر عشرات React Query محمية بالتوازي. الحد القديم (50) كان يحظر المستخدمين الشرعيين.
+const SUSPICIOUS_MAX_ATTEMPTS = 300;
 const SUSPICIOUS_BLOCK_MS = 30 * 60 * 1000;
 
-// مسارات المصادقة والمسارات العامة — لا تُحتسب ضمن العداد حتى لو أعادت 401/403
+// مسارات لا تُحتسب ضمن العداد حتى لو أعادت 401/403
+// 📌 أُضيفت كل مسارات التيليمتري والقراءة الخفيفة لأنها تنطلق تلقائياً من الكلاينت
+//    وانتهاء access token ينتج 401 جماعية عليها (سلوك طبيعي ليس هجوماً)
 const AUTH_EXEMPT_PREFIXES = [
   '/api/auth/',
   '/api/webauthn/',
   '/api/health',
   '/health',
+  '/api/crashes',
+  '/api/devices',
+  '/api/metrics',
+  '/api/v1/traces',
+  '/api/report-header',
+  '/api/notifications',
+  '/api/deployment/app/check-update',
 ];
 
 const TRUSTED_IPS = new Set([
@@ -370,14 +381,16 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 
   const originalEnd = res.end;
   res.end = function(...args: any[]) {
-    if (res.statusCode === 401 || res.statusCode === 403) {
+    // 🛡️ نحسب فقط 403 (forbidden = نية مشبوهة فعلية) — ولا نحسب 401 (طبيعي عند انتهاء token)
+    // كانت احتساب 401 يحظر المستخدمين الشرعيين كل 15 دقيقة عند انتهاء access token.
+    if (res.statusCode === 403) {
       const existing = suspiciousActivityTracker.get(ip);
       if (existing) {
         existing.attempts++;
         existing.lastAttempt = Date.now();
         if (existing.attempts >= SUSPICIOUS_MAX_ATTEMPTS) {
           existing.blockedUntil = Date.now() + SUSPICIOUS_BLOCK_MS;
-          console.error(`🚨 [SuspiciousActivity] IP ${ip} blocked after ${existing.attempts} failed attempts`);
+          console.error(`🚨 [SuspiciousActivity] IP ${ip} blocked after ${existing.attempts} forbidden (403) attempts`);
         }
       } else {
         suspiciousActivityTracker.set(ip, { attempts: 1, lastAttempt: Date.now(), blockedUntil: 0 });

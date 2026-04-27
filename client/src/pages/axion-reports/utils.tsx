@@ -1,6 +1,7 @@
 import { Loader2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { ENV } from '@/lib/env';
 
 export const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
 
@@ -80,11 +81,31 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
+function toAbsoluteUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  try {
+    const base = ENV.apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+    if (!base) return url;
+    if (url.startsWith('/api/')) {
+      const baseClean = base.replace(/\/+$/, '').replace(/\/api$/, '');
+      return baseClean + url;
+    }
+    if (url.startsWith('/')) {
+      const baseClean = base.replace(/\/+$/, '').replace(/\/api$/, '');
+      return baseClean + url;
+    }
+    return base.replace(/\/+$/, '') + '/' + url;
+  } catch {
+    return url;
+  }
+}
+
 async function nativeBinaryDownload(url: string, headers: Record<string, string>): Promise<{ blob: Blob; status: number; contentType: string; contentDisposition: string }> {
   const { CapacitorHttp } = await import('@capacitor/core');
+  const absoluteUrl = toAbsoluteUrl(url);
   const res: any = await CapacitorHttp.request({
     method: 'GET',
-    url,
+    url: absoluteUrl,
     headers,
     responseType: 'blob',
     readTimeout: 120000,

@@ -138,6 +138,7 @@ export class ReportDataService {
         .select({
           id: workerTransfers.id,
           workerName: workers.name,
+          workerType: workers.type,
           amount: workerTransfers.amount,
           recipientName: workerTransfers.recipientName,
           transferMethod: workerTransfers.transferMethod,
@@ -353,6 +354,7 @@ export class ReportDataService {
     const workerTransfersList: WorkerTransferRecord[] = transfersData.map((t: any) => ({
       id: typeof t.id === 'string' ? parseInt(t.id, 10) || 0 : (t.id as number),
       workerName: t.workerName || '-',
+      workerType: t.workerType || undefined,
       amount: safeNum(t.amount),
       recipientName: t.recipientName || '-',
       transferMethod: t.transferMethod || '-',

@@ -60,6 +60,8 @@ export interface MiscExpenseRecord {
 export interface WorkerTransferRecord {
   id: number;
   workerName: string;
+  /** نوع العامل: 'معلم' / 'عامل' / … (اختياري — يُستخدم لترتيب صفوف القالب) */
+  workerType?: string;
   amount: number;
   recipientName: string;
   transferMethod: string;

@@ -6,6 +6,11 @@ export interface DailyTx {
   amount: number;
   workDays?: number;
   workerName?: string;
+  /**
+   * نوع العامل المرتبط بالمعاملة (إن وجد): 'معلم' / 'عامل' / 'مهندس' …
+   * يُستخدم لترتيب الصفوف بحيث تأتي معاملات المهندس أولاً ثم المعلمين ثم العمال.
+   */
+  workerType?: string;
   description: string;
   recipientName?: string;
   notes?: string;
@@ -92,6 +97,7 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
       amount: paid,
       description: a.workDescription || 'أجر يومي',
       workerName: a.workerName || a.worker_name || 'غير محدد',
+      workerType: a.workerType || a.worker_type || undefined,
       workDays: parseFloat(a.workDays || a.work_days || '0') || undefined,
       notes: a.notes || a.workDescription || '',
     });
@@ -138,6 +144,7 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
       amount: parseFloat(wt.amount || '0'),
       description: wt.notes || 'حوالة للعامل',
       workerName: wt.workerName || wt.worker_name || 'غير محدد',
+      workerType: wt.workerType || wt.worker_type || undefined,
       notes: wt.notes || wt.description || '',
     });
   });
@@ -227,11 +234,48 @@ export function mergeWorkerWageAndTransferForTemplate<T extends {
   return result.filter((_, i) => !toRemove.has(i));
 }
 
+/**
+ * يرتّب المعاملات اليومية بالترتيب التالي:
+ *   1) الرصيد المرحّل
+ *   2) الدخل / العهد / الترحيل الوارد
+ *   3) معاملات المهندس (يكتشف عبر workerType='مهندس' أو ذكر "مهندس" في الوصف/الملاحظات)
+ *   4) المعلمين (workerType='معلم')
+ *   5) العمال (workerType='عامل')
+ *   6) باقي المصروفات (مشتريات، نثريات، حوالات بدون نوع، …)
+ */
 export function orderDailyTransactions(txs: DailyTx[]): DailyTx[] {
+  const isEngineerRelated = (t: DailyTx): boolean => {
+    if ((t.workerType || '').includes('مهندس')) return true;
+    const blob = `${t.description || ''} ${t.notes || ''} ${t.workerName || ''}`;
+    return /مهندس|هندسي/.test(blob);
+  };
+  const isMaster = (t: DailyTx): boolean => (t.workerType || '').includes('معلم');
+  const isWorker = (t: DailyTx): boolean => {
+    const wt = t.workerType || '';
+    if (wt.includes('معلم') || wt.includes('مهندس')) return false;
+    if (wt.includes('عامل')) return true;
+    // إذا لم نعرف نوعه لكن السجل من فئة أجور/حوالات عمال ولديه اسم عامل،
+    // نعتبره عاملاً افتراضياً.
+    return (t.category === 'أجور عمال' || t.category === 'حوالات عمال') && !!t.workerName;
+  };
+
   const opening = txs.filter(t => t.category === 'رصيد سابق');
   const income  = txs.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
-  const expense = txs.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
-  return [...opening, ...income, ...expense];
+  const expenseAll = txs.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
+
+  const engineerExp: DailyTx[] = [];
+  const masterExp:   DailyTx[] = [];
+  const workerExp:   DailyTx[] = [];
+  const otherExp:    DailyTx[] = [];
+
+  for (const t of expenseAll) {
+    if (isEngineerRelated(t))      engineerExp.push(t);
+    else if (isMaster(t))          masterExp.push(t);
+    else if (isWorker(t))          workerExp.push(t);
+    else                            otherExp.push(t);
+  }
+
+  return [...opening, ...income, ...engineerExp, ...masterExp, ...workerExp, ...otherExp];
 }
 
 export interface DailyTxWithRunning extends DailyTx {

@@ -145,6 +145,88 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
   return txs;
 }
 
+/**
+ * 🧮 دمج صرفة العامل + حوالة العامل في صف واحد لأغراض **العرض في القالب فقط**.
+ *
+ * عندما يوجد لنفس العامل في نفس اليوم سجل من فئة "أجور عمال" وسجل من
+ * فئة "حوالات عمال"، نُنتج سطراً واحداً مدمجاً بفئة "أجور عمال" مبلغه
+ * مجموع المبلغين، ونُضيف للملاحظات نص: "صرفة {wage} + حوالة {transfer}".
+ *
+ * - النظام (DB) يبقى كما هو — هذا تحويل عرضي فقط على مصفوفة الصفوف.
+ * - الصفوف التي ليس لها workerName صالح تمر دون تغيير.
+ * - إن وجد للعامل أكثر من سجل أجور أو أكثر من حوالة في نفس اليوم،
+ *   يتم تجميعها كلها معاً.
+ *
+ * يقبل أي شكل من الصفوف يحتوي الحقول: category, amount, workerName, notes,
+ * workDays, type — ويعيد مصفوفة جديدة بنفس الشكل.
+ */
+export function mergeWorkerWageAndTransferForTemplate<T extends {
+  category?: string;
+  amount?: number;
+  workerName?: string;
+  notes?: string;
+  workDays?: number;
+  type?: string;
+}>(rows: T[]): T[] {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const fmt = (n: number) => Number(n || 0).toLocaleString('en-US');
+  const result: T[] = [];
+  const wageIndexByWorker = new Map<string, number>();
+  const pendingTransfersByWorker = new Map<string, number[]>();
+  const transferIndicesByWorker = new Map<string, number[]>();
+
+  // الجولة 1: نسخ الصفوف، وتسجيل أول صف "أجور عمال" لكل عامل
+  rows.forEach((r) => {
+    const worker = (r.workerName || '').trim();
+    const isValidWorker = worker && worker !== 'غير محدد';
+    if (isValidWorker && r.category === 'أجور عمال') {
+      // إذا كان هناك سجل أجور سابق لنفس العامل، نجمع المبلغ في الأول
+      const existingIdx = wageIndexByWorker.get(worker);
+      if (existingIdx != null) {
+        const existing: any = result[existingIdx];
+        existing.amount = Number(existing.amount || 0) + Number(r.amount || 0);
+        return;
+      }
+      wageIndexByWorker.set(worker, result.length);
+    }
+    result.push({ ...r });
+  });
+
+  // الجولة 2: تجميع الحوالات لكل عامل وإزالتها من النتيجة
+  const toRemove = new Set<number>();
+  result.forEach((r, idx) => {
+    const worker = (r.workerName || '').trim();
+    const isValidWorker = worker && worker !== 'غير محدد';
+    if (isValidWorker && r.category === 'حوالات عمال') {
+      if (!pendingTransfersByWorker.has(worker)) {
+        pendingTransfersByWorker.set(worker, []);
+        transferIndicesByWorker.set(worker, []);
+      }
+      pendingTransfersByWorker.get(worker)!.push(Number(r.amount || 0));
+      transferIndicesByWorker.get(worker)!.push(idx);
+    }
+  });
+
+  // الجولة 3: دمج الحوالة في سجل الأجور إن وُجد
+  pendingTransfersByWorker.forEach((amounts, worker) => {
+    const wageIdx = wageIndexByWorker.get(worker);
+    if (wageIdx == null) return; // لا يوجد سجل أجور — اترك الحوالة كما هي
+    const wageRow: any = result[wageIdx];
+    const wageAmt = Number(wageRow.amount || 0);
+    const transferTotal = amounts.reduce((s, a) => s + a, 0);
+    wageRow.amount = wageAmt + transferTotal;
+    const breakdown = `صرفة ${fmt(wageAmt)} + حوالة ${fmt(transferTotal)}`;
+    wageRow.notes = wageRow.notes && wageRow.notes.trim()
+      ? `${wageRow.notes.trim()} | ${breakdown}`
+      : breakdown;
+    transferIndicesByWorker.get(worker)!.forEach(i => toRemove.add(i));
+  });
+
+  if (toRemove.size === 0) return result;
+  return result.filter((_, i) => !toRemove.has(i));
+}
+
 export function orderDailyTransactions(txs: DailyTx[]): DailyTx[] {
   const opening = txs.filter(t => t.category === 'رصيد سابق');
   const income  = txs.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));

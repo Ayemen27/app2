@@ -346,7 +346,7 @@ body {
   display: flex;
   background: ${PDF_COLORS.navy};
   color: #fff;
-  min-height: 86px;
+  min-height: 120px;
   margin: 0;
   position: relative;
   overflow: hidden;
@@ -354,44 +354,44 @@ body {
 }
 .lh-header-left {
   flex: 1;
-  padding: 14px 20px;
+  padding: 16px 22px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11px;
   color: #fff;
 }
 .lh-header-left .lh-row { display: flex; align-items: center; gap: 8px; }
 .lh-header-left .lh-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   background: ${PDF_COLORS.accentBlue}; color: #fff;
-  font-size: 10px; flex-shrink: 0;
+  font-size: 11px; flex-shrink: 0;
 }
 .lh-header-right {
   background: #fff;
   color: ${PDF_COLORS.navy};
-  flex: 1.2;
+  flex: 1.4;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 22px 10px 40px;
+  gap: 16px;
+  padding: 12px 22px 12px 50px;
   position: relative;
-  border-bottom-right-radius: 60px;
+  border-bottom-right-radius: 70px;
 }
 .lh-header-right .lh-logo-img,
 .lh-header-right .lh-logo-fallback {
-  width: 48px; height: 48px; border-radius: 8px;
+  width: 92px; height: 92px; border-radius: 12px;
   background: ${PDF_COLORS.navy}; color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 22px; flex-shrink: 0;
+  font-weight: 800; font-size: 38px; flex-shrink: 0;
   object-fit: contain;
 }
-.lh-header-right .lh-logo-img { background: #fff; border: 1px solid ${PDF_COLORS.border}; padding: 2px; }
-.lh-header-right .lh-co-block { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
-.lh-header-right .lh-co-name { font-size: 18px; font-weight: 800; color: ${PDF_COLORS.navy}; }
-.lh-header-right .lh-tagline { font-size: 11px; color: ${PDF_COLORS.blue}; font-weight: 500; }
+.lh-header-right .lh-logo-img { background: #fff; border: 1px solid ${PDF_COLORS.border}; padding: 3px; }
+.lh-header-right .lh-co-block { display: flex; flex-direction: column; gap: 3px; line-height: 1.25; }
+.lh-header-right .lh-co-name { font-size: 20px; font-weight: 800; color: ${PDF_COLORS.navy}; }
+.lh-header-right .lh-tagline { font-size: 12px; color: ${PDF_COLORS.blue}; font-weight: 500; }
 .lh-accent-bar {
   height: 6px;
   background: ${PDF_COLORS.accentBlue};

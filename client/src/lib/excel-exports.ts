@@ -93,16 +93,18 @@ export async function buildExcelLetterhead(
   const r1 = worksheet.getRow(1);
   const tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
   r1.getCell(1).value = `${_b.companyName}${tagline}`;
-  r1.getCell(1).font = { name: 'Calibri', bold: true, size: 18, color: { argb: 'FFFFFFFF' } };
+  r1.getCell(1).font = { name: 'Calibri', bold: true, size: 20, color: { argb: 'FFFFFFFF' } };
   r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mainBlue } };
   r1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  r1.height = tagline ? 92 : 76;
+  r1.height = tagline ? 120 : 100;
 
   // 🔍 الشعار مُكبَّر (يطفو في يمين الصف الأول؛ في وضع RTL العمود A هو اليمين البصري)
+  // نوسّع نطاق الشعار ليشغل ثلاثة أعمدة كاملة بدلاً من عمودين، مع
+  // مراعاة هوامش رفيعة من الأطراف ليبدو احترافياً.
   if (_b.logoUrl) {
     await addBrandingLogo(workbook, worksheet, _b.logoUrl, {
-      tl: { col: 0.05, row: 0.04 } as any,
-      br: { col: 1.95, row: 0.96 } as any,
+      tl: { col: 0.10, row: 0.08 } as any,
+      br: { col: 2.90, row: 0.92 } as any,
     });
   }
 
@@ -172,12 +174,15 @@ export async function buildExcelLetterhead(
 export function buildExcelLetterheadFooter(
   worksheet: ExcelJS.Worksheet,
   startRow: number,
-  colCount: number
+  colCount: number,
+  options?: { showEngineer?: boolean }
 ): number {
   const _b = getBranding();
   const mainBlue = argb(_b.primaryColor);
   const accentBlue = argb(_b.accentColor);
-  const eng = getReportEngineer();
+  // 🧑‍💼 يمكن تعطيل ظهور بند المهندس المسؤول لكل تقرير على حدة (مثلاً
+  // التقارير التي تعرض اسم المهندس بالفعل ضمن قسم التوقيعات).
+  const eng = options?.showEngineer === false ? '' : getReportEngineer();
 
   // 1. شريط accent العلوي
   worksheet.mergeCells(startRow, 1, startRow, colCount);

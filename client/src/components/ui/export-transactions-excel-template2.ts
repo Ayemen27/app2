@@ -1,6 +1,7 @@
 import { downloadExcelFile } from '@/utils/webview-download';
 import { getBranding, hexNoHash , ensureBrandingLoaded } from '@/lib/report-branding';
 import { buildExcelLetterhead, buildExcelLetterheadFooter } from '@/lib/excel-exports';
+import { mergeWorkerWageAndTransferForTemplate } from '@shared/daily-transactions';
 
 interface Transaction {
   id: string;
@@ -160,9 +161,11 @@ export async function exportTransactionsToExcelTemplate2(
   });
   r++;
 
-  const opening = transactions.filter(t => t.category === 'رصيد سابق');
-  const income  = transactions.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
-  const expense = transactions.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
+  // 🔀 دمج صرفة العامل + حوالة العامل لنفس العامل في صف واحد (في القالب فقط)
+  const mergedTxs = mergeWorkerWageAndTransferForTemplate(transactions);
+  const opening = mergedTxs.filter(t => t.category === 'رصيد سابق');
+  const income  = mergedTxs.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
+  const expense = mergedTxs.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
   const ordered = [...opening, ...income, ...expense];
 
   let running = 0;
@@ -236,7 +239,7 @@ export async function exportTransactionsToExcelTemplate2(
   style(extCell, { bg: TOTAL_BG_ALT });
   r++;
 
-  // 🦶 تذييل موحَّد — يضم اسم المهندس المسؤول وبيانات الاتصال
+  // 🦶 تذييل موحَّد — يضم اسم المهندس المسؤول (المعيَّن للمشروع) وبيانات الاتصال
   buildExcelLetterheadFooter(ws, r + 1, COL);
 
   const buf = await wb.xlsx.writeBuffer();

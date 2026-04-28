@@ -3,6 +3,7 @@ import { db } from '../../db';
 import { safeParseNum } from '../../utils/safe-numbers';
 import {
   projects,
+  users,
   workers,
   workerAttendance,
   materialPurchases,
@@ -59,7 +60,21 @@ interface WorkerStatementOptions {
 export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
     const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData, projectFundTransfersOutData] = await Promise.all([
-      db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
+      // 🧑‍🔧 نجلب اسم المهندس المسؤول عبر JOIN مع جدول المستخدمين
+      // (full_name → first_name+last_name → email كنسخة احتياطية)
+      db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          location: projects.location,
+          managerName: projects.managerName,
+          engineerId: projects.engineerId,
+          engineerName: sql<string | null>`COALESCE(${users.full_name}, NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''), ${users.email})`,
+        })
+        .from(projects)
+        .leftJoin(users, eq(users.id, projects.engineerId))
+        .where(eq(projects.id, projectId))
+        .limit(1),
 
       db
         .select({
@@ -504,7 +519,7 @@ export class ReportDataService {
         id: proj?.id || projectId,
         name: proj?.name || '-',
         location: proj?.location || undefined,
-        engineerName: undefined,
+        engineerName: proj?.engineerName || undefined,
         managerName: proj?.managerName || undefined,
       },
       date,

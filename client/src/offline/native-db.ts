@@ -1,82 +1,176 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { getEncryptionKey } from './sqlcipher-key-manager';
+
+const DB_NAME = 'binarjoin_native.db';
+const SCHEMA_VERSION = '3.0';
+const MIGRATION_FLAG_KEY = 'sqlite_encrypted_migration_v3';
+const LOG_TAG = '[SQLite]';
+
+type LogLevel = 'info' | 'warn' | 'error';
+function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
+  const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  if (meta) fn(`${LOG_TAG} ${message}`, meta);
+  else fn(`${LOG_TAG} ${message}`);
+}
 
 class SQLiteStorage {
   private sqlite: SQLiteConnection;
   private db: SQLiteDBConnection | null = null;
-  private dbName: string = 'binarjoin_native.db';
+  private readonly dbName: string = DB_NAME;
   private _initialized: boolean = false;
   private _initPromise: Promise<void> | null = null;
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
     this._initPromise = this.initialize().catch((err) => {
-      console.error('[SQLite] Initialization failed:', err);
+      log('error', 'Initialization failed (non-fatal, will run in degraded mode):', {
+        error: err?.message ?? String(err),
+      });
     });
   }
 
-  async initialize() {
+  async initialize(): Promise<void> {
     if (this._initialized && this.db) return;
-    const platform = Capacitor.getPlatform();
 
+    const platform = Capacitor.getPlatform();
     if (platform === 'web') {
+      log('info', 'Web platform detected — native SQLite disabled.');
       return;
     }
 
     if (!Capacitor.isPluginAvailable('CapacitorSQLite')) {
-      console.warn('[SQLite] CapacitorSQLite plugin not available in this build — skipping native DB init');
+      log('warn', 'CapacitorSQLite plugin not available in this build — skipping native DB init.');
       return;
     }
 
+    const secret = await getEncryptionKey();
+
+    await this.runOneTimeLegacyCleanup(secret);
+
+    await this.sqlite.setEncryptionSecret(secret).catch((e: any) => {
+      const msg = String(e?.message ?? e);
+      if (!/already.*set|already.*stored/i.test(msg)) {
+        log('warn', 'setEncryptionSecret returned non-fatal error:', { error: msg });
+      }
+    });
+
+    await this.openEncryptedConnection();
+
+    await this.verifyCipher();
+    await this.createTables();
+
+    this._initialized = true;
+    log('info', 'Native SQLite ready (SQLCipher).', { schemaVersion: SCHEMA_VERSION });
+  }
+
+  private async runOneTimeLegacyCleanup(_secret: string): Promise<void> {
     try {
-      const secret = await getEncryptionKey();
+      const { value } = await Preferences.get({ key: MIGRATION_FLAG_KEY });
+      if (value === 'done') return;
 
-      let isConn = false;
+      log('info', 'One-time legacy DB cleanup starting…');
+
       try {
-        isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
-      } catch (connErr) {
-        isConn = false;
-      }
-
-      if (isConn) {
-        this.db = await this.sqlite.retrieveConnection(this.dbName, false);
-      } else {
-        try {
-          // Try to create/open with encryption
-          this.db = await this.sqlite.createConnection(this.dbName, false, 'secret', 1, false);
-          await this.sqlite.setEncryptionSecret(secret);
-        } catch (createErr: any) {
-          if (createErr?.message?.includes('already exists')) {
-            this.db = await this.sqlite.retrieveConnection(this.dbName, false);
-          } else {
-            // If it fails, it might be an unencrypted DB or wrong key
-            // Try opening without encryption first to check if we need to upgrade
-            try {
-              this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
-              await this.db.open();
-              
-              // If opened successfully without encryption, upgrade to encrypted
-              console.log('[SQLite] Upgrading unencrypted database to SQLCipher');
-              await (this.db as any).changeEncryptionSecret(secret, '');
-              console.log('[SQLite] Upgrade successful');
-            } catch (upgradeErr: any) {
-              console.error('[SQLite] Failed to open or upgrade database:', upgradeErr);
-              throw upgradeErr;
-            }
-          }
+        const isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
+        if (isConn) {
+          await this.sqlite.closeConnection(this.dbName, false).catch(() => {});
         }
+      } catch {}
+
+      try {
+        const exists = (await this.sqlite.isDatabase(this.dbName)).result ?? false;
+        if (exists) {
+          const removed = await this.tryDeleteDatabaseFile();
+          log(removed ? 'info' : 'warn', removed ? 'Legacy DB removed.' : 'Legacy DB delete attempt did not confirm removal.');
+        } else {
+          log('info', 'No legacy DB found.');
+        }
+      } catch (e: any) {
+        log('warn', 'Legacy cleanup encountered an issue (continuing):', {
+          error: String(e?.message ?? e),
+        });
       }
 
-      const openCheck = await this.db.isDBOpen();
-      if (!openCheck.result) {
-        await this.db.open();
+      await Preferences.set({ key: MIGRATION_FLAG_KEY, value: 'done' });
+      log('info', 'Migration flag committed.');
+    } catch (e: any) {
+      log('warn', 'Legacy cleanup wrapper failed (continuing):', {
+        error: String(e?.message ?? e),
+      });
+    }
+  }
+
+  private async tryDeleteDatabaseFile(): Promise<boolean> {
+    const modes: Array<'no-encryption' | 'secret'> = ['no-encryption', 'secret'];
+    for (const mode of modes) {
+      try {
+        const tmp = await this.sqlite.createConnection(this.dbName, mode === 'secret', mode, 1, false);
+        try { await tmp.open(); } catch { /* may fail if wrong key/mode — still try delete */ }
+        try {
+          await tmp.delete();
+          await this.sqlite.closeConnection(this.dbName, false).catch(() => {});
+          return true;
+        } catch (delErr: any) {
+          await this.sqlite.closeConnection(this.dbName, false).catch(() => {});
+          log('warn', `delete() in mode=${mode} failed:`, { error: String(delErr?.message ?? delErr) });
+        }
+      } catch (createErr: any) {
+        log('warn', `createConnection in mode=${mode} failed during cleanup:`, {
+          error: String(createErr?.message ?? createErr),
+        });
       }
-      await this.createTables();
-      this._initialized = true;
-    } catch (err) {
-      this.db = null;
-      throw err;
+    }
+
+    try {
+      await (CapacitorSQLite as any).deleteDatabase({ database: this.dbName });
+      return true;
+    } catch (rawErr: any) {
+      log('warn', 'Raw plugin deleteDatabase failed:', { error: String(rawErr?.message ?? rawErr) });
+    }
+
+    return false;
+  }
+
+  private async openEncryptedConnection(): Promise<void> {
+    let isConn = false;
+    try {
+      isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
+    } catch {
+      isConn = false;
+    }
+
+    if (isConn) {
+      this.db = await this.sqlite.retrieveConnection(this.dbName, false);
+    } else {
+      this.db = await this.sqlite.createConnection(
+        this.dbName,
+        true,
+        'secret',
+        1,
+        false,
+      );
+    }
+
+    const openCheck = await this.db.isDBOpen();
+    if (!openCheck.result) {
+      await this.db.open();
+    }
+  }
+
+  private async verifyCipher(): Promise<void> {
+    if (!this.db) return;
+    try {
+      const res = await this.db.query('PRAGMA cipher_version;');
+      const version = res?.values?.[0]?.cipher_version ?? res?.values?.[0]?.[Object.keys(res.values[0])[0]];
+      if (!version) {
+        log('warn', 'cipher_version returned empty — encryption may not be active.');
+      } else {
+        log('info', 'SQLCipher active.', { version });
+      }
+    } catch (e: any) {
+      log('warn', 'Could not verify cipher_version:', { error: String(e?.message ?? e) });
     }
   }
 
@@ -90,7 +184,7 @@ class SQLiteStorage {
     return this._initialized && this.db !== null;
   }
 
-  private async createTables() {
+  private async createTables(): Promise<void> {
     if (!this.db) return;
 
     await this.db.execute(`
@@ -106,7 +200,7 @@ class SQLiteStorage {
     for (const store of ALL_STORES) {
       await this.db.execute(`
         CREATE TABLE IF NOT EXISTS ${store} (
-          id TEXT PRIMARY KEY, 
+          id TEXT PRIMARY KEY,
           data TEXT,
           synced INTEGER DEFAULT 1,
           isLocal INTEGER DEFAULT 0,
@@ -117,7 +211,7 @@ class SQLiteStorage {
 
     await this.db.run(
       `INSERT OR REPLACE INTO _schema_version (key, value) VALUES (?, ?)`,
-      ['version', '2.0']
+      ['version', SCHEMA_VERSION],
     );
   }
 
@@ -127,7 +221,7 @@ class SQLiteStorage {
       await this.ensureTable(table);
       const res = await this.db.query(`SELECT data FROM ${table} WHERE id = ?`, [id]);
       return res.values && res.values.length > 0 ? JSON.parse(res.values[0].data) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -138,10 +232,10 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(
         `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`,
-        [id.toString(), JSON.stringify(data)]
+        [id.toString(), JSON.stringify(data)],
       );
     } catch (e) {
-      console.error(`[NativeDB] set(${table}, ${id}) فشل:`, e);
+      log('error', `set(${table}, ${id}) failed:`, { error: String((e as any)?.message ?? e) });
       throw e;
     }
   }
@@ -151,9 +245,9 @@ class SQLiteStorage {
     try {
       await this.ensureTable(table);
       const res = await this.db.query(`SELECT data FROM ${table}`);
-      return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
+      return res.values ? res.values.map((row: any) => JSON.parse(row.data)) : [];
     } catch (e) {
-      console.error(`[NativeDB] getAll(${table}) فشل:`, e);
+      log('error', `getAll(${table}) failed:`, { error: String((e as any)?.message ?? e) });
       return [];
     }
   }
@@ -164,7 +258,7 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id]);
     } catch (e) {
-      console.error(`[NativeDB] delete(${table}, ${id}) فشل:`, e);
+      log('error', `delete(${table}, ${id}) failed:`, { error: String((e as any)?.message ?? e) });
       throw e;
     }
   }
@@ -175,7 +269,7 @@ class SQLiteStorage {
       await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table}`, []);
     } catch (e) {
-      console.error(`[NativeDB] clearTable(${table}) فشل:`, e);
+      log('error', `clearTable(${table}) failed:`, { error: String((e as any)?.message ?? e) });
       throw e;
     }
   }
@@ -187,7 +281,7 @@ class SQLiteStorage {
       const res = await this.db.query(`SELECT COUNT(*) as cnt FROM ${table}`);
       return res.values && res.values.length > 0 ? (res.values[0].cnt || 0) : 0;
     } catch (e) {
-      console.error(`[NativeDB] count(${table}) فشل:`, e);
+      log('error', `count(${table}) failed:`, { error: String((e as any)?.message ?? e) });
       return 0;
     }
   }
@@ -209,8 +303,8 @@ class SQLiteStorage {
           pendingSync INTEGER DEFAULT 0
         );
       `);
-    } catch (e) {
-      // ignore
+    } catch {
+      // Ignore — table likely exists or transient failure.
     }
   }
 }

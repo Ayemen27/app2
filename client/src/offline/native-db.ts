@@ -15,6 +15,23 @@ function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
   else fn(`${LOG_TAG} ${message}`);
 }
 
+/**
+ * استخراج قيمة حقل علاقي من record - يدعم snake_case و camelCase.
+ * يحوّل booleans إلى 1/0 للأعمدة INTEGER.
+ */
+function extractRelationalField(obj: any, snakeName: string): any {
+  if (!obj || typeof obj !== 'object') return undefined;
+  const camel = snakeName.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+  const v = obj[snakeName] !== undefined ? obj[snakeName] : obj[camel];
+  if (v === undefined || v === null) return undefined;
+  if (snakeName.startsWith('is_')) {
+    return v === true || v === 1 || v === '1' ? 1 : 0;
+  }
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'number') return v;
+  return String(v);
+}
+
 class SQLiteStorage {
   private sqlite: SQLiteConnection;
   private db: SQLiteDBConnection | null = null;
@@ -60,6 +77,19 @@ class SQLiteStorage {
 
     await this.verifyCipher();
     await this.createTables();
+
+    // 🚀 تشغيل migrations الرسمية - بعد إنشاء الجداول الأساسية
+    try {
+      const { runSqliteMigrations } = await import('./migrations/migration-runner');
+      const { applied, current } = await runSqliteMigrations(this.db);
+      if (applied.length > 0) {
+        log('info', `Migrations applied: ${applied.join(', ')} (current=v${current})`);
+      }
+    } catch (mErr: any) {
+      log('error', 'Migrations runner failed (continuing in degraded mode):', {
+        error: mErr?.message ?? String(mErr),
+      });
+    }
 
     this._initialized = true;
     log('info', 'Native SQLite ready (SQLCipher).', { schemaVersion: SCHEMA_VERSION });
@@ -230,13 +260,63 @@ class SQLiteStorage {
     if (!this.db) return;
     try {
       await this.ensureTable(table);
-      await this.db.run(
-        `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`,
-        [id.toString(), JSON.stringify(data)],
-      );
+
+      // 🔄 استخراج أعمدة مفهرسة من JSON إن كان الجدول له schema علاقي
+      const { RELATIONAL_COLUMNS_MAP } = await import('./migrations/v002_relational_indices');
+      const relCols = RELATIONAL_COLUMNS_MAP[table];
+
+      if (relCols && relCols.length > 0) {
+        const cols = ['id', 'data'];
+        const placeholders = ['?', '?'];
+        const values: any[] = [id.toString(), JSON.stringify(data)];
+
+        for (const col of relCols) {
+          const v = extractRelationalField(data, col);
+          if (v !== undefined) {
+            cols.push(col);
+            placeholders.push('?');
+            values.push(v);
+          }
+        }
+
+        await this.db.run(
+          `INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`,
+          values,
+        );
+      } else {
+        await this.db.run(
+          `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`,
+          [id.toString(), JSON.stringify(data)],
+        );
+      }
     } catch (e) {
       log('error', `set(${table}, ${id}) failed:`, { error: String((e as any)?.message ?? e) });
       throw e;
+    }
+  }
+
+  /**
+   * 🚀 استعلام مفهرس باستخدام عمود علاقي. يستخدم WHERE على عمود حقيقي
+   * بدلاً من تحميل كل JSON وفلترته في الذاكرة.
+   *
+   * @example queryByColumn('workers', 'project_id', 'proj-123')
+   */
+  async queryByColumn(table: string, column: string, value: any): Promise<any[]> {
+    if (!this.db) return [];
+    try {
+      await this.ensureTable(table);
+      const res = await this.db.query(
+        `SELECT data FROM ${table} WHERE ${column} = ?`,
+        [value],
+      );
+      return res.values ? res.values.map((row: any) => JSON.parse(row.data)) : [];
+    } catch (e) {
+      log('warn', `queryByColumn(${table}, ${column}) failed - falling back to filter:`, {
+        error: String((e as any)?.message ?? e),
+      });
+      // fallback: حمّل الكل وفلتر (للأعمدة غير المفهرسة)
+      const all = await this.getAll(table);
+      return all.filter((r: any) => extractRelationalField(r, column) === value);
     }
   }
 

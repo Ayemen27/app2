@@ -1,5 +1,27 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-29)
+
+### المستوى ب — إعادة هيكلة Offline-First (T001–T008 مكتملة)
+**الهدف**: ترقية نظام Offline-First في AXION ليطابق Linear/RxDB/WatermelonDB، مع الحفاظ على استقرار v1.0.58.
+
+**ما تمّ إنجازه**:
+1. **T001 Delta Sync**: ملف `client/src/offline/sync-cursors.ts` جديد يخزّن `lastSyncTime` و HLC max لكل جدول. `performInitialDataPull` يستخدم `/api/sync/paginated` بعد المزامنة الأولى (full-backup مرة واحدة فقط).
+2. **T002 Tombstones**: `applyServerRecordsWithTombstones` في `storage-factory.ts` يطبّق `deleted_at` بصراحة بدل diff IDs، مع احترام `_pendingSync` المحلي.
+3. **T003 SSE Push**: `server/services/SyncEventBus.ts` + قناة `/api/sync/events` تدفع `{op, table, record}`. Hook `client/src/hooks/useSyncStream.ts` يستهلك ويطبّق على القاعدة المحلية.
+4. **T004 Migrations**: `client/src/offline/migrations/` مع runner + ملفات مرقّمة (`v001_initial.ts`, `v002_relational_indices.ts`...). لا مسح بيانات عند ترقية النسخة.
+5. **T005 Schema علاقي**: أعمدة SQL حقيقية + indices للجداول الثقيلة (workers, projects, materialPurchases, fundTransfers, workerAttendance, suppliers, equipment) في `v002_relational_indices.ts`.
+6. **T006 Multi-store Transactions**: `client/src/offline/transactions.ts` يوفّر `runInTransaction(stores, callback)` مع TxAPI {get, put, delete} و TransactionRollback. Native: BEGIN/COMMIT/ROLLBACK. IDB: tx متعدد المخازن مع abort.
+7. **T007 Background Sync**: `client/public/sw.js` يستمع إلى `sync` event بـ tag `background-sync-outbox` ويرسل `BACKGROUND_SYNC_FLUSH` للعملاء. `silent-sync.ts` يسجّل ويستمع لرسالة الـ SW.
+8. **T008 اختبارات سيناريو**: 4 ملفات في `client/src/offline/__tests__/scenarios/` (bulk-offline-flush، conflict-two-devices، corruption-recovery، delta-after-week). **22/22** اختبار سيناريو يمر، **61/61** اختبار إجمالي، صفر أخطاء TypeScript.
+
+**ملفات رئيسية**:
+- `client/src/offline/sync-cursors.ts`, `migrations/`, `transactions.ts`, `silent-sync.ts`
+- `client/src/offline/storage-factory.ts` (applyServerRecordsWithTombstones, smartReconcile محدّث)
+- `client/public/sw.js` (Background Sync)
+- `server/services/SyncEventBus.ts`, `client/src/hooks/useSyncStream.ts`
+- `client/src/offline/__tests__/scenarios/01-04*.test.ts`
+
 ## التغييرات الأخيرة (2026-04-25)
 
 ### تحديد متعدد للأصول + نقل/حذف جماعي + حقل تاريخ النقل (إدارة المخزن)

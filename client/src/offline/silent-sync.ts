@@ -529,6 +529,60 @@ async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): 
 
 let _intervalId: ReturnType<typeof setInterval> | null = null;
 let _onlineHandler: (() => void) | null = null;
+let _swMessageHandler: ((e: MessageEvent) => void) | null = null;
+const BG_SYNC_TAG = 'background-sync-outbox';
+
+/**
+ * 🔄 تسجيل Background Sync API لدى Service Worker.
+ * - مدعومة في Chromium (Android Chrome، Edge، Samsung Internet).
+ * - عند فقدان الاتصال ثم عودته (حتى لو كان التطبيق مغلقًا)، المتصفح يطلق `sync` event في SW.
+ * - SW يرسل رسالة `BACKGROUND_SYNC_FLUSH` لجميع clients → نشغّل runSilentSync.
+ * - Fallback: polling/navigator.online كما هو موجود.
+ */
+export async function registerBackgroundSync(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return false;
+  }
+  try {
+    const reg: any = await navigator.serviceWorker.ready;
+    if (!reg || !reg.sync || typeof reg.sync.register !== 'function') {
+      // المتصفح لا يدعم Background Sync API
+      return false;
+    }
+    await reg.sync.register(BG_SYNC_TAG);
+    return true;
+  } catch (err) {
+    intelligentMonitor.logEvent({
+      type: 'sync',
+      severity: 'low',
+      message: 'فشل تسجيل Background Sync (سنعتمد على polling)',
+      metadata: { error: err },
+    });
+    return false;
+  }
+}
+
+function attachSwMessageListener() {
+  if (_swMessageHandler !== null) return;
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  _swMessageHandler = (event: MessageEvent) => {
+    const data = event?.data;
+    if (data?.type === 'BACKGROUND_SYNC_FLUSH' && data?.tag === BG_SYNC_TAG) {
+      if (isCurrentTabLeader()) {
+        runSilentSync().catch((err) => {
+          intelligentMonitor.logEvent({
+            type: 'sync',
+            severity: 'medium',
+            message: 'BG-Sync triggered flush failed',
+            metadata: { error: err },
+          });
+        });
+      }
+    }
+  };
+  navigator.serviceWorker.addEventListener('message', _swMessageHandler);
+}
 
 export function initSilentSyncObserver(intervalMs = 30000) {
   if (_intervalId !== null) {
@@ -545,6 +599,10 @@ export function initSilentSyncObserver(intervalMs = 30000) {
       });
     });
   }
+
+  // 🔄 تفعيل Background Sync API + الاستماع لرسائل SW
+  attachSwMessageListener();
+  registerBackgroundSync().catch(() => {});
 
   _intervalId = setInterval(() => {
     if (navigator.onLine && isCurrentTabLeader()) {
@@ -582,5 +640,11 @@ export function stopSilentSyncObserver() {
   if (_onlineHandler !== null) {
     window.removeEventListener('online', _onlineHandler);
     _onlineHandler = null;
+  }
+  if (_swMessageHandler !== null && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.removeEventListener('message', _swMessageHandler);
+    } catch {}
+    _swMessageHandler = null;
   }
 }

@@ -16,6 +16,7 @@ import { getAuthUser, isAdmin, getUserDisplayName } from '../../internal/auth-us
 import { projectAccessService } from '../../services/ProjectAccessService.js';
 import { z } from 'zod';
 import { tombstonePurgeService } from '../../sync/tombstone-purge';
+import { syncEventBus, type SyncStreamEvent } from '../../services/SyncEventBus';
 
 export const syncRouter = express.Router();
 
@@ -45,6 +46,83 @@ syncRouter.get('/tombstone-stats', async (req: Request, res: Response) => {
 
 syncRouter.use(requireAuth);
 syncRouter.use(syncRateLimit);
+
+/**
+ * 📡 SSE Stream لتدفّق التغييرات على البيانات (data ops push)
+ * GET /api/sync/events
+ *
+ * يبثّ {op, table, id, record} عند كل CRUD ناجح. العميل يطبّقها مباشرة على
+ * المخزن المحلي بدون refetch. فلترة على مستوى الخادم: المستخدم العادي يستلم
+ * فقط أحداث المشاريع التي يستطيع الوصول إليها؛ الأدمن يستلم الكل.
+ *
+ * Heartbeat كل 25s للحفاظ على الاتصال خلف الـ proxies.
+ */
+syncRouter.get('/events', async (req: Request, res: Response) => {
+  const authUser = getAuthUser(req);
+  const user_id = authUser?.user_id;
+  if (!user_id) return res.status(401).end();
+
+  const userIsAdmin = isAdmin(req);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof (res as any).flushHeaders === 'function') (res as any).flushHeaders();
+
+  res.write(`: connected ${new Date().toISOString()}\n\n`);
+  res.write(`event: ready\ndata: {"user_id":"${user_id}"}\n\n`);
+
+  const send = (event: string, data: any) => {
+    try {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch {}
+  };
+
+  const projectAccessCache = new Map<string, boolean>();
+
+  const onEvent = async (evt: SyncStreamEvent) => {
+    try {
+      // المُصدِر نفسه لا يستلم نسخة مكررة (يطبّقها فعليًا محليًا)
+      if (evt.emittedBy && evt.emittedBy === user_id) return;
+
+      // أحداث على مستوى المستخدم: أرسلها فقط لصاحبها
+      if (evt.scope === 'user' && evt.user_id && evt.user_id !== user_id) return;
+
+      // فلترة على مستوى المشروع للمستخدمين العاديين
+      if (!userIsAdmin && evt.project_id) {
+        let allowed = projectAccessCache.get(evt.project_id);
+        if (allowed === undefined) {
+          allowed = await projectAccessService
+            .checkProjectAccess(user_id, authUser!.role, evt.project_id, 'view')
+            .catch(() => false);
+          projectAccessCache.set(evt.project_id, allowed);
+        }
+        if (!allowed) return;
+      }
+
+      send('sync', evt);
+    } catch {}
+  };
+
+  syncEventBus.on('event', onEvent);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`: hb ${Date.now()}\n\n`); } catch {}
+  }, 25000);
+  (heartbeat as any).unref?.();
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    syncEventBus.off('event', onEvent);
+    try { res.end(); } catch {}
+  };
+
+  req.on('close', cleanup);
+  req.on('aborted', cleanup);
+  res.on('error', cleanup);
+});
 
 const ALL_DATABASE_TABLES: readonly string[] = SYNCABLE_TABLES;
 
@@ -1331,6 +1409,40 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     }
 
     await client.query('COMMIT');
+
+    // 📡 بثّ أحداث المزامنة عبر SSE - بعد commit ناجح فقط
+    try {
+      for (let i = 0; i < operations.length; i++) {
+        const r = results[i] as any;
+        if (!r || !r.success) continue;
+        const op = operations[i] as any;
+        const cleanEndpoint = (op.endpoint || '').split('?')[0];
+        const parts = cleanEndpoint.split('/').filter(Boolean);
+        if (parts[0] !== 'api' || parts.length < 2) continue;
+        const rawTableName = parts.slice(1).join('-');
+        const tableName = ALLOWED_BATCH_TABLES[rawTableName];
+        if (!tableName) continue;
+
+        const isDelete = op.action === 'DELETE';
+        const data = (r.data || op.payload || {}) as Record<string, any>;
+        const id = data.id || (op.payload as any)?.id || parts[parts.length - 1];
+        const project_id = data.project_id || (op.payload as any)?.project_id || null;
+        const isGlobal = TABLES_WITHOUT_PROJECT_ID.has(tableName);
+
+        syncEventBus.publish({
+          op: isDelete ? 'delete' : 'upsert',
+          table: tableName,
+          id: id ? String(id) : undefined,
+          record: isDelete ? undefined : data,
+          user_id: userId,
+          project_id: isGlobal ? null : project_id,
+          scope: isGlobal ? 'all' : 'project',
+          emittedBy: userId,
+        });
+      }
+    } catch (e) {
+      console.warn('[Sync-Batch] فشل بثّ SSE:', e);
+    }
 
     // إحصائيات الدفعة
     const successCount = results.filter((r: any) => r.success).length;

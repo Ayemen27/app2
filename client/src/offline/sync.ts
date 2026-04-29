@@ -6,7 +6,8 @@ import { clearAllLocalData } from './data-cleanup';
 import { resolveConflictLWW, logConflict } from './conflict-resolver';
 import type { ConflictData } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
-import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storage-factory';
+import { smartSave, smartGetAll, smartClear, smartPut, smartGet, applyServerRecordsWithTombstones } from './storage-factory';
+import { getGlobalCursor, setGlobalCursor } from './sync-cursors';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
 import { getAccessToken, isWebCookieMode } from '../lib/auth-token-store';
@@ -156,11 +157,21 @@ export async function performInitialDataPull(): Promise<boolean> {
 
   try {
     updateSyncState({ isSyncing: true });
-    const span = createSyncSpan('full-backup');
 
-    // محاولة جلب البيانات مع مهلة زمنية (Timeout) للتعامل مع ضعف الإنترنت
-    // ترقية: استخدام نقطة النهاية المخصصة للمزامنة الكاملة بدلاً من المسار القديم
-    const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
+    // 🔄 Delta Sync: read cursor, request only what changed since then.
+    // First-time = no cursor = full pull. Subsequent = delta only.
+    const lastCursor = await getGlobalCursor();
+    const isDeltaMode = !!lastCursor;
+    const span = createSyncSpan(isDeltaMode ? 'delta-sync' : 'full-backup');
+    const requestBody = isDeltaMode ? { lastSyncTime: lastCursor } : {};
+
+    if (isDeltaMode) {
+      console.log(`[sync] 🔄 Delta pull since ${lastCursor}`);
+    } else {
+      console.log('[sync] 📥 First-time full pull (no cursor)');
+    }
+
+    const result = await apiRequest('/api/sync/full-backup', 'POST', requestBody, 0);
     
     if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN') || result.status === 401 || result.status === 403) {
       if (result?.status === 401 || result?.status === 403) {
@@ -231,6 +242,8 @@ export async function performInitialDataPull(): Promise<boolean> {
     }
 
     const BATCH_SIZE = 5;
+    let totalDeleted = 0;
+    let totalConflicts = 0;
     for (let i = 0; i < tableEntries.length; i += BATCH_SIZE) {
       const batch = tableEntries.slice(i, i + BATCH_SIZE);
       for (const [serverTableName, records] of batch) {
@@ -245,23 +258,55 @@ export async function performInitialDataPull(): Promise<boolean> {
               percentage: Math.min(100, Math.round((processedTables / totalTables) * 100))
             } 
           });
-          // 🪦 reconcile = حذف السجلات التي لم تعد موجودة على السيرفر (soft-deleted)
-          const { smartReconcile } = await import('./storage-factory');
-          const { saved, removed } = await smartReconcile(idbStore, records as any[]);
-          totalSaved += saved;
-          if (removed > 0) console.log(`[sync] 🪦 ${idbStore}: حُذف ${removed} سجلاً (tombstones)`);
+
+          if (isDeltaMode) {
+            // 🪦 Delta mode: تطبيق ما يرسله السيرفر فقط (upserts + tombstones صريحة)
+            const { saved, deleted, conflicts } = await applyServerRecordsWithTombstones(
+              idbStore,
+              records as any[],
+            );
+            totalSaved += saved;
+            totalDeleted += deleted;
+            totalConflicts += conflicts;
+            if (deleted > 0) console.log(`[sync] 🪦 ${idbStore}: حُذف ${deleted} (tombstone صريح)`);
+            if (conflicts > 0) console.log(`[sync] ⚔️ ${idbStore}: ${conflicts} تعارض`);
+          } else {
+            // 📥 First-time full pull: استخدم reconcile (يتضمن diff للأمان)
+            const { smartReconcile } = await import('./storage-factory');
+            const { saved, removed } = await smartReconcile(idbStore, records as any[]);
+            totalSaved += saved;
+            totalDeleted += removed;
+            if (removed > 0) console.log(`[sync] 🪦 ${idbStore}: حُذف ${removed} سجلاً (full reconcile)`);
+          }
         }
       }
     }
+
+    // 🔖 حفظ الوقت الذي أرسله السيرفر كـ cursor للمزامنة التالية
+    const serverTimestamp: string =
+      result.timestamp ||
+      result.metadata?.timestamp ||
+      new Date().toISOString();
+
+    await setGlobalCursor(serverTimestamp);
 
     await smartPut('syncMetadata', {
       id: 'lastSync',
       key: 'lastSync',
       timestamp: Date.now(),
-      version: '3.1',
+      version: '4.0-delta',
       recordCount: totalSaved,
-      lastSyncTime: Date.now()
+      lastSyncTime: Date.now(),
+      deletedCount: totalDeleted,
+      conflictsCount: totalConflicts,
+      isDeltaMode,
+      serverCursor: serverTimestamp,
     });
+
+    console.log(
+      `[sync] ✅ ${isDeltaMode ? 'Delta' : 'Full'} pull done: ` +
+      `+${totalSaved} saved, -${totalDeleted} deleted, ${totalConflicts} conflicts`,
+    );
 
     updateSyncState({ isSyncing: false, lastSync: Date.now(), progress: undefined });
     span.setAttributes({

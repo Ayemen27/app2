@@ -82,22 +82,52 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
     ...(init?.headers || {}),
   });
 
-  let response = await fetch(url, {
-    ...init,
-    credentials: _getFetchCredentials(),
-    headers: makeHeaders(),
-  });
+  const method = (init?.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
 
-  if (response.status === 401) {
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      response = await fetch(url, {
-        ...init,
-        credentials: _getFetchCredentials(),
-        headers: makeHeaders(),
-      });
+  try {
+    let response = await fetch(url, {
+      ...init,
+      credentials: _getFetchCredentials(),
+      headers: makeHeaders(),
+    });
+
+    if (response.status === 401) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        response = await fetch(url, {
+          ...init,
+          credentials: _getFetchCredentials(),
+          headers: makeHeaders(),
+        });
+      }
     }
-  }
 
-  return response;
+    if (isGet && response.ok) {
+      try {
+        const { cacheGetResponse } = await import('@/offline/offline-fallback');
+        void cacheGetResponse(url, response);
+      } catch {
+        // never block on cache
+      }
+    }
+
+    return response;
+  } catch (err: any) {
+    if (isGet) {
+      try {
+        const { isNetworkError, buildOfflineResponse } = await import('@/offline/offline-fallback');
+        if (isNetworkError(err)) {
+          const local = await buildOfflineResponse(url);
+          if (local) {
+            console.warn('[authFetch] Network error — served from local cache:', url);
+            return local;
+          }
+        }
+      } catch {
+        // fall through to original error
+      }
+    }
+    throw err;
+  }
 }

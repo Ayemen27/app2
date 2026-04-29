@@ -280,6 +280,16 @@ export async function apiRequest(
 
     const result = await response.json();
     if (import.meta.env.DEV) console.log(`API Response: ${method} ${endpoint}`);
+
+    if (method === 'GET') {
+      try {
+        const { cacheGetResponseFromJson } = await import('@/offline/offline-fallback');
+        void cacheGetResponseFromJson(endpoint, result);
+      } catch {
+        // never block on cache
+      }
+    }
+
     return result;
   } catch (error) {
     if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed'))) {
@@ -303,7 +313,17 @@ export async function apiRequest(
         }
       }
       if (method === 'GET') {
-        console.warn(`[apiRequest] GET request failed offline: ${endpoint}`);
+        try {
+          const { getLocalFallbackPayload } = await import('@/offline/offline-fallback');
+          const local = await getLocalFallbackPayload(endpoint);
+          if (local) {
+            console.warn(`[apiRequest] Network error — served GET from local cache: ${endpoint}`);
+            return local;
+          }
+        } catch {
+          // fall through
+        }
+        console.warn(`[apiRequest] GET request failed offline (no cache): ${endpoint}`);
         throw new Error('لا يوجد اتصال بالإنترنت');
       }
     }

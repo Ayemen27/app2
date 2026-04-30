@@ -32,24 +32,8 @@ function emitSyncProgress(done: number, total: number, phase: 'start' | 'tick' |
   }
 }
 
-const SYNC_CONFIG = {
-  maxRetries: 8,
-  baseDelayMs: 500,
-  maxDelayMs: 60000,
-  jitterFactor: 0.3,
-  nonRetryableStatuses: [400, 401, 403, 404, 422] as number[],
-};
-
-function calculateBackoffDelay(retryCount: number): number {
-  const exponentialDelay = SYNC_CONFIG.baseDelayMs * Math.pow(2, retryCount);
-  const cappedDelay = Math.min(exponentialDelay, SYNC_CONFIG.maxDelayMs);
-  return Math.max(0, Math.round(cappedDelay)); // تم إزالة الـ jitter (العشوائية) لضمان الشفافية المطلقة في توقيت المزامنة
-}
-
-function isRetryableError(statusCode: number): boolean {
-  if (statusCode === 409) return false;
-  return !SYNC_CONFIG.nonRetryableStatuses.includes(statusCode);
-}
+// [T003] الإعدادات موحدة في sync-config.ts
+import { SYNC_CONFIG, calculateBackoffDelay, isRetryableError } from './sync-config';
 
 export async function runSilentSync() {
   if (_isSyncing) return;

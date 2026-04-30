@@ -45,8 +45,10 @@ export function serverTableToIDB(serverName: string): string {
   return SERVER_TO_IDB_MAP[serverName] || serverName;
 }
 
-const MAX_RETRIES = 5;
-const INITIAL_SYNC_DELAY = 2000; 
+// [T003] استخدام الإعدادات الموحدة بدل القيم المكررة
+import { SYNC_CONFIG } from './sync-config';
+const MAX_RETRIES = SYNC_CONFIG.maxRetries;
+const INITIAL_SYNC_DELAY = 2000;
 let isSyncing = false;
 
 export function isSyncEngineActive(): boolean {

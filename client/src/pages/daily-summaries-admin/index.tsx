@@ -13,6 +13,12 @@ import {
   BarChart3,
   Building2,
   Info,
+  ChevronRight,
+  ChevronLeft,
+  Calendar,
+  Snowflake,
+  ShieldAlert,
+  Unlock,
   type LucideIcon,
   ArrowRightLeft,
   Users,
@@ -44,14 +50,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import {
-  UnifiedSearchFilter,
-  useUnifiedFilter,
-} from "@/components/ui/unified-search-filter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import { UnifiedStats } from "@/components/ui/unified-stats";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function formatCurrency(val: string | number | null | undefined): string {
   const num = parseFloat(String(val || "0"));
@@ -70,6 +74,25 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
+}
+
+function formatMonth(monthStr: string): string {
+  if (!monthStr) return "";
+  const [y, m] = monthStr.split("-");
+  const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  const idx = parseInt(m, 10) - 1;
+  return `${monthNames[idx] || m} ${y}`;
+}
+
+function currentMonthStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftMonth(monthStr: string, delta: number): string {
+  const [y, m] = monthStr.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 interface DailySummaryRow {
@@ -91,69 +114,123 @@ interface DailySummaryRow {
   updated_at: string;
 }
 
+interface FreezeRow {
+  project_id: string;
+  project_name: string | null;
+  frozen_until: string;
+  reason: string;
+  frozen_by: string | null;
+  created_at: string;
+}
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
 export default function DailySummariesAdminPage() {
   const { toast } = useToast();
   const { selectedProjectId, selectedProjectName } = useSelectedProject();
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-
   const isAllProjects = !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID;
 
-  const queryKey = ["/api/daily-summaries", selectedProjectId];
-  const queryUrl = isAllProjects
-    ? "/api/daily-summaries"
-    : `/api/daily-summaries?projectId=${selectedProjectId}`;
+  // [T005] حالات الفلترة المحسّنة
+  const [filterMode, setFilterMode] = useState<"month" | "range" | "all">("month");
+  const [currentMonth, setCurrentMonth] = useState<string>(currentMonthStr());
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [searchValue, setSearchValue] = useState<string>("");
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; data: DailySummaryRow[]; total: number }>({
+  // pagination
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [page, setPage] = useState<number>(1);
+  const offset = (page - 1) * pageSize;
+
+  // بناء URL مع كل المعاملات
+  const buildQueryUrl = (path: string) => {
+    const params = new URLSearchParams();
+    if (!isAllProjects && selectedProjectId) params.set("projectId", selectedProjectId);
+    if (filterMode === "month") {
+      params.set("month", currentMonth);
+    } else if (filterMode === "range") {
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+    }
+    params.set("limit", String(pageSize));
+    params.set("offset", String(offset));
+    return `${path}?${params.toString()}`;
+  };
+
+  const queryKey = ["/api/daily-summaries", selectedProjectId, filterMode, currentMonth, dateFrom, dateTo, page, pageSize];
+  const { data, isLoading, refetch } = useQuery<{
+    success: boolean;
+    data: DailySummaryRow[];
+    pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+    total: number;
+  }>({
     queryKey,
-    queryFn: () => apiRequest(queryUrl, "GET"),
+    queryFn: () => apiRequest(buildQueryUrl("/api/daily-summaries"), "GET"),
     refetchOnWindowFocus: false,
   });
 
+  // قائمة الأشهر المتوفرة (إحصائيات سريعة)
+  const monthsKey = ["/api/daily-summaries/months", selectedProjectId];
+  const { data: monthsData } = useQuery<{ success: boolean; data: Array<{ month: string; count: number }> }>({
+    queryKey: monthsKey,
+    queryFn: () => {
+      const url = isAllProjects
+        ? "/api/daily-summaries/months"
+        : `/api/daily-summaries/months?projectId=${selectedProjectId}`;
+      return apiRequest(url, "GET");
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  // التجميدات النشطة
+  const { data: freezeData, refetch: refetchFreeze } = useQuery<{ success: boolean; data: FreezeRow[] }>({
+    queryKey: ["/api/daily-summaries/freeze"],
+    queryFn: () => apiRequest("/api/daily-summaries/freeze", "GET"),
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000,
+  });
+
   const allSummaries: DailySummaryRow[] = data?.data || [];
-  const total = data?.total || 0;
+  const totalServer = data?.pagination?.total ?? data?.total ?? 0;
+  const hasMore = data?.pagination?.hasMore ?? false;
+  const totalPages = Math.max(1, Math.ceil(totalServer / pageSize));
 
-  const { searchValue, filterValues, onSearchChange, onFilterChange, onReset } =
-    useUnifiedFilter<{ dateFrom: string; dateTo: string }>(
-      { dateFrom: "", dateTo: "" },
-      ""
-    );
-
+  // فلترة محلية بالبحث (داخل الصفحة فقط)
   const summaries = useMemo(() => {
-    let result = allSummaries;
+    if (!searchValue.trim()) return allSummaries;
+    const q = searchValue.toLowerCase();
+    return allSummaries.filter(
+      (r) => formatDate(r.date).includes(q) || r.project_name?.toLowerCase().includes(q)
+    );
+  }, [allSummaries, searchValue]);
 
-    if (searchValue.trim()) {
-      const q = searchValue.toLowerCase();
-      result = result.filter(
-        (r) =>
-          formatDate(r.date).includes(q) ||
-          r.project_name?.toLowerCase().includes(q)
-      );
-    }
-
-    if (filterValues.dateFrom) {
-      result = result.filter((r) => r.date >= filterValues.dateFrom);
-    }
-    if (filterValues.dateTo) {
-      result = result.filter((r) => r.date <= filterValues.dateTo);
-    }
-
-    return result;
-  }, [allSummaries, searchValue, filterValues]);
-
+  // إحصائيات الصفحة الحالية
   const totalIncome = summaries.reduce((s, r) => s + parseFloat(r.total_income || "0"), 0);
   const totalExpenses = summaries.reduce((s, r) => s + parseFloat(r.total_expenses || "0"), 0);
-  const uniqueProjects = new Set(summaries.map((r) => r.project_id)).size;
 
+  // التحقق من freeze للمشروع المحدد
+  const activeFreezes = freezeData?.data || [];
+  const currentFreeze = !isAllProjects
+    ? activeFreezes.find((f) => f.project_id === selectedProjectId)
+    : null;
+
+  // === Mutations ===
   const deleteMutation = useMutation({
-    mutationFn: () => {
-      const url = isAllProjects
-        ? "/api/daily-summaries"
-        : `/api/daily-summaries?projectId=${selectedProjectId}`;
-      return apiRequest(url, "DELETE");
+    mutationFn: (permanent: boolean) => {
+      const params = new URLSearchParams();
+      if (!isAllProjects && selectedProjectId) params.set("projectId", selectedProjectId);
+      if (permanent) params.set("permanent", "true");
+      return apiRequest(`/api/daily-summaries?${params.toString()}`, "DELETE");
     },
     onSuccess: (res: any) => {
-      toast({ title: "تم الحذف بنجاح", description: res?.message || "تم حذف الملخصات اليومية" });
+      toast({
+        title: "تم الحذف بنجاح",
+        description: `${res?.message || ""} • تجميد ${res?.freezeMinutes || 5}د لـ ${res?.frozenProjects || 1} مشروع`,
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/daily-summaries"] });
+      refetchFreeze();
+      setPage(1);
     },
     onError: () => {
       toast({ title: "فشل الحذف", description: "حدث خطأ أثناء حذف الملخصات", variant: "destructive" });
@@ -163,8 +240,9 @@ export default function DailySummariesAdminPage() {
   const deleteOneMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/daily-summaries/${id}`, "DELETE"),
     onSuccess: () => {
-      toast({ title: "تم الحذف", description: "تم حذف الملخص بنجاح" });
+      toast({ title: "تم الحذف", description: "تم حذف الملخص + تجميد قصير لمنع إعادة البناء التلقائي" });
       queryClient.invalidateQueries({ queryKey: ["/api/daily-summaries"] });
+      refetchFreeze();
       setDeleteTargetId(null);
     },
     onError: () => {
@@ -182,146 +260,352 @@ export default function DailySummariesAdminPage() {
     onSuccess: (res: any) => {
       toast({ title: "تمت إعادة البناء بنجاح", description: res?.message || "تمت إعادة بناء الملخصات اليومية" });
       queryClient.invalidateQueries({ queryKey: ["/api/daily-summaries"] });
+      refetchFreeze();
     },
     onError: () => {
       toast({ title: "فشلت إعادة البناء", description: "حدث خطأ أثناء إعادة بناء الملخصات", variant: "destructive" });
     },
   });
 
+  const unfreezeMutation = useMutation({
+    mutationFn: (projectId: string) => apiRequest(`/api/daily-summaries/freeze/${projectId}`, "DELETE"),
+    onSuccess: () => {
+      toast({ title: "تم رفع التجميد", description: "يمكن الآن إعادة بناء الملخصات تلقائياً" });
+      refetchFreeze();
+    },
+    onError: () => {
+      toast({ title: "فشل رفع التجميد", variant: "destructive" });
+    },
+  });
+
   const isBusy = deleteMutation.isPending || rebuildMutation.isPending || deleteOneMutation.isPending;
-  const projectLabel = isAllProjects ? "جميع المشاريع" : (selectedProjectName || "المشروع المحدد");
+
+  // === Render Helpers ===
+  const monthsList = monthsData?.data || [];
+  const projectLabel = isAllProjects ? "جميع المشاريع" : (selectedProjectName || "المشروع");
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-24 md:pb-8" dir="rtl">
 
-      {/* الإحصائيات - 3 بطاقات في صف */}
+      {/* الإحصائيات */}
       <UnifiedStats
         columns={3}
         stats={[
-          { title: "إجمالي الملخصات", value: summaries.length.toLocaleString("en-US"), color: "blue", icon: CalendarDays as LucideIcon },
-          { title: "إجمالي الإيرادات", value: formatCurrency(totalIncome), color: "green", icon: TrendingUp as LucideIcon },
-          { title: "إجمالي المصروفات", value: formatCurrency(totalExpenses), color: "red", icon: TrendingDown as LucideIcon },
+          { title: `ملخصات الصفحة (من ${totalServer.toLocaleString("en-US")})`, value: summaries.length.toLocaleString("en-US"), color: "blue", icon: CalendarDays as LucideIcon },
+          { title: "إيرادات الصفحة", value: formatCurrency(totalIncome), color: "green", icon: TrendingUp as LucideIcon },
+          { title: "مصروفات الصفحة", value: formatCurrency(totalExpenses), color: "red", icon: TrendingDown as LucideIcon },
         ]}
       />
 
-      {/* شريط البحث والفلترة مع أزرار الحذف وإعادة البناء */}
-      <UnifiedSearchFilter
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        searchPlaceholder="بحث بالتاريخ أو اسم المشروع..."
-        filters={[
-          {
-            key: "dateFrom",
-            label: "من تاريخ",
-            type: "date",
-            placeholder: "من تاريخ",
-          },
-          {
-            key: "dateTo",
-            label: "إلى تاريخ",
-            type: "date",
-            placeholder: "إلى تاريخ",
-          },
-        ]}
-        filterValues={filterValues}
-        onFilterChange={onFilterChange}
-        onReset={onReset}
-        showResetButton
-        showActiveFilters
-        extraActions={
-          <div className="flex items-center gap-1">
-            {/* زر حذف الجميع */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl relative"
-                  disabled={isBusy || total === 0}
-                  data-testid="button-delete-all"
-                  title="حذف جميع الملخصات"
-                >
-                  {deleteMutation.isPending
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Trash2 className="h-4 w-4" />}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent dir="rtl" className="rounded-2xl">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2 text-right">
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                    تأكيد الحذف
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="text-right">
-                    سيتم حذف <strong>{total.toLocaleString("en-US")}</strong> ملخص يومي
-                    {isAllProjects ? " لجميع المشاريع" : ` للمشروع: ${selectedProjectName}`}.
-                    <br />
-                    هذا الإجراء لا يمكن التراجع عنه، لكن يمكنك إعادة البناء لاحقاً.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="flex-row-reverse gap-2">
-                  <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-red-600 hover:bg-red-700 text-white rounded-xl" data-testid="button-confirm-delete">
-                    نعم، احذف الملخصات
-                  </AlertDialogAction>
-                  <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+      {/* تنبيه التجميد النشط */}
+      {currentFreeze && (
+        <Card className="rounded-2xl border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Snowflake className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                إعادة البناء التلقائي مُجمّدة لهذا المشروع
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
+                {currentFreeze.reason} • حتى: {new Date(currentFreeze.frozen_until).toLocaleString("ar-SA")}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => selectedProjectId && unfreezeMutation.mutate(selectedProjectId)}
+              disabled={unfreezeMutation.isPending}
+              className="rounded-xl border-amber-300 dark:border-amber-700"
+              data-testid="button-unfreeze"
+            >
+              {unfreezeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5 ml-1" />}
+              رفع التجميد
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-            {/* زر إعادة البناء */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 p-0 text-primary hover:text-primary/80 hover:bg-primary/10 rounded-xl"
-                  disabled={isBusy}
-                  data-testid="button-rebuild-all"
-                  title="إعادة بناء الملخصات"
-                >
-                  {rebuildMutation.isPending
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <RefreshCw className="h-4 w-4" />}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent dir="rtl" className="rounded-2xl">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2 text-right">
-                    <RefreshCw className="h-5 w-5 text-blue-500" />
-                    تأكيد إعادة البناء
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="text-right">
-                    سيتم إعادة حساب وبناء جميع الملخصات اليومية{" "}
-                    {isAllProjects ? "لجميع المشاريع" : `للمشروع: ${selectedProjectName}`}.
-                    <br />
-                    قد تستغرق هذه العملية بعض الوقت حسب حجم البيانات.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="flex-row-reverse gap-2">
-                  <AlertDialogAction onClick={() => rebuildMutation.mutate()} className="bg-primary hover:bg-primary/90 rounded-xl" data-testid="button-confirm-rebuild">
-                    نعم، أعد البناء
-                  </AlertDialogAction>
-                  <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-rebuild">إلغاء</AlertDialogCancel>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        }
-      />
-
-      {/* مؤشر التحميل أو العملية الجارية */}
-      {(rebuildMutation.isPending || deleteMutation.isPending) && (
-        <Card className="rounded-2xl border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 backdrop-blur-md">
-          <CardContent className="p-4 flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              {rebuildMutation.isPending ? "جاري إعادة بناء الملخصات... قد تستغرق العملية بعض الوقت" : "جاري حذف الملخصات..."}
+      {/* عدد كل التجميدات النشطة عند عرض كل المشاريع */}
+      {isAllProjects && activeFreezes.length > 0 && (
+        <Card className="rounded-2xl border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20">
+          <CardContent className="p-3 flex items-center gap-3">
+            <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              يوجد <strong>{activeFreezes.length}</strong> مشروع لديه تجميد نشط لإعادة البناء التلقائي. اختر المشروع لرؤية التفاصيل.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* نافذة تأكيد حذف ملخص واحد */}
+      {/* شريط الفلترة المحسّن */}
+      <Card className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md">
+        <CardContent className="p-3 space-y-3">
+          {/* اختيار وضع الفلترة */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant={filterMode === "month" ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setFilterMode("month"); setPage(1); }}
+              className="rounded-xl text-xs"
+              data-testid="button-filter-month"
+            >
+              <Calendar className="h-3.5 w-3.5 ml-1" />
+              حسب الشهر
+            </Button>
+            <Button
+              variant={filterMode === "range" ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setFilterMode("range"); setPage(1); }}
+              className="rounded-xl text-xs"
+              data-testid="button-filter-range"
+            >
+              نطاق تاريخ
+            </Button>
+            <Button
+              variant={filterMode === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setFilterMode("all"); setPage(1); }}
+              className="rounded-xl text-xs"
+              data-testid="button-filter-all"
+            >
+              عرض الكل
+            </Button>
+            <Input
+              type="search"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="بحث في الصفحة الحالية..."
+              className="h-9 rounded-xl flex-1 min-w-[180px] text-xs"
+              data-testid="input-search"
+            />
+          </div>
+
+          {/* تنقل بين الفترات */}
+          {filterMode === "month" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setCurrentMonth(shiftMonth(currentMonth, -1)); setPage(1); }}
+                className="rounded-xl h-9 w-9 p-0"
+                data-testid="button-prev-month"
+                title="الشهر السابق"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Select value={currentMonth} onValueChange={(v: string) => { setCurrentMonth(v); setPage(1); }}>
+                <SelectTrigger className="h-9 rounded-xl flex-1 min-w-[140px] max-w-[260px] text-xs" data-testid="select-month">
+                  <SelectValue>{formatMonth(currentMonth)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  {monthsList.length === 0 ? (
+                    <SelectItem value={currentMonth}>{formatMonth(currentMonth)}</SelectItem>
+                  ) : (
+                    monthsList.map((m) => (
+                      <SelectItem key={m.month} value={m.month}>
+                        {formatMonth(m.month)} ({m.count.toLocaleString("en-US")})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setCurrentMonth(shiftMonth(currentMonth, 1)); setPage(1); }}
+                className="rounded-xl h-9 w-9 p-0"
+                data-testid="button-next-month"
+                title="الشهر التالي"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setCurrentMonth(currentMonthStr()); setPage(1); }}
+                className="rounded-xl text-xs"
+                data-testid="button-current-month"
+              >
+                هذا الشهر
+              </Button>
+            </div>
+          )}
+
+          {filterMode === "range" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                className="h-9 rounded-xl flex-1 min-w-[140px] text-xs"
+                data-testid="input-date-from"
+              />
+              <span className="text-xs text-muted-foreground">إلى</span>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                className="h-9 rounded-xl flex-1 min-w-[140px] text-xs"
+                data-testid="input-date-to"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); }}
+                className="rounded-xl text-xs"
+                data-testid="button-clear-range"
+              >
+                مسح
+              </Button>
+            </div>
+          )}
+
+          {/* أزرار العمليات */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1 flex-wrap">
+              {/* حذف عادي */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900"
+                    disabled={isBusy || totalServer === 0}
+                    data-testid="button-delete-all"
+                  >
+                    {deleteMutation.isPending && !deleteMutation.variables ? <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" /> : <Trash2 className="h-3.5 w-3.5 ml-1" />}
+                    حذف الكل
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent dir="rtl" className="rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2 text-right">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      تأكيد الحذف
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-right space-y-2">
+                      <span className="block">
+                        سيتم حذف <strong>{totalServer.toLocaleString("en-US")}</strong> ملخص يومي ({projectLabel}).
+                      </span>
+                      <span className="block bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-2 rounded-lg text-xs">
+                        ⚡ سيتم تطبيق <strong>تجميد لمدة 5 دقائق</strong> لمنع إعادة البناء التلقائي.
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex-row-reverse gap-2">
+                    <AlertDialogAction onClick={() => deleteMutation.mutate(false)} className="bg-red-600 hover:bg-red-700 text-white rounded-xl" data-testid="button-confirm-delete">
+                      نعم، احذف
+                    </AlertDialogAction>
+                    <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* حذف نهائي */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-xs text-red-700 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-950/40 border-red-300 dark:border-red-800"
+                    disabled={isBusy || totalServer === 0}
+                    data-testid="button-delete-permanent"
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5 ml-1" />
+                    حذف نهائي
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent dir="rtl" className="rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2 text-right">
+                      <ShieldAlert className="h-5 w-5 text-red-600" />
+                      حذف نهائي للملخصات
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-right space-y-2">
+                      <span className="block">
+                        سيتم حذف <strong>{totalServer.toLocaleString("en-US")}</strong> ملخص ({projectLabel}).
+                      </span>
+                      <span className="block bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-200 p-2 rounded-lg text-xs">
+                        🔒 تجميد لمدة <strong>سنة كاملة</strong> - الملخصات لن تُعاد تلقائياً.
+                        لإعادة البناء يجب رفع التجميد يدوياً أو الضغط على "إعادة البناء".
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex-row-reverse gap-2">
+                    <AlertDialogAction onClick={() => deleteMutation.mutate(true)} className="bg-red-700 hover:bg-red-800 text-white rounded-xl" data-testid="button-confirm-permanent">
+                      نعم، حذف نهائي
+                    </AlertDialogAction>
+                    <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* إعادة بناء */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-blue-200 dark:border-blue-900"
+                    disabled={isBusy}
+                    data-testid="button-rebuild-all"
+                  >
+                    {rebuildMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" /> : <RefreshCw className="h-3.5 w-3.5 ml-1" />}
+                    إعادة البناء
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent dir="rtl" className="rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2 text-right">
+                      <RefreshCw className="h-5 w-5 text-blue-500" />
+                      إعادة بناء الملخصات
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-right space-y-2">
+                      <span className="block">
+                        إعادة حساب جميع الملخصات اليومية ({projectLabel}).
+                      </span>
+                      <span className="block bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 p-2 rounded-lg text-xs">
+                        ✨ سيتم رفع أي تجميد نشط تلقائياً (طلب صريح).
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex-row-reverse gap-2">
+                    <AlertDialogAction onClick={() => rebuildMutation.mutate()} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl" data-testid="button-confirm-rebuild">
+                      نعم، أعد البناء
+                    </AlertDialogAction>
+                    <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { refetch(); refetchFreeze(); }}
+              disabled={isLoading || isBusy}
+              className="h-9 w-9 rounded-xl p-0"
+              data-testid="button-refresh"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* مؤشر العملية الجارية */}
+      {(rebuildMutation.isPending || deleteMutation.isPending) && (
+        <Card className="rounded-2xl border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 backdrop-blur-md">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              {rebuildMutation.isPending ? "جاري إعادة بناء الملخصات..." : "جاري حذف الملخصات وتطبيق التجميد..."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* نافذة حذف ملخص واحد */}
       <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent dir="rtl" className="rounded-2xl">
           <AlertDialogHeader>
@@ -330,7 +614,7 @@ export default function DailySummariesAdminPage() {
               حذف الملخص
             </AlertDialogTitle>
             <AlertDialogDescription className="text-right">
-              هل أنت متأكد من حذف هذا الملخص اليومي؟ لا يمكن التراجع عن هذا الإجراء.
+              حذف هذا الملخص + تطبيق تجميد قصير (5 دقائق) لمنع إعادة البناء التلقائي.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse gap-2">
@@ -349,7 +633,7 @@ export default function DailySummariesAdminPage() {
       {/* الجدول / البطاقات */}
       <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md overflow-hidden">
         <CardHeader className="p-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
                 <BarChart3 className="h-5 w-5" />
@@ -357,28 +641,15 @@ export default function DailySummariesAdminPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-sm font-bold">الملخصات اليومية</CardTitle>
-                  <Badge
-                    variant="outline"
-                    className="h-5 px-2 text-[10px] font-bold rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                  >
-                    {summaries.length.toLocaleString("en-US")}
+                  <Badge variant="outline" className="h-5 px-2 text-[10px] font-bold rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                    {totalServer.toLocaleString("en-US")}
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {isAllProjects ? "عرض ملخصات جميع المشاريع" : `مشروع: ${selectedProjectName}`}
+                  {projectLabel} • {filterMode === "month" ? formatMonth(currentMonth) : filterMode === "range" ? "نطاق مخصص" : "كل الفترات"}
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isLoading || isBusy}
-              className="h-8 w-8 rounded-xl p-0"
-              data-testid="button-refresh"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
           </div>
         </CardHeader>
 
@@ -395,11 +666,9 @@ export default function DailySummariesAdminPage() {
               </div>
               <p className="text-sm font-medium text-muted-foreground">لا توجد ملخصات يومية</p>
               <p className="text-xs text-muted-foreground max-w-xs">
-                {allSummaries.length > 0
-                  ? "لا توجد نتائج تطابق البحث أو الفلترة المحددة."
-                  : isAllProjects
-                    ? "لم يتم بناء أي ملخصات بعد. اضغط على زر إعادة البناء لإنشائها."
-                    : "لا توجد ملخصات لهذا المشروع. اضغط على إعادة البناء لإنشائها."}
+                {totalServer > 0
+                  ? "لا توجد نتائج تطابق البحث في الصفحة الحالية. جرّب صفحة أخرى أو غيّر الفترة."
+                  : "لا توجد ملخصات للفترة المحددة. اضغط على إعادة البناء لإنشائها."}
               </p>
             </div>
           ) : (
@@ -447,33 +716,15 @@ export default function DailySummariesAdminPage() {
                           <TableCell className="text-xs font-mono py-2" data-testid={`text-date-${idx}`}>
                             {formatDate(row.date)}
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground py-2">
-                            {formatCurrency(row.carried_forward_amount)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_fund_transfers)}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium text-emerald-700 dark:text-emerald-400 py-2">
-                            {formatCurrency(row.total_income)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_worker_wages)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_material_costs)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_transportation_costs)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_worker_transfers)}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">
-                            {formatCurrency(row.total_worker_misc_expenses)}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium text-red-600 dark:text-red-400 py-2">
-                            {formatCurrency(row.total_expenses)}
-                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2">{formatCurrency(row.carried_forward_amount)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_fund_transfers)}</TableCell>
+                          <TableCell className="text-xs font-medium text-emerald-700 dark:text-emerald-400 py-2">{formatCurrency(row.total_income)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_worker_wages)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_material_costs)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_transportation_costs)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_worker_transfers)}</TableCell>
+                          <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-2">{formatCurrency(row.total_worker_misc_expenses)}</TableCell>
+                          <TableCell className="text-xs font-medium text-red-600 dark:text-red-400 py-2">{formatCurrency(row.total_expenses)}</TableCell>
                           <TableCell className="py-2">
                             <span className={`text-xs font-bold ${isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                               {isPositive ? "+" : ""}{formatCurrency(row.remaining_balance)}
@@ -515,9 +766,7 @@ export default function DailySummariesAdminPage() {
                         subtitle={isAllProjects ? (row.project_name || row.project_id) : undefined}
                         badges={[
                           {
-                            label: isPositive
-                              ? `+${formatCurrency(row.remaining_balance)}`
-                              : formatCurrency(row.remaining_balance),
+                            label: isPositive ? `+${formatCurrency(row.remaining_balance)}` : formatCurrency(row.remaining_balance),
                             variant: isPositive ? "success" : "destructive",
                           },
                         ]}
@@ -552,14 +801,54 @@ export default function DailySummariesAdminPage() {
         </CardContent>
       </Card>
 
-      {summaries.length > 0 && (
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pb-2">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span>
-            عرض {summaries.length.toLocaleString("en-US")}
-            {summaries.length !== total && ` (من أصل ${total.toLocaleString("en-US")})`} ملخص
-          </span>
-        </div>
+      {/* شريط التنقل بين الصفحات */}
+      {totalServer > 0 && (
+        <Card className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md">
+          <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-xs">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-muted-foreground">
+                صفحة <strong>{page}</strong> من <strong>{totalPages}</strong> • عرض {summaries.length} من {totalServer.toLocaleString("en-US")}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select value={String(pageSize)} onValueChange={(v: string) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger className="h-8 w-20 rounded-lg text-xs" data-testid="select-page-size">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page <= 1 || isLoading}
+                className="rounded-lg h-8"
+                data-testid="button-prev-page"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+                السابق
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={!hasMore || isLoading}
+                className="rounded-lg h-8"
+                data-testid="button-next-page"
+              >
+                التالي
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

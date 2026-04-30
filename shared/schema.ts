@@ -723,6 +723,16 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   idxDailySummariesProjectDate: index("idx_daily_summaries_project_date").on(table.project_id, table.date),
   }));
 
+// Summary Rebuild Freeze (تجميد إعادة بناء الملخصات بعد الحذف اليدوي)
+// يمنع `ensureValidSummary` من إعادة بناء الملخصات تلقائياً بعد حذف يدوي
+export const summaryRebuildFreeze = pgTable("summary_rebuild_freeze", {
+  project_id: varchar("project_id").primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+  frozen_until: timestamp("frozen_until").notNull(),
+  reason: text("reason").notNull(),
+  frozen_by: varchar("frozen_by"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Worker types table (أنواع العمال)
 export const workerTypes = pgTable("worker_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

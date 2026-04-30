@@ -43,6 +43,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       WHERE project_id = $1
         AND transfer_date IS NOT NULL
         AND transfer_date::date::text = $2
+        AND deleted_at IS NULL
     ),
     day_incoming_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -51,6 +52,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date = $2
         AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
+        AND deleted_at IS NULL
     ),
     day_outgoing_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -59,6 +61,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date = $2
         AND (transfer_reason IS NULL OR transfer_reason != 'legacy_worker_rebalance')
+        AND deleted_at IS NULL
     ),
     day_wages AS (
       SELECT COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total
@@ -66,6 +69,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       WHERE project_id = $1
         AND COALESCE(NULLIF(date,''), attendance_date::text) = $2
         AND safe_numeric(paid_amount::text, 0) > 0
+        AND deleted_at IS NULL
     ),
     day_materials AS (
       SELECT COALESCE(SUM(
@@ -78,11 +82,13 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       WHERE project_id = $1
         AND (purchase_type = 'نقد' OR purchase_type = 'نقداً')
         AND purchase_date = $2
+        AND deleted_at IS NULL
     ),
     day_transport AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM transportation_expenses
       WHERE project_id = $1 AND "date" = $2
+        AND deleted_at IS NULL
     ),
     day_worker_transfers AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
@@ -90,16 +96,19 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       WHERE project_id = $1
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date = $2
+        AND deleted_at IS NULL
     ),
     day_misc AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_misc_expenses
       WHERE project_id = $1 AND "date" = $2
+        AND deleted_at IS NULL
     ),
     day_supplier_payments AS (
       SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM supplier_payments
       WHERE project_id = $1 AND payment_date = $2
+        AND deleted_at IS NULL
     )
     SELECT
       (SELECT total FROM day_income) as fund_transfers,
@@ -201,33 +210,41 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
       WHERE project_id = $1
         AND transfer_date IS NOT NULL
         AND transfer_date::date::text <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT COALESCE(NULLIF(date,''), attendance_date::text) as sub_date FROM worker_attendance
       WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date::text) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date::text) != '' AND COALESCE(NULLIF(date,''), attendance_date::text) <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT purchase_date as sub_date FROM material_purchases
       WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT "date" as sub_date FROM transportation_expenses
       WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND "date" <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT transfer_date as sub_date
       FROM worker_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT "date" as sub_date FROM worker_misc_expenses
       WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND "date" <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT transfer_date as sub_date
       FROM project_fund_transfers
       WHERE (from_project_id = $1 OR to_project_id = $1)
         AND transfer_date IS NOT NULL AND transfer_date != ''
         AND transfer_date <= $2::text
+        AND deleted_at IS NULL
       UNION
       SELECT payment_date as sub_date FROM supplier_payments
       WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND payment_date <= $2::text
+        AND deleted_at IS NULL
     ) dates
     WHERE sub_date IS NOT NULL AND sub_date != ''
     ${outerFromCondition}
@@ -238,6 +255,18 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
 }
 
 async function ensureValidSummary(projectId: string, targetDate: string): Promise<void> {
+  // [T002] فحص freeze: إذا كان المشروع متجمدًا، نتجاهل إعادة البناء التلقائي
+  // هذا يمنع إعادة الملخصات بعد الحذف اليدوي
+  const freezeCheck = await pool.query(
+    `SELECT frozen_until, reason FROM summary_rebuild_freeze
+     WHERE project_id = $1 AND frozen_until > NOW() LIMIT 1`,
+    [projectId]
+  );
+  if (freezeCheck.rows.length > 0) {
+    console.log(`🧊 [SummaryRebuild] إعادة البناء متجمدة للمشروع ${projectId.substring(0, 8)} حتى ${freezeCheck.rows[0].frozen_until} (السبب: ${freezeCheck.rows[0].reason})`);
+    return;
+  }
+
   const invalidation = await pool.query(
     `SELECT MIN(invalidated_from) as invalidated_from FROM summary_invalidations WHERE project_id = $1`,
     [projectId]
@@ -297,14 +326,14 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
       } else {
         const firstActivity = await client.query(`
           SELECT MIN(sub_date) as first_date FROM (
-            SELECT COALESCE(NULLIF(date,''), attendance_date::text) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date::text) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date::text) != ''
-            UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != ''
-            UNION SELECT "date" FROM transportation_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != ''
-            UNION SELECT transfer_date::date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL
-            UNION SELECT "date" FROM worker_misc_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != ''
-            UNION SELECT transfer_date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date != ''
-            UNION SELECT transfer_date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND transfer_date != ''
-            UNION SELECT payment_date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != ''
+            SELECT COALESCE(NULLIF(date,''), attendance_date::text) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date::text) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date::text) != '' AND deleted_at IS NULL
+            UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND deleted_at IS NULL
+            UNION SELECT "date" FROM transportation_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND deleted_at IS NULL
+            UNION SELECT transfer_date::date::text FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND deleted_at IS NULL
+            UNION SELECT "date" FROM worker_misc_expenses WHERE project_id = $1 AND "date" IS NOT NULL AND "date" != '' AND deleted_at IS NULL
+            UNION SELECT transfer_date FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND transfer_date != '' AND deleted_at IS NULL
+            UNION SELECT transfer_date FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND transfer_date != '' AND deleted_at IS NULL
+            UNION SELECT payment_date FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND deleted_at IS NULL
           ) all_dates
         `, [projectId]);
         rebuildFromDate = firstActivity.rows[0]?.first_date || targetDate;

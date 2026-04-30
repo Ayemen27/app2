@@ -10,8 +10,11 @@ import {
   AlertTriangle, Zap, History,
   ChevronDown, ChevronUp, Copy, Server, User,
   ChevronLeft, ChevronRight, Shield,
-  FileSpreadsheet, FileText, Trash2
+  FileSpreadsheet, FileText, Trash2, Skull, Inbox
 } from "lucide-react";
+import LocalSyncQueueTab from "./LocalSyncQueueTab";
+import DLQTab from "./DLQTab";
+import { TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig as DashFilterConfig } from "@/components/ui/unified-filter-dashboard/types";
@@ -450,7 +453,15 @@ export default function SyncManagementPage() {
       />
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); setAuditPage(1); }} className="w-full" dir="rtl">
-        <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5 mb-4 no-scrollbar" data-testid="tabs-sync">
+        <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-7 mb-4 no-scrollbar" data-testid="tabs-sync">
+          <TabsTrigger value="local-queue" className="gap-1" data-testid="tab-local-queue">
+            <Inbox className="h-3.5 w-3.5" />
+            محلي
+          </TabsTrigger>
+          <TabsTrigger value="dlq" className="gap-1" data-testid="tab-dlq">
+            <Skull className="h-3.5 w-3.5" />
+            DLQ
+          </TabsTrigger>
           <TabsTrigger value="pending" className="gap-1" data-testid="tab-pending">
             <Clock className="h-3.5 w-3.5" />
             معلقة
@@ -485,6 +496,13 @@ export default function SyncManagementPage() {
           </TabsTrigger>
         </TabsList>
 
+        {/* التابات الجديدة - طابور محلي + DLQ */}
+        {activeTab === "local-queue" && <LocalSyncQueueTab />}
+        {activeTab === "dlq" && <DLQTab />}
+
+        {/* التابات السابقة - تدقيق الخادم */}
+        {activeTab !== "local-queue" && activeTab !== "dlq" && (
+        <>
         {auditLoading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <RefreshCw className="h-6 w-6 animate-spin ml-2" />
@@ -544,6 +562,8 @@ export default function SyncManagementPage() {
               </Button>
             </div>
           </div>
+        )}
+        </>
         )}
       </Tabs>
     </div>

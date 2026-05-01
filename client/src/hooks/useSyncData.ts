@@ -7,6 +7,7 @@ import {
   getSyncStats as getOfflineSyncStats,
   SyncQueueItem, SyncLogEntry
 } from '@/offline/offline';
+import { Capacitor } from '@capacitor/core';
 
 export function useSyncData() {
   const [syncState, setSyncState] = useState(() => getSyncState());
@@ -53,22 +54,41 @@ export function useSyncData() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // 📱 Android: @capacitor/network يُطلق أحداث الشبكة موثوقة على WebView
+    let removeCapacitorListener: (() => void) | null = null;
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/network').then(({ Network }) => {
+        Network.addListener('networkStatusChange', ({ connected }) => {
+          if (connected) {
+            setIsOnline(true);
+            syncOfflineData().catch(() => {});
+          } else {
+            setIsOnline(false);
+          }
+        }).then((handle) => {
+          removeCapacitorListener = () => handle.remove();
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+
     refreshData();
-    const interval = setInterval(refreshData, 60000);
+    // على Android بدون SSE، نُحدّث كل 20 ثانية بدلاً من 60 للتعويض
+    const intervalMs = Capacitor.isNativePlatform() ? 20000 : 30000;
+    const interval = setInterval(refreshData, intervalMs);
 
     return () => {
       unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      removeCapacitorListener?.();
       clearInterval(interval);
     };
   }, [refreshData]);
 
   const manualSync = async () => {
-    if (isOnline) {
-      await syncOfflineData();
-      await refreshData();
-    }
+    // لا نعتمد على isOnline المحلي — نتحقق من الشبكة الحقيقية عبر sync engine
+    await syncOfflineData();
+    await refreshData();
   };
 
   const cancelOperation = async (operationId: string) => {

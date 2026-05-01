@@ -19,7 +19,7 @@ import { createSyncSpan, SpanStatusCode } from '../lib/instrumentation';
 import * as performanceMonitor from './performance-monitor';
 import * as Sentry from '@sentry/react';
 
-async function isNetworkAvailable(): Promise<boolean> {
+export async function isNetworkAvailable(): Promise<boolean> {
   // لا نستخدم isPluginAvailable('Network') — لا تعمل في Capacitor 8. نستدعي مباشرة.
   if (Capacitor.isNativePlatform()) {
     try {

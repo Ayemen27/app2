@@ -10,8 +10,9 @@ import { resolveConflictLWW, logConflict } from './conflict-resolver';
 import type { ConflictData } from './conflict-resolver';
 import { endpointToStore } from './store-registry';
 import { isCurrentTabLeader } from './sync-leader';
-import { isSyncEngineActive } from './sync';
+import { isSyncEngineActive, isNetworkAvailable } from './sync';
 import { withMutex, SYNC_LOCKS, MutexBusyError } from './sync-mutex';
+import { Capacitor } from '@capacitor/core';
 
 let _isSyncing = false;
 
@@ -514,6 +515,7 @@ async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): 
 let _intervalId: ReturnType<typeof setInterval> | null = null;
 let _onlineHandler: (() => void) | null = null;
 let _swMessageHandler: ((e: MessageEvent) => void) | null = null;
+let _removeCapacitorNetListener: (() => void) | null = null;
 const BG_SYNC_TAG = 'background-sync-outbox';
 
 /**
@@ -568,10 +570,13 @@ function attachSwMessageListener() {
   navigator.serviceWorker.addEventListener('message', _swMessageHandler);
 }
 
-export function initSilentSyncObserver(intervalMs = 30000) {
+export function initSilentSyncObserver(intervalMs?: number) {
   if (_intervalId !== null) {
     return;
   }
+
+  // على Android بدون SSE: polling أسرع (15 ثانية بدل 30)
+  const effectiveInterval = intervalMs ?? (Capacitor.isNativePlatform() ? 15000 : 30000);
 
   if (isCurrentTabLeader()) {
     runSilentSync().catch(err => {
@@ -588,18 +593,42 @@ export function initSilentSyncObserver(intervalMs = 30000) {
   attachSwMessageListener();
   registerBackgroundSync().catch(() => {});
 
+  // 📱 Android: استمع لتغيّرات الشبكة عبر Capacitor بدلاً من navigator.onLine فقط
+  if (Capacitor.isNativePlatform() && _removeCapacitorNetListener === null) {
+    import('@capacitor/network').then(({ Network }) => {
+      Network.addListener('networkStatusChange', ({ connected }) => {
+        if (connected && isCurrentTabLeader()) {
+          runSilentSync().catch(err => {
+            intelligentMonitor.logEvent({
+              type: 'sync',
+              severity: 'medium',
+              message: 'Capacitor network-restore triggered sync failed',
+              metadata: { error: err }
+            });
+          });
+        }
+      }).then((handle) => {
+        _removeCapacitorNetListener = () => handle.remove();
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
   _intervalId = setInterval(() => {
-    if (navigator.onLine && isCurrentTabLeader()) {
-      runSilentSync().catch(err => {
-        intelligentMonitor.logEvent({
-          type: 'sync',
-          severity: 'low',
-          message: 'Interval silent sync failed',
-          metadata: { error: err }
+    if (!isCurrentTabLeader()) return;
+    // استخدام isNetworkAvailable() بدل navigator.onLine للموثوقية على Android
+    isNetworkAvailable().then(online => {
+      if (online) {
+        runSilentSync().catch(err => {
+          intelligentMonitor.logEvent({
+            type: 'sync',
+            severity: 'low',
+            message: 'Interval silent sync failed',
+            metadata: { error: err }
+          });
         });
-      });
-    }
-  }, intervalMs);
+      }
+    }).catch(() => {});
+  }, effectiveInterval);
 
   _onlineHandler = () => {
     if (isCurrentTabLeader()) {
@@ -630,5 +659,9 @@ export function stopSilentSyncObserver() {
       navigator.serviceWorker.removeEventListener('message', _swMessageHandler);
     } catch {}
     _swMessageHandler = null;
+  }
+  if (_removeCapacitorNetListener !== null) {
+    try { _removeCapacitorNetListener(); } catch {}
+    _removeCapacitorNetListener = null;
   }
 }

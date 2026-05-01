@@ -10,8 +10,10 @@ import {
   AlertTriangle, Zap, History,
   ChevronDown, ChevronUp, Copy, Server, User,
   ChevronLeft, ChevronRight, Shield,
-  FileSpreadsheet, FileText, Trash2, Skull, Inbox
+  FileSpreadsheet, FileText, Trash2, Skull, Inbox,
+  Wifi, WifiOff, Radio
 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import LocalSyncQueueTab from "./LocalSyncQueueTab";
 import DLQTab from "./DLQTab";
 import { TabsContent } from "@/components/ui/tabs";
@@ -64,7 +66,8 @@ function getAuditActionBadge(action: string) {
 }
 
 export default function SyncManagementPage() {
-  const { isSyncing, manualSync, refreshData } = useSyncData();
+  const { isSyncing, isOnline, manualSync, refreshData } = useSyncData();
+  const isAndroid = Capacitor.isNativePlatform();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("pending");
   const [auditPage, setAuditPage] = useState(1);
@@ -436,6 +439,31 @@ export default function SyncManagementPage() {
 
   return (
     <div className="space-y-4 pb-20" data-testid="page-sync-management">
+
+      {/* شريط حالة الاتصال والمزامنة */}
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ${
+        isOnline
+          ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+          : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+      }`} data-testid="sync-network-status">
+        {isOnline ? <Wifi className="w-4 h-4 shrink-0" /> : <WifiOff className="w-4 h-4 shrink-0" />}
+        <span>{isOnline ? 'متصل بالإنترنت' : 'غير متصل — العمليات محفوظة محلياً'}</span>
+        {isAndroid && (
+          <div className="mr-auto flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 opacity-60" />
+            <span className="text-xs opacity-70">
+              Android · بولينج كل 15 ث · SSE معطّل
+            </span>
+          </div>
+        )}
+        {!isAndroid && isOnline && (
+          <div className="mr-auto flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-green-500" />
+            <span className="text-xs opacity-70">SSE متصل — تحديثات فورية</span>
+          </div>
+        )}
+      </div>
+
       <UnifiedFilterDashboard
         hideHeader
         statsRows={statsConfig}

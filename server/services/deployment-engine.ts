@@ -4271,9 +4271,9 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && ${sensitiveResets} && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/AXION.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config pull.rebase true && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git remote set-url origin https://github.com/${ghUser}/AXION.git && git add -A && ${sensitiveResets} && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && (git pull --rebase origin ${branch} 2>&1 && echo "PULL_REBASE_OK" || (git rebase --abort 2>/dev/null; echo "REBASE_CONFLICT: الـ remote متقدم عن المحلي بتغييرات لا يمكن دمجها تلقائياً - أعد النشر" && exit 1)) && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
-      60000
+      120000
     );
 
     try {

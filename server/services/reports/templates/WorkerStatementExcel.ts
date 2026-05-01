@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { WorkerStatementData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlSectionHeader,
@@ -334,7 +335,11 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
   }
 
   row++;
-  row = xlSignatures(ws, row, ['العامل', 'المهندس', 'المدير'], [[1, 3], [4, 7], [8, 10]]);
+  row = xlSignatures(ws, row, [
+    { title: 'العامل', name: data.worker?.name },
+    { title: 'المهندس' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 3], [4, 7], [8, 10]]);
 
   row += 2;
   row = xlFooter(ws, row, COL_COUNT);

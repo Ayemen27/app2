@@ -292,7 +292,10 @@ export class DeploymentEngine {
   private static LOCAL_ONLY_STEPS = new Set<string>([
     'validate', 'preflight-check', 'sync-version', 'git-push', 'build-web',
     'verify', 'prebuild-gate', 'android-readiness', 'apk-integrity', 'post-deploy-smoke',
-    'hc-evaluate', 'cl-summary'
+    'hc-evaluate', 'cl-summary',
+    'transfer-preflight', 'transfer-git-push', 'transfer-snapshot', 'transfer-pack-encrypt',
+    'transfer-upload', 'transfer-verify', 'transfer-cleanup-old', 'transfer-cleanup-local',
+    'transfer-download', 'transfer-decrypt-extract', 'transfer-apply-secrets',
   ]);
 
   private isRemoteStep(stepName: string): boolean {
@@ -870,6 +873,8 @@ export class DeploymentEngine {
       "android-build-test": "android",
       "health-check": "health-check",
       "server-cleanup": "server-cleanup",
+      "assets-export": "assets-transfer",
+      "assets-import": "assets-transfer",
     };
 
     const resolvedPipeline = resolvePipeline(config.pipeline);
@@ -1431,8 +1436,93 @@ export class DeploymentEngine {
       case "rollback-server":
         await this.addLog(deploymentId, `خطوة rollback-server تُنفَّذ عبر executeRollback مباشرة`, "info");
         break;
+      // ============================================================
+      // خطوات أنبوب نقل الأصول والمتغيرات (assets-export / assets-import)
+      // تُنفَّذ عبر transfer-pipeline-runner.ts الذي يستدعي scripts/transfer/*
+      // ============================================================
+      case "transfer-preflight":
+      case "transfer-git-push":
+      case "transfer-snapshot":
+      case "transfer-pack-encrypt":
+      case "transfer-upload":
+      case "transfer-verify":
+      case "transfer-cleanup-old":
+      case "transfer-cleanup-local":
+      case "transfer-download":
+      case "transfer-decrypt-extract":
+      case "transfer-apply-secrets":
+        await this.stepTransferPipeline(deploymentId, stepName as any, config);
+        break;
       default:
         throw new Error(`خطوة غير معروفة: ${stepName} — لا يمكن المتابعة`);
+    }
+  }
+
+  /**
+   * تنفيذ خطوة من أنبوب نقل الأصول عبر transfer-pipeline-runner
+   * يستدعي السكربتات في scripts/transfer/ مع تمرير معلومات الإصدار
+   */
+  private async stepTransferPipeline(
+    deploymentId: string,
+    stepName:
+      | "transfer-preflight"
+      | "transfer-git-push"
+      | "transfer-snapshot"
+      | "transfer-pack-encrypt"
+      | "transfer-upload"
+      | "transfer-verify"
+      | "transfer-cleanup-old"
+      | "transfer-cleanup-local"
+      | "transfer-download"
+      | "transfer-decrypt-extract"
+      | "transfer-apply-secrets",
+    config: DeploymentConfig,
+  ): Promise<void> {
+    await this.addLog(deploymentId, `▶ بدء ${stepName}`, "info");
+    try {
+      const { runTransferStep } = await import("./transfer-pipeline-runner.js");
+
+      // فصل دورة حياة الأصول عن دورة حياة نشر الكود:
+      // رقم النشر (config.version) يخص الكود/APK ويُحدَّث في كل نشر،
+      // بينما أرشيفات الأصول تُرفع يدوياً عبر pack-and-publish.sh ولها دورة مستقلة.
+      // عند السحب من السيرفر نعتمد LATEST.txt بدلاً من فرض رقم النشر،
+      // إلا إذا مرّر المستخدم صراحةً assetsVersion للنشر الحالي.
+      const PULL_FROM_SERVER_STEPS = new Set([
+        "transfer-download",
+        "transfer-decrypt-extract",
+        "transfer-apply-secrets",
+      ]);
+      const isPullStep = PULL_FROM_SERVER_STEPS.has(stepName);
+      const assetsVersionOverride = (config as any).assetsVersion as string | undefined;
+      const versionForStep = isPullStep
+        ? (assetsVersionOverride || undefined)
+        : config.version;
+
+      const result = await runTransferStep(stepName, {
+        version: versionForStep,
+        force: true, // وضع غير تفاعلي من محرك النشر
+        encryptPassphrase: process.env.ENCRYPT_PASSPHRASE,
+      });
+
+      if (result.output) {
+        // تسجيل آخر 50 سطر فقط لتجنب إغراق السجلات
+        const lines = result.output.split("\n").filter(Boolean).slice(-50);
+        for (const line of lines) {
+          await this.addLog(deploymentId, line, "info");
+        }
+      }
+
+      if (!result.success) {
+        const err = result.error || "فشل دون رسالة";
+        await this.addLog(deploymentId, `❌ فشلت الخطوة ${stepName}: ${err}`, "error");
+        throw new Error(`Transfer step failed (${stepName}): ${err}`);
+      }
+
+      const sec = (result.durationMs / 1000).toFixed(1);
+      await this.addLog(deploymentId, `✅ اكتملت ${stepName} (${sec}s)`, "success");
+    } catch (err: any) {
+      await this.addLog(deploymentId, `❌ خطأ في ${stepName}: ${err?.message || err}`, "error");
+      throw err;
     }
   }
 
@@ -2544,23 +2634,63 @@ export class DeploymentEngine {
   }
 
   private async syncBotTInventory(deploymentId: string, sshCmd: string, pm2Name: string) {
+    // معالجة YAML احترافية عبر Python+PyYAML (المعيار المُتّبع في Ansible/Kubernetes):
+    //   1) backup ذرّي قبل التعديل
+    //   2) كتابة عبر ملف مؤقّت ثم os.replace (atomic rename)
+    //   3) قراءة ما بعد الكتابة للتحقق من القيمة فعلياً
+    // هذا يستبدل sed range الذي كان فاشلاً (نمط النهاية يطابق سطر axion: نفسه فيُغلق النطاق فوراً).
     const inventoryPath = "/opt/Bot-T/apps_inventory.yaml";
+    const appKey = "axion";
     const maxRetries = 3;
+
+    // سكربت Python كامل (multi-line حقيقي - يحوي compound statements with/if التي لا تعمل مع python -c "stmt; stmt")
+    // الحل: نشفّر السكربت بـ base64 ونمرّره لـ python عبر pipe — يضمن سلامة الأسطر بصرف النظر عن أي escaping
+    const pyScript = `
+import os, sys, tempfile, shutil, yaml
+path = os.environ['INV_PATH']
+key = os.environ['APP_KEY']
+new_name = os.environ['NEW_PM2_NAME']
+with open(path, 'r', encoding='utf-8') as f:
+    data = yaml.safe_load(f)
+apps = (data or {}).get('applications') or {}
+if key not in apps:
+    print(f'ERR: key {key} not found')
+    sys.exit(2)
+before = apps[key].get('pm2_name')
+if before == new_name:
+    print(f'NOOP: pm2_name already {new_name}')
+    sys.exit(0)
+apps[key]['pm2_name'] = new_name
+shutil.copy2(path, path + '.bak.' + str(int(os.path.getmtime(path))))
+dir_ = os.path.dirname(path)
+fd, tmp = tempfile.mkstemp(prefix='.inv.', dir=dir_)
+os.close(fd)
+with open(tmp, 'w', encoding='utf-8') as f:
+    yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+os.replace(tmp, path)
+with open(path, 'r', encoding='utf-8') as f:
+    verify = yaml.safe_load(f)
+actual = verify['applications'][key].get('pm2_name')
+print(f'OK: {before} -> {actual}' if actual == new_name else f'ERR: verify mismatch {actual}')
+sys.exit(0 if actual == new_name else 3)
+`;
+    const pyB64 = Buffer.from(pyScript, "utf-8").toString("base64");
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.addLog(deploymentId, `🔄 مزامنة Bot-T inventory — تحديث pm2_name إلى "${pm2Name}" (محاولة ${attempt}/${maxRetries})...`, "info");
-        const sedCmd = `sed -i '/^  axion:$/,/^  [a-z][a-z0-9_-]*:$/{s/pm2_name:.*/pm2_name: "${pm2Name}"/}' ${inventoryPath}`;
-        const verifyCmd = `awk '/^  axion:$/{f=1; next} f && /^  [a-z][a-z0-9_-]*:$/{f=0} f && /pm2_name:/{print}' ${inventoryPath}`;
-        const { stdout } = await execAsync(
-          `${sshCmd} "${sedCmd} && ${verifyCmd}"`,
-          { timeout: 10000, env: this.getSSHExecEnv() }
+        // فك base64 على السيرفر ثم تنفيذ - لا escaping needed داخل السكربت
+        const remoteCmd = `INV_PATH=${JSON.stringify(inventoryPath)} APP_KEY=${JSON.stringify(appKey)} NEW_PM2_NAME=${JSON.stringify(pm2Name)} bash -c 'echo ${pyB64} | base64 -d | python3 -'`;
+        const { stdout, stderr } = await execAsync(
+          `${sshCmd} ${JSON.stringify(remoteCmd)}`,
+          { timeout: 15000, env: this.getSSHExecEnv() }
         );
-        const verified = stdout.trim().includes(`"${pm2Name}"`);
-        if (verified) {
-          await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}"`, "success");
+        const out = (stdout || "").trim();
+        if (out.startsWith("OK:") || out.startsWith("NOOP:")) {
+          await this.addLog(deploymentId, `✅ Bot-T inventory محدّث: pm2_name="${pm2Name}" (${out})`, "success");
           return;
         }
-        throw new Error(`التحقق فشل — القيمة الفعلية: ${stdout.trim()}`);
+        throw new Error(`الناتج غير متوقع: ${out || stderr || "(empty)"}`);
       } catch (err: any) {
         if (attempt < maxRetries) {
           await this.addLog(deploymentId, `⚠️ محاولة ${attempt} فشلت: ${err.message} — إعادة المحاولة...`, "warn");
@@ -2756,27 +2886,41 @@ export class DeploymentEngine {
       `fi`,
       ``,
       `echo "=== POST_SYNC_MAINACTIVITY ==="`,
+      `# لا نكتب MainActivity stub أبداً — نستعيد من git فقط لأنها تحوي 15 registerPlugin call`,
       `mkdir -p "$(dirname "$MAIN_ACT")"`,
-      `if [ ! -f "$MAIN_ACT" ] || ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
-      `  cp "$MAIN_ACT" "$MAIN_ACT.bak.$(date +%s)" 2>/dev/null || true`,
-      `  cat > "$MAIN_ACT" << 'JAVAEOF'`,
-      `package com.axion.app;`,
-      ``,
-      `import android.os.Bundle;`,
-      `import com.getcapacitor.BridgeActivity;`,
-      ``,
-      `public class MainActivity extends BridgeActivity {`,
-      `    @Override`,
-      `    public void onSaveInstanceState(Bundle outState) {`,
-      `        super.onSaveInstanceState(outState);`,
-      `        outState.clear();`,
-      `    }`,
-      `}`,
-      `JAVAEOF`,
-      `  echo "MAINACTIVITY_FIXED"`,
-      `  FIXES=$((FIXES+1))`,
+      `REG_COUNT=$(grep -c "registerPlugin(" "$MAIN_ACT" 2>/dev/null || echo 0)`,
+      `if [ ! -f "$MAIN_ACT" ] || [ "$REG_COUNT" -lt 10 ]; then`,
+      `  echo "MAINACTIVITY_INCOMPLETE: registerPlugin=$REG_COUNT (يجب >=10) — استعادة من git"`,
+      `  cd "$DIR" && git checkout HEAD -- android/app/src/main/java/com/axion/app/MainActivity.java 2>&1 && cd - >/dev/null`,
+      `  NEW_COUNT=$(grep -c "registerPlugin(" "$MAIN_ACT" 2>/dev/null || echo 0)`,
+      `  if [ "$NEW_COUNT" -ge 10 ]; then`,
+      `    echo "MAINACTIVITY_RESTORED_FROM_GIT: $NEW_COUNT registerPlugin"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "MAINACTIVITY_RESTORE_FAILED: still $NEW_COUNT registerPlugin"`,
+      `  fi`,
       `else`,
-      `  echo "MAINACTIVITY_OK"`,
+      `  echo "MAINACTIVITY_OK: $REG_COUNT registerPlugin"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_BUILD_GRADLE_DEPS ==="`,
+      `# تأكد من وجود جميع capacitor plugins في app/build.gradle (المشروع لا يستخدم apply from: capacitor.build.gradle)`,
+      `if [ -f "$BUILD_GRADLE" ]; then`,
+      `  REQUIRED_DEPS="capacitor-app capacitor-browser capacitor-device capacitor-filesystem capacitor-inappbrowser capacitor-local-notifications capacitor-network capacitor-preferences capacitor-push-notifications capacitor-share capacitor-status-bar byteowls-capacitor-filesharer capacitor-community-sqlite capgo-capacitor-native-biometric"`,
+      `  MISSING_DEPS=""`,
+      `  for DEP in $REQUIRED_DEPS; do`,
+      `    if ! grep -qE "implementation[[:space:]]+project\\(['\\"]:$DEP['\\"]" "$BUILD_GRADLE" 2>/dev/null; then`,
+      `      MISSING_DEPS="$MISSING_DEPS $DEP"`,
+      `    fi`,
+      `  done`,
+      `  if [ -n "$MISSING_DEPS" ]; then`,
+      `    echo "BUILD_GRADLE_MISSING_DEPS:$MISSING_DEPS — استعادة app/build.gradle من git"`,
+      `    cd "$DIR" && git checkout HEAD -- android/app/build.gradle 2>&1 && cd - >/dev/null`,
+      `    echo "BUILD_GRADLE_RESTORED_FROM_GIT"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "BUILD_GRADLE_DEPS_OK: 14 plugins present"`,
+      `  fi`,
       `fi`,
       ``,
       `echo "=== POST_SYNC_KEYSTORE ==="`,
@@ -2929,8 +3073,20 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, `✅ إجمالي الصلاحيات في AndroidManifest: ${permCountMatch[1]}`, "info");
     }
 
-    if (checksResult.includes("MAINACTIVITY_FIXED")) {
-      await this.addLog(deploymentId, "🔧 تم إصلاح MainActivity (onSaveInstanceState لـ FileSharer)", "success");
+    if (checksResult.includes("MAINACTIVITY_RESTORED_FROM_GIT")) {
+      const m = checksResult.match(/MAINACTIVITY_RESTORED_FROM_GIT: (\d+) registerPlugin/);
+      await this.addLog(deploymentId, `🔧 تم استعادة MainActivity من git (${m?.[1] || "?"} registerPlugin) — كانت ناقصة بعد cap sync`, "success");
+    } else if (checksResult.includes("MAINACTIVITY_RESTORE_FAILED")) {
+      await this.addLog(deploymentId, "❌ فشل استعادة MainActivity من git — البناء سيفشل! تحقق من حالة git", "error");
+    } else if (checksResult.includes("MAINACTIVITY_OK")) {
+      const m = checksResult.match(/MAINACTIVITY_OK: (\d+) registerPlugin/);
+      await this.addLog(deploymentId, `✅ MainActivity سليمة (${m?.[1] || "?"} registerPlugin)`, "info");
+    }
+    if (checksResult.includes("BUILD_GRADLE_RESTORED_FROM_GIT")) {
+      const m = checksResult.match(/BUILD_GRADLE_MISSING_DEPS:([^\n]+)/);
+      await this.addLog(deploymentId, `🔧 تم استعادة app/build.gradle من git — كان ناقصاً: ${(m?.[1] || "").trim()}`, "success");
+    } else if (checksResult.includes("BUILD_GRADLE_DEPS_OK")) {
+      await this.addLog(deploymentId, "✅ app/build.gradle يحوي جميع 14 إضافة Capacitor", "info");
     }
     if (checksResult.includes("KEYSTORE_RESTORED")) {
       await this.addLog(deploymentId, "🔧 تم استعادة Keystore تلقائياً", "success");
@@ -3133,9 +3289,11 @@ export class DeploymentEngine {
         }
       }
     }
-    const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
-    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
-    const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    // إزالة علامات الاقتباس المحيطة (تظهر عندما يكتب المستخدم القيمة بـ '...' أو "..." في .env)
+    const stripQuotes = (v: string) => v.replace(/^['"]|['"]$/g, "").trim();
+    const keystorePassword = stripQuotes(process.env.KEYSTORE_PASSWORD || "");
+    const keystoreAlias = stripQuotes(process.env.KEYSTORE_ALIAS || "axion-key");
+    const keystoreKeyPassword = stripQuotes(process.env.KEYSTORE_KEY_PASSWORD || "") || keystorePassword;
     const hasKeystorePassword = !!keystorePassword;
     const canSignRelease = hasKeystore && hasKeystorePassword;
     if (!canSignRelease) {
@@ -3180,9 +3338,6 @@ export class DeploymentEngine {
         `${freshSsh} "cd ${remoteDir}/android && ` +
           `sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 26/' variables.gradle 2>/dev/null; ` +
           `sed -i 's/minSdk [0-9]*/minSdk 26/' app/build.gradle 2>/dev/null; ` +
-          `grep -q 'onSaveInstanceState' app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || ` +
-          `{ cp app/src/main/java/com/axion/app/MainActivity.java app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; ` +
-          `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; }; ` +
           `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
             `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
           `{ [ -f /tmp/fix_kotlin_opt_in.py ] && python3 /tmp/fix_kotlin_opt_in.py build.gradle 2>/dev/null || true; }; ` +
@@ -3190,7 +3345,7 @@ export class DeploymentEngine {
         "Pre-build Auto-fix",
         15000
       );
-      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, MainActivity, Keystore, Kotlin opt-in", "success");
+      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, Keystore, Kotlin opt-in", "success");
     } catch {
       await this.addLog(deploymentId, "⚠️ تعذر تطبيق بعض الإصلاحات التلقائية", "warn");
     }
@@ -3234,7 +3389,7 @@ export class DeploymentEngine {
       canSignRelease ? `export KEYSTORE_ALIAS='${keystoreAlias}'` : "",
       canSignRelease ? `export KEYSTORE_KEY_PASSWORD=$(cat /tmp/.ks_key_pass)` : "",
       `chmod +x gradlew`,
-      `./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace`,
+      `./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace`,
     ].filter(Boolean).join("\n");
     const scriptB64 = Buffer.from(scriptLines).toString("base64");
 
@@ -3484,14 +3639,17 @@ export class DeploymentEngine {
     }
 
     const integrityMeta = {
-      sha256: sha256?.trim() || null,
-      signatureValid,
-      verifiedAt: new Date().toISOString(),
+      apkSha256: sha256?.trim() || null,
+      apkSignatureValid: signatureValid,
+      apkVerifiedAt: new Date().toISOString(),
     };
 
-    await this.updateDeployment(deploymentId, {
-      environmentSnapshot: integrityMeta,
-    });
+    // دمج (لا استبدال) للحفاظ على pluginManifestId و bumpedVersionCode وغيرها
+    await db.update(buildDeployments)
+      .set({
+        environmentSnapshot: sql`COALESCE(${buildDeployments.environmentSnapshot}, '{}'::jsonb) || ${JSON.stringify(integrityMeta)}::jsonb`,
+      })
+      .where(eq(buildDeployments.id, deploymentId));
 
     await this.addLog(deploymentId, "✅ فحص سلامة APK مكتمل", "success");
   }
@@ -3702,9 +3860,11 @@ export class DeploymentEngine {
     const errors: string[] = [];
     const autoFixes: string[] = [];
 
-    let keystorePassword = process.env.KEYSTORE_PASSWORD || "";
-    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
-    let keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    // إزالة علامات الاقتباس المحيطة (تظهر عندما يكتب المستخدم القيمة بـ '...' أو "..." في .env)
+    const stripQuotes = (v: string) => v.replace(/^['"]|['"]$/g, "").trim();
+    let keystorePassword = stripQuotes(process.env.KEYSTORE_PASSWORD || "");
+    const keystoreAlias = stripQuotes(process.env.KEYSTORE_ALIAS || "axion-key");
+    let keystoreKeyPassword = stripQuotes(process.env.KEYSTORE_KEY_PASSWORD || "") || keystorePassword;
 
     if (keystoreAlias) {
       await this.addLog(deploymentId, `ℹ️ KEYSTORE_ALIAS: ${keystoreAlias}`, "info");
@@ -3734,7 +3894,7 @@ export class DeploymentEngine {
       `echo '=== MANIFEST_PERMISSIONS ==='`,
       `grep 'uses-permission' ${remoteDir}/android/app/src/main/AndroidManifest.xml 2>/dev/null | wc -l`,
       `echo '=== MAINACTIVITY_CHECK ==='`,
-      `grep -c 'onSaveInstanceState' ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || echo '0'`,
+      `REGISTER_PLUGIN_COUNT=$(grep -c 'registerPlugin(' ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || echo 0); echo "REGISTER_PLUGIN_COUNT=$REGISTER_PLUGIN_COUNT"`,
     ].join(" && ");
 
     try {
@@ -3881,34 +4041,27 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, `✅ الصلاحيات في AndroidManifest: ${permCount?.[1] || '?'} صلاحية`, "success");
       }
 
-      if (output.includes("MAINACTIVITY_CHECK") && output.includes("\n0")) {
-        await this.addLog(deploymentId, "🔧 MainActivity بحاجة لإصلاح onSaveInstanceState لـ FileSharer...", "warn");
+      const registerPluginCount = (output.match(/REGISTER_PLUGIN_COUNT=(\d+)/)?.[1]) || "0";
+      if (parseInt(registerPluginCount) < 10) {
+        await this.addLog(deploymentId, `❌ MainActivity يحوي ${registerPluginCount} registerPlugin فقط — استعادة من git...`, "warn");
         try {
-          await this.execWithLog(
+          const restoreOut = await this.execWithLog(
             deploymentId,
-            `${sshCmd} "cp ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; cat > ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java << 'MAINEOF'
-package com.axion.app;
-
-import android.os.Bundle;
-import com.getcapacitor.BridgeActivity;
-
-public class MainActivity extends BridgeActivity {
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.clear();
-    }
-}
-MAINEOF
-echo 'MAINACTIVITY_FIXED'"`,
-            "Auto-fix MainActivity",
-            10000
+            `${sshCmd} "cd ${remoteDir} && git checkout HEAD -- android/app/src/main/java/com/axion/app/MainActivity.java && grep -c 'registerPlugin' android/app/src/main/java/com/axion/app/MainActivity.java && echo 'MAINACTIVITY_RESTORED_FROM_GIT'"`,
+            "Restore MainActivity from Git",
+            15000
           );
-          autoFixes.push("mainactivity-fix");
-          await this.addLog(deploymentId, "✅ تم إصلاح MainActivity (onSaveInstanceState) تلقائياً", "success");
-        } catch {
-          await this.addLog(deploymentId, "⚠️ تعذر إصلاح MainActivity تلقائياً", "warn");
+          if (restoreOut.includes("MAINACTIVITY_RESTORED_FROM_GIT")) {
+            autoFixes.push("mainactivity-restore-from-git");
+            await this.addLog(deploymentId, "✅ تم استعادة MainActivity من git (يحوي جميع registerPlugin)", "success");
+          } else {
+            errors.push("فشل استعادة MainActivity من git");
+          }
+        } catch (e: any) {
+          errors.push(`فشل استعادة MainActivity من git: ${e.message}`);
         }
+      } else {
+        await this.addLog(deploymentId, `✅ MainActivity سليم (${registerPluginCount} registerPlugin)`, "success");
       }
 
       if (!errors.some(e => e.includes("keystore"))) {
@@ -4613,10 +4766,16 @@ echo 'MAINACTIVITY_FIXED'"`,
     capacitorBuildGradleHash: string | null;
   } | null> {
     try {
-      const pluginsPath = `${process.cwd()}/capacitor.plugins.json`;
-      const buildGradlePath = `${process.cwd()}/android/app/capacitor.build.gradle`;
+      // Capacitor v6+ يكتب الملف داخل android/app/src/main/assets/ — للتوافق نتفقد المسارين بالترتيب
+      const localRoot = process.cwd();
+      const candidatePaths = [
+        `${localRoot}/android/app/src/main/assets/capacitor.plugins.json`,
+        `${localRoot}/capacitor.plugins.json`,
+      ];
+      const buildGradlePath = `${localRoot}/android/app/capacitor.build.gradle`;
 
-      if (!existsSync(pluginsPath)) {
+      const pluginsPath = candidatePaths.find(p => existsSync(p));
+      if (!pluginsPath) {
         return null;
       }
 
@@ -4660,10 +4819,12 @@ echo 'MAINACTIVITY_FIXED'"`,
   } | null> {
     try {
       const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
-      const pluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+      // Capacitor v6+ يكتب الملف داخل android/app/src/main/assets/ — نقرأ من المسار الجديد ثم القديم كـ fallback
+      const newPluginsPath = `${remoteRoot}/android/app/src/main/assets/capacitor.plugins.json`;
+      const legacyPluginsPath = `${remoteRoot}/capacitor.plugins.json`;
       const buildGradlePath = `${remoteRoot}/android/app/capacitor.build.gradle`;
 
-      const cmd = `${sshCmd} 'cat ${pluginsPath} 2>/dev/null && echo "===GRADLE_SEPARATOR===" && cat ${buildGradlePath} 2>/dev/null'`;
+      const cmd = `${sshCmd} '(cat ${newPluginsPath} 2>/dev/null || cat ${legacyPluginsPath} 2>/dev/null) && echo "===GRADLE_SEPARATOR===" && cat ${buildGradlePath} 2>/dev/null'`;
       const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
 
       const parts = stdout.split("===GRADLE_SEPARATOR===");
@@ -4867,10 +5028,12 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     const remoteRoot = process.env.SERVER_PROJECT_PATH || "/home/administrator/AXION";
     const apkPath = `${remoteRoot}/android/app/build/outputs/apk/release/app-release.apk`;
-    const sourcePluginsPath = `${remoteRoot}/capacitor.plugins.json`;
+    // Capacitor v6+ يكتب المصدر داخل android/app/src/main/assets/ — مع fallback للموقع القديم
+    const newSourcePath = `${remoteRoot}/android/app/src/main/assets/capacitor.plugins.json`;
+    const legacySourcePath = `${remoteRoot}/capacitor.plugins.json`;
 
     // استخرج capacitor.plugins.json من داخل APK + اقرأ المصدر — كلاهما عبر SSH
-    const cmd = `${sshCmd} 'unzip -p ${apkPath} assets/capacitor.plugins.json 2>/dev/null && echo "===APK_SOURCE_SEPARATOR===" && cat ${sourcePluginsPath} 2>/dev/null'`;
+    const cmd = `${sshCmd} 'unzip -p ${apkPath} assets/capacitor.plugins.json 2>/dev/null && echo "===APK_SOURCE_SEPARATOR===" && (cat ${newSourcePath} 2>/dev/null || cat ${legacySourcePath} 2>/dev/null)'`;
     const { stdout } = await execAsync(cmd, { maxBuffer: 5 * 1024 * 1024 });
 
     const parts = stdout.split("===APK_SOURCE_SEPARATOR===");
@@ -4932,7 +5095,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     const cmd = `${sshCmd} '
       AAPT=$(find /opt/android-sdk/build-tools -name aapt 2>/dev/null | sort -V | tail -1)
       if [ -z "$AAPT" ]; then echo "ERROR_NO_AAPT"; exit 1; fi
-      $AAPT dump badging "${apkPath}" 2>/dev/null | grep -oE "(versionCode|versionName)=\\x27[^\\x27]*\\x27" | head -2
+      $AAPT dump badging "${apkPath}" 2>/dev/null | head -1
       echo "===APK_SHA_SEPARATOR==="
       sha256sum "${apkPath}" | cut -d" " -f1
       echo "===APK_SIZE_SEPARATOR==="
@@ -5037,10 +5200,14 @@ echo 'MAINACTIVITY_FIXED'"`,
         const row = activeRows[0];
         const av = row.av;
         let downloadUrl: string | null = null;
-        const linkId = av.deploymentId || av.id;
+        // ⚠️ يجب أن نستخدم deploymentId فقط (مفتاح build_deployments). لا يجوز fallback إلى av.id
+        // لأن endpoint التحميل يبحث في جدول build_deployments فقط، فأي ID غير موجود هناك → 404.
+        const linkId = av.deploymentId;
         if (linkId && process.env.PRODUCTION_DOMAIN) {
           const token = this.generateDownloadToken(linkId);
           downloadUrl = `${process.env.PRODUCTION_DOMAIN}/api/deployment/app/download/${linkId}?token=${token}`;
+        } else if (!linkId) {
+          console.warn(`[getLatestAndroidRelease] ⚠️ app_versions[${av.id}] (v${av.versionName}) لا يحتوي deployment_id — رابط التحميل غير متوفر`);
         }
         return {
           versionName: av.versionName,

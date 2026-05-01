@@ -188,6 +188,52 @@ inventoryRouter.post('/receive', async (req, res) => {
   }
 });
 
+inventoryRouter.post('/transfer', async (req, res) => {
+  try {
+    const transferSchema = z.object({
+      itemId: z.union([z.number().int().positive(), z.string().min(1)]),
+      quantity: z.number().positive(),
+      fromProjectId: z.string().min(1),
+      toProjectId: z.string().min(1),
+      transactionDate: z.string().min(1),
+      performedBy: z.string().optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = transferSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
+    }
+
+    const { itemId, quantity, fromProjectId, toProjectId, transactionDate, performedBy, notes } = req.body;
+
+    if (fromProjectId === toProjectId) {
+      return res.status(400).json({ success: false, message: 'لا يمكن النقل بين نفس المشروع' });
+    }
+
+    if (!validateProjectAccess(req as ProjectAccessRequest, fromProjectId as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول للمشروع المصدر' });
+    }
+    if (!validateProjectAccess(req as ProjectAccessRequest, toProjectId as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول للمشروع المقصود' });
+    }
+
+    const result = await InventoryService.transferBetweenProjects({
+      itemId: parseInt(itemId),
+      quantity: parseFloat(quantity),
+      fromProjectId,
+      toProjectId,
+      transactionDate,
+      performedBy,
+      notes,
+    });
+
+    res.json({ success: true, data: result, message: 'تم نقل المواد بين المشاريع بنجاح' });
+  } catch (error: any) {
+    console.error('❌ خطأ في نقل المواد بين المشاريع:', error);
+    res.status(400).json({ success: false, message: error?.message || 'فشل في نقل المواد بين المشاريع' });
+  }
+});
+
 inventoryRouter.post('/return', async (req, res) => {
   try {
     const returnSchema = z.object({
@@ -283,7 +329,8 @@ inventoryRouter.put('/items/:id', async (req, res) => {
     res.json({ success: true, message: 'تم تحديث المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث المادة:', error);
-    res.status(400).json({ success: false, message: 'فشل في تحديث المادة' });
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    res.status(400).json({ success: false, message: `فشل في تحديث المادة: ${detail}`, error: detail });
   }
 });
 

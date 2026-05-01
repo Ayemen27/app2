@@ -3,6 +3,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 interface WellExportData {
   id: number;
@@ -88,7 +89,11 @@ export function generateWellReportHTML(options: {
     body += buildTransportTable(wells);
   }
 
-  body += pdfSignatures(['المهندس المسؤول', 'مدير المشروع', 'المدير العام']);
+  body += pdfSignatures([
+    { title: 'المهندس المسؤول', name: engineerName },
+    { title: 'مدير المشروع', name: (options as any)?.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(new Date().toISOString());
 
   return pdfWrap('تقرير إدارة الآبار - ' + projectName, body);

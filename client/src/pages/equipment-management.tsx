@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
   Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
-  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft
+  FileText, Download, Pencil, Trash2, FolderKanban, ToggleLeft, ArrowRightLeft,
+  CheckSquare, X
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -28,11 +29,13 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { generateTablePDF } from '@/utils/pdfGenerator';
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
+import { BulkTransferEquipmentDialog } from "@/components/equipment/bulk-transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
 
 interface InventoryItem {
   id: number;
-  project_name?: string;
+  project_id?: string | null;
+  project_name?: string | null;
   name: string;
   category: string | null;
   unit: string;
@@ -46,6 +49,7 @@ interface InventoryItem {
   total_returned: string;
   stock_value: string;
   supplier_count: string;
+  supplier_names?: string | null;
   last_receipt_date: string | null;
 }
 
@@ -85,6 +89,7 @@ export function EquipmentManagement() {
   const [txTypeFilter, setTxTypeFilter] = useState("all");
   const [showIssueDialog, setShowIssueDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [showTransferStockDialog, setShowTransferStockDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [reportGroupBy, setReportGroupBy] = useState("item");
 
@@ -105,6 +110,11 @@ export function EquipmentManagement() {
   const [showEditEquipmentDialog, setShowEditEquipmentDialog] = useState(false);
   const [showDeleteEquipmentConfirm, setShowDeleteEquipmentConfirm] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+
+  const [assetSelectionMode, setAssetSelectionMode] = useState(false);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
+  const [showBulkTransferDialog, setShowBulkTransferDialog] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [editEquipmentForm, setEditEquipmentForm] = useState({ name: '', type: '', unit: '', quantity: '', description: '' });
   const [selectedNewStatus, setSelectedNewStatus] = useState('');
   const [customStatusInput, setCustomStatusInput] = useState('');
@@ -289,7 +299,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'in_count', label: 'عدد حركات الوارد', value: incomingTx.length, icon: ArrowDownToLine, color: 'green' },
-          { key: 'in_qty', label: 'إجمالي الكمية الواردة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+          { key: 'in_qty', label: 'إجمالي الكمية الواردة', value: totalQty.toFixed(2), icon: Package, color: 'blue' },
         ]},
         { columns: 1, gap: 'sm' as const, items: [
           { key: 'in_cost', label: 'إجمالي تكلفة الوارد', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
@@ -302,7 +312,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'out_count', label: 'عدد حركات الصرف', value: outgoingTx.length, icon: ArrowUpFromLine, color: 'red' },
-          { key: 'out_qty', label: 'إجمالي الكمية المصروفة', value: totalQty.toFixed(1), icon: Package, color: 'blue' },
+          { key: 'out_qty', label: 'إجمالي الكمية المصروفة', value: totalQty.toFixed(2), icon: Package, color: 'blue' },
         ]},
         { columns: 1, gap: 'sm' as const, items: [
           { key: 'out_cost', label: 'إجمالي تكلفة الصرف', value: formatCurrency(totalCost), icon: DollarSign, color: 'amber' },
@@ -314,7 +324,7 @@ export function EquipmentManagement() {
       return [
         { columns: 2, gap: 'sm' as const, items: [
           { key: 'ret_count', label: 'عدد حركات المرتجع', value: returnTx.length, icon: RefreshCw, color: 'blue' },
-          { key: 'ret_qty', label: 'إجمالي الكمية المرتجعة', value: totalQty.toFixed(1), icon: Package, color: 'green' },
+          { key: 'ret_qty', label: 'إجمالي الكمية المرتجعة', value: totalQty.toFixed(2), icon: Package, color: 'green' },
         ]},
       ];
     }
@@ -421,7 +431,7 @@ export function EquipmentManagement() {
       item_name: tx.item_name,
       category: tx.item_category || '-',
       unit: tx.item_unit,
-      quantity: parseFloat(tx.quantity).toFixed(1),
+      quantity: parseFloat(tx.quantity).toFixed(2),
       cost: parseFloat(tx.total_cost || '0') > 0 ? formatCurrency(parseFloat(tx.total_cost || '0')) : '-',
       date: typeof tx.transaction_date === 'string' ? tx.transaction_date.split('T')[0] : tx.transaction_date,
       project: tx.to_project_name || '-',
@@ -506,10 +516,10 @@ export function EquipmentManagement() {
         totals: {
           label: 'الإجمالي',
           values: {
-            received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0).toFixed(1),
-            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0).toFixed(1),
-            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0).toFixed(1),
-            remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0).toFixed(1),
+            received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0).toFixed(2),
+            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0).toFixed(2),
+            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0).toFixed(2),
+            remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0).toFixed(2),
           },
         },
         excelTotals: {
@@ -566,7 +576,7 @@ export function EquipmentManagement() {
         fileName: `المرتجعات_${dateFile}`,
         pdfInfoItems: [
           { label: 'عدد المرتجعات', value: returnTx.length, color: '#06B6D4' },
-          { label: 'إجمالي الكمية', value: returnTx.reduce((s, t) => s + parseFloat(t.quantity), 0).toFixed(1), color: '#0891B2' },
+          { label: 'إجمالي الكمية', value: returnTx.reduce((s, t) => s + parseFloat(t.quantity), 0).toFixed(2), color: '#0891B2' },
         ],
         excelInfoLines: [`عدد المرتجعات: ${returnTx.length}`, `تاريخ: ${dateStr}`],
         columns: txColumns.map(c => c.key === 'quantity' ? { ...c, color: () => '#06B6D4' } : c),
@@ -780,6 +790,23 @@ export function EquipmentManagement() {
     },
   });
 
+  const transferStockMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/inventory/transfer', 'POST', data),
+    onSuccess: () => {
+      invalidateAll();
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return typeof k === 'string' && (k.startsWith('/api/material-purchases') || k.startsWith('/api/projects'));
+      }});
+      setShowTransferStockDialog(false);
+      setSelectedItem(null);
+      toast({ title: "تم نقل المواد بنجاح", description: "ستظهر العملية في سجل المشتريات للمشروع المستلم" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في النقل", description: err.message, variant: "destructive" });
+    },
+  });
+
   const updateItemMutation = useMutation({
     mutationFn: (data: { id: number; name: string; category: string; unit: string; min_quantity: string; adjustment_quantity?: string }) =>
       apiRequest(`/api/inventory/items/${data.id}`, 'PUT', data),
@@ -873,6 +900,50 @@ export function EquipmentManagement() {
       toast({ title: "خطأ في الحذف", description: toUserMessage(err), variant: "destructive" });
     },
   });
+
+  const bulkDeleteEquipmentMutation = useMutation({
+    mutationFn: (ids: number[]) => apiRequest(`/api/equipment/bulk-delete`, 'POST', { equipmentIds: ids }),
+    onSuccess: (res: any) => {
+      invalidateAll();
+      const count = res?.data?.deletedCount ?? selectedAssetIds.size;
+      setShowBulkDeleteConfirm(false);
+      setSelectedAssetIds(new Set());
+      setAssetSelectionMode(false);
+      toast({ title: `تم حذف ${count} معدة بنجاح` });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في الحذف الجماعي", description: toUserMessage(err), variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (activeTab !== 'assets') {
+      setAssetSelectionMode(false);
+      setSelectedAssetIds(new Set());
+    }
+  }, [activeTab]);
+
+  const exitSelectionMode = useCallback(() => {
+    setAssetSelectionMode(false);
+    setSelectedAssetIds(new Set());
+  }, []);
+
+  const toggleAssetSelection = useCallback((id: number) => {
+    setSelectedAssetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const enterSelectionWith = useCallback((id: number) => {
+    setAssetSelectionMode(true);
+    setSelectedAssetIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleEditEquipmentClick = useCallback((eq: any) => {
     setSelectedEquipment(eq);
@@ -978,10 +1049,14 @@ export function EquipmentManagement() {
                 const isLow = remaining <= parseFloat(item.min_quantity || '0') && remaining > 0;
                 const isOut = remaining <= 0;
 
+                const projectLabel = item.project_name || (item.project_id ? (projectsMap[item.project_id] || '-') : 'غير مرتبط بمشروع');
+                const supplierLabel = (item.supplier_names && item.supplier_names.trim() && item.supplier_names !== '—')
+                  ? item.supplier_names
+                  : 'لا يوجد مورد';
                 return (
                   <UnifiedCard
-                    key={item.id}
-                    data-testid={`card-stock-item-${item.id}`}
+                    key={`${item.id}-${item.project_id ?? 'none'}`}
+                    data-testid={`card-stock-item-${item.id}-${item.project_id ?? 'none'}`}
                     title={item.name}
                     titleIcon={Package}
                     compact
@@ -992,17 +1067,18 @@ export function EquipmentManagement() {
                       ...(isLow && !isOut ? [{ label: 'منخفض', variant: "warning" as const }] : []),
                     ]}
                     fields={[
-                      ...(!projectId && item.project_name ? [{ label: "المشروع", value: item.project_name, icon: FolderKanban, color: "info" as const }] : []),
-                      { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
+                      { label: "المشروع", value: projectLabel, icon: FolderKanban, color: "info" as const },
+                      { label: "المتبقي", value: `${remaining.toFixed(2)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
                       { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
-                      { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
-                      { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
-                      ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(1), icon: RefreshCw, color: "info" as const }] : []),
+                      { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(2), icon: ArrowDownToLine, color: "success" as const },
+                      { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(2), icon: ArrowUpFromLine, color: "danger" as const },
+                      ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(2), icon: RefreshCw, color: "info" as const }] : []),
                       { label: "الوحدة", value: item.unit, icon: Box },
-                      { label: "الموردين", value: item.supplier_count, icon: Truck, color: "info" as const },
+                      { label: "المورد", value: supplierLabel, icon: Truck, color: "info" as const },
                     ]}
                     actions={[
                       { icon: ArrowUpFromLine, label: "صرف", onClick: () => { setSelectedItem(item); setShowIssueDialog(true); }, color: "red" as const, disabled: isOut },
+                      { icon: ArrowRightLeft, label: "نقل", onClick: () => { setSelectedItem(item); setShowTransferStockDialog(true); }, color: "yellow" as const, disabled: isOut },
                       { icon: Pencil, label: "تعديل", onClick: () => handleEditClick(item), color: "blue" as const },
                       { icon: Trash2, label: "حذف", onClick: () => handleDeleteClick(item), color: "red" as const },
                     ]}
@@ -1050,9 +1126,9 @@ export function EquipmentManagement() {
                       <td className="p-3 font-medium">{r.name}</td>
                       <td className="p-3 text-gray-500">{r.category || '-'}</td>
                       <td className="p-3 text-gray-500">{r.unit}</td>
-                      <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1078,9 +1154,9 @@ export function EquipmentManagement() {
                     <tr key={r.supplier_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="p-3 font-medium">{r.supplier_name}</td>
                       <td className="p-3 text-center">{r.item_count}</td>
-                      <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
-                      <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(2)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(2)}</td>
                       <td className="p-3 text-center">{formatCurrency(parseFloat(r.total_value || 0))}</td>
                     </tr>
                   ))}
@@ -1105,7 +1181,7 @@ export function EquipmentManagement() {
                     <tr key={r.project_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="p-3 font-medium">{r.project_name}</td>
                       <td className="p-3 text-center">{r.item_count}</td>
-                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(2)}</td>
                       <td className="p-3 text-center font-bold">{formatCurrency(parseFloat(r.total_cost || 0))}</td>
                     </tr>
                   ))}
@@ -1132,53 +1208,144 @@ export function EquipmentManagement() {
               <p className="text-sm mt-2">استخدم الزر العائم لإضافة معدة جديدة</p>
             </Card>
           ) : (
-            <UnifiedCardGrid columns={1}>
-              {filteredEquipmentList.map((eq: any) => {
-                const statusColor: 'success' | 'info' | 'warning' | 'danger' | 'default' =
-                  eq.status === 'available' ? 'success'
-                  : eq.status === 'assigned' || eq.status === 'active' ? 'info'
-                  : eq.status === 'maintenance' ? 'warning'
-                  : (eq.status === 'lost' || eq.status === 'damaged') ? 'danger'
-                  : 'default';
-                const headerColor =
-                  statusColor === 'success' ? '#10b981'
-                  : statusColor === 'info' ? '#3b82f6'
-                  : statusColor === 'warning' ? '#f59e0b'
-                  : statusColor === 'danger' ? '#ef4444'
-                  : '#6b7280';
-                const projectName = eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || (eq.project_id ? '-' : 'غير مرتبط بمشروع');
-                return (
-                  <UnifiedCard
-                    key={eq.id}
-                    data-testid={`card-equipment-${eq.id}`}
-                    title={eq.name}
-                    titleIcon={Settings}
-                    compact
-                    headerColor={headerColor}
-                    badges={[
-                      { label: typeLabel(eq.type), variant: "outline" as const },
-                      { label: statusLabel(eq.status), variant: statusColor === 'danger' ? 'destructive' as const : statusColor === 'warning' ? 'warning' as const : statusColor === 'success' ? 'success' as const : 'secondary' as const },
-                    ]}
-                    fields={[
-                      { label: "المشروع", value: projectName, icon: FolderKanban, color: "info" as const },
-                      ...(eq.code ? [{ label: "الكود", value: eq.code, icon: Box }] : []),
-                      ...(eq.serial_number ? [{ label: "الرقم التسلسلي", value: eq.serial_number, icon: Box }] : []),
-                      { label: "الكمية", value: `${eq.quantity ?? '-'} ${eq.unit || ''}`.trim(), color: "info" as const, emphasis: true },
-                    ]}
-                    actions={[
-                      { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
-                      { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
-                      { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
-                      { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "yellow" as const },
-                      { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
-                    ]}
-                  />
-                );
-              })}
-            </UnifiedCardGrid>
+            <>
+              {assetSelectionMode && (
+                <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg" data-testid="hint-selection-mode">
+                  وضع التحديد المتعدد مفعّل — اضغط على البطاقات لتحديدها أو إلغائها.
+                </div>
+              )}
+              <UnifiedCardGrid columns={1}>
+                {filteredEquipmentList.map((eq: any) => {
+                  const statusColor: 'success' | 'info' | 'warning' | 'danger' | 'default' =
+                    eq.status === 'available' ? 'success'
+                    : eq.status === 'assigned' || eq.status === 'active' ? 'info'
+                    : eq.status === 'maintenance' ? 'warning'
+                    : (eq.status === 'lost' || eq.status === 'damaged') ? 'danger'
+                    : 'default';
+                  const headerColor =
+                    statusColor === 'success' ? '#10b981'
+                    : statusColor === 'info' ? '#3b82f6'
+                    : statusColor === 'warning' ? '#f59e0b'
+                    : statusColor === 'danger' ? '#ef4444'
+                    : '#6b7280';
+                  const projectName = eq.project_name || (eq.project_id ? projectsMap[eq.project_id] : '') || (eq.project_id ? '-' : 'غير مرتبط بمشروع');
+                  const isSelected = selectedAssetIds.has(eq.id);
+                  return (
+                    <UnifiedCard
+                      key={eq.id}
+                      data-testid={`card-equipment-${eq.id}`}
+                      title={eq.name}
+                      titleIcon={Settings}
+                      compact
+                      headerColor={headerColor}
+                      selectionMode={assetSelectionMode}
+                      selected={isSelected}
+                      onLongPress={() => enterSelectionWith(eq.id)}
+                      onClick={assetSelectionMode ? () => toggleAssetSelection(eq.id) : undefined}
+                      badges={[
+                        { label: typeLabel(eq.type), variant: "outline" as const },
+                        { label: statusLabel(eq.status), variant: statusColor === 'danger' ? 'destructive' as const : statusColor === 'warning' ? 'warning' as const : statusColor === 'success' ? 'success' as const : 'secondary' as const },
+                      ]}
+                      fields={[
+                        { label: "المشروع", value: projectName, icon: FolderKanban, color: "info" as const },
+                        ...(eq.code ? [{ label: "الكود", value: eq.code, icon: Box }] : []),
+                        ...(eq.serial_number ? [{ label: "الرقم التسلسلي", value: eq.serial_number, icon: Box }] : []),
+                        { label: "الكمية", value: `${eq.quantity ?? '-'} ${eq.unit || ''}`.trim(), color: "info" as const, emphasis: true },
+                      ]}
+                      actions={assetSelectionMode ? [] : [
+                        { icon: Truck, label: "نقل", onClick: () => { setSelectedEquipment(eq); setShowTransferDialog(true); } },
+                        { icon: RefreshCw, label: "سجل", onClick: () => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); } },
+                        { icon: Pencil, label: "تعديل", onClick: () => handleEditEquipmentClick(eq), color: "blue" as const },
+                        { icon: ToggleLeft, label: "الحالة", onClick: () => handleStatusClick(eq), color: "yellow" as const },
+                        { icon: Trash2, label: "حذف", onClick: () => handleDeleteEquipmentClick(eq), color: "red" as const },
+                      ]}
+                    />
+                  );
+                })}
+              </UnifiedCardGrid>
+              {assetSelectionMode && <div className="h-40 md:h-24" aria-hidden="true" />}
+            </>
           )}
         </TabsContent>
       </Tabs>
+
+      {assetSelectionMode && activeTab === 'assets' && (
+        <div
+          className="fixed left-0 right-0 z-[101] bg-background/95 backdrop-blur-md border-t border-border shadow-2xl px-3 py-3 sm:px-4 md:bottom-0"
+          dir="rtl"
+          data-testid="bar-bulk-selection"
+          style={{
+            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exitSelectionMode}
+                className="h-9 w-9 p-0"
+                title="إلغاء التحديد"
+                data-testid="button-cancel-selection"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Badge variant="secondary" className="text-sm font-semibold" data-testid="badge-selected-count">
+                {selectedAssetIds.size} محدد
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {(() => {
+                const allIds = filteredEquipmentList.map((eq: any) => eq.id);
+                const allSelected = allIds.length > 0 && allIds.every((id: number) => selectedAssetIds.has(id));
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs"
+                    onClick={() => {
+                      if (allSelected) {
+                        setSelectedAssetIds(new Set());
+                      } else {
+                        setSelectedAssetIds(new Set(allIds));
+                      }
+                    }}
+                    data-testid="button-select-all"
+                  >
+                    <CheckSquare className="h-4 w-4 ml-1" />
+                    {allSelected ? 'إلغاء تحديد الكل' : `تحديد الكل (${allIds.length})`}
+                  </Button>
+                );
+              })()}
+
+              <Button
+                variant="default"
+                size="sm"
+                className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={selectedAssetIds.size === 0}
+                onClick={() => setShowBulkTransferDialog(true)}
+                data-testid="button-bulk-transfer"
+              >
+                <Truck className="h-4 w-4 ml-1" />
+                نقل المحدد
+              </Button>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-9 text-xs"
+                disabled={selectedAssetIds.size === 0}
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="h-4 w-4 ml-1" />
+                حذف المحدد
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <IssueDialog 
         open={showIssueDialog} 
@@ -1197,6 +1364,15 @@ export function EquipmentManagement() {
         projects={projects}
         onSubmit={(data) => receiveMutation.mutate(data)}
         isPending={receiveMutation.isPending}
+      />
+
+      <TransferStockDialog
+        open={showTransferStockDialog}
+        onClose={() => { setShowTransferStockDialog(false); setSelectedItem(null); }}
+        selectedItem={selectedItem}
+        projects={projects}
+        onSubmit={(data) => transferStockMutation.mutate(data)}
+        isPending={transferStockMutation.isPending}
       />
 
       <Dialog open={showEditItemDialog} onOpenChange={(open) => { if (!open) { setShowEditItemDialog(false); setEditingItem(null); } }}>
@@ -1225,7 +1401,7 @@ export function EquipmentManagement() {
               <Input data-testid="input-edit-quantity" type="number" step="0.001" value={editForm.adjustment_quantity} onChange={(e) => setEditForm(f => ({ ...f, adjustment_quantity: e.target.value }))} />
               {editingItem && parseFloat(editForm.adjustment_quantity || '0') !== parseFloat(editingItem.total_remaining || '0') && (
                 <p className="text-xs text-amber-600 mt-1">
-                  سيتم إنشاء تسوية مخزنية: الكمية الحالية {parseFloat(editingItem.total_remaining || '0').toFixed(1)} → {parseFloat(editForm.adjustment_quantity || '0').toFixed(1)}
+                  سيتم إنشاء تسوية مخزنية: الكمية الحالية {parseFloat(editingItem.total_remaining || '0').toFixed(2)} → {parseFloat(editForm.adjustment_quantity || '0').toFixed(2)}
                 </p>
               )}
             </div>
@@ -1293,6 +1469,53 @@ export function EquipmentManagement() {
           projects={projects}
         />
       )}
+
+      {showBulkTransferDialog && (
+        <BulkTransferEquipmentDialog
+          open={showBulkTransferDialog}
+          onOpenChange={setShowBulkTransferDialog}
+          equipmentIds={Array.from(selectedAssetIds)}
+          equipmentNames={filteredEquipmentList
+            .filter((eq: any) => selectedAssetIds.has(eq.id))
+            .map((eq: any) => eq.name)}
+          projects={projects}
+          onSuccess={() => {
+            setSelectedAssetIds(new Set());
+            setAssetSelectionMode(false);
+          }}
+        />
+      )}
+
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={(open) => { if (!open) setShowBulkDeleteConfirm(false); }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">تأكيد الحذف الجماعي</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            هل أنت متأكد من حذف <strong>{selectedAssetIds.size}</strong> معدة محددة؟
+          </p>
+          <p className="text-xs text-amber-600 mt-1">
+            سيتم حذف جميع سجلات الحركات المرتبطة بهذه المعدات. لا يمكن التراجع عن هذه العملية.
+          </p>
+          <DialogFooter className="gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteConfirm(false)}
+              data-testid="button-cancel-bulk-delete"
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteEquipmentMutation.isPending || selectedAssetIds.size === 0}
+              onClick={() => bulkDeleteEquipmentMutation.mutate(Array.from(selectedAssetIds))}
+              data-testid="button-confirm-bulk-delete"
+            >
+              {bulkDeleteEquipmentMutation.isPending ? 'جاري الحذف...' : `حذف ${selectedAssetIds.size} معدة`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showMovementHistoryDialog && selectedEquipment && (
         <EquipmentMovementHistoryDialog
@@ -1510,7 +1733,7 @@ function TransactionList({ transactions, loading, emptyMessage, onDelete, deleti
               ...(isPurchaseLinked ? [{ label: 'من مشتراة', variant: "secondary" as const }] : []),
             ]}
             fields={[
-              { label: "الكمية", value: `${parseFloat(tx.quantity).toFixed(1)} ${tx.item_unit}`, emphasis: true, color: isIn ? "success" as const : "danger" as const },
+              { label: "الكمية", value: `${parseFloat(tx.quantity).toFixed(2)} ${tx.item_unit}`, emphasis: true, color: isIn ? "success" as const : "danger" as const },
               ...(cost > 0 ? [{ label: "القيمة", value: formatCurrency(cost), icon: DollarSign, color: "info" as const }] : []),
               { label: "التاريخ", value: typeof tx.transaction_date === 'string' ? tx.transaction_date.split('T')[0] : tx.transaction_date },
               ...(tx.to_project_name ? [{ label: "المشروع", value: tx.to_project_name, icon: FolderKanban, color: "info" as const }] : []),
@@ -1583,7 +1806,7 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
                 <SelectContent>
                   {stockItems.filter(i => parseFloat(i.total_remaining || '0') > 0).map(i => (
                     <SelectItem key={i.id} value={String(i.id)}>
-                      {i.name} ({parseFloat(i.total_remaining || '0').toFixed(1)} {i.unit})
+                      {i.name} ({parseFloat(i.total_remaining || '0').toFixed(2)} {i.unit})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1593,12 +1816,12 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
           {selectedItem && (
             <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
               <p className="font-semibold">{selectedItem.name}</p>
-              <p className="text-sm text-blue-600">المتاح: {available.toFixed(1)} {selectedItem.unit}</p>
+              <p className="text-sm text-blue-600">المتاح: {available.toFixed(2)} {selectedItem.unit}</p>
             </div>
           )}
           <div>
             <Label>الكمية</Label>
-            <Input data-testid="input-issue-quantity" type="number" step="0.1" min="0.1" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available}`} />
+            <Input data-testid="input-issue-quantity" type="number" step="0.01" min="0.01" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available}`} />
             {parseFloat(quantity) > available && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح!</p>}
           </div>
           <div>
@@ -1630,6 +1853,140 @@ function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubm
             className="bg-red-600 hover:bg-red-700"
           >
             {isPending ? 'جاري الصرف...' : 'تأكيد الصرف'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TransferStockDialog({ open, onClose, selectedItem, projects, onSubmit, isPending }: {
+  open: boolean; onClose: () => void; selectedItem: InventoryItem | null;
+  projects: any[]; onSubmit: (data: any) => void; isPending: boolean;
+}) {
+  const [fromProjectId, setFromProjectId] = useState('');
+  const [toProjectId, setToProjectId] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (open && selectedItem) {
+      const inferredFrom = (selectedItem as any).project_id || '';
+      setFromProjectId(inferredFrom);
+      setToProjectId('');
+      const inferredAvailable = parseFloat(selectedItem.total_remaining || '0');
+      setQuantity(inferredAvailable > 0 ? inferredAvailable.toString() : '');
+      setNotes('');
+      setTransactionDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [open, selectedItem]);
+
+  const available = selectedItem ? parseFloat(selectedItem.total_remaining || '0') : 0;
+  const qtyNum = parseFloat(quantity || '0');
+  const isQtyInvalid = !quantity || qtyNum <= 0 || qtyNum > available;
+  const isProjectsInvalid = !fromProjectId || !toProjectId || fromProjectId === toProjectId;
+  const isPartialTransfer = qtyNum > 0 && qtyNum < available;
+
+  const handleSubmit = () => {
+    if (!selectedItem) return;
+    onSubmit({
+      itemId: selectedItem.id,
+      quantity: qtyNum,
+      fromProjectId,
+      toProjectId,
+      transactionDate,
+      notes: notes || undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+            نقل مواد مستهلكة بين المشاريع
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {selectedItem && (
+            <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg">
+              <p className="font-semibold" data-testid="text-transfer-item-name">{selectedItem.name}</p>
+              <p className="text-sm text-purple-700 dark:text-purple-300">
+                المتاح إجمالاً: {available.toFixed(2)} {selectedItem.unit}
+              </p>
+            </div>
+          )}
+          <div>
+            <Label>من مشروع (المصدر)</Label>
+            <Select value={fromProjectId} onValueChange={setFromProjectId}>
+              <SelectTrigger data-testid="select-transfer-from-project">
+                <SelectValue placeholder="اختر المشروع المصدر" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}{p.status ? ` (${p.status})` : ''}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">يجب أن يكون للمشروع رصيد متبقي من هذه المادة</p>
+          </div>
+          <div>
+            <Label>إلى مشروع (المستلم)</Label>
+            <Select value={toProjectId} onValueChange={setToProjectId}>
+              <SelectTrigger data-testid="select-transfer-to-project">
+                <SelectValue placeholder="اختر المشروع المستلم" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.filter((p: any) => p.id !== fromProjectId).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label>الكمية المنقولة</Label>
+              {available > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-purple-600 hover:text-purple-700"
+                  onClick={() => setQuantity(available.toString())}
+                  data-testid="button-fill-max-quantity"
+                >
+                  نقل الكل ({available.toFixed(2)})
+                </Button>
+              )}
+            </div>
+            <Input data-testid="input-transfer-quantity" type="number" step="0.01" min="0.01" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available.toFixed(2)}`} />
+            {qtyNum > available && quantity && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح في المخزن!</p>}
+            {isPartialTransfer && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1" data-testid="text-partial-transfer-warning">
+                ⚠️ سينتقل {qtyNum} فقط من أصل {available.toFixed(2)} المتاحة، وسيبقى {(available - qtyNum).toFixed(2)} في المشروع المصدر.
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">سيتم خصم الكمية من المشروع المصدر فقط (FIFO)، فإن لم يكفِ يفشل النقل.</p>
+          </div>
+          <div>
+            <Label>تاريخ النقل</Label>
+            <Input data-testid="input-transfer-date" type="date" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>ملاحظات (اختياري)</Label>
+            <Textarea data-testid="input-transfer-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="مثال: تحويل المتبقي بعد إنهاء المشروع" />
+          </div>
+          {fromProjectId && toProjectId && fromProjectId === toProjectId && (
+            <p className="text-xs text-red-500">لا يمكن النقل من المشروع نفسه إلى نفسه</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-transfer">إلغاء</Button>
+          <Button 
+            data-testid="button-submit-transfer"
+            onClick={handleSubmit} 
+            disabled={isPending || isQtyInvalid || isProjectsInvalid}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {isPending ? 'جاري النقل...' : 'تأكيد النقل'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1687,7 +2044,7 @@ function ReceiveDialog({ open, onClose, categories, projects, onSubmit, isPendin
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>الكمية</Label>
-              <Input data-testid="input-receive-quantity" type="number" step="0.1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+              <Input data-testid="input-receive-quantity" type="number" step="0.01" value={quantity} onChange={e => setQuantity(e.target.value)} />
             </div>
             <div>
               <Label>سعر الوحدة</Label>
@@ -1772,7 +2129,7 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
               </SelectContent>
             </Select>
             {selectedItem && (
-              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued_gross || selectedItem.total_issued || '0').toFixed(1)} {selectedItem.unit}</p>
+              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued_gross || selectedItem.total_issued || '0').toFixed(2)} {selectedItem.unit}</p>
             )}
           </div>
           <div>
@@ -1789,7 +2146,7 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>الكمية المرتجعة</Label>
-              <Input data-testid="input-return-quantity" type="number" step="0.1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+              <Input data-testid="input-return-quantity" type="number" step="0.01" value={quantity} onChange={e => setQuantity(e.target.value)} />
             </div>
             <div>
               <Label>التاريخ</Label>
@@ -1875,8 +2232,8 @@ function EditTransactionDialog({ open, onClose, transaction, onSubmit, isPending
             <Input
               data-testid="input-edit-tx-quantity"
               type="number"
-              step="0.1"
-              min="0.1"
+              step="0.01"
+              min="0.01"
               value={quantity}
               onChange={e => setQuantity(e.target.value)}
             />

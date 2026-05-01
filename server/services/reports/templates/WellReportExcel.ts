@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatInt, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
@@ -474,7 +475,11 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, wells: WellExportData[], 
   });
 
   row++;
-  row = xlSignatures(ws, row, ['المهندس المسؤول', 'مدير المشروع', 'المدير العام'], [[1, 2], [3, 4], [5, 6]]);
+  row = xlSignatures(ws, row, [
+    { title: 'المهندس المسؤول', name: engineerName },
+    { title: 'مدير المشروع' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 2], [3, 4], [5, 6]]);
 
   row++;
   row = xlFooter(ws, row, COL_COUNT);

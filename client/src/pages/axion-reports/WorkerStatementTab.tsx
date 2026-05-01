@@ -13,7 +13,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { WorkerStatementData } from "@shared/report-types";
-import { LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport } from "./utils";
+import { LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport, buildArabicReportFileName } from "./utils";
 
 export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -115,7 +115,19 @@ export function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: an
     const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
     setLoading(true);
     try {
-      await secureDownloadExport("worker-statement", fmt, exportParams, toast);
+      await secureDownloadExport(
+        "worker-statement",
+        fmt,
+        exportParams,
+        toast,
+        buildArabicReportFileName({
+          type: "worker-statement",
+          fmt,
+          workerName: workerStatement?.worker?.name,
+          dateFrom: exportParams.dateFrom,
+          dateTo: exportParams.dateTo,
+        }),
+      );
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import {
   fundTransfers, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
   journalEntries, journalLines, financialAuditLog, reconciliationRecords, equipment,
+  users,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -75,6 +76,27 @@ projectRouter.get('/', async (req: Request, res: Response) => {
         projectsList = await storage.getProjects(ids);
       }
     }
+
+    // إثراء البيانات: إضافة اسم المهندس المسؤول لكل مشروع
+    const engineerIds = [...new Set(
+      projectsList.map((p: any) => p.engineerId || p.engineer_id).filter(Boolean)
+    )];
+    if (engineerIds.length > 0) {
+      const engineerRows = await db
+        .select({ id: users.id, full_name: users.full_name, first_name: users.first_name, last_name: users.last_name, email: users.email })
+        .from(users)
+        .where(inArray(users.id, engineerIds));
+      const engineerMap = new Map<string, string>();
+      for (const u of engineerRows) {
+        const name = u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || '';
+        engineerMap.set(u.id, name);
+      }
+      projectsList = projectsList.map((p: any) => ({
+        ...p,
+        engineerName: engineerMap.get(p.engineerId || p.engineer_id) || null,
+      }));
+    }
+
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
     return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: safeErrorMessage(error, 'حدث خطأ داخلي') }]);
@@ -121,6 +143,22 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
       id: s.id,
       name: s.name,
       status: s.status,
+      // ✅ تمرير حقول المشروع الأصلية المطلوبة للعرض في البطاقة والتعديل
+      project_type_id: s.project_type_id,
+      engineerId: s.engineerId,
+      imageUrl: s.imageUrl,
+      description: s.description,
+      location: s.location,
+      clientName: s.clientName,
+      managerName: s.managerName,
+      contactPhone: s.contactPhone,
+      notes: s.notes,
+      budget: s.budget,
+      startDate: s.startDate,
+      endDate: s.endDate,
+      is_active: s.is_active,
+      created_at: s.created_at,
+      updated_at: s.updated_at,
       stats: {
         totalWorkers:          s.totalWorkers,
         activeWorkers:         s.activeWorkers,
@@ -647,8 +685,15 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
         const pBudget = parseFloat(projectResult.rows[0]?.budget || '0');
 
         if (pBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1`,
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent FROM material_purchases WHERE project_id = $1`,
             [project_id]
           );
           const totalSpent = parseFloat(spentResult.rows[0]?.total_spent || '0');
@@ -877,8 +922,14 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
           `),
           db.execute(sql`
             SELECT
-              COUNT(*) as material_purchases,
-              COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as material_expenses
+              COUNT(*) FILTER (WHERE purchase_type NOT IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل')) as material_purchases,
+              COALESCE(SUM(
+                CASE
+                  WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                  WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                  ELSE safe_numeric(total_amount::text, 0)
+                END
+              ), 0) as material_expenses
             FROM material_purchases
             WHERE project_id = ${id}
           `),

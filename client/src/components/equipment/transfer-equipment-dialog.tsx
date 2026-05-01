@@ -35,6 +35,7 @@ const transferSchema = z.object({
   reason: z.string().min(1, "سبب النقل مطلوب"),
   performedBy: z.string().min(1, "اسم من قام بالنقل مطلوب"),
   notes: z.string().optional(),
+  transferDate: z.string().min(1, "تاريخ النقل مطلوب"),
 });
 
 type TransferFormData = z.infer<typeof transferSchema>;
@@ -50,6 +51,8 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   const form = useForm<TransferFormData>({
     resolver: zodResolver(transferSchema),
     defaultValues: {
@@ -57,8 +60,21 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
       reason: "",
       performedBy: "",
       notes: "",
+      transferDate: todayIso,
     },
   });
+
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        toProjectId: null,
+        reason: "",
+        performedBy: "",
+        notes: "",
+        transferDate: new Date().toISOString().slice(0, 10),
+      });
+    }
+  }, [open]);
 
   const transferMutation = useMutation({
     mutationFn: (data: TransferFormData) => 
@@ -135,6 +151,25 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                 </div>
               </div>
             </div>
+
+            <FormField
+              control={form.control}
+              name="transferDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm">تاريخ النقل *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      className="h-9 text-sm"
+                      {...field}
+                      data-testid="input-transfer-date"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

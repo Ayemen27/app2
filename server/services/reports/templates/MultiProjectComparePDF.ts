@@ -4,8 +4,9 @@
 import type { MultiProjectFinalReportData } from '../../../../shared/report-types';
 import {
   escapeHtml, formatNum, formatDateBR, nowDateBR, PDF_COLORS,
-  pdfHeader, pdfInfoBar, pdfSectionTitle, pdfFooter, pdfWrap,
+  pdfHeader, pdfInfoBar, pdfSectionTitle, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 // ─── ألوان المشاريع ──────────────────────────────────────────────────────────
 const PROJ_COLORS = [
@@ -232,17 +233,11 @@ export function generateMultiProjectCompareHTML(data: MultiProjectFinalReportDat
   }
 
   // ─── توقيعات ─────────────────────────────────────────────────────────────
-  body += `
-  <div style="display:flex;gap:12px;margin-top:20px;page-break-inside:avoid;">
-    ${['المهندس', 'المدير', 'المدير المالي'].map(sig => `
-      <div style="flex:1;border:1px solid ${PDF_COLORS.border};border-radius:4px;padding:10px;text-align:center;font-size:10px;">
-        <div style="font-weight:700;color:${PDF_COLORS.navy};margin-bottom:16px;">${sig}</div>
-        <div style="border-bottom:1px solid ${PDF_COLORS.border};margin-bottom:6px;height:24px;"></div>
-        <div style="font-size:9px;color:${PDF_COLORS.textMuted};">التوقيع</div>
-        <div style="margin-top:8px;font-size:9px;">التاريخ: ......../......../........</div>
-      </div>
-    `).join('')}
-  </div>`;
+  body += pdfSignatures([
+    { title: 'المهندس' },
+    { title: 'المدير' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
 
   body += pdfFooter(nowDateBR());
 

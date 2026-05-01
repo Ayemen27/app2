@@ -322,21 +322,26 @@ export default function ProjectsPage() {
   }, [refetchProjects, toast]);
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
-  const { data: usersResponse = { users: [] } } = useQuery<any>({
+  // الـAPI /api/users/list يُرجع { success, data: [...], message }
+  const { data: usersResponse } = useQuery<any>({
     queryKey: QUERY_KEYS.usersList,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/users/list", "GET");
-        return response || { users: [] };
+        return response ?? null;
       } catch (error) {
-        return { users: [] };
+        return null;
       }
     },
     staleTime: 60000,
   });
 
   const usersData = useMemo(() => {
-    return Array.isArray(usersResponse?.users) ? usersResponse.users : [];
+    // نقبل عدة أشكال محتملة للحماية: response.data (الشكل الرسمي) أو response مباشرة كمصفوفة
+    if (Array.isArray(usersResponse?.data)) return usersResponse.data;
+    if (Array.isArray(usersResponse)) return usersResponse;
+    if (Array.isArray(usersResponse?.users)) return usersResponse.users;
+    return [];
   }, [usersResponse]);
 
   // جلب قائمة أنواع المشاريع
@@ -1359,7 +1364,14 @@ export default function ProjectsPage() {
               <UnifiedCard
                 key={project.id}
                 title={project.name}
-                subtitle={formatDate(project.created_at)}
+                subtitle={(() => {
+                  const typeOpt = project.project_type_id
+                    ? projectTypeOptions.find((o: any) => o.id === project.project_type_id)
+                    : null;
+                  const typeLabel = typeOpt?.label || (project.project_type_id ? "نوع غير معروف" : "بدون نوع");
+                  const dateStr = formatDate(project.created_at);
+                  return dateStr && dateStr !== 'N/A' ? `${typeLabel} • ${dateStr}` : typeLabel;
+                })()}
                 titleIcon={Building2}
                 headerColor={project.status === 'active' ? '#22c55e' : 
                             project.status === 'completed' ? '#3b82f6' : '#ef4444'}

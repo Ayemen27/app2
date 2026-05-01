@@ -36,6 +36,7 @@ export default function ProjectFundCustody() {
   const { selectedProjectId } = useSelectedProject();
   const isAllProjects = !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID;
   const [editingTransfer, setEditingTransfer] = useState<FundTransfer | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Filter Configs
@@ -332,6 +333,54 @@ export default function ProjectFundCustody() {
     }
   ], [stats, totals]);
 
+  const handleExportPdf = async () => {
+    if (filteredTransfers.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const totalAmount = filteredTransfers.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      const data = filteredTransfers.map((t: any, idx: number) => ({
+        index: idx + 1,
+        date: new Date(t.transferDate).toLocaleDateString('en-GB'),
+        projectName: t.projectName || projects.find((p: any) => p.id === t.project_id)?.name || 'غير محدد',
+        amount: Number(t.amount),
+        senderName: t.senderName || '-',
+        transferNumber: t.transferNumber || '-',
+        transferType: t.transferType || '-',
+        notes: t.notes || '',
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف عهدة صندوق المشروع",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "عدد العمليات", value: data.length },
+          { label: "إجمالي المبالغ", value: `${totalAmount.toLocaleString('en-US')} ريال` },
+        ],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'التاريخ', key: 'date', width: 12 },
+          { header: 'المشروع', key: 'projectName', width: 20 },
+          { header: 'المبلغ', key: 'amount', width: 14 },
+          { header: 'اسم المرسل', key: 'senderName', width: 18 },
+          { header: 'رقم التحويل', key: 'transferNumber', width: 14 },
+          { header: 'النوع', key: 'transferType', width: 12 },
+          { header: 'ملاحظات', key: 'notes', width: 25 },
+        ],
+        data,
+        filename: `عهدة_المشروع_${new Date().toISOString().split("T")[0]}`,
+        orientation: "portrait",
+      });
+
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const handleExportFundCustody = async () => {
     if (filteredTransfers.length === 0) return;
     const { createProfessionalReport } = await import('@/utils/axion-export');
@@ -390,6 +439,16 @@ export default function ProjectFundCustody() {
             onRefresh={() => refetch()}
             isRefreshing={transfersLoading}
             actions={[
+              {
+                key: 'export-pdf',
+                icon: FileText,
+                label: 'تصدير PDF',
+                onClick: handleExportPdf,
+                variant: 'outline' as const,
+                loading: isExportingPdf,
+                disabled: filteredTransfers.length === 0,
+                tooltip: 'تصدير عهدة المشروع إلى PDF'
+              },
               {
                 key: 'export',
                 icon: Download,

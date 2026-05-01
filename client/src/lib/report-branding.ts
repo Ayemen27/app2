@@ -12,6 +12,8 @@
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSelectedProject } from '@/hooks/use-selected-project';
+import { useAuth } from '@/components/AuthProvider';
 
 export interface ReportBranding {
   companyName: string;
@@ -45,8 +47,28 @@ let _cache: ReportBranding = { ...DEFAULT_BRANDING };
 let _loadedFromServer = false;
 let _inflight: Promise<ReportBranding> | null = null;
 
+// 🧑‍💼 سياق المهندس المسؤول الحالي — يُحقَن في تذييل كل التقارير المُصدَّرة (PDF/Excel)
+// يتم ضبطه تلقائياً عبر <AutoReportEngineerSync/> بناءً على المشروع المختار حالياً،
+// أو يدوياً عبر setReportEngineer(name).
+let _engineerName: string = '';
+
 export function getBranding(): ReportBranding {
   return _cache;
+}
+
+/** اسم المهندس المسؤول الحالي (يُعرض في تذييل التقارير) */
+export function getReportEngineer(): string {
+  return _engineerName;
+}
+
+/** يضبط اسم المهندس المسؤول الذي سيظهر في تذييل أي تصدير لاحق. مرّر '' أو null للمسح. */
+export function setReportEngineer(name: string | null | undefined): void {
+  _engineerName = (name || '').trim();
+}
+
+/** يمسح اسم المهندس المسؤول من سياق التقارير. */
+export function clearReportEngineer(): void {
+  _engineerName = '';
 }
 
 /**
@@ -145,5 +167,49 @@ export function useReportBranding() {
 /** مكوّن صامت يُركَّب مرة واحدة في جذر التطبيق لتفعيل المزامنة. */
 export function ReportBrandingSync() {
   useReportBranding();
+  return null;
+}
+
+/**
+ * مكوّن صامت لمزامنة اسم المهندس المسؤول مع المشروع المختار حالياً.
+ * يقرأ حقل engineerName المُرفق مباشرةً من بيانات المشروع (يأتي من الخادم).
+ */
+export function AutoReportEngineerSync() {
+  const { selectedProjectId, isAllProjects, projects } = useSelectedProject();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // اسم المهندس الافتراضي = اسم المستخدم الحالي (المهندس المسجَّل دخوله)
+    // يُستخدم كـ fallback في حالة "جميع المشاريع" أو عندما لا يكون للمشروع
+    // المختار مهندس مُسند صراحةً.
+    const fallbackName = (
+      user?.name ||
+      `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
+      ''
+    ).trim();
+
+    // حالة "جميع المشاريع" أو لا يوجد مشروع مختار → نستخدم اسم المستخدم الحالي
+    if (isAllProjects || !selectedProjectId) {
+      if (fallbackName) {
+        setReportEngineer(fallbackName);
+      } else {
+        clearReportEngineer();
+      }
+      return;
+    }
+
+    // مشروع محدد: أولوية للمهندس المسؤول المسجَّل في بيانات المشروع، وإلا
+    // نسقط على اسم المستخدم الحالي بدلاً من ترك السطر فارغاً.
+    const proj: any = (projects || []).find((p: any) => p.id === selectedProjectId);
+    const engineerName = (proj?.engineerName || '').toString().trim();
+    if (engineerName) {
+      setReportEngineer(engineerName);
+    } else if (fallbackName) {
+      setReportEngineer(fallbackName);
+    } else {
+      clearReportEngineer();
+    }
+  }, [selectedProjectId, isAllProjects, projects, user]);
+
   return null;
 }

@@ -18,7 +18,7 @@ import { formatCurrency } from "@/lib/utils";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import type { MultiProjectFinalReportData } from "@shared/report-types";
-import { COLORS, LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport } from "./utils";
+import { COLORS, LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport, buildArabicReportFileName } from "./utils";
 
 export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { toast } = useToast();
@@ -130,7 +130,17 @@ export function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: 
     const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
     setLoading(true);
     try {
-      await secureDownloadExport("multi-project-final", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
+      const namesArr = selectedProjectIds
+        .map((id) => allProjects.find((p: any) => p.id === id)?.name)
+        .filter(Boolean) as string[];
+      const namesJoined = namesArr.slice(0, 2).join('-') || 'مشاريع';
+      await secureDownloadExport(
+        "multi-project-final",
+        fmt,
+        { project_ids: selectedProjectIds.join(","), dateFrom, dateTo },
+        toast,
+        buildArabicReportFileName({ type: "multi-project-final", fmt, projectName: namesJoined, dateFrom, dateTo }),
+      );
     } finally {
       setLoading(false);
     }

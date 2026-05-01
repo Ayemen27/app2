@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle, Download } from "lucide-react";
+import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle, Download, FolderOpen, FileText, Power, Wallet, ShoppingCart } from "lucide-react";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { type Supplier } from "@shared/schema";
+import { type Supplier, type Project } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -56,26 +57,58 @@ export default function SuppliersPage() {
     queryKey: QUERY_KEYS.suppliers,
   });
 
-  // جلب مشتريات المواد للمشروع المختار لاستخراج الموردين الذين لديهم تعاملات
-  const { data: projectPurchases = [] } = useQuery<any[]>({
-    queryKey: ['/api/material-purchases', selectedProjectId],
-    queryFn: async () => {
-      if (isAllProjects || !selectedProjectId) return [];
-      const params = new URLSearchParams({ project_id: selectedProjectId });
-      const response = await apiRequest(`/api/material-purchases?${params.toString()}`, 'GET');
-      return response?.data || response || [];
-    },
-    enabled: !isAllProjects && !!selectedProjectId,
+  // جلب جميع المشاريع للحصول على أسماء المشاريع المرتبطة بالموردين
+  const { data: projectsList = [] } = useQuery<Project[]>({
+    queryKey: QUERY_KEYS.projects,
   });
 
+  const projectsMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (projectsList as Project[]).forEach((p) => {
+      if (p?.id) m.set(p.id, p.name);
+    });
+    return m;
+  }, [projectsList]);
+
+  // جلب جميع مشتريات المواد - لمعرفة المشاريع المرتبطة بكل مورد + إجمالي مشترياته
+  const { data: allPurchases = [] } = useQuery<any[]>({
+    queryKey: ['/api/material-purchases', 'all'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/material-purchases', 'GET');
+      return response?.data || response || [];
+    },
+  });
+
+  // خريطة لكل مورد: قائمة معرّفات المشاريع + إجمالي المشتريات
+  const supplierProjectsMap = useMemo(() => {
+    const map = new Map<string, { projectIds: Set<string>; totalPurchases: number; purchasesCount: number }>();
+    (allPurchases as any[]).forEach((p: any) => {
+      const sid = p.supplier_id || p.supplierId;
+      if (!sid) return;
+      if (!map.has(sid)) {
+        map.set(sid, { projectIds: new Set(), totalPurchases: 0, purchasesCount: 0 });
+      }
+      const entry = map.get(sid)!;
+      const pid = p.project_id || p.projectId;
+      if (pid) entry.projectIds.add(pid);
+      const amt = parseFloat(String(p.totalAmount || p.total_amount || 0)) || 0;
+      entry.totalPurchases += amt;
+      entry.purchasesCount += 1;
+    });
+    return map;
+  }, [allPurchases]);
+
+  // مشتريات المشروع المختار فقط (للفلترة عند اختيار مشروع)
   const projectSupplierIds = useMemo(() => {
     if (isAllProjects) return null;
     const ids = new Set<string>();
-    (projectPurchases as any[]).forEach((p: any) => {
-      if (p.supplier_id) ids.add(p.supplier_id);
+    (allPurchases as any[]).forEach((p: any) => {
+      const pid = p.project_id || p.projectId;
+      const sid = p.supplier_id || p.supplierId;
+      if (pid === selectedProjectId && sid) ids.add(sid);
     });
     return ids;
-  }, [projectPurchases, isAllProjects]);
+  }, [allPurchases, isAllProjects, selectedProjectId]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -101,12 +134,43 @@ export default function SuppliersPage() {
       const response = await apiRequest(`/api/suppliers/${id}`, "DELETE");
       return response;
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.suppliers });
-      toast({ title: "تم حذف المورد بنجاح" });
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suppliers });
+      queryClient.invalidateQueries({ queryKey: ['/api/material-purchases', 'all'] });
+      if (response?.softDeleted) {
+        toast({
+          title: "تم تعطيل المورد",
+          description: response.message || "تم تعطيل المورد لحماية المشتريات السابقة",
+        });
+      } else {
+        toast({ title: "تم حذف المورد بنجاح" });
+      }
     },
-    onError: () => {
-      toast({ title: "خطأ في حذف المورد", variant: "destructive" });
+    onError: (err: any) => {
+      toast({
+        title: "خطأ في حذف المورد",
+        description: err?.message || "فشل في حذف المورد",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      return await apiRequest(`/api/suppliers/${id}`, "PATCH", { is_active });
+    },
+    onSuccess: (_resp, vars) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suppliers });
+      toast({
+        title: vars.is_active ? "تم تفعيل المورد" : "تم تعطيل المورد",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "خطأ",
+        description: err?.message || "فشل تغيير حالة المورد",
+        variant: "destructive",
+      });
     },
   });
 
@@ -116,9 +180,18 @@ export default function SuppliersPage() {
   };
 
   const handleDelete = (supplier: Supplier) => {
-    if (confirm(`هل أنت متأكد من حذف المورد "${supplier.name}"؟`)) {
+    const linked = supplierProjectsMap.get(supplier.id);
+    const hasPurchases = (linked?.purchasesCount || 0) > 0;
+    const msg = hasPurchases
+      ? `للمورد "${supplier.name}" مشتريات سابقة (${linked!.purchasesCount} عملية شراء). سيتم تعطيله بدلاً من حذفه. هل تريد المتابعة؟`
+      : `هل أنت متأكد من حذف المورد "${supplier.name}"؟`;
+    if (confirm(msg)) {
       deleteMutation.mutate(supplier.id);
     }
+  };
+
+  const handleToggleActive = (supplier: Supplier) => {
+    toggleActiveMutation.mutate({ id: supplier.id, is_active: !supplier.is_active });
   };
 
   const resetForm = () => {
@@ -382,6 +455,19 @@ export default function SuppliersPage() {
         <UnifiedCardGrid columns={4}>
           {filteredSuppliers.map((supplier: Supplier) => {
             const debt = parseFloat(supplier.totalDebt?.toString() || '0') || 0;
+            const linked = supplierProjectsMap.get(supplier.id);
+            const linkedProjectIds = linked ? Array.from(linked.projectIds) : [];
+            const linkedProjectNames = linkedProjectIds
+              .map((pid) => projectsMap.get(pid))
+              .filter((n): n is string => Boolean(n));
+            const totalPurchases = linked?.totalPurchases || 0;
+            const purchasesCount = linked?.purchasesCount || 0;
+            const isMultiProject = linkedProjectNames.length > 1;
+            const projectsLabel = linkedProjectNames.length === 0
+              ? "لا يوجد"
+              : linkedProjectNames.length === 1
+                ? linkedProjectNames[0]
+                : `${linkedProjectNames.length} مشاريع: ${linkedProjectNames.slice(0, 2).join('، ')}${linkedProjectNames.length > 2 ? '...' : ''}`;
             
             return (
               <UnifiedCard
@@ -402,6 +488,10 @@ export default function SuppliersPage() {
                     label: "رصيد سليم",
                     variant: "success" as const,
                   }]),
+                  ...(isMultiProject ? [{
+                    label: `متعدد المشاريع (${linkedProjectNames.length})`,
+                    variant: "outline" as const,
+                  }] : []),
                 ]}
                 fields={[
                   {
@@ -412,6 +502,23 @@ export default function SuppliersPage() {
                     color: debt > 0 ? "danger" : "success",
                   },
                   {
+                    label: "إجمالي المشتريات",
+                    value: totalPurchases > 0 ? formatCurrency(totalPurchases) : "لا يوجد",
+                    icon: ShoppingCart,
+                    color: totalPurchases > 0 ? "info" : undefined,
+                  },
+                  {
+                    label: "عدد عمليات الشراء",
+                    value: purchasesCount > 0 ? `${purchasesCount}` : "لا يوجد",
+                    icon: FileText,
+                  },
+                  {
+                    label: linkedProjectNames.length > 1 ? "المشاريع المرتبطة" : "المشروع المرتبط",
+                    value: projectsLabel,
+                    icon: FolderOpen,
+                    color: linkedProjectNames.length > 0 ? "info" : undefined,
+                  },
+                  {
                     label: "رقم الهاتف",
                     value: supplier.phone || "غير محدد",
                     icon: Phone,
@@ -419,7 +526,7 @@ export default function SuppliersPage() {
                   {
                     label: "شروط الدفع",
                     value: supplier.paymentTerms || "غير محدد",
-                    icon: CreditCard,
+                    icon: Wallet,
                   },
                   {
                     label: "تاريخ الإضافة",
@@ -434,9 +541,23 @@ export default function SuppliersPage() {
                 ]}
                 actions={[
                   {
+                    icon: FileText,
+                    label: "كشف الحساب",
+                    variant: "outline" as const,
+                    onClick: () => {
+                      window.location.href = `/supplier-accounts?supplier_id=${supplier.id}`;
+                    },
+                  },
+                  {
                     icon: Edit2,
                     label: "تعديل",
                     onClick: () => handleEdit(supplier),
+                  },
+                  {
+                    icon: Power,
+                    label: supplier.is_active ? "تعطيل" : "تفعيل",
+                    variant: "ghost" as const,
+                    onClick: () => handleToggleActive(supplier),
                   },
                   {
                     icon: Trash2,

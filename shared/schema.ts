@@ -498,6 +498,35 @@ export const materials = pgTable("materials", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// أنواع شراء غير مالية - تستخدم للتوثيق فقط، يجب استبعادها من جميع الحسابات المالية والمديونيات
+export const NON_FINANCIAL_PURCHASE_TYPES = ['صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل'] as const;
+export type NonFinancialPurchaseType = typeof NON_FINANCIAL_PURCHASE_TYPES[number];
+export const isNonFinancialPurchaseType = (t?: string | null): boolean =>
+  !!t && (NON_FINANCIAL_PURCHASE_TYPES as readonly string[]).includes(t);
+
+// قيود التسوية المحاسبية لإعادة توزيع تكلفة المخزون المنقول بين المشاريع
+// 'تسوية نقل صادر' = تخفيض مصروف المشروع المصدر (يُطرح من المجموع رغم تخزينه موجباً)
+// 'تسوية نقل وارد' = إضافة مصروف للمشروع المستلم (يُجمع عادياً)
+export const EXPENSE_REVERSAL_PURCHASE_TYPES = ['تسوية نقل صادر'] as const;
+export const EXPENSE_TRANSFER_PURCHASE_TYPES = ['تسوية نقل صادر', 'تسوية نقل وارد'] as const;
+export const isExpenseReversalType = (t?: string | null): boolean =>
+  !!t && (EXPENSE_REVERSAL_PURCHASE_TYPES as readonly string[]).includes(t);
+
+// تعبير SQL موحد لحساب صافي المصروف من material_purchases مع احترام قيود التسوية
+// الاستخدام: `SELECT ${MATERIAL_PURCHASE_NET_EXPENSE_SQL('total_amount')} as total FROM material_purchases ...`
+export const MATERIAL_PURCHASE_NET_EXPENSE_SQL = (column: string = 'total_amount'): string => `
+  COALESCE(SUM(
+    CASE
+      WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+      WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(${column} AS numeric)
+      ELSE CAST(${column} AS numeric)
+    END
+  ), 0)
+`;
+
+// أنواع شراء مالية معروفة (للفلاتر والإحصائيات)
+export const FINANCIAL_PURCHASE_TYPES = ['نقد', 'نقداً', 'آجل', 'أجل', 'مخزن', 'توريد', 'مخزني'] as const;
+
 // Material purchases - محسن للمحاسبة الصحيحة
 export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2337,6 +2366,7 @@ export const reportHeaderSettings = pgTable("report_header_settings", {
   website: text("website"),
   logo_url: text("logo_url"),
   footer_text: text("footer_text"),
+  accountant_name: text("accountant_name"), // اسم المحاسب الافتراضي في تذييل التقارير
   primary_color: text("primary_color").notNull().default('#1B2A4A'),
   secondary_color: text("secondary_color").notNull().default('#2E5090'),
   accent_color: text("accent_color").notNull().default('#4A90D9'),

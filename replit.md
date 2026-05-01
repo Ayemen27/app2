@@ -1,5 +1,84 @@
 # Project: Professional AI Agent Workspace
 
+## التغييرات الأخيرة (2026-04-29)
+
+### المستوى ب — إعادة هيكلة Offline-First (T001–T008 مكتملة)
+**الهدف**: ترقية نظام Offline-First في AXION ليطابق Linear/RxDB/WatermelonDB، مع الحفاظ على استقرار v1.0.58.
+
+**ما تمّ إنجازه**:
+1. **T001 Delta Sync**: ملف `client/src/offline/sync-cursors.ts` جديد يخزّن `lastSyncTime` و HLC max لكل جدول. `performInitialDataPull` يستخدم `/api/sync/paginated` بعد المزامنة الأولى (full-backup مرة واحدة فقط).
+2. **T002 Tombstones**: `applyServerRecordsWithTombstones` في `storage-factory.ts` يطبّق `deleted_at` بصراحة بدل diff IDs، مع احترام `_pendingSync` المحلي.
+3. **T003 SSE Push**: `server/services/SyncEventBus.ts` + قناة `/api/sync/events` تدفع `{op, table, record}`. Hook `client/src/hooks/useSyncStream.ts` يستهلك ويطبّق على القاعدة المحلية.
+4. **T004 Migrations**: `client/src/offline/migrations/` مع runner + ملفات مرقّمة (`v001_initial.ts`, `v002_relational_indices.ts`...). لا مسح بيانات عند ترقية النسخة.
+5. **T005 Schema علاقي**: أعمدة SQL حقيقية + indices للجداول الثقيلة (workers, projects, materialPurchases, fundTransfers, workerAttendance, suppliers, equipment) في `v002_relational_indices.ts`.
+6. **T006 Multi-store Transactions**: `client/src/offline/transactions.ts` يوفّر `runInTransaction(stores, callback)` مع TxAPI {get, put, delete} و TransactionRollback. Native: BEGIN/COMMIT/ROLLBACK. IDB: tx متعدد المخازن مع abort.
+7. **T007 Background Sync**: `client/public/sw.js` يستمع إلى `sync` event بـ tag `background-sync-outbox` ويرسل `BACKGROUND_SYNC_FLUSH` للعملاء. `silent-sync.ts` يسجّل ويستمع لرسالة الـ SW.
+8. **T008 اختبارات سيناريو**: 4 ملفات في `client/src/offline/__tests__/scenarios/` (bulk-offline-flush، conflict-two-devices، corruption-recovery، delta-after-week). **22/22** اختبار سيناريو يمر، **61/61** اختبار إجمالي، صفر أخطاء TypeScript.
+
+**ملفات رئيسية**:
+- `client/src/offline/sync-cursors.ts`, `migrations/`, `transactions.ts`, `silent-sync.ts`
+- `client/src/offline/storage-factory.ts` (applyServerRecordsWithTombstones, smartReconcile محدّث)
+- `client/public/sw.js` (Background Sync)
+- `server/services/SyncEventBus.ts`, `client/src/hooks/useSyncStream.ts`
+- `client/src/offline/__tests__/scenarios/01-04*.test.ts`
+
+## التغييرات الأخيرة (2026-04-25)
+
+### تحديد متعدد للأصول + نقل/حذف جماعي + حقل تاريخ النقل (إدارة المخزن)
+**المشكلة**: في تبويب "الأصول" بصفحة `equipment-management`، كان نقل الأصول يتم واحداً واحداً فقط، ولا يوجد طريقة لتحديد عدة أصول معاً. كذلك نموذج النقل لم يكن يدعم اختيار تاريخ النقل (كان يُسجَّل بـ `defaultNow()` تلقائياً في `equipment_movements.movementDate`).
+
+**التنفيذ**:
+- **`UnifiedCard`** (`client/src/components/ui/unified-card.tsx`): إضافة `onLongPress` و `selectionMode` و `selected` كـ props. منطق Pointer events موحّد (Touch+Mouse) بـ delay 500ms مع إلغاء عند الحركة >8px أو لمس زر داخل البطاقة. يضيف اهتزاز خفيف 40ms عند تفعيل التحديد، يمنع `contextMenu` (لمنع قائمة المتصفح من الظهور)، ويعرض دائرة تحديد مع علامة `Check` في الزاوية + إطار `ring-primary` عند التحديد.
+- **`equipmentRoutes.ts`** (الخادم):
+  - دعم `transferDate` (ISO date) في `POST /:id/transfer` — يُمرَّر كـ `movementDate` لـ `equipment_movements` ويُستخدم كـ `purchase_date` لصف `material_purchases` التوثيقي.
+  - مسار جديد `POST /bulk-transfer`: يستقبل `equipmentIds[]` + `toProjectId` + `reason` + `performedBy` + `notes` + `transferDate`، يتحقق من صلاحية المستخدم على المصدر والوجهة، ينفّذ insert + update + material_purchases لكل معدة في حلقة مع cache لأسماء المشاريع.
+  - مسار جديد `POST /bulk-delete`: يحذف `equipment_movements` ثم `equipment` في transaction واحد عبر `ANY($1::int[])` (دفعة واحدة بدل N استعلام).
+- **`TransferEquipmentDialog`**: إضافة حقل `transferDate` إلزامي مع zod validation، افتراضه اليوم، يُعاد تعيينه عند فتح النموذج.
+- **`BulkTransferEquipmentDialog`** (مكوّن جديد): نموذج نقل جماعي مماثل للفردي مع شارة زرقاء تعرض عدد + أسماء المعدات المحددة (أول 8 + "و N أخرى").
+- **`equipment-management.tsx`**:
+  - حالة `assetSelectionMode` + `selectedAssetIds: Set<number>`.
+  - تنظيف تلقائي عند الخروج من تبويب "الأصول".
+  - الضغط المطول على بطاقة → يفعّل وضع التحديد ويضيف البطاقة للتحديد.
+  - في وضع التحديد: الإجراءات الفردية تختفي، النقر يحدد/يلغي التحديد، تلميح أعلى القائمة، spacer سفلي 24px لمنع تغطية الشريط للمحتوى.
+  - شريط عائم سفلي ثابت (`fixed bottom-0`, `z-50`, `backdrop-blur`, يحترم `safe-area-inset-bottom`) يحوي: زر إلغاء، شارة عدّاد، زر "تحديد الكل/إلغاء تحديد الكل" (يتبدّل ديناميكياً)، زر "نقل المحدد"، زر "حذف المحدد".
+  - مربع تأكيد للحذف الجماعي مع تحذير صريح أن سجلات الحركات ستُحذف معها.
+- **اختبار**: صفر أخطاء TypeScript، HMR طبّق كل التعديلات بنجاح في سجلات `Start application`.
+
+## التغييرات الأخيرة (2026-04-24)
+
+### 🔥 إصلاح حاسم: محرك النشر كان يدمّر MainActivity في كل عملية نشر منذ شهور (P0)
+**الأعراض في الإنتاج**: جميع إضافات Capacitor (`Preferences`, `Device`, `App`, `FileSharer`, `Filesystem`, `Browser`, `NativeBiometric`) كانت تُرجع `"... not implemented on android"` رغم وجود الإضافات في `node_modules`، `capacitor.plugins.json`، و `capacitor.build.gradle`. أكثر من 76 ملف `MainActivity.java.bak.*` على السيرفر يثبت أن المشكلة تكررت في كل نشر لشهور.
+
+**السبب الجذري — ثلاث طبقات متراكمة**:
+1. **`server/services/deployment-engine.ts` (post-sync)**: كان السكربت يفحص `grep -q "onSaveInstanceState" MainActivity.java`، وإن لم يجدها يكتب stub فارغ يحوي فقط `onSaveInstanceState`. هذا حذف كل الـ 15 سطر `registerPlugin(...)` في كل نشر. النسخة الصحيحة في git **لا** تحوي `onSaveInstanceState` (لأن FileSharer لم يعد يحتاجه)، فالفحص كان يعتبرها "ناقصة" دائماً ويعيد كتابتها.
+2. **`android/app/build.gradle`**: قائمة `dependencies` يدوية (المشروع لا يستخدم `apply from: capacitor.build.gradle`) كانت تنقصها `implementation project(':capacitor-preferences')` رغم وجودها في `capacitor.build.gradle`. النتيجة: `compileReleaseJavaWithJavac` يفشل بـ `package com.capacitorjs.plugins.preferences does not exist`.
+3. **قراءة `KEYSTORE_PASSWORD` من `.env`**: عندما تكون القيمة محاطة بعلامات اقتباس مفردة `'imFmpEoExzgylhtQb9i1DJbCry5AU5'` في `.env`، كان `process.env.KEYSTORE_PASSWORD` يحتفظ بالـ quotes كجزء من القيمة (طول 32 بدلاً من 30)، مما يسبب `KeytoolException: keystore password was incorrect` في `:app:packageRelease`.
+
+**الإصلاحات المطبَّقة في `server/services/deployment-engine.ts`**:
+- **حذف بلوك إعادة كتابة MainActivity** (Pre-build + Post-sync). استُبدل بـ `git checkout HEAD -- MainActivity.java` عند اكتشاف أن `registerPlugin(` count < 10. المعيار الجديد عدد `registerPlugin` (≥10) بدلاً من وجود `onSaveInstanceState`.
+- **فحص جديد لـ `app/build.gradle`** في post-sync: يتأكد من وجود جميع 14 سطر `implementation project(':capacitor-*')`. إن نقص أي واحد، يستعيد الملف من git ويسجّل في log أي dependency كانت ناقصة.
+- **تجريد `quotes` من env vars**: `stripQuotes()` يُطبَّق على `KEYSTORE_PASSWORD`, `KEYSTORE_KEY_PASSWORD`, `KEYSTORE_ALIAS` في `stepGradleBuild` و `stepAndroidReadiness`.
+- **رسائل log جديدة**: `MAINACTIVITY_RESTORED_FROM_GIT`, `BUILD_GRADLE_RESTORED_FROM_GIT`, `BUILD_GRADLE_DEPS_OK` لتوفير رؤية واضحة في كل نشر.
+
+**ملف منفصل**: `android/app/build.gradle` تمت إضافة `implementation project(':capacitor-preferences')` بشكل دائم (يتم التأكد منه تلقائياً في كل نشر مستقبلي).
+
+**النتيجة**: نسخة `1.0.35 / build 84862` (SHA256 `ec2640290ae0903...`) جاهزة على `/api/ota/download/AXION_v1.0.35_build84862.apk`، مسجَّلة `is_active=true` في `app_versions`. التحقق من `classes.dex` أكد وجود `PreferencesPlugin`, `NativeBiometric`, `FileSharerPlugin`, `FilesystemPlugin`, `AppPlugin`, `BrowserPlugin`, `InAppBrowserPlugin` في الـ APK. توقيع الشهادة سليم (`CN=AXION, O=AZAIR Online, C=YE`).
+
+**ضمانات لمنع التكرار**: أي نشر مستقبلي (كامل أو android-only) سيعيد التحقق تلقائياً من `MainActivity` و `app/build.gradle` في خطوة post-sync ويستعيدهما من git إن نقص شيء، مع تسجيل واضح في سجل النشر.
+
+---
+
+- **إعادة هيكلة نظام نقل ملفات .gitignore بين حسابات Replit (8 خطوات تصدير + 4 استيراد)**: الترتيب القديم كان مدموجاً في سكربتين كبيرين (`pack-and-publish.sh`, `pull-and-restore.sh`) مع إخفاء خطوات حقيقية كـ no-ops في الـ runner. الإعادة بنت كل خطوة كسكربت bash مستقل يتشارك state عبر `.transfer-tmp/state.env`:
+  - **التصدير (`assets-export`)**: `preflight.sh --full` → `git-push.sh` → `snapshot-secrets.sh` → `pack.sh` → `upload.sh` → `verify.sh` → `cleanup-old.sh` → `cleanup-local.sh`. الترتيب يضمن: (1) فحص شامل قبل أي تعديل، (2) دفع الكود لـ GitHub قبل تخزين بياناته، (3) إنتاج `.env.snapshot` ضمن الأرشيف المشفّر AES-256، (4) تحقق SHA256 محلي/بعيد قبل أي حذف، (5) تنظيف محلي/بعيد بعد التأكد فقط.
+  - **الاستيراد (`assets-import`)**: `preflight.sh --full` → `download.sh` → `decrypt-extract.sh` → `apply-secrets.sh --write-env`. كتابة `.env` تلقائية في NONINTERACTIVE (التطبيق يقرأها عبر `dotenv` في `server/config/env.ts` — لا حاجة لـ Replit Secrets برمجياً، فهي مستحيلة تقنياً).
+  - **`preflight.sh --full`**: فحص الأدوات + `ENCRYPT_PASSPHRASE` + اختبار اتصال SSH فعلي (sshpass+timeout 15s). NONINTERACTIVE يفعّل `--full` تلقائياً.
+  - **`apply-secrets.sh`**: تقرير تحليلي قبل الكتابة (متطابق/متغيّر/جديد/محذوف) + نسخة احتياطية تلقائية `.env.before-restore-<timestamp>` + صلاحيات 600.
+  - **`config.sh`**: أُزيلت `.env.snapshot` من `ASSETS_FORBIDDEN` لأنها تُحزَم الآن ضمن الأرشيف المشفّر.
+  - **`pipeline-definitions.ts`**: أُضيفت `transfer-git-push|verify|cleanup-local` إلى `StepName` و `STEP_REGISTRY` مع timeouts مناسبة.
+  - **`transfer-pipeline-runner.ts`**: كل خطوة تستدعي سكربتها الفعلي (لا no-ops كاذبة كما كان سابقاً).
+  - **`deployment-console.tsx`**: تحديث `STEP_LABELS` للخطوات الجديدة الثلاث بأيقونات وعربية وصفية.
+  - **متطلبات يدوية**: `ENCRYPT_PASSPHRASE` يجب أن يُضاف في Replit Secrets يدوياً في الحساب الجديد قبل الاستيراد (نفس الكلمة المُستخدَمة في التصدير، لو فُقدت فالأرشيف غير قابل للاستعادة). `SSH_HOST/USER/PORT/PASSWORD` ضرورية في كلا الحسابين.
+
 ## التغييرات الأخيرة (2026-04-22)
 - **شارة المشروع المفلتر في كل صفحات البيانات (UX)**: إضافة مكوّن موحّد `client/src/components/selected-project-badge.tsx` يعرض اسم المشروع المفلتر حالياً (أو "جميع المشاريع") بشكل بصري واضح في رأس كل صفحة تعرض بيانات. لون أخضر للمشروع المحدد، أزرق لـ"جميع المشاريع". تم إدراج الشارة في 23 صفحة: workers, worker-attendance, worker-accounts, worker-rebalance, worker-settlements, material-purchase, daily-expenses, equipment-management, supplier-accounts, transport-management, dashboard, project-fund-custody, project-transfers, records-transfer, wells, well-accounting, well-crews, well-materials, well-receptions, well-reports, well-cost-report. الفلترة الفعلية بـ `project_id` كانت موجودة بالفعل في الـ Backend والـ Frontend queries — هذه الإضافة بصرية فقط لتأكيد السياق للمستخدم في كل بطاقة بيانات.
 
@@ -58,6 +137,7 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Reporting System:** Generates professional daily, worker statement, period-final, multi-project-final, and project-comprehensive reports. Reports are exportable to Excel and PDF with RTL support, aggregating key project metrics like workforce, wells, attendance, expenses, cash custody, and equipment with KPIs. Supplier payments are included in period final and comprehensive reports. **Unified Worker Balance Formula:** `remaining = earned(actualWage) - paidCash(paidAmount) - transfers(non-settlement) - settlements(from_project only, direction-aware) + rebalanceDelta`. This formula is consistently applied across worker card stats, worker statement PDF, and project comprehensive report. Settlement transfers (`transfer_method='settlement'`) are excluded from regular transfers to prevent double-counting with `worker_settlement_lines`. **Settlement direction fix (2026-03-31):** Comprehensive report now only counts settlements where `from_project_id` matches the current project (outgoing settlements). Previously `(from_project_id OR to_project_id)` caused double-counting. Worker statement now correctly distinguishes debit vs credit based on settlement direction. A dedicated "التسويات" (Settlements) column was added to comprehensive report PDF, Excel, and web UI. **Project balance fix (2026-03-31):** Comprehensive report `project_fund_transfers` queries (both incoming and outgoing) now exclude `transfer_reason='legacy_worker_rebalance'` to match `ExpenseLedgerService` logic. Previously, rebalance transfers were included in the report but excluded from the projects page, causing artificial balance discrepancies (e.g., -117,248 deficit that didn't exist). **Settlement PFT double-count fix (2026-03-31):** Settlement creates both `worker_transfers` (transfer_method='settlement') and `project_fund_transfers` (transfer_reason='settlement'). Previously both were counted in project balance computation, causing source projects to show 2x settlement expense. Fix: all project_fund_transfers queries for balance calculation now exclude transfer_reason='settlement' alongside 'legacy_worker_rebalance'. Each project's settlement expense comes only from worker_transfers (its own share). Affected: ExpenseLedgerService.ts (4 queries, day+range), ReportDataService.ts (getDailyReport, getProjectComprehensiveReport, getPeriodFinalReport). **Settlement preview rebalance fix (2026-03-31):** `calculatePreviewData` in `settlementRoutes.ts` now includes `rebalanceDelta` (from `legacy_worker_rebalance` project_fund_transfers) in worker balance calculation for settlement eligibility. Formula: `balance = earned - paid - transferred(non-settlement) - settled(from_project) + rebalanceDelta`.
 - **Notifications:** Comprehensive in-app notification system with local notifications for Android via Capacitor.
 - **Offline Capabilities:** Offline-first PWA design using Service Worker for caching and IndexedDB for extensive offline data storage, including crash recovery.
+- **Network-Layer Offline Fallback:** Both `authFetch` (in `auth-token-store.ts`) and `apiRequest` (in `queryClient.ts`) intercept GET requests at the network layer: successful responses are silently cached to the local SQLCipher store via `cacheGetResponseFromJson`, and on `Failed to fetch`/network errors, cached data is automatically returned in a `{success, data, isOffline:true, source:'local-cache'}` envelope through `buildOfflineResponse`/`getLocalFallbackPayload`. This means components using either `authFetch` directly (e.g. `NotificationCenter`) or `apiRequest` automatically work offline without per-component refactoring. Implementation lives in `client/src/offline/offline-fallback.ts` and uses the endpoint→store mapping from `store-registry.ts`.
 - **Data Integrity & Financial System:** Robust handling of `NaN` values and empty timestamp strings. Critical fixes ensure double-entry accounting principles, with a `FinancialIntegrityService` for worker balance synchronization, audit logging, and reconciliation. Financial guards prevent overpayments and enforce material purchase integrity. All financial calculations consistently use `actual_wage` and `safe_numeric` for numerical precision. DB triggers invalidate summaries, and foreign key constraints enforce referential integrity.
 - **Deployment Engine:** Features a robust deployment pipeline system supporting web and Android builds. Includes security hardening (path/command injection prevention), atomic locks for concurrency, fail-closed startup, comprehensive health checks, server cleanup, build-server self-healing, pre-build and Android readiness gates, post-deploy verification, hotfix guards, and Telegram notifications. Supports advanced rollback and resume-from-step functionalities. Integrates with a structured deployment logger and a pipeline-as-code configuration. Implements RBAC and an approval system for deployments, along with daily deployment limits. Enhanced SSH security with key-based authentication enforced for production. **Android build reliability fixes (2026-03-31):** (1) Unified `getSSHExecEnv()` method ensures SSHPASS env var is passed to every SSH `execAsync` call — previously `stepValidate` and 47 other calls were missing it, causing "Permission denied" failures when only `SSH_PASSWORD` was set. (2) Prebuild gate now treats HTTP 429 (rate limited) as a passing result with warning instead of a critical failure — prevents false build aborts when API routes are throttled. (3) Gradle launch SSH timeout increased from 30s to 60s for transport resilience.
 
@@ -297,3 +377,37 @@ Reduced npm audit from **38 vulnerabilities (4 critical, 20 high)** to **8 low**
 - Automated backup restore verification (DR drills)
 - Expand financial correctness test suite (property-based tests for settlement/allocation invariants)
 - TLS certificate validation (`rejectUnauthorized: true`) with proper CA chain
+## 2026-04-23 — إصلاحات محرك النشر (deployment-engine.ts)
+
+**1) capture-plugin-manifest:** Capacitor v6+ لم يعد يكتب `capacitor.plugins.json` في جذر المشروع، بل في `android/app/src/main/assets/`. الكود في `computeLocalPluginManifestHash` و `computeRemotePluginManifestHash` و `stepApkPluginSmoke` كان يفترض المسار القديم فيفشل بـ "capacitor.plugins.json غير موجود على السيرفر بعد cap sync". الإصلاح: قراءة من المسار الجديد أولاً ثم الجذر القديم كـ fallback (توافق v5–v8+).
+
+**2) syncBotTInventory:** نمط `sed` للنطاق كان معطوباً — نمط نهاية النطاق `^  [a-z][a-z0-9_-]*:$` يطابق سطر `axion:` نفسه، فيُغلق النطاق فوراً ولا يصل لـ `pm2_name`. النتيجة: `pm2_name` لا يُحدَّث أبداً، التحقق يفشل بـ "القيمة الفعلية: ...". الإصلاح: استبدال sed بـ Python+PyYAML مع backup ذرّي و atomic rename و post-write verify (المعيار في Ansible/Kubernetes).
+
+## 2026-04-27 — توحيد ترويسة وتذييل التقارير + تكرار رأس الـ PDF في كل صفحة
+
+**المشكلة المُبلَّغ عنها:** عبر صفحات متعددة (مشتريات المواد، حسابات العمال، الموردين، المشاريع…) كانت تقارير Excel/PDF لا تستخدم ألوان/شعار/تذييل صفحة الإعدادات بشكل موحَّد، الشعار يختفي من بعض ملفات Excel، والترويسة في تقارير PDF متعددة الصفحات تظهر فقط في الصفحة الأولى.
+
+**الأسباب الجذرية:**
+1. `axion-export.ts/createProfessionalReport` (المستخدمة في 14 صفحة تصدير) كانت تستدعي `addAlFatihiHeader` المُبسّطة (اسم شركة فقط بدون شعار/أكسنت/بيانات اتصال/تذييل).
+2. `pdfGenerator.ts/generatePDF` كان يحوّل HTML بأكمله إلى صورة واحدة ثم يُقسّمها على صفحات → الترويسة تظهر مرة واحدة فقط.
+3. ألوان ثابتة `#475569`/`FF334155`/`FF475569` في `excel-exports.ts` و `pdfGenerator.ts` لا تتأثر بإعدادات المستخدم.
+4. `addBrandingLogo`/`addLogoToWorksheet` كانتا ترفضان أي logoUrl ليس Data URL (روابط `/uploads/...` و HTTP تفشل بصمت).
+
+**الإصلاحات:**
+- **`client/src/lib/excel-exports.ts`:**
+  - أضفت `logoToDataUrl()` helper async يجلب الصور عبر HTTP/HTTPS أو مسارات نسبية ويحولها إلى Data URL (يدعم png/jpeg/gif).
+  - حوَّلت `addBrandingLogo` إلى async مع دعم HTTP URLs.
+  - حوَّلت `buildExcelLetterhead` إلى async، وأضفت `printTitlesRow` لجعل صفوف الترويسة تتكرر تلقائياً عند طباعة ملف Excel.
+  - استبدلت الألوان الثابتة `FF334155`/`FF475569` في `exportWorkerStatement` بـ `argb(_b.secondaryColor)` و `argb(_b.primaryColor)` المقروءَين من إعدادات المستخدم.
+  - حدَّثت كل المستدعين الداخليين لإضافة `await`.
+- **`client/src/utils/axion-export.ts`:**
+  - استوردت `buildExcelLetterhead` و `buildExcelLetterheadFooter` من `@/lib/excel-exports`.
+  - أعدت كتابة `addAlFatihiHeader` لتستدعي `buildExcelLetterhead` (شعار + شريط primary + شريط accent + بيانات اتصال + شريط عنوان + تاريخ استخراج)، مما يوحِّد ترويسة كل التقارير الـ 14 (مشتريات المواد، عمال، نقل، موردين، مشاريع، عُهَد، معدات، آبار…).
+  - استبدلت `addReportFooter` في `createProfessionalReport` بـ `buildExcelLetterheadFooter` (مطابق لتذييل PDF).
+- **`client/src/utils/pdfGenerator.ts` — إعادة هيكلة جوهرية:**
+  - أضفت وضعاً جديداً يقبل `headerHtml`/`contentHtml`/`footerHtml` منفصلة بدلاً من HTML واحد.
+  - في الوضع الجديد: التقاط 3 canvases منفصلة، ثم لكل صفحة A4: رسم الترويسة في الأعلى، شريحة من المحتوى وسط الصفحة (مع `clip()` لمنع التداخل)، التذييل في الأسفل.
+  - أُبقي على الوضع القديم (`html`) للتوافق مع المستدعين القُدامى الذين لم أُعِد هيكلتهم.
+  - حدَّثت `generateTablePDF` لتُنشئ ثلاث قطع HTML منفصلة وتمرّرها للوضع الجديد ⇒ الترويسة تظهر الآن في كل صفحة من تقارير PDF متعددة الصفحات.
+  - استبدلت `borderColor = '#475569'` الثابت بـ `_b.secondaryColor` ⇒ لون حدود الجدول يطابق لون الشريط من إعدادات المستخدم.
+  - أضفت انتظار تحميل صور الشعار قبل التقاط canvas (`img.complete + load event`) لمنع التقاط ترويسة بدون شعار.

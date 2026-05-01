@@ -1,8 +1,9 @@
-import { eq, and, sql, gte, lte, desc, asc, inArray } from 'drizzle-orm';
+import { eq, and, sql, gte, lte, desc, asc, inArray, notInArray } from 'drizzle-orm';
 import { db } from '../../db';
 import { safeParseNum } from '../../utils/safe-numbers';
 import {
   projects,
+  users,
   workers,
   workerAttendance,
   materialPurchases,
@@ -46,6 +47,8 @@ function safeNum(val: any): number {
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 
+export const INVENTORY_TRANSFER_PURCHASE_TYPES = ['نقل مواد مستهلكة', 'نقل أصل', 'صرف مخزن'];
+
 interface WorkerStatementOptions {
   dateFrom?: string;
   dateTo?: string;
@@ -57,7 +60,21 @@ interface WorkerStatementOptions {
 export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
     const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData, projectFundTransfersOutData] = await Promise.all([
-      db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
+      // 🧑‍🔧 نجلب اسم المهندس المسؤول عبر JOIN مع جدول المستخدمين
+      // (full_name → first_name+last_name → email كنسخة احتياطية)
+      db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          location: projects.location,
+          managerName: projects.managerName,
+          engineerId: projects.engineerId,
+          engineerName: sql<string | null>`COALESCE(${users.full_name}, NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''), ${users.email})`,
+        })
+        .from(projects)
+        .leftJoin(users, eq(users.id, projects.engineerId))
+        .where(eq(projects.id, projectId))
+        .limit(1),
 
       db
         .select({
@@ -90,7 +107,11 @@ export class ReportDataService {
           purchaseType: materialPurchases.purchaseType,
         })
         .from(materialPurchases)
-        .where(and(eq(materialPurchases.project_id, projectId), eq(materialPurchases.purchaseDate, date))),
+        .where(and(
+          eq(materialPurchases.project_id, projectId),
+          eq(materialPurchases.purchaseDate, date),
+          notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES),
+        )),
 
       db
         .select({
@@ -117,6 +138,7 @@ export class ReportDataService {
         .select({
           id: workerTransfers.id,
           workerName: workers.name,
+          workerType: workers.type,
           amount: workerTransfers.amount,
           recipientName: workerTransfers.recipientName,
           transferMethod: workerTransfers.transferMethod,
@@ -185,38 +207,101 @@ export class ReportDataService {
                SUM(remaining_qty) AS total_remaining
         FROM inventory_lots
         GROUP BY item_id
+      ),
+      lot_per_project AS (
+        SELECT item_id, project_id,
+               SUM(remaining_qty) AS remaining_in_project
+        FROM inventory_lots
+        WHERE project_id IS NOT NULL
+        GROUP BY item_id, project_id
       )
+      -- ① حركات المخزن: المواد المستهلكة (صرف + نقل بين مشاريع)
       SELECT
-        t.id,
+        ('INV-' || t.id::text) AS id,
         i.name AS item_name,
         COALESCE(i.category, '-') AS category,
         i.unit,
-        t.quantity AS issued_qty,
-        COALESCE(lt.total_received, 0) AS received_qty,
-        COALESCE(lt.total_remaining, 0) AS remaining_qty,
-        COALESCE(p.name, '-') AS project_name,
-        COALESCE(t.notes, '') AS notes
+        t.quantity::numeric AS issued_qty,
+        COALESCE(lt.total_received, 0)::numeric AS received_qty,
+        COALESCE(lt.total_remaining, 0)::numeric AS remaining_qty,
+        COALESCE(lpp.remaining_in_project, 0)::numeric AS remaining_in_project,
+        COALESCE(pf.name, '-') AS source_project_name,
+        COALESCE(pt.name, '') AS target_project_name,
+        COALESCE(t.notes, '') AS notes,
+        t.reference_type,
+        t.from_project_id,
+        t.to_project_id,
+        t.transaction_date::text AS transaction_date,
+        'material' AS movement_kind
       FROM inventory_transactions t
       JOIN inventory_items i ON i.id = t.item_id
       LEFT JOIN lot_totals lt ON lt.item_id = i.id
-      LEFT JOIN projects p ON p.id = t.to_project_id
+      LEFT JOIN lot_per_project lpp ON lpp.item_id = i.id AND lpp.project_id = t.from_project_id
+      LEFT JOIN projects pf ON pf.id = t.from_project_id
+      LEFT JOIN projects pt ON pt.id = t.to_project_id
       WHERE t.type = 'OUT'
         AND t.transaction_date = $1
         ${projectId ? `AND (t.from_project_id = $2 OR t.to_project_id = $2)` : ''}
-      ORDER BY t.id
+
+      UNION ALL
+
+      -- ② حركات الأصول/المعدات: نقل أصل من مشروع إلى آخر
+      SELECT
+        ('EQM-' || em.id::text) AS id,
+        e.name AS item_name,
+        COALESCE(e.type, 'أصول') AS category,
+        COALESCE(e.unit, 'قطعة') AS unit,
+        em.quantity::numeric AS issued_qty,
+        em.quantity::numeric AS received_qty,
+        0::numeric AS remaining_qty,
+        0::numeric AS remaining_in_project,
+        COALESCE(efp.name, '-') AS source_project_name,
+        COALESCE(etp.name, '') AS target_project_name,
+        COALESCE(em.notes, em.reason, '') AS notes,
+        'asset_transfer' AS reference_type,
+        em.from_project_id,
+        em.to_project_id,
+        to_char(em.movement_date, 'YYYY-MM-DD') AS transaction_date,
+        'asset' AS movement_kind
+      FROM equipment_movements em
+      JOIN equipment e ON e.id = em.equipment_id
+      LEFT JOIN projects efp ON efp.id = em.from_project_id
+      LEFT JOIN projects etp ON etp.id = em.to_project_id
+      WHERE em.from_project_id IS NOT NULL
+        AND em.to_project_id IS NOT NULL
+        AND em.from_project_id <> em.to_project_id
+        AND em.movement_date::date = $1::date
+        ${projectId ? `AND (em.from_project_id = $2 OR em.to_project_id = $2)` : ''}
+
+      ORDER BY id
     `, projectId ? [date, projectId] : [date]);
 
-    const inventoryIssued: InventoryIssuedRecord[] = inventoryIssuedResult.rows.map((r: any) => ({
-      id: Number(r.id),
-      itemName: r.item_name || '-',
-      category: r.category || '-',
-      unit: r.unit || '-',
-      issuedQty: Number(r.issued_qty) || 0,
-      receivedQty: Number(r.received_qty) || 0,
-      remainingQty: Number(r.remaining_qty) || 0,
-      projectName: r.project_name || '-',
-      notes: r.notes || '',
-    }));
+    const inventoryIssued: InventoryIssuedRecord[] = inventoryIssuedResult.rows.map((r: any) => {
+      const isAsset = r.movement_kind === 'asset' || r.reference_type === 'asset_transfer';
+      const isTransfer = isAsset || (
+        r.reference_type === 'project_transfer'
+        && r.to_project_id
+        && r.from_project_id
+        && r.to_project_id !== r.from_project_id
+      );
+      return {
+        id: String(r.id),
+        itemName: r.item_name || '-',
+        category: r.category || '-',
+        unit: r.unit || '-',
+        issuedQty: Number(r.issued_qty) || 0,
+        receivedQty: Number(r.received_qty) || 0,
+        remainingQty: Number(r.remaining_qty) || 0,
+        projectName: r.source_project_name || '-',
+        notes: r.notes || '',
+        transactionType: isAsset ? 'نقل أصل' : (isTransfer ? 'نقل' : 'صرف'),
+        status: isTransfer ? 'منقول' : 'مستهلك',
+        targetProjectName: isTransfer ? (r.target_project_name || '-') : '',
+        remainingInProject: Number(r.remaining_in_project) || 0,
+        transactionDate: r.transaction_date || date,
+        movementKind: isAsset ? 'asset' : 'material',
+      };
+    });
 
     const proj = projectInfo[0];
 
@@ -269,6 +354,7 @@ export class ReportDataService {
     const workerTransfersList: WorkerTransferRecord[] = transfersData.map((t: any) => ({
       id: typeof t.id === 'string' ? parseInt(t.id, 10) || 0 : (t.id as number),
       workerName: t.workerName || '-',
+      workerType: t.workerType || undefined,
       amount: safeNum(t.amount),
       recipientName: t.recipientName || '-',
       transferMethod: t.transferMethod || '-',
@@ -360,10 +446,10 @@ export class ReportDataService {
       pool.query(`
         SELECT
           supplier_name,
-          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+          COALESCE(SUM(CASE WHEN purchase_date::date < $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
             THEN safe_numeric(total_amount::text, 0) - safe_numeric(paid_amount::text, 0)
             ELSE 0 END), 0) AS previous_debt,
-          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً')
+          COALESCE(SUM(CASE WHEN purchase_date::date = $2::date AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
             THEN safe_numeric(total_amount::text, 0)
             ELSE 0 END), 0) AS today_purchases,
           COALESCE((
@@ -378,7 +464,7 @@ export class ReportDataService {
         WHERE project_id = $1
           AND supplier_name IS NOT NULL AND supplier_name <> ''
           AND supplier_name <> '-'
-          AND purchase_type NOT IN ('نقد', 'نقداً')
+          AND purchase_type NOT IN ('نقد', 'نقداً', 'صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل', 'تسوية نقل صادر', 'تسوية نقل وارد')
         GROUP BY supplier_name
         HAVING
           SUM(CASE WHEN purchase_date::date < $2::date
@@ -435,7 +521,7 @@ export class ReportDataService {
         id: proj?.id || projectId,
         name: proj?.name || '-',
         location: proj?.location || undefined,
-        engineerName: undefined,
+        engineerName: proj?.engineerName || undefined,
         managerName: proj?.managerName || undefined,
       },
       date,
@@ -926,7 +1012,8 @@ export class ReportDataService {
           and(
             eq(materialPurchases.project_id, projectId),
             gte(materialPurchases.purchaseDate, dateFrom),
-            lte(materialPurchases.purchaseDate, dateTo)
+            lte(materialPurchases.purchaseDate, dateTo),
+            notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES),
           )
         )
         .groupBy(materialPurchases.materialName, materialPurchases.supplierName),
@@ -1228,34 +1315,101 @@ export class ReportDataService {
           COALESCE(SUM(safe_numeric(remaining_qty::text)), 0) AS remaining_qty
         FROM inventory_lots
         GROUP BY item_id
+      ),
+      lot_per_project AS (
+        SELECT item_id, project_id,
+          COALESCE(SUM(safe_numeric(remaining_qty::text)), 0) AS remaining_in_project
+        FROM inventory_lots
+        WHERE project_id IS NOT NULL
+        GROUP BY item_id, project_id
       )
-      SELECT t.id, i.name AS item_name, i.category, i.unit,
+      -- ① حركات المخزن: المواد المستهلكة (صرف + نقل بين مشاريع)
+      SELECT
+        ('INV-' || t.id::text) AS id,
+        i.name AS item_name,
+        COALESCE(i.category, '-') AS category,
+        i.unit,
         safe_numeric(t.quantity::text) AS issued_qty,
         COALESCE(lt.received_qty, 0) AS received_qty,
         COALESCE(lt.remaining_qty, 0) AS remaining_qty,
-        COALESCE(p.name, '') AS project_name,
-        COALESCE(t.notes, '') AS notes
+        COALESCE(lpp.remaining_in_project, 0) AS remaining_in_project,
+        COALESCE(pf.name, '') AS source_project_name,
+        COALESCE(pt.name, '') AS target_project_name,
+        COALESCE(t.notes, '') AS notes,
+        t.reference_type,
+        t.from_project_id,
+        t.to_project_id,
+        t.transaction_date::text AS transaction_date,
+        'material' AS movement_kind
       FROM inventory_transactions t
       JOIN inventory_items i ON i.id = t.item_id
       LEFT JOIN lot_totals lt ON lt.item_id = t.item_id
-      LEFT JOIN projects p ON p.id = t.from_project_id
+      LEFT JOIN lot_per_project lpp ON lpp.item_id = t.item_id AND lpp.project_id = t.from_project_id
+      LEFT JOIN projects pf ON pf.id = t.from_project_id
+      LEFT JOIN projects pt ON pt.id = t.to_project_id
       WHERE t.type = 'OUT'
         AND t.transaction_date::date >= $2::date AND t.transaction_date::date <= $3::date
         AND (t.from_project_id = $1 OR t.to_project_id = $1)
-      ORDER BY t.transaction_date
+
+      UNION ALL
+
+      -- ② حركات الأصول/المعدات: نقل أصل من مشروع إلى آخر
+      SELECT
+        ('EQM-' || em.id::text) AS id,
+        e.name AS item_name,
+        COALESCE(e.type, 'أصول') AS category,
+        COALESCE(e.unit, 'قطعة') AS unit,
+        em.quantity::numeric AS issued_qty,
+        em.quantity::numeric AS received_qty,
+        0::numeric AS remaining_qty,
+        0::numeric AS remaining_in_project,
+        COALESCE(efp.name, '-') AS source_project_name,
+        COALESCE(etp.name, '') AS target_project_name,
+        COALESCE(em.notes, em.reason, '') AS notes,
+        'asset_transfer' AS reference_type,
+        em.from_project_id,
+        em.to_project_id,
+        to_char(em.movement_date, 'YYYY-MM-DD') AS transaction_date,
+        'asset' AS movement_kind
+      FROM equipment_movements em
+      JOIN equipment e ON e.id = em.equipment_id
+      LEFT JOIN projects efp ON efp.id = em.from_project_id
+      LEFT JOIN projects etp ON etp.id = em.to_project_id
+      WHERE em.from_project_id IS NOT NULL
+        AND em.to_project_id IS NOT NULL
+        AND em.from_project_id <> em.to_project_id
+        AND em.movement_date::date >= $2::date AND em.movement_date::date <= $3::date
+        AND (em.from_project_id = $1 OR em.to_project_id = $1)
+
+      ORDER BY transaction_date
     `, [projectId, dateFrom, dateTo]);
 
-    const inventoryIssuedItems: InventoryIssuedRecord[] = inventoryPeriodResult.rows.map((r: any) => ({
-      id: Number(r.id),
-      itemName: r.item_name || '-',
-      category: r.category || '-',
-      unit: r.unit || '-',
-      issuedQty: Number(r.issued_qty) || 0,
-      receivedQty: Number(r.received_qty) || 0,
-      remainingQty: Number(r.remaining_qty) || 0,
-      projectName: r.project_name || '-',
-      notes: r.notes || '',
-    }));
+    const inventoryIssuedItems: InventoryIssuedRecord[] = inventoryPeriodResult.rows.map((r: any) => {
+      const isAsset = r.movement_kind === 'asset' || r.reference_type === 'asset_transfer';
+      const isTransfer = isAsset || (
+        r.reference_type === 'project_transfer'
+        && r.to_project_id
+        && r.from_project_id
+        && r.to_project_id !== r.from_project_id
+      );
+      return {
+        id: String(r.id),
+        itemName: r.item_name || '-',
+        category: r.category || '-',
+        unit: r.unit || '-',
+        issuedQty: Number(r.issued_qty) || 0,
+        receivedQty: Number(r.received_qty) || 0,
+        remainingQty: Number(r.remaining_qty) || 0,
+        projectName: r.source_project_name || '-',
+        notes: r.notes || '',
+        transactionType: isAsset ? 'نقل أصل' : (isTransfer ? 'نقل' : 'صرف'),
+        status: isTransfer ? 'منقول' : 'مستهلك',
+        targetProjectName: isTransfer ? (r.target_project_name || '-') : '',
+        remainingInProject: Number(r.remaining_in_project) || 0,
+        transactionDate: r.transaction_date || '',
+        movementKind: isAsset ? 'asset' : 'material',
+      };
+    });
 
     const totalWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalWages, 0);
     const totalPaidWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalPaid, 0);
@@ -1274,6 +1428,7 @@ export class ReportDataService {
       .where(
         and(
           eq(materialPurchases.project_id, projectId),
+          notInArray(materialPurchases.purchaseType, INVENTORY_TRANSFER_PURCHASE_TYPES),
           gte(materialPurchases.purchaseDate, dateFrom),
           lte(materialPurchases.purchaseDate, dateTo)
         )
@@ -1837,20 +1992,37 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
-            COALESCE(SUM(safe_numeric(paid_amount::text)), 0) AS total_paid,
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                ELSE safe_numeric(total_amount::text, 0)
+              END
+            ), 0) AS total,
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(paid_amount::text, 0)
+                ELSE safe_numeric(paid_amount::text, 0)
+              END
+            ), 0) AS total_paid,
             COALESCE(SUM(CASE WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0) WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) AS total_cash
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
+            AND COALESCE(purchase_type, '') NOT IN ('نقل مواد مستهلكة', 'نقل أصل', 'صرف مخزن')
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
         client.query(`
           SELECT
             COALESCE(NULLIF(TRIM(material_category), ''), 'غير مصنف') AS category,
-            COALESCE(SUM(safe_numeric(total_amount::text)), 0) AS total,
-            COUNT(*) AS count
+            COALESCE(SUM(
+              CASE
+                WHEN purchase_type = 'تسوية نقل صادر' THEN -safe_numeric(total_amount::text, 0)
+                ELSE safe_numeric(total_amount::text, 0)
+              END
+            ), 0) AS total,
+            COUNT(*) FILTER (WHERE purchase_type NOT IN ('تسوية نقل صادر', 'تسوية نقل وارد')) AS count
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date::date >= $2::date AND purchase_date::date <= $3::date
+            AND COALESCE(purchase_type, '') NOT IN ('نقل مواد مستهلكة', 'نقل أصل', 'صرف مخزن')
           GROUP BY TRIM(material_category) ORDER BY total DESC
         `, [projectId, effectiveDateFrom, effectiveDateTo]),
 
@@ -2031,16 +2203,48 @@ export class ReportDataService {
       const costPerWell = totalWells > 0 ? totalExpenses / totalWells : 0;
       const costPerWorkerDay = totalWorkDays > 0 ? totalExpenses / totalWorkDays : 0;
 
+      // ✅ حساب عدد الألواح المشتراة/المتوفرة في المخزون لهذا المشروع
+      // يُستخدم لإظهار بطاقة "عدد الألواح" في التقرير عند وجود ألواح فعليًا
+      let totalPanelsCount = 0;
+      try {
+        const panelsRes = await client.query(`
+          SELECT COALESCE(SUM(safe_numeric(quantity::text)), 0) AS total
+          FROM material_purchases
+          WHERE project_id = $1
+            AND purchase_date::date >= $2::date
+            AND purchase_date::date <= $3::date
+            AND (
+              material_category ILIKE '%لوح%' OR material_category ILIKE '%ألواح%'
+              OR material_name ILIKE '%لوح%' OR material_name ILIKE '%ألواح%'
+              OR material_category ILIKE '%panel%' OR material_name ILIKE '%panel%'
+            )
+        `, [projectId, effectiveDateFrom, effectiveDateTo]);
+        totalPanelsCount = safeNum(panelsRes.rows[0]?.total) || 0;
+      } catch (e) {
+        totalPanelsCount = 0;
+      }
+      // إن وُجدت ألواح في الآبار فعليًا (totalPanels من جدول wells)، نأخذ الأكبر
+      const panelsForCard = Math.max(totalPanelsCount, totalPanels);
+
+      // ✅ بطاقات KPI الأساسية (تظهر دائمًا)
       const kpis: import('../../../shared/report-types').ReportKPI[] = [
         { label: 'إجمالي الإيرادات', value: totalIncome, format: 'currency' },
         { label: 'إجمالي المصروفات', value: totalExpenses, format: 'currency' },
         { label: 'الرصيد', value: balance, format: 'currency' },
         { label: 'عدد العمال', value: totalWorkers, format: 'number' },
-        { label: 'عدد الآبار', value: totalWells, format: 'number' },
         { label: 'أيام العمل', value: totalWorkDays, format: 'days' },
-        { label: 'تكلفة / بئر', value: costPerWell, format: 'currency' },
         { label: 'تكلفة / عامل / يوم', value: costPerWorkerDay, format: 'currency' },
       ];
+      // ✅ بطاقات خاصة بمشاريع الآبار فقط — تُضاف فقط عند وجود آبار فعلية
+      // يمنع ظهور "عدد الآبار = 0" و"تكلفة/بئر = 0" في مشاريع غير الآبار
+      if (totalWells > 0) {
+        kpis.splice(4, 0, { label: 'عدد الآبار', value: totalWells, format: 'number' });
+        kpis.push({ label: 'تكلفة / بئر', value: costPerWell, format: 'currency' });
+      }
+      // ✅ بطاقة "عدد الألواح" — تظهر فقط عند وجود ألواح مُشتراة أو في المخزون
+      if (panelsForCard > 0) {
+        kpis.push({ label: 'عدد الألواح', value: panelsForCard, format: 'number' });
+      }
       if (budgetUtilization !== undefined) {
         kpis.push({ label: 'نسبة استخدام الميزانية', value: budgetUtilization, format: 'percentage' });
       }

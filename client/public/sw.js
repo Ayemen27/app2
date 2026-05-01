@@ -1,5 +1,32 @@
 const CACHE_NAME = 'binarjoin-v6';
 const API_CACHE = 'api-data-v2';
+const SYNC_TAG_OUTBOX = 'background-sync-outbox';
+
+// 🔄 Background Sync API: عند ظهور الإنترنت، المتصفح يطلق هذا الحدث.
+// نُرسل رسالة لجميع clients لتنفيذ outbox flush.
+self.addEventListener('sync', (event) => {
+  if (event.tag === SYNC_TAG_OUTBOX) {
+    event.waitUntil(triggerOutboxFlush());
+  }
+});
+
+async function triggerOutboxFlush() {
+  try {
+    const clients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    });
+    if (clients.length === 0) {
+      console.log('[SW][bg-sync] لا يوجد clients مفتوحة - سيتم flush عند الفتح');
+      return;
+    }
+    for (const client of clients) {
+      client.postMessage({ type: 'BACKGROUND_SYNC_FLUSH', tag: SYNC_TAG_OUTBOX });
+    }
+  } catch (e) {
+    console.warn('[SW][bg-sync] فشل إرسال الرسالة:', e);
+  }
+}
 
 const APP_SHELL = [
   '/',

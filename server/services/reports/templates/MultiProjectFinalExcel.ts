@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { MultiProjectFinalReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
@@ -391,7 +392,11 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
   row = xlGrandTotalRow(ws, row, ['', '', '', '', '', '', '', 'الرصيد النهائي', formatNum(data.combinedTotals.balance), '']);
 
   row++;
-  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, 3], [4, 7], [8, 10]]);
+  row = xlSignatures(ws, row, [
+    { title: 'المهندس' },
+    { title: 'المدير' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 3], [4, 7], [8, 10]]);
   row++;
   row = xlFooter(ws, row, COL_COUNT);
 

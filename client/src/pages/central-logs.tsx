@@ -275,13 +275,10 @@ export default function CentralLogsPage() {
 
       const result = await apiRequest(`/api/central-logs/export?${params.toString()}`);
       if (typeof result === "string") {
-        const blob = new Blob([result], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `central-logs-${new Date().toISOString().split("T")[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const blob = new Blob(["\uFEFF" + result], { type: "text/csv;charset=utf-8;" });
+        const { downloadFile } = await import("@/utils/webview-download");
+        const fileName = `السجلات-المركزية-${new Date().toISOString().split("T")[0]}.csv`;
+        await downloadFile(blob, fileName, "text/csv;charset=utf-8;");
       }
       toast({ title: "تم التصدير", description: "تم تصدير السجلات بنجاح" });
     } catch (err: any) {
@@ -299,12 +296,9 @@ export default function CentralLogsPage() {
 
       const result = await apiRequest(`/api/central-logs/export?${params.toString()}`);
       const blob = new Blob([JSON.stringify(result?.data || result, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `central-logs-${new Date().toISOString().split("T")[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const { downloadFile } = await import("@/utils/webview-download");
+      const fileName = `السجلات-المركزية-${new Date().toISOString().split("T")[0]}.json`;
+      await downloadFile(blob, fileName, "application/json");
       toast({ title: "تم التصدير", description: "تم تصدير السجلات بصيغة JSON" });
     } catch (err: any) {
       toast({ title: "فشل التصدير", description: err.message, variant: "destructive" });

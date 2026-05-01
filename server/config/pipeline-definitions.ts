@@ -1,4 +1,4 @@
-export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback" | "health-check" | "server-cleanup";
+export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback" | "health-check" | "server-cleanup" | "assets-export" | "assets-import";
 
 export type BuildTarget = "server" | "local";
 
@@ -60,7 +60,18 @@ export type StepName =
   | "cl-git-gc"
   | "cl-orphans"
   | "cl-apt-cache"
-  | "cl-summary";
+  | "cl-summary"
+  | "transfer-preflight"
+  | "transfer-git-push"
+  | "transfer-snapshot"
+  | "transfer-pack-encrypt"
+  | "transfer-upload"
+  | "transfer-verify"
+  | "transfer-cleanup-old"
+  | "transfer-cleanup-local"
+  | "transfer-download"
+  | "transfer-decrypt-extract"
+  | "transfer-apply-secrets";
 
 export interface RetryPolicy {
   maxRetries: number;
@@ -399,6 +410,68 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     timeoutMs: 10000,
     condition: { type: "pipeline", pipelines: ["server-cleanup"] },
   },
+
+  // ============================================================
+  // خطوات أنبوب نقل الأصول والمتغيرات بين حسابات Replit
+  // (تُنفَّذ عبر scripts/transfer/transfer.sh)
+  // ============================================================
+  "transfer-preflight": {
+    name: "transfer-preflight",
+    timeoutMs: 120000, // 2 دقيقة للتثبيت التلقائي عند الحاجة + اختبار اتصال SSH
+    condition: { type: "pipeline", pipelines: ["assets-export", "assets-import"] },
+  },
+  "transfer-git-push": {
+    name: "transfer-git-push",
+    timeoutMs: 180000, // 3 دقائق للدفع لمستودع كبير
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-snapshot": {
+    name: "transfer-snapshot",
+    timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-pack-encrypt": {
+    name: "transfer-pack-encrypt",
+    timeoutMs: 600000, // 10 دقائق للحزم والتشفير لـ ~500MB
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-upload": {
+    name: "transfer-upload",
+    timeoutMs: 1200000, // 20 دقيقة للرفع
+    retryPolicy: { maxRetries: 2, delayMs: 10000 },
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-verify": {
+    name: "transfer-verify",
+    timeoutMs: 120000, // 2 دقيقة لحساب SHA256 على السيرفر للأرشيفات الكبيرة
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-cleanup-old": {
+    name: "transfer-cleanup-old",
+    timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-cleanup-local": {
+    name: "transfer-cleanup-local",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["assets-export"] },
+  },
+  "transfer-download": {
+    name: "transfer-download",
+    timeoutMs: 1200000, // 20 دقيقة للتنزيل
+    retryPolicy: { maxRetries: 2, delayMs: 10000 },
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
+  "transfer-decrypt-extract": {
+    name: "transfer-decrypt-extract",
+    timeoutMs: 600000, // 10 دقائق لفك التشفير والاستخراج
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
+  "transfer-apply-secrets": {
+    name: "transfer-apply-secrets",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["assets-import"] },
+  },
 };
 
 export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
@@ -490,6 +563,38 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     steps: {
       server: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
       local: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
+    },
+  },
+  "assets-export": {
+    name: "assets-export",
+    description: "تصدير شامل: دفع الكود لـ GitHub + حزم الأصول والمتغيرات (مشفّرة AES-256) ورفعها لسيرفر SSH خارجي",
+    supportedTargets: ["local"],
+    steps: {
+      server: [],
+      local: [
+        "transfer-preflight",      // 1. فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH
+        "transfer-git-push",       // 2. دفع الكود لـ GitHub قبل تخزين بياناته
+        "transfer-snapshot",       // 3. توليد .env.snapshot من البيئة الفعّالة
+        "transfer-pack-encrypt",   // 4. حزم الأصول + .env.snapshot وتشفيرها AES-256
+        "transfer-upload",         // 5. رفع الأرشيف + البيان للسيرفر
+        "transfer-verify",         // 6. مقارنة SHA256 محلي/بعيد للتأكد من سلامة الرفع
+        "transfer-cleanup-old",    // 7. حذف الإصدارات القديمة على السيرفر (KEEP_LAST=5)
+        "transfer-cleanup-local",  // 8. تنظيف .transfer-tmp/ و .env.snapshot المحليين
+      ],
+    },
+  },
+  "assets-import": {
+    name: "assets-import",
+    description: "استيراد شامل: تنزيل الأرشيف من السيرفر + فك تشفيره + تطبيق المتغيرات تلقائياً عبر .env",
+    supportedTargets: ["local"],
+    steps: {
+      server: [],
+      local: [
+        "transfer-preflight",       // 1. فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH
+        "transfer-download",        // 2. تنزيل الأرشيف المشفّر من السيرفر
+        "transfer-decrypt-extract", // 3. فك التشفير + استخراج الملفات (مع نسخة احتياطية)
+        "transfer-apply-secrets",   // 4. تطبيق .env.snapshot على .env تلقائياً (يقرأها dotenv)
+      ],
     },
   },
 };

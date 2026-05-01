@@ -115,6 +115,8 @@ const PIPELINE_LABELS: Record<string, string> = {
   "full-deploy": "🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)",
   "hotfix": "⚡ إصلاح سريع (نشر فوري + حماية schema)",
   "android-build-test": "🧪 بناء أندرويد + اختبار Firebase",
+  "assets-export": "📤 تصدير ملفات .gitignore للسيرفر (الحساب القديم)",
+  "assets-import": "📥 استيراد ملفات .gitignore من السيرفر (الحساب الجديد)",
 };
 
 const LEGACY_PIPELINES: Record<string, string> = {
@@ -149,6 +151,17 @@ const STEP_LABELS: Record<string, string> = {
   "rollback-server": "التراجع",
   "db-migrate": "تهجير قاعدة البيانات",
   "hotfix-sync": "مزامنة الإصلاح السريع",
+  "transfer-preflight": "🔍 فحص الأدوات + ENCRYPT_PASSPHRASE + اتصال SSH",
+  "transfer-git-push": "🐙 دفع الكود لـ GitHub",
+  "transfer-snapshot": "📸 توليد لقطة المتغيرات (.env.snapshot)",
+  "transfer-pack-encrypt": "📦 حزم وتشفير الأصول + المتغيرات (AES-256)",
+  "transfer-upload": "☁️ رفع الأرشيف للسيرفر",
+  "transfer-verify": "✅ التحقق من سلامة الرفع (SHA256)",
+  "transfer-cleanup-old": "🧹 حذف الإصدارات القديمة على السيرفر",
+  "transfer-cleanup-local": "🗑️ تنظيف الملفات المؤقتة محلياً",
+  "transfer-download": "⬇️ تنزيل الأرشيف من السيرفر",
+  "transfer-decrypt-extract": "🔓 فك التشفير واستخراج الأصول",
+  "transfer-apply-secrets": "🔐 تطبيق المتغيرات على .env تلقائياً",
   "firebase-test": "اختبار Firebase Test Lab",
   "generate-icons": "توليد الأيقونات",
   "sync-version": "مزامنة الإصدار",
@@ -894,6 +907,8 @@ export default function DeploymentConsole() {
                     <SelectItem value="full-deploy" data-testid="option-full-deploy">🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)</SelectItem>
                     <SelectItem value="hotfix" data-testid="option-hotfix">⚡ إصلاح سريع (نشر فوري + حماية schema)</SelectItem>
                     <SelectItem value="android-build-test" data-testid="option-android-build-test">🧪 بناء أندرويد + اختبار Firebase</SelectItem>
+                    <SelectItem value="assets-export" data-testid="option-assets-export">📤 تصدير ملفات .gitignore للسيرفر (الحساب القديم)</SelectItem>
+                    <SelectItem value="assets-import" data-testid="option-assets-import">📥 استيراد ملفات .gitignore من السيرفر (الحساب الجديد)</SelectItem>
                   </SelectContent>
                 </Select>
 

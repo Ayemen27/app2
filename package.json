@@ -17,7 +17,7 @@
     "lint": "eslint . --max-warnings 0",
     "pre-publish": "npm run lint && npm run test",
     "android:sync-version": "node scripts/sync-version.js",
-    "android:build": "npm run android:sync-version && cd android && chmod +x gradlew && ./gradlew assembleDebug",
+    "android:build": "npm run build && npm run android:sync-version && npx cap sync android && cd android && chmod +x gradlew && ./gradlew clean && ./gradlew assembleDebug",
     "android:clean": "cd android && ./gradlew clean"
   },
   "dependencies": {

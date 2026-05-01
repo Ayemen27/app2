@@ -2,6 +2,7 @@ import type { DailyReportData } from '../../../../shared/report-types';
 import {
   buildDailyTransactions,
   orderDailyTransactions,
+  mergeWorkerWageAndTransferForTemplate,
   getAccountTypeLabel,
   getEntryName,
   getRowColors,
@@ -48,7 +49,9 @@ export function generateDailyReportTemplate2HTML(data: DailyReportData, dateStr:
   const projectName = data.project?.name || '';
 
   const allTxs = buildDailyTransactions(data, dateStr);
-  const ordered = orderDailyTransactions(allTxs);
+  // 🔀 دمج صرفة العامل + حوالة العامل لنفس العامل في صف واحد (في القالب فقط)
+  const merged = mergeWorkerWageAndTransferForTemplate(allTxs);
+  const ordered = orderDailyTransactions(merged);
 
   let running = 0;
 
@@ -114,7 +117,11 @@ ${rows}
     </tr>
   </tbody>
 </table>
-${pdfSignatures(['المهندس المسؤول', 'المدير', 'المحاسب'])}`;
+${pdfSignatures([
+  { title: 'المهندس المسؤول', name: data.project?.engineerName },
+  { title: 'المدير', name: data.project?.managerName },
+  { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+])}`;
 
   return pdfWrap(`كشف مصروفات ${projectName}`, body);
 }

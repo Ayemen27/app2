@@ -7,7 +7,7 @@ import {
   Truck, Save, Plus, Edit, Trash2, 
   DollarSign, TrendingUp, RefreshCw, ChevronUp,
   FileSpreadsheet, Filter, XCircle, Calendar, Hash,
-  MapPin, Info, User, Settings, Droplets, Package, Building2
+  MapPin, Info, User, Settings, Droplets, Package, Building2, FileText
 } from "lucide-react";
 import { downloadExcelFile } from '@/utils/webview-download';
 
@@ -70,6 +70,7 @@ export default function TransportManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Form states
   const [worker_id, setWorkerId] = useState<string>("");
@@ -335,6 +336,55 @@ export default function TransportManagement() {
     }
   };
 
+  const handleExportPdf = useCallback(async () => {
+    if (filteredExpenses.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const totalAmount = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+      const data = filteredExpenses.map((expense, idx) => ({
+        index: idx + 1,
+        date: formatDate(expense.date),
+        description: expense.description || '',
+        amount: formatCurrency(Number(expense.amount)),
+        category: categoriesMap[expense.category] || expense.category || "أخرى",
+        worker: workers.find(w => w.id === expense.worker_id)?.name || "مصروف عام",
+        well: expense.well_id || "-",
+        notes: expense.notes || ""
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف سجلات النقل والمواصلات",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي العمليات", value: filteredExpenses.length },
+          { label: "إجمالي المبالغ", value: formatCurrency(totalAmount) },
+        ],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'التاريخ', key: 'date', width: 13 },
+          { header: 'البيان / الوصف', key: 'description', width: 25 },
+          { header: 'المبلغ', key: 'amount', width: 14 },
+          { header: 'الفئة', key: 'category', width: 16 },
+          { header: 'العامل', key: 'worker', width: 18 },
+          { header: 'رقم البئر', key: 'well', width: 12 },
+          { header: 'ملاحظات', key: 'notes', width: 25 }
+        ],
+        data,
+        filename: `تقرير_النقل_${new Date().toISOString().split("T")[0]}`,
+        orientation: "portrait",
+      });
+
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [filteredExpenses, categoriesMap, workers, toast]);
+
   const handleReset = () => {
     setSearchValue("");
     setFilterValues({
@@ -468,6 +518,16 @@ export default function TransportManagement() {
   ];
 
   const actions: ActionButton[] = [
+    {
+      key: "export-pdf",
+      icon: FileText,
+      label: "تصدير PDF",
+      onClick: handleExportPdf,
+      variant: "outline",
+      loading: isExportingPdf,
+      disabled: filteredExpenses.length === 0,
+      tooltip: "تصدير إلى ملف PDF",
+    },
     {
       key: "export",
       icon: FileSpreadsheet,

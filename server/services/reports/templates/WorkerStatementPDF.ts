@@ -1,4 +1,5 @@
 import type { WorkerStatementData, ReportKPI } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   escapeHtml, formatNum, formatDateBR, PDF_COLORS,
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
@@ -112,7 +113,12 @@ export function generateWorkerStatementHTML(data: WorkerStatementData): string {
     ${pdfGrandTotalRow(['الرصيد النهائي', `${formatNum(data.totals.finalBalance)} YER`])}
   </table>`;
 
-  body += pdfSignatures(['العامل', 'المهندس', 'المدير']);
+  body += pdfSignatures([
+    { title: 'العامل', name: data.worker.name },
+    { title: 'المهندس' },
+    { title: 'المدير' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(data.generatedAt);
 
   return pdfWrap(`كشف حساب العامل - ${escapeHtml(data.worker.name)}`, body);

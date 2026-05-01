@@ -60,6 +60,8 @@ export interface MiscExpenseRecord {
 export interface WorkerTransferRecord {
   id: number;
   workerName: string;
+  /** نوع العامل: 'معلم' / 'عامل' / … (اختياري — يُستخدم لترتيب صفوف القالب) */
+  workerType?: string;
   amount: number;
   recipientName: string;
   transferMethod: string;
@@ -74,7 +76,7 @@ export interface FundTransferRecord {
 }
 
 export interface InventoryIssuedRecord {
-  id: number;
+  id: string | number;
   itemName: string;
   category: string;
   unit: string;
@@ -83,6 +85,12 @@ export interface InventoryIssuedRecord {
   remainingQty: number;
   projectName: string;
   notes: string;
+  transactionType: 'صرف' | 'نقل' | 'نقل أصل';
+  status: 'مستهلك' | 'منقول';
+  targetProjectName: string;
+  remainingInProject: number;
+  transactionDate: string;
+  movementKind?: 'material' | 'asset';
 }
 
 export interface SupplierPaymentRecord {

@@ -19,6 +19,7 @@ import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
 import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks, Building2, FileText, X } from "lucide-react";
 import { format } from 'date-fns';
+import { useCallback } from "react";
 import { ar } from 'date-fns/locale';
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Badge } from "@/components/ui/badge";
@@ -289,9 +290,56 @@ export default function ProjectTransfers() {
     setShowCreateModal(true);
   };
 
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
   const getProjectName = (project_id: string) => {
     return projects.find((p: Project) => p.id === project_id)?.name || "غير محدد";
   };
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredTransfers.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const totalAmount = filteredTransfers.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      const data = filteredTransfers.map((t: any, idx: number) => ({
+        index: idx + 1,
+        date: new Date(t.transferDate).toLocaleDateString('en-GB'),
+        fromProject: projects.find((p: any) => p.id === t.fromProjectId)?.name || 'غير محدد',
+        toProject: projects.find((p: any) => p.id === t.toProjectId)?.name || 'غير محدد',
+        amount: Number(t.amount).toLocaleString('en-US'),
+        reason: t.transferReason === 'settlement' ? 'تصفية حساب العمال' : t.transferReason === 'legacy_worker_rebalance' ? 'تسوية أرصدة عمال' : (t.transferReason || '-'),
+        description: t.transferReason === 'legacy_worker_rebalance' && t.description
+          ? t.description.replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\s*\(rebalance:[^)]*\)\s*/g, '').trim()
+          : (t.description || '-'),
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف تحويلات الصندوق",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "عدد التحويلات", value: data.length },
+          { label: "إجمالي المبالغ", value: `${totalAmount.toLocaleString('en-US')} ر.ي` },
+        ],
+        columns: [
+          { header: 'م', key: 'index', width: 5 },
+          { header: 'التاريخ', key: 'date', width: 12 },
+          { header: 'من مشروع', key: 'fromProject', width: 20 },
+          { header: 'إلى مشروع', key: 'toProject', width: 20 },
+          { header: 'المبلغ', key: 'amount', width: 14 },
+          { header: 'السبب', key: 'reason', width: 16 },
+          { header: 'الوصف', key: 'description', width: 25 },
+        ],
+        data,
+        filename: `تحويلات_الصندوق_${new Date().toISOString().split("T")[0]}`,
+        orientation: "portrait",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredTransfers, projects, toast]);
 
   const formatCurrency = (amount: number) => {
     if (typeof amount !== 'number') {
@@ -428,6 +476,16 @@ export default function ProjectTransfers() {
             onRefresh={() => refetch()}
             isRefreshing={transfersLoading}
             actions={[
+              {
+                key: 'export-pdf',
+                icon: FileText,
+                label: 'تصدير PDF',
+                onClick: handleExportPdf,
+                variant: 'outline' as const,
+                loading: isExportingPdf,
+                disabled: filteredTransfers.length === 0,
+                tooltip: 'تصدير تحويلات الصندوق إلى PDF'
+              },
               {
                 key: 'export',
                 icon: Download,

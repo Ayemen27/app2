@@ -292,13 +292,22 @@ export function xlFooter(ws: ExcelJS.Worksheet, rowNum: number, colCount: number
   return rowNum + 1;
 }
 
-export function xlSignatures(ws: ExcelJS.Worksheet, rowNum: number, names: string[], colRanges: [number, number][]): number {
+export function xlSignatures(
+  ws: ExcelJS.Worksheet,
+  rowNum: number,
+  blocks: Array<string | { title: string; name?: string | null }>,
+  colRanges: [number, number][],
+): number {
   const r = ws.getRow(rowNum);
-  r.height = 65;
-  names.forEach((name, i) => {
+  r.height = 75;
+  blocks.forEach((block, i) => {
+    const title = typeof block === 'string' ? block : block.title;
+    const name = typeof block === 'string' ? '' : (block.name || '').trim();
     ws.mergeCells(rowNum, colRanges[i][0], rowNum, colRanges[i][1]);
     const c = r.getCell(colRanges[i][0]);
-    c.value = `${name}\n\n.................................\nالتاريخ:     /     /`;
+    c.value = name
+      ? `${title}\nالاسم: ${name}\n.................................\nالتوقيع:                التاريخ:     /     /`
+      : `${title}\n\n.................................\nالتاريخ:     /     /`;
     c.font = { bold: true, size: 10, name: 'Calibri' };
     c.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
     c.border = BORDER;
@@ -337,7 +346,7 @@ body {
   display: flex;
   background: ${PDF_COLORS.navy};
   color: #fff;
-  min-height: 86px;
+  min-height: 120px;
   margin: 0;
   position: relative;
   overflow: hidden;
@@ -345,44 +354,44 @@ body {
 }
 .lh-header-left {
   flex: 1;
-  padding: 14px 20px;
+  padding: 16px 22px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11px;
   color: #fff;
 }
 .lh-header-left .lh-row { display: flex; align-items: center; gap: 8px; }
 .lh-header-left .lh-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   background: ${PDF_COLORS.accentBlue}; color: #fff;
-  font-size: 10px; flex-shrink: 0;
+  font-size: 11px; flex-shrink: 0;
 }
 .lh-header-right {
   background: #fff;
   color: ${PDF_COLORS.navy};
-  flex: 1.2;
+  flex: 1.4;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 22px 10px 40px;
+  gap: 16px;
+  padding: 12px 22px 12px 50px;
   position: relative;
-  border-bottom-right-radius: 60px;
+  border-bottom-right-radius: 70px;
 }
 .lh-header-right .lh-logo-img,
 .lh-header-right .lh-logo-fallback {
-  width: 48px; height: 48px; border-radius: 8px;
+  width: 92px; height: 92px; border-radius: 12px;
   background: ${PDF_COLORS.navy}; color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 22px; flex-shrink: 0;
+  font-weight: 800; font-size: 38px; flex-shrink: 0;
   object-fit: contain;
 }
-.lh-header-right .lh-logo-img { background: #fff; border: 1px solid ${PDF_COLORS.border}; padding: 2px; }
-.lh-header-right .lh-co-block { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
-.lh-header-right .lh-co-name { font-size: 18px; font-weight: 800; color: ${PDF_COLORS.navy}; }
-.lh-header-right .lh-tagline { font-size: 11px; color: ${PDF_COLORS.blue}; font-weight: 500; }
+.lh-header-right .lh-logo-img { background: #fff; border: 1px solid ${PDF_COLORS.border}; padding: 3px; }
+.lh-header-right .lh-co-block { display: flex; flex-direction: column; gap: 3px; line-height: 1.25; }
+.lh-header-right .lh-co-name { font-size: 20px; font-weight: 800; color: ${PDF_COLORS.navy}; }
+.lh-header-right .lh-tagline { font-size: 12px; color: ${PDF_COLORS.blue}; font-weight: 500; }
 .lh-accent-bar {
   height: 6px;
   background: ${PDF_COLORS.accentBlue};
@@ -506,7 +515,9 @@ table tbody tr:hover { background: #E3EBF3; }
   margin-top: 16px; display: flex; justify-content: space-around; padding: 0 6px;
 }
 .sig-block { text-align: center; min-width: 140px; }
-.sig-block .sig-title { font-size: 10px; font-weight: 700; margin-bottom: 24px; color: ${PDF_COLORS.navy}; }
+.sig-block .sig-title { font-size: 10px; font-weight: 700; margin-bottom: 6px; color: ${PDF_COLORS.navy}; }
+.sig-block .sig-name { font-size: 10px; font-weight: 700; color: ${PDF_COLORS.navy}; margin-bottom: 18px; min-height: 13px; }
+.sig-block .sig-name-empty { color: transparent; }
 .sig-block .sig-line { border-top: 2px solid ${PDF_COLORS.navy}; padding-top: 4px; font-size: 9px; color: ${PDF_COLORS.textMuted}; }
 .report-footer {
   text-align: center; font-size: 8px; color: ${PDF_COLORS.textMuted};
@@ -624,10 +635,30 @@ export function pdfGrandTotalRow(cells: string[], colspan?: number): string {
   return `<tr class="grand-total-row">${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
 }
 
-export function pdfSignatures(names: string[]): string {
-  return `<div class="signatures">${names.map(n =>
-    `<div class="sig-block"><div class="sig-title">${n}</div><div class="sig-line">التوقيع والختم</div></div>`
-  ).join('')}</div>`;
+export interface SignatureBlock {
+  title: string;
+  name?: string | null;
+}
+
+/**
+ * تذييل التوقيعات. يقبل إما:
+ *  - string[]  → عناوين فقط (التوافق الخلفي)
+ *  - SignatureBlock[]  → عنوان + اسم اختياري (يظهر فوق خط التوقيع)
+ *
+ * إذا تُرك الاسم فارغًا، يظهر العنوان وخط التوقيع فقط (السلوك القديم).
+ */
+export function pdfSignatures(blocks: Array<string | SignatureBlock>): string {
+  const items = blocks.map(b => (typeof b === 'string' ? { title: b } : b));
+  return `<div class="signatures">${items.map(b => {
+    const nameLine = b.name && b.name.trim()
+      ? `<div class="sig-name">${escapeHtml(b.name.trim())}</div>`
+      : `<div class="sig-name sig-name-empty">&nbsp;</div>`;
+    return `<div class="sig-block">
+      <div class="sig-title">${escapeHtml(b.title)}</div>
+      ${nameLine}
+      <div class="sig-line">التوقيع والختم</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 export function pdfFooter(generatedAt: string): string {

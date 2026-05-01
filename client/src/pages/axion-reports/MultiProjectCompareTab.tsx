@@ -14,7 +14,7 @@ import { formatCurrency } from "@/lib/utils";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import type { MultiProjectFinalReportData } from "@shared/report-types";
-import { COLORS, LoadingSpinner, EmptyState, secureDownloadExport } from "./utils";
+import { COLORS, LoadingSpinner, EmptyState, secureDownloadExport, buildArabicReportFileName } from "./utils";
 
 // ─── بنية صف العامل الموحّد (مع بيانات كل مشروع) ─────────────────────────────
 interface WorkerProjectData {
@@ -217,7 +217,17 @@ export function MultiProjectCompareTab({ onStatsReady }: { onStatsReady?: (stats
     const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
     setLoading(true);
     try {
-      await secureDownloadExport("multi-project-compare", fmt, { project_ids: selectedProjectIds.join(","), dateFrom, dateTo }, toast);
+      const namesArr = selectedProjectIds
+        .map((id) => allProjects.find((p: any) => p.id === id)?.name)
+        .filter(Boolean) as string[];
+      const namesJoined = namesArr.slice(0, 2).join('-') || 'مشاريع';
+      await secureDownloadExport(
+        "multi-project-compare",
+        fmt,
+        { project_ids: selectedProjectIds.join(","), dateFrom, dateTo },
+        toast,
+        buildArabicReportFileName({ type: "multi-project-compare", fmt, projectName: namesJoined, dateFrom, dateTo }),
+      );
     } finally {
       setLoading(false);
     }

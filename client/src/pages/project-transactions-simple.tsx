@@ -1,5 +1,5 @@
 import { ENV } from "@/lib/env";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -67,6 +67,7 @@ export default function ProjectTransactionsSimple() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
@@ -791,6 +792,49 @@ export default function ProjectTransactionsSimple() {
     return projects.find(p => p.id === selectedProject)?.name || 'المشروع';
   };
 
+  const handleExportPdf = useCallback(async () => {
+    if (filteredTransactions.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const data = filteredTransactions.map((t: any, idx: number) => ({
+        index: idx + 1,
+        date: t.date ? format(new Date(t.date), 'dd/MM/yyyy') : '-',
+        type: t.type === 'income' ? 'توريد' : (t.type === 'transfer_from_project' ? 'ترحيل وارد' : 'منصرف'),
+        category: t.category || '-',
+        amount: t.amount,
+        description: t.description || '-',
+        projectName: t.projectName || 'غير محدد',
+      }));
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف معاملات المشروع",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي التوريد", value: formatCurrency(totals.totalIncome), color: "green" },
+          { label: "إجمالي المنصرف", value: formatCurrency(totals.totalExpenses), color: "red" },
+          { label: "الرصيد المتبقي", value: formatCurrency(totals.balance), color: totals.balance >= 0 ? "blue" : "red" },
+        ],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'التاريخ', key: 'date', width: 12 },
+          { header: 'المشروع', key: 'projectName', width: 18 },
+          { header: 'النوع', key: 'type', width: 10 },
+          { header: 'الفئة', key: 'category', width: 15 },
+          { header: 'المبلغ', key: 'amount', width: 14 },
+          { header: 'الوصف', key: 'description', width: 26 },
+        ],
+        data,
+        filename: `معاملات_المشروع_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredTransactions, totals, toast]);
+
   const handleExportToExcel = async () => {
     if (isExporting || filteredTransactions.length === 0) return;
     setIsExporting(true);
@@ -818,6 +862,17 @@ export default function ProjectTransactionsSimple() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const exportPdfAction: ActionButton = {
+    key: 'export-pdf',
+    icon: UnifiedFileText,
+    label: 'تصدير PDF',
+    onClick: handleExportPdf,
+    variant: 'outline',
+    loading: isExportingPdf,
+    disabled: filteredTransactions.length === 0,
+    tooltip: 'تصدير العمليات إلى ملف PDF',
   };
 
   const exportAction: ActionButton = {
@@ -924,7 +979,7 @@ export default function ProjectTransactionsSimple() {
             searchPlaceholder="ابحث في الوصف أو الفئة..."
             showSearch={true}
             filters={filterConfigs}
-            actions={[exportAction]}
+            actions={[exportPdfAction, exportAction]}
             filterValues={{ type: filterType, dateRange: dateRange }}
             onFilterChange={(key, value) => {
               if (key === 'type') {

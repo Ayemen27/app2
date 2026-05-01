@@ -4,6 +4,7 @@
  */
 import ExcelJS from 'exceljs';
 import { MultiProjectFinalReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader, xlFooter, xlSignatures,
@@ -340,7 +341,11 @@ export async function generateMultiProjectCompareExcel(data: MultiProjectFinalRe
     row++;
   }
 
-  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, Math.ceil(TOTAL_COLS / 3)], [Math.ceil(TOTAL_COLS / 3) + 1, Math.ceil(2 * TOTAL_COLS / 3)], [Math.ceil(2 * TOTAL_COLS / 3) + 1, TOTAL_COLS]]);
+  row = xlSignatures(ws, row, [
+    { title: 'المهندس' },
+    { title: 'المدير' },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, Math.ceil(TOTAL_COLS / 3)], [Math.ceil(TOTAL_COLS / 3) + 1, Math.ceil(2 * TOTAL_COLS / 3)], [Math.ceil(2 * TOTAL_COLS / 3) + 1, TOTAL_COLS]]);
   row++;
   row = xlFooter(ws, row, TOTAL_COLS);
 

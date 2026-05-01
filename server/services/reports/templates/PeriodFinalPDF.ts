@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function kpiDisplay(kpi: ReportKPI): { value: string; color?: string } {
   switch (kpi.format) {
@@ -175,24 +176,51 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
   }
 
   if (data.sections.inventoryIssued?.items?.length) {
-    body += pdfSectionTitle('حركة المخزون (صرف)');
-    const invRows = data.sections.inventoryIssued.items.map((item, idx) =>
-      `<tr>
+    body += pdfSectionTitle('حركة المخزون');
+    const invRows = data.sections.inventoryIssued.items.map((item, idx) => {
+      const isTransfer = item.transactionType === 'نقل';
+      const typeBadge = isTransfer
+        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">نقل</span>`
+        : `<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">صرف</span>`;
+      const statusBadge = isTransfer
+        ? `<span style="color:#92400e;font-weight:700;">منقول</span>`
+        : `<span style="color:#991b1b;font-weight:700;">مستهلك</span>`;
+      const projectCell = isTransfer && item.targetProjectName
+        ? `${escapeHtml(item.projectName)} <span style="color:#92400e;">←</span> ${escapeHtml(item.targetProjectName)}`
+        : escapeHtml(item.projectName || '-');
+      return `<tr>
         <td>${idx + 1}</td>
-        <td style="text-align:right;">${escapeHtml(item.itemName)}</td>
-        <td>${escapeHtml(item.category)}</td>
-        <td>${escapeHtml(item.unit)}</td>
-        <td style="font-weight:700;">${item.issuedQty}</td>
-        <td>${item.remainingQty}</td>
-      </tr>`
-    ).join('');
+        <td style="text-align:right;font-weight:600;">${escapeHtml(item.itemName)}</td>
+        <td style="font-size:9px;">${escapeHtml(item.category)}</td>
+        <td style="text-align:center;">${typeBadge}</td>
+        <td style="font-weight:700;color:${PDF_COLORS.red};">${formatNum(item.issuedQty)} ${escapeHtml(item.unit)}</td>
+        <td style="text-align:center;">${statusBadge}</td>
+        <td style="text-align:right;font-size:9px;">${projectCell}</td>
+        <td style="font-weight:600;color:${item.remainingInProject > 0 ? PDF_COLORS.green : '#9ca3af'};">${formatNum(item.remainingInProject)}</td>
+      </tr>`;
+    }).join('');
+    const totalIssuedQty = data.sections.inventoryIssued.totalIssuedQty;
+    const transferCount = data.sections.inventoryIssued.items.filter(i => i.transactionType === 'نقل').length;
+    const issueCount = data.sections.inventoryIssued.items.length - transferCount;
     body += `<table><thead><tr>
-      <th style="width:30px;">م</th><th>الصنف</th>
-      <th style="width:70px;">الفئة</th><th style="width:60px;">الوحدة</th>
-      <th style="width:80px;">الكمية المصروفة</th><th style="width:70px;">المتبقي</th>
+      <th style="width:28px;">م</th>
+      <th>الصنف</th>
+      <th style="width:60px;">الفئة</th>
+      <th style="width:50px;">النوع</th>
+      <th style="width:90px;">الكمية</th>
+      <th style="width:60px;">الحالة</th>
+      <th style="width:140px;">المشروع / الوجهة</th>
+      <th style="width:75px;">متبقي بالمشروع</th>
     </tr></thead><tbody>${invRows}
-    ${pdfTotalRow([`إجمالي الأصناف: ${data.sections.inventoryIssued.totalItems}`, `${data.sections.inventoryIssued.totalIssuedQty}`], 5)}
-    </tbody></table>`;
+    <tr class="total-row">
+      <td colspan="4">إجمالي ${data.sections.inventoryIssued.totalItems} حركة &nbsp;•&nbsp; صرف: ${issueCount} &nbsp;•&nbsp; نقل: ${transferCount}</td>
+      <td>${formatNum(totalIssuedQty)}</td>
+      <td colspan="3">&nbsp;</td>
+    </tr>
+    </tbody></table>
+    <div style="font-size:9px;color:#6b7280;margin:4px 8px 12px;text-align:right;">
+      ملاحظة: المواد المنقولة بين المشاريع لا تُحتسب ضمن "المشتريات الجديدة" — هي حركة مخزنية فقط بدون أثر مالي.
+    </div>`;
   }
 
   body += pdfSectionTitle('الملخص المالي الشامل');
@@ -214,7 +242,11 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     ${data.totals.budgetUtilization !== undefined ? `<tr class="total-row"><td class="label-cell">نسبة استهلاك الميزانية</td><td class="value-cell" style="color:${PDF_COLORS.amber};font-weight:800;">${data.totals.budgetUtilization.toFixed(1)}%</td></tr>` : ''}
   </table>`;
 
-  body += pdfSignatures(['المهندس', 'المدير', 'المدير المالي']);
+  body += pdfSignatures([
+    { title: 'المهندس', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ]);
   body += pdfFooter(data.generatedAt);
 
   return pdfWrap(`التقرير النهائي للفترة - ${escapeHtml(data.project.name)}`, body);

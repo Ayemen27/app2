@@ -443,7 +443,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCrash(crash: InsertCrash): Promise<Crash> {
-    const [newCrash] = await db.insert(crashes).values(crash).returning();
+    // 🛡️ حماية من FK violation: إذا كان deviceId غير موجود في جدول devices،
+    // نضعه null بدلاً من رفض السجل بأكمله. تطبيق الجوال قد يرسل 'unknown' قبل تسجيل الجهاز.
+    let safeDeviceId = crash.deviceId ?? null;
+    if (safeDeviceId) {
+      try {
+        const exists = await db.select({ id: devices.deviceId })
+          .from(devices)
+          .where(eq(devices.deviceId, safeDeviceId))
+          .limit(1);
+        if (!exists.length) safeDeviceId = null;
+      } catch {
+        safeDeviceId = null;
+      }
+    }
+    const [newCrash] = await db.insert(crashes).values({ ...crash, deviceId: safeDeviceId }).returning();
     return newCrash;
   }
 

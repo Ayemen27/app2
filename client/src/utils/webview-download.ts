@@ -1,5 +1,6 @@
 import { ENV } from "@/lib/env";
 import { Capacitor } from '@capacitor/core';
+import { streamExport } from '@/native/axion-file-export';
 
 // ─── كشف المنصة ──────────────────────────────────────────────────────────────
 
@@ -89,6 +90,33 @@ function getMimeType(fileName: string, fallback: string): string {
   return ext ? (map[ext] || fallback) : fallback;
 }
 
+/**
+ * تنظيف اسم الملف للمشاركة الآمنة على Android/iOS:
+ * - يحمي الامتداد من الاقتطاع (مشكلة xl.sx) باستبدال كل النقاط الداخلية بـ _
+ * - يُبقي الأحرف العربية والإنجليزية والأرقام والشرطات
+ * - يحدّ الطول إلى 120 محرفاً للاسم الأساسي (بعض الأنظمة تقطع عند 128)
+ */
+function sanitizeFileName(fileName: string): string {
+  const lastDot = fileName.lastIndexOf('.');
+  let base = lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+  let ext  = lastDot > 0 ? fileName.substring(lastDot + 1) : '';
+
+  // استبدل النقاط الداخلية بـ _ لمنع تشويش الامتدادات على Android
+  base = base
+    .replace(/\./g, '_')
+    .replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (base.length > 120) base = base.substring(0, 120);
+  if (!base) base = 'file';
+
+  // الامتداد: ASCII فقط بدون نقاط
+  ext = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  return ext ? `${base}.${ext}` : base;
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -112,7 +140,7 @@ export function enableDownloadDebug(enable = true) {
 
 const lastErrors: Record<string, string> = {};
 
-function debugLog(method: string, status: string, detail?: string) {
+export function debugLog(method: string, status: string, detail?: string) {
   const msg = `[DL] ${method}: ${status}${detail ? ' — ' + detail : ''}`;
   console.log(msg);
   if (status === 'ERROR' || status === 'UPLOAD_FAILED' || status === 'SKIP') {
@@ -121,6 +149,31 @@ function debugLog(method: string, status: string, detail?: string) {
 }
 
 // ─── طرق التصدير — مرتبة من الأفضل إلى الأقل ─────────────────────────────────
+
+/**
+ * الطريقة 0: Axion Streaming Native Export (الأحدث والأكثر أماناً من OOM)
+ * تدفق البيانات في أجزاء صغيرة لمنع تعليق التطبيق.
+ */
+async function tryStreamingNativeExport(blob: Blob, fileName: string, mimeType: string, mode: 'share' | 'downloads' | 'saveAs' = 'share'): Promise<boolean> {
+  if (!isCapacitorNative()) return false;
+
+  try {
+    const sanitized = sanitizeFileName(fileName);
+    const contentType = getMimeType(sanitized, mimeType);
+
+    debugLog('StreamingNative', 'START', `${sanitized} via mode=${mode}`);
+    const result = await streamExport(blob, sanitized, contentType, mode);
+
+    if (result.success) {
+      debugLog('StreamingNative', 'OK');
+      return true;
+    }
+    return false;
+  } catch (err: any) {
+    debugLog('StreamingNative', 'ERROR', String(err?.message || err));
+    return false;
+  }
+}
 
 /**
  * الطريقة 1: FileSharer (Capacitor native — الأفضل والأسرع)
@@ -140,7 +193,7 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
     }
 
     const base64Data   = await blobToBase64(blob);
-    const sanitized    = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const sanitized    = sanitizeFileName(fileName);
     const contentType  = getMimeType(sanitized, mimeType);
 
     debugLog('FileSharer', 'START', `${sanitized} (${blob.size} bytes)`);
@@ -178,7 +231,7 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
     const { Share }                 = await import('@capacitor/share');
 
     const base64Data = await blobToBase64(blob);
-    const sanitized  = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    const sanitized  = sanitizeFileName(fileName);
 
     debugLog('CapFS', 'WRITING', sanitized);
 
@@ -263,6 +316,58 @@ async function tryNativeBridge(blob: Blob, fileName: string, mimeType: string): 
     return false;
   } catch (err: any) {
     debugLog('NativeBridge', 'ERROR', String(err?.message || err));
+    return false;
+  }
+}
+
+/**
+ * الطريقة 4-ب: Server Proxy + Capacitor Browser
+ * ترفع الملف للسيرفر مؤقتاً ثم تفتح رابط التحميل عبر متصفح Capacitor.
+ * تُستخدم عندما تفشل FileSharer وFilesystem في التطبيق الأصلي.
+ */
+async function tryServerProxyBrowserDownload(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+  try {
+    const base64Data = await blobToBase64(blob);
+    debugLog('ServerProxyBrowser', 'UPLOADING', `${fileName} (${blob.size} bytes)`);
+
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(ENV.getApiUrl('/api/temp-download'), {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ base64Data, fileName, mimeType }),
+    });
+
+    if (!response.ok) {
+      debugLog('ServerProxyBrowser', 'UPLOAD_FAILED', `status=${response.status}`);
+      return false;
+    }
+
+    const result = await response.json();
+    if (!result.success || !result.downloadUrl) {
+      debugLog('ServerProxyBrowser', 'BAD_RESPONSE');
+      return false;
+    }
+
+    const fullUrl = result.downloadUrl.startsWith('http')
+      ? result.downloadUrl
+      : ENV.getApiUrl(result.downloadUrl);
+    debugLog('ServerProxyBrowser', 'URL_READY', fullUrl);
+
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
+
+    debugLog('ServerProxyBrowser', 'BROWSER_OPENED');
+    return true;
+  } catch (err: any) {
+    debugLog('ServerProxyBrowser', 'ERROR', String(err?.message || err));
     return false;
   }
 }
@@ -354,8 +459,8 @@ function downloadForBrowser(blob: Blob, fileName: string): boolean {
  * downloadFile — نقطة دخول موحّدة لتصدير الملفات
  *
  * على Android (Capacitor):
- *   1. FileSharer  → يعرض قائمة المشاركة الأصلية (Save to Downloads + تطبيقات أخرى)
- *   2. CapFS+Share → يكتب في Cache ثم يعرض قائمة المشاركة
+ *   1. CapFS+Share → يكتب الملف في Cache ثم يعرض قائمة المشاركة (الأفضل لاسم الملف)
+ *   2. FileSharer  → احتياطي: يعرض قائمة المشاركة عبر intent extras
  *   3. NativeBridge → جسر Java إن وُجد
  *
  * على الويب / المتصفح:
@@ -385,18 +490,24 @@ export async function downloadFile(
   // ── تطبيق Capacitor (Android / iOS) ──
   // نستدعي الإضافات الأصلية مباشرة بدون فحص isPluginAvailable()
   if (onCapacitor) {
-    // 1. FileSharer — يعرض Share Sheet: يمكن للمستخدم الحفظ في Downloads
+    // 1. Axion Streaming Native — الطريقة الأصلية المعتمدة (streaming بدون OOM)
+    //    تستخدم MediaStore + FileProvider + SAF حسب المعايير العالمية
+    if (await tryStreamingNativeExport(blob, fileName, type)) return true;
+
+    // 2. FileSharer — احتياطي: كانت تعمل في الإصدار v1.0.46 لملفات Excel
     if (await tryFileSharer(blob, fileName, type)) return true;
 
-    // 2. Filesystem + Share — يكتب الملف في Cache ثم يفتح Share Sheet
+    // 3. Filesystem + Share — احتياطي ثانٍ
     if (await tryCapacitorFsShare(blob, fileName, type)) return true;
 
-    // 3. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
+    // 4. Native Bridge المضمّن (Java / Swift) — نادراً ما يكون موجوداً
     if (hasAndroidBridge() || hasIOSBridge()) {
       if (await tryNativeBridge(blob, fileName, type)) return true;
     }
 
-    // في Capacitor لا نستخدم WebShare أو ServerProxy — نُبلّغ بفشل حقيقي
+    // 5. Server Proxy + Browser — رفع للسيرفر ثم فتح عبر المتصفح المدمج
+    if (await tryServerProxyBrowserDownload(blob, fileName, type)) return true;
+
     const errorDetails = Object.entries(lastErrors)
       .map(([m, e]) => `• ${m}: ${e}`)
       .join('\n');

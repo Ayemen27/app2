@@ -1,5 +1,7 @@
 import { downloadExcelFile } from '@/utils/webview-download';
 import { getBranding, hexNoHash , ensureBrandingLoaded } from '@/lib/report-branding';
+import { buildExcelLetterhead, buildExcelLetterheadFooter } from '@/lib/excel-exports';
+import { mergeWorkerWageAndTransferForTemplate } from '@shared/daily-transactions';
 
 interface Transaction {
   id: string;
@@ -135,7 +137,6 @@ export async function exportTransactionsToExcelTemplate2(
   const _b = getBranding();
   const MAIN_BLUE    = 'FF' + hexNoHash(_b.primaryColor);
   const SLATE        = 'FF' + hexNoHash(_b.secondaryColor);
-  const ACCENT       = 'FF' + hexNoHash(_b.accentColor);
   const WHITE        = 'FFFFFFFF';
   const GREY         = 'FFF8FAFC';
   const GREEN_MUTED  = 'FFECFDF5';
@@ -146,68 +147,10 @@ export async function exportTransactionsToExcelTemplate2(
   const TOTAL_BG     = SLATE;
   const TOTAL_BG_ALT = 'FFE2E8F0';
 
-  let r = 1;
-
-  // 🏢 الترويسة الموحّدة — الشعار (يمين) + الاسم العربي + الإنجليزي
-  const _tagline = _b.companyNameEn ? `\n${_b.companyNameEn}` : '';
-  if (_b.logoUrl) {
-    // الشعار في خلية A، النص في B-F
-    ws.mergeCells(r, 1, r, 1);
-    const logoCell = ws.getRow(r).getCell(1);
-    style(logoCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF' });
-    try {
-      const m = /^data:image\/(png|jpeg|jpg|gif);base64,/i.exec(_b.logoUrl);
-      if (m) {
-        const ext = (m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase()) as 'png' | 'jpeg' | 'gif';
-        const imageId = wb.addImage({ base64: _b.logoUrl, extension: ext });
-        ws.addImage(imageId, {
-          tl: { col: 0.1, row: r - 1 + 0.1 } as any,
-          br: { col: 0.95, row: r - 1 + 0.95 } as any,
-        });
-      }
-    } catch (e) {
-      console.warn('[template2] logo embed failed:', (e as Error)?.message);
-    }
-    ws.mergeCells(r, 2, r, COL);
-    const companyCell = ws.getRow(r).getCell(2);
-    companyCell.value = `${_b.companyName}${_tagline}`;
-    style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
-    ws.getRow(r).height = 60;
-  } else {
-    ws.mergeCells(r, 1, r, COL);
-    const companyCell = ws.getRow(r).getCell(1);
-    companyCell.value = `${_b.companyName}${_tagline}`;
-    style(companyCell, { bg: MAIN_BLUE, fc: 'FFFFFFFF', bold: true, size: 13, wrap: true });
-    ws.getRow(r).height = _tagline ? 40 : 26;
-  }
-  r++;
-
-  // شريط لون التمييز (accent)
-  ws.mergeCells(r, 1, r, COL);
-  const accentRow = ws.getRow(r).getCell(1);
-  accentRow.value = '';
-  accentRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ACCENT } };
-  ws.getRow(r).height = 6;
-  r++;
-
-  // سطر معلومات التواصل (إن وُجدت)
-  const _contact = [_b.address, _b.phone, _b.email, _b.website].filter(Boolean).join('  •  ');
-  if (_contact) {
-    ws.mergeCells(r, 1, r, COL);
-    const contactCell = ws.getRow(r).getCell(1);
-    contactCell.value = _contact;
-    style(contactCell, { bg: 'FFF1F5F9', fc: 'FF475569', bold: false, size: 9 });
-    ws.getRow(r).height = 18;
-    r++;
-  }
-
-  // 📋 عنوان التقرير
-  ws.mergeCells(r, 1, r, COL);
-  const titleCell = ws.getRow(r).getCell(1);
-  titleCell.value = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
-  style(titleCell, { bg: SLATE, fc: 'FFFFFFFF', bold: true, size: 12 });
-  ws.getRow(r).height = 26;
-  r++;
+  // 🏛️ الترويسة الموحَّدة (مطابقة لكل التقارير) — تتضمن الشعار المُكبَّر
+  // وبيانات الشركة وعنوان التقرير وتاريخ الاستخراج تلقائياً.
+  const reportTitle = `كشف مصروفات مشروع ${projectName || ''} الموافق ${gFormatted}`;
+  let r = await buildExcelLetterhead(wb, ws, COL, reportTitle);
 
   const HEADERS = ['المبلغ', 'نوع الحساب', 'الاسم', 'عدد الأيام', 'الرصيد التجميعي', 'ملاحظات'];
   ws.getRow(r).height = 22;
@@ -218,9 +161,11 @@ export async function exportTransactionsToExcelTemplate2(
   });
   r++;
 
-  const opening = transactions.filter(t => t.category === 'رصيد سابق');
-  const income  = transactions.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
-  const expense = transactions.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
+  // 🔀 دمج صرفة العامل + حوالة العامل لنفس العامل في صف واحد (في القالب فقط)
+  const mergedTxs = mergeWorkerWageAndTransferForTemplate(transactions);
+  const opening = mergedTxs.filter(t => t.category === 'رصيد سابق');
+  const income  = mergedTxs.filter(t => t.category !== 'رصيد سابق' && (t.type === 'income' || t.type === 'transfer_from_project'));
+  const expense = mergedTxs.filter(t => t.category !== 'رصيد سابق' && t.type !== 'income' && t.type !== 'transfer_from_project');
   const ordered = [...opening, ...income, ...expense];
 
   let running = 0;
@@ -293,6 +238,9 @@ export async function exportTransactionsToExcelTemplate2(
   extCell.value = '';
   style(extCell, { bg: TOTAL_BG_ALT });
   r++;
+
+  // 🦶 تذييل موحَّد — يضم اسم المهندس المسؤول (المعيَّن للمشروع) وبيانات الاتصال
+  buildExcelLetterheadFooter(ws, r + 1, COL);
 
   const buf = await wb.xlsx.writeBuffer();
   const safeName = (projectName || 'مشروع').replace(/[/\\?%*:|"<>]/g, '-');

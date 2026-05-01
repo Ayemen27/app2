@@ -89,10 +89,16 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
 
       const versionName = info.version && info.version.length > 0 ? info.version : '';
       const buildStr = info.build && info.build.length > 0 ? info.build : '0';
-      const versionCode = parseInt(buildStr, 10) || 0;
+      // @capacitor/app يُرجع build='' في بعض APKs → نستخرج versionCode من versionName كـ fallback
+      // (نفس خوارزمية sync-version.js: آخر رقم في "1.0.31" = 31)
+      const rawCode = parseInt(buildStr, 10) || 0;
+      const derivedCode = rawCode > 0
+        ? rawCode
+        : parseInt(versionName.split('.').pop() || '0', 10) || 0;
+      const versionCode = derivedCode;
 
       if (versionName && versionName !== '0.0.0' && versionName !== '') {
-        trackLog('GET_APP_VERSION_OK', { versionName, versionCode });
+        trackLog('GET_APP_VERSION_OK', { versionName, versionCode, rawCode, derivedCode });
         return { versionName, versionCode, unknown: false };
       }
 

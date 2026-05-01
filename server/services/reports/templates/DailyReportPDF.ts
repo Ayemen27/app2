@@ -4,6 +4,7 @@ import {
   pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfSignatures, pdfFooter, pdfWrap,
 } from './shared-styles';
+import { currentReportHeader } from './header-context';
 
 function kpiDisplay(kpi: ReportKPI): { value: string; color?: string } {
   switch (kpi.format) {
@@ -86,18 +87,28 @@ export function generateDailyReportHTML(data: DailyReportData): string {
   ).join('');
 
   const invIssued = data.inventoryIssued || [];
-  const inventoryRows = invIssued.map((inv, idx) =>
-    `<tr>
+  const inventoryRows = invIssued.map((inv, idx) => {
+    const isTransfer = inv.transactionType === 'نقل';
+    const typeBadge = isTransfer
+      ? `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">نقل</span>`
+      : `<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">صرف</span>`;
+    const statusBadge = isTransfer
+      ? `<span style="color:#92400e;font-weight:700;">منقول</span>`
+      : `<span style="color:#991b1b;font-weight:700;">مستهلك</span>`;
+    const projectCell = isTransfer && inv.targetProjectName
+      ? `${escapeHtml(inv.projectName)} <span style="color:#92400e;">←</span> ${escapeHtml(inv.targetProjectName)}`
+      : escapeHtml(inv.projectName || '-');
+    return `<tr>
       <td>${idx + 1}</td>
-      <td style="text-align:right;">${escapeHtml(inv.itemName)}</td>
-      <td>${escapeHtml(inv.category)}</td>
-      <td>${escapeHtml(inv.unit)}</td>
-      <td style="font-weight:700;color:${PDF_COLORS.red};">${formatNum(inv.issuedQty)}</td>
-      <td>${formatNum(inv.receivedQty)}</td>
-      <td style="color:${inv.remainingQty > 0 ? PDF_COLORS.green : PDF_COLORS.red};">${formatNum(inv.remainingQty)}</td>
-      <td style="text-align:right;font-size:9px;">${escapeHtml(inv.notes) || '-'}</td>
-    </tr>`
-  ).join('');
+      <td style="text-align:right;font-weight:600;">${escapeHtml(inv.itemName)}</td>
+      <td style="font-size:9px;">${escapeHtml(inv.category)}</td>
+      <td style="text-align:center;">${typeBadge}</td>
+      <td style="font-weight:700;color:${PDF_COLORS.red};">${formatNum(inv.issuedQty)} ${escapeHtml(inv.unit)}</td>
+      <td style="text-align:center;">${statusBadge}</td>
+      <td style="text-align:right;font-size:9px;">${projectCell}</td>
+      <td style="font-weight:600;color:${inv.remainingInProject > 0 ? PDF_COLORS.green : '#9ca3af'};">${formatNum(inv.remainingInProject)}</td>
+    </tr>`;
+  }).join('');
 
   let body = '';
   body += pdfHeader('الفتيني للمقاولات العامة والاستشارات الهندسية', 'التقرير اليومي التفصيلي');
@@ -148,14 +159,28 @@ export function generateDailyReportHTML(data: DailyReportData): string {
 
   if (invIssued.length > 0) {
     const totalIssuedQty = invIssued.reduce((s, inv) => s + inv.issuedQty, 0);
-    body += pdfSectionTitle('مواد المخزن المصروفة');
+    const transferCount = invIssued.filter(i => i.transactionType === 'نقل').length;
+    const issueCount = invIssued.length - transferCount;
+    body += pdfSectionTitle('حركة المخزن');
     body += `<table><thead><tr>
-      <th style="width:30px;">م</th><th>اسم المادة</th><th style="width:70px;">الفئة</th>
-      <th style="width:50px;">الوحدة</th><th style="width:65px;">الكمية المصروفة</th>
-      <th style="width:65px;">إجمالي التوريد</th><th style="width:65px;">المتبقي</th><th>ملاحظات</th>
+      <th style="width:28px;">م</th>
+      <th>اسم المادة</th>
+      <th style="width:60px;">الفئة</th>
+      <th style="width:50px;">النوع</th>
+      <th style="width:90px;">الكمية</th>
+      <th style="width:60px;">الحالة</th>
+      <th style="width:140px;">المشروع / الوجهة</th>
+      <th style="width:75px;">متبقي بالمشروع</th>
     </tr></thead><tbody>${inventoryRows}
-    ${pdfTotalRow([`الإجمالي (${invIssued.length} مادة)`, '', '', formatNum(totalIssuedQty), '', '', ''], 1)}
-    </tbody></table>`;
+    <tr class="total-row">
+      <td colspan="4">إجمالي ${invIssued.length} حركة &nbsp;•&nbsp; صرف: ${issueCount} &nbsp;•&nbsp; نقل: ${transferCount}</td>
+      <td>${formatNum(totalIssuedQty)}</td>
+      <td colspan="3">&nbsp;</td>
+    </tr>
+    </tbody></table>
+    <div style="font-size:9px;color:#6b7280;margin:4px 8px 12px;text-align:right;">
+      ملاحظة: المواد المنقولة بين المشاريع لا تُحتسب ضمن "المشتريات الجديدة" — هي حركة مخزنية فقط بدون أثر مالي.
+    </div>`;
   }
 
   if (data.transport.length > 0) {
@@ -242,6 +267,13 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     ${pdfTotalRow(['إجمالي المصروفات', `${formatNum(data.totals.totalExpenses)} YER`])}
     ${pdfGrandTotalRow(['الرصيد النهائي', `${formatNum(finalBalance)} YER`])}
   </table>`;
+
+  // ✅ تذييل التوقيعات: يعرض اسم المهندس والمدير من بيانات المشروع
+  body += pdfSignatures([
+    { title: 'المهندس المسؤول', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب' },
+  ]);
 
   body += pdfFooter(data.generatedAt);
 

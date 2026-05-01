@@ -1846,6 +1846,144 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
   }
 });
 
+// تحديث بيانات مورد
+financialRouter.patch('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    console.log('🏪 [API] تحديث بيانات المورد:', id, req.body);
+
+    // التحقق من وجود المورد
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'المورد غير موجود'
+      });
+    }
+
+    // Validation جزئي - يسمح بتحديث جزئي
+    const partialSchema = insertSupplierSchema.partial();
+    const validationResult = partialSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
+      return res.status(400).json({
+        success: false,
+        message: firstError,
+        details: errorMessages,
+      });
+    }
+
+    const [updated] = await db.update(suppliers)
+      .set(validationResult.data)
+      .where(eq(suppliers.id, id))
+      .returning();
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم تحديث المورد بنجاح في ${duration}ms`);
+
+    return res.json({
+      success: true,
+      data: updated,
+      message: `تم تحديث المورد "${updated.name}" بنجاح`,
+      processingTime: duration,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في تحديث المورد:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'فشل في تحديث المورد'
+    });
+  }
+});
+
+// PUT يقبل نفس وظيفة PATCH (للتوافق مع الواجهة)
+financialRouter.put('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'المورد غير موجود' });
+    }
+    const partialSchema = insertSupplierSchema.partial();
+    const validationResult = partialSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
+      return res.status(400).json({ success: false, message: firstError, details: errorMessages });
+    }
+    const [updated] = await db.update(suppliers)
+      .set(validationResult.data)
+      .where(eq(suppliers.id, id))
+      .returning();
+    return res.json({
+      success: true,
+      data: updated,
+      message: `تم تحديث المورد "${updated.name}" بنجاح`,
+      processingTime: Date.now() - startTime,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في تحديث المورد:', error);
+    return res.status(500).json({ success: false, message: 'فشل في تحديث المورد' });
+  }
+});
+
+// حذف مورد (soft delete - يجعله غير نشط لمنع كسر مشتريات سابقة)
+financialRouter.delete('/suppliers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    console.log('🏪 [API] حذف المورد:', id);
+
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'المورد غير موجود' });
+    }
+
+    // فحص: هل لدى المورد مشتريات؟ إن وجدت → soft delete (تعطيل) لحماية التاريخ.
+    const linkedPurchases = await db
+      .select({ id: materialPurchases.id })
+      .from(materialPurchases)
+      .where(eq(materialPurchases.supplier_id, id))
+      .limit(1);
+
+    if (linkedPurchases.length > 0) {
+      // soft delete: تعطيل بدلاً من الحذف للحفاظ على بيانات المشتريات
+      await db.update(suppliers)
+        .set({ is_active: false })
+        .where(eq(suppliers.id, id));
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تعطيل المورد (له مشتريات سابقة) في ${duration}ms`);
+      return res.json({
+        success: true,
+        message: 'تم تعطيل المورد لوجود مشتريات مرتبطة به (لم يتم الحذف للحفاظ على السجلات).',
+        softDeleted: true,
+      });
+    }
+
+    const [deleted] = await db.delete(suppliers)
+      .where(eq(suppliers.id, id))
+      .returning();
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف المورد بنجاح في ${duration}ms`);
+    return res.json({
+      success: true,
+      data: deleted,
+      message: `تم حذف المورد "${deleted.name}" بنجاح`,
+      processingTime: duration,
+    });
+  } catch (error: any) {
+    console.error('❌ [Financial] خطأ في حذف المورد:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'فشل في حذف المورد'
+    });
+  }
+});
+
 /**
  * 🛒 المشتريات المادية
  * Material Purchases
@@ -1909,9 +2047,40 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
-    const filteredPurchases = isAdminUser
+    const filteredBase = isAdminUser
       ? purchases
       : purchases.filter((p: any) => p.project_id && accessibleIds.includes(p.project_id));
+
+    // إثراء النتائج بمعلومات ربط المخزن (وجود lots)
+    let filteredPurchases: any[] = filteredBase;
+    if (filteredBase.length > 0) {
+      const ids = filteredBase.map((p: any) => p.id);
+      const lotsRes = await pool.query(
+        `SELECT purchase_id,
+                COALESCE(SUM(remaining_qty), 0)::numeric as remaining_qty,
+                COALESCE(SUM(received_qty), 0)::numeric as received_qty
+         FROM inventory_lots
+         WHERE purchase_id = ANY($1::text[])
+         GROUP BY purchase_id`,
+        [ids]
+      );
+      const lotsMap = new Map<string, { remaining: number; received: number }>();
+      for (const r of lotsRes.rows) {
+        lotsMap.set(r.purchase_id, {
+          remaining: parseFloat(r.remaining_qty || '0'),
+          received: parseFloat(r.received_qty || '0'),
+        });
+      }
+      filteredPurchases = filteredBase.map((p: any) => {
+        const link = lotsMap.get(p.id);
+        return {
+          ...p,
+          hasInventoryLot: !!link,
+          inventoryRemaining: link?.remaining ?? 0,
+          inventoryReceived: link?.received ?? 0,
+        };
+      });
+    }
     
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم جلب ${filteredPurchases.length} مشترية في ${duration}ms`);
@@ -2048,8 +2217,15 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         const projectBudget = parseAmount(projectResult.rows[0]?.budget);
 
         if (projectBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent 
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent 
              FROM material_purchases WHERE project_id = $1`,
             [validated.project_id]
           );
@@ -2079,12 +2255,13 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           }
         }
 
-        // 3) حارس المبالغ الكبيرة غير الاعتيادية
+        // 3) حارس المبالغ الكبيرة غير الاعتيادية (يستثني التسويات والأنواع غير المالية)
         const avgResult = await pool.query(
           `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, 
                   COUNT(*) as purchase_count
            FROM material_purchases 
-           WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0`,
+           WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0
+             AND purchase_type NOT IN ('صرف مخزن','نقل مواد مستهلكة','نقل أصل','تسوية نقل صادر','تسوية نقل وارد')`,
           [validated.project_id]
         );
         const avgAmount = parseAmount(avgResult.rows[0]?.avg_amount);
@@ -2215,7 +2392,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
-    const isInventoryPurchase = purchaseData.purchaseType === 'مخزن' || purchaseData.purchaseType === 'توريد' || purchaseData.purchaseType === 'مخزني';
+    const shouldAddToInventoryConsumable = req.body.addToInventoryConsumable === true || req.body.addToInventoryConsumable === 'true';
+    const isInventoryPurchase = (purchaseData.purchaseType === 'مخزن' || purchaseData.purchaseType === 'توريد' || purchaseData.purchaseType === 'مخزني') || shouldAddToInventoryConsumable;
 
     const { newPurchase, createdEquipment, inventoryResult } = await withTransaction(async (client) => {
       const camelToSnake: Record<string, string> = {
@@ -2249,7 +2427,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
         const eqInsert = await client.query(
-          `INSERT INTO equipment (name, type, unit, quantity, status, condition, description, "purchaseDate", "purchasePrice", project_id)
+          `INSERT INTO equipment (name, type, unit, quantity, status, condition, description, purchase_date, purchase_price, project_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
           [p.material_name, p.material_category || null, p.material_unit || p.unit || 'قطعة', qty, 'available', 'excellent', p.notes || null, p.purchase_date, safePurchasePrice, p.project_id]
         );
@@ -2402,7 +2580,23 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    const alreadyHasEquipment = !!existing.equipmentId;
+    // التحقق من وجود الأصل المرتبط فعلياً في جدول equipment.
+    // قد يحدث أن يبقى equipmentId مرجعاً يتيماً إذا تم حذف الأصل قبل تطبيق إصلاح تنظيف المرجع.
+    let alreadyHasEquipment = !!existing.equipmentId;
+    if (alreadyHasEquipment) {
+      const eqExistsResult = await pool.query('SELECT 1 FROM equipment WHERE id = $1 LIMIT 1', [existing.equipmentId]);
+      if (eqExistsResult.rowCount === 0) {
+        // مرجع يتيم: نظّفه الآن واسمح بإعادة الإنشاء عند الحفظ بـ "أضف للأصول"
+        await pool.query(
+          'UPDATE material_purchases SET equipment_id = NULL, add_to_inventory = false WHERE id = $1',
+          [req.params.id]
+        );
+        console.log(`🔗 [MaterialPurchases] تنظيف مرجع أصل يتيم (equipmentId=${existing.equipmentId}) للمشتراة ${req.params.id}`);
+        alreadyHasEquipment = false;
+        existing.equipmentId = null;
+        existing.addToInventory = false;
+      }
+    }
     const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
     const purchaseId = req.params.id;
 
@@ -2417,8 +2611,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         const pBudget = parseAmount(projResult.rows[0]?.budget);
 
         if (pBudget > 0) {
+          // ✅ صافي المصروف: يستثني الأنواع غير المالية ويطرح قيود تسوية النقل الصادر
           const spentResult = await pool.query(
-            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
+            `SELECT COALESCE(SUM(
+               CASE
+                 WHEN purchase_type IN ('صرف مخزن', 'نقل مواد مستهلكة', 'نقل أصل') THEN 0
+                 WHEN purchase_type = 'تسوية نقل صادر' THEN -CAST(total_amount AS numeric)
+                 ELSE CAST(total_amount AS numeric)
+               END
+             ), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
             [existing.project_id, purchaseId]
           );
           const totalSpentExcluding = parseAmount(spentResult.rows[0]?.total_spent);
@@ -2434,7 +2635,8 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         }
 
         const avgResult = await pool.query(
-          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0`,
+          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0
+             AND purchase_type NOT IN ('صرف مخزن','نقل مواد مستهلكة','نقل أصل','تسوية نقل صادر','تسوية نقل وارد')`,
           [existing.project_id, purchaseId]
         );
         const avgAmt = parseAmount(avgResult.rows[0]?.avg_amount);
@@ -2489,8 +2691,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     const oldPurchaseType = existing.purchaseType;
     const newPurchaseType = validated.purchaseType || oldPurchaseType;
     const isStorageType = (t: string | null) => t === 'مخزن' || t === 'توريد' || t === 'مخزني';
-    const wasInventoryPurchase = isStorageType(oldPurchaseType);
-    const isInventoryPurchase = isStorageType(newPurchaseType);
+    // المصدر الموثوق: وجود inventory_lots مرتبطة بهذه المشتراة (لا الاعتماد فقط على purchaseType)
+    const lotsCheck = await pool.query(
+      `SELECT COUNT(*)::int as cnt FROM inventory_lots WHERE purchase_id = $1`,
+      [purchaseId]
+    );
+    const hasInventoryLots = (lotsCheck.rows[0]?.cnt || 0) > 0;
+    const wantConsumable = req.body.addToInventoryConsumable === true || req.body.addToInventoryConsumable === 'true';
+    const wasInventoryPurchase = hasInventoryLots || isStorageType(oldPurchaseType);
+    const isInventoryPurchase = wantConsumable || isStorageType(newPurchaseType);
 
     const { updated, createdEquipment } = await db.transaction(async (tx: any) => {
       const updatedResult = await tx
@@ -2614,9 +2823,16 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [MaterialPurchases] خطأ في تحديث المشتراة:', error);
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    // اكتشاف خطأ "تم صرف من المخزن" المحدد لإرجاع رسالة واضحة للمستخدم
+    const isInventoryConsumedError = /تم صرف|لا يمكن تقليل الكمية/.test(detail);
     res.status(400).json({
       success: false,
-      message: 'فشل في تحديث المشتراة',
+      message: isInventoryConsumedError
+        ? `لا يمكن التعديل: ${detail}. يجب تعديل أو حذف عمليات الصرف السابقة لهذه المادة من المخزن أولاً.`
+        : `فشل في تحديث المشتراة: ${detail}`,
+      error: detail,
+      inventoryConflict: isInventoryConsumedError,
       data: null,
       processingTime: duration
     });
@@ -2640,15 +2856,27 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     }
 
     const purchaseType = existingPurchase[0].purchaseType;
-    const isInventoryPurchase = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+    const isStorageType = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+    // فحص وجود lots مرتبطة (يشمل المشتريات نقد/آجل التي أُضيفت كاستهلاك)
+    const lotsCheckDel = await pool.query(
+      `SELECT COUNT(*)::int as cnt FROM inventory_lots WHERE purchase_id = $1`,
+      [req.params.id]
+    );
+    const hasInventoryLotsDel = (lotsCheckDel.rows[0]?.cnt || 0) > 0;
+    const isInventoryPurchase = isStorageType || hasInventoryLotsDel;
 
     const deleted = await withTransaction(async (client) => {
       const txDb = createDrizzle(client);
 
       if (isInventoryPurchase) {
         const { InventoryService } = await import('../../services/InventoryService.js');
-        await InventoryService.reverseFromPurchaseWithClient(req.params.id, client);
-        console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
+        try {
+          await InventoryService.reverseFromPurchaseWithClient(req.params.id, client);
+          console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
+        } catch (revErr: any) {
+          // إذا كان قد صُرف من المخزن، الخدمة سترفض ويجب رفع الخطأ بوضوح
+          throw new Error(revErr?.message || 'فشل عكس المخزن - قد تكون هناك عمليات صرف معتمدة على هذه المشتراة');
+        }
       }
 
       await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id);
@@ -2688,9 +2916,15 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [MaterialPurchases] خطأ في حذف المشتراة:', error);
+    const detail = error?.message || error?.detail || 'سبب غير معروف';
+    const isInventoryConsumedError = /تم صرف|لا يمكن تقليل الكمية|عمليات صرف/.test(detail);
     res.status(400).json({
       success: false,
-      message: 'فشل في حذف المشتراة',
+      message: isInventoryConsumedError
+        ? `لا يمكن الحذف: ${detail}. احذف أو عدّل عمليات الصرف من المخزن أولاً.`
+        : `فشل في حذف المشتراة: ${detail}`,
+      error: detail,
+      inventoryConflict: isInventoryConsumedError,
       data: null,
       processingTime: duration
     });

@@ -110,10 +110,12 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
       return;
     }
 
-    // معيار صناعي: versionCode هو المصدر الموثوق الوحيد لمقارنة إصدارات Android (Google Play / Play Console).
-    // versionName قد يأتي من web bundle fallback عندما يفشل @capacitor/app plugin (APK قديم بدون الإضافة) →
-    // اعتبار العميل "غير معروف" إذا كان versionCode == 0 يضمن التعافي التلقائي من هذه الحالة.
-    const clientVersionUnknown = clientVersionCode === 0;
+    // معيار صناعي: versionCode هو المصدر الموثوق للمقارنة، لكن @capacitor/app يُرجع build=''
+    // في بعض APKs مما يجعل versionCode=0 حتى مع versionName صحيح (مثل "1.0.31").
+    // نعتبر الإصدار "مجهولاً" فقط إذا كان versionCode=0 مع versionName فارغ أو افتراضي (0.0.0).
+    // إذا كان versionName معروف → نستخدمه للمقارنة وندّعي أن الإصدار معروف.
+    const clientVersionUnknown = clientVersionCode === 0 &&
+      (clientVersionName === '0.0.0' || clientVersionName === '');
 
     const byVersionName = compareVersions(latest.versionName, clientVersionName) > 0;
     const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;
@@ -515,6 +517,7 @@ function compareVersions(a: string, b: string): number {
 async function handlePublicApkDownload(req: Request, res: Response): Promise<void> {
   const SSH_SIZE_TIMEOUT_MS = 20000;
   const SSH_STREAM_TIMEOUT_MS = 120000;
+  const LOCAL_STREAM_HIGH_WATER_MARK = 256 * 1024;
 
   const clientIp = req.ip || req.socket.remoteAddress || "unknown";
   if (isDownloadRateLimited(clientIp)) {
@@ -556,6 +559,80 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
     }
 
     const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+
+    // ⚡ مسار سريع: لو الملف موجود محلياً (نفس السيرفر) نقرأه عبر fs مباشرة
+    // تجنّب overhead التشفير/فك التشفير في SFTP وإضاعة CPU الذي يبطّئ التحميل بشدة.
+    const fs = await import("fs");
+    const fsp = fs.promises;
+    let localStat: import("fs").Stats | null = null;
+    try {
+      localStat = await fsp.stat(remotePath);
+      if (!localStat.isFile()) localStat = null;
+    } catch {
+      localStat = null;
+    }
+
+    if (localStat) {
+      const fileSize = localStat.size;
+      if (fileSize < 1000) {
+        if (!res.headersSent) res.status(404).json({ error: "ملف APK غير صالح" });
+        return;
+      }
+
+      // Range support للاستئناف (مهم للتحميلات الكبيرة على الموبايل)
+      const rangeHeader = req.headers.range as string | undefined;
+      let start = 0;
+      let end = fileSize - 1;
+      let isPartial = false;
+      if (rangeHeader) {
+        const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+        if (m) {
+          if (m[1]) start = parseInt(m[1], 10);
+          if (m[2]) end = Math.min(parseInt(m[2], 10), fileSize - 1);
+          if (isNaN(start) || isNaN(end) || start > end || start >= fileSize) {
+            res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+            res.end();
+            return;
+          }
+          isPartial = true;
+        }
+      }
+      const length = end - start + 1;
+
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Length", String(length));
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "no-store");
+      if (isPartial) {
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+      }
+
+      if (req.method === "HEAD") {
+        res.end();
+        return;
+      }
+
+      const stream = fs.createReadStream(remotePath, {
+        start,
+        end,
+        highWaterMark: LOCAL_STREAM_HIGH_WATER_MARK,
+      });
+      const cleanupLocal = () => { try { stream.destroy(); } catch {} };
+      req.on("close", cleanupLocal);
+      res.on("close", cleanupLocal);
+      stream.on("error", (err: Error) => {
+        console.error("[Public APK Download] Local FS stream error:", err.message);
+        if (!res.headersSent) res.status(500).json({ error: "فشل قراءة الملف" });
+        cleanupLocal();
+      });
+      stream.pipe(res);
+      return;
+    }
+
+    // 🐌 المسار البطيء (احتياطي): SFTP إلى سيرفر بعيد
     const { statRemoteFileSize, openRemoteReadStream } = await import("../../services/sftp-client.js");
 
     let fileSize: number | null;

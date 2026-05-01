@@ -291,10 +291,20 @@ export class InventoryService {
     transactionDate: string;
     performedBy?: string | null;
     notes?: string | null;
-  }): Promise<{ success: boolean; issuedLots: Array<{ lotId: number; qty: number; unitCost: number }> }> {
+  }): Promise<{ success: boolean; issuedLots: Array<{ lotId: number; qty: number; unitCost: number }>; purchaseLogId?: string }> {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const { rows: itemRows } = await client.query(
+        `SELECT name, unit, category FROM inventory_items WHERE id = $1`,
+        [data.itemId]
+      );
+      if (itemRows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('المادة غير موجودة');
+      }
+      const itemInfo = itemRows[0];
 
       const { rows: availableLots } = await client.query(
         `SELECT id, remaining_qty, unit_cost FROM inventory_lots 
@@ -315,6 +325,7 @@ export class InventoryService {
       }
 
       let remaining = data.quantity;
+      let totalIssuedCost = 0;
       const issuedLots: Array<{ lotId: number; qty: number; unitCost: number }> = [];
 
       for (const lot of availableLots) {
@@ -336,11 +347,229 @@ export class InventoryService {
         );
 
         issuedLots.push({ lotId: lot.id, qty: issueQty, unitCost });
+        totalIssuedCost += issueQty * unitCost;
         remaining -= issueQty;
       }
 
+      // إدراج صف في سجل المشتريات للمشروع المستقبل (للتوثيق فقط - بدون أثر مالي)
+      let purchaseLogId: string | undefined;
+      if (data.toProjectId) {
+        const avgUnitCost = data.quantity > 0 ? totalIssuedCost / data.quantity : 0;
+        const purchaseNotes = `صرف من المخزن - ${itemInfo.name}${data.notes ? ' | ' + data.notes : ''}`;
+        const { rows: purchaseRows } = await client.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, $9, $10, $11)
+           RETURNING id`,
+          [
+            data.toProjectId,
+            itemInfo.name,
+            itemInfo.category || null,
+            itemInfo.unit,
+            data.quantity,
+            itemInfo.unit,
+            avgUnitCost,
+            'صرف مخزن',
+            'المخزن',
+            purchaseNotes,
+            data.transactionDate,
+          ]
+        );
+        purchaseLogId = purchaseRows[0].id;
+      }
+
       await client.query('COMMIT');
-      return { success: true, issuedLots };
+      return { success: true, issuedLots, purchaseLogId };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async transferBetweenProjects(data: {
+    itemId: number;
+    quantity: number;
+    fromProjectId: string;
+    toProjectId: string;
+    transactionDate: string;
+    performedBy?: string | null;
+    notes?: string | null;
+  }): Promise<{ success: boolean; movedLots: Array<{ sourceLotId: number; newLotId: number; qty: number; unitCost: number }>; purchaseLogId: string }> {
+    if (data.fromProjectId === data.toProjectId) {
+      throw new Error('لا يمكن النقل من المشروع نفسه إلى نفسه');
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: itemRows } = await client.query(
+        `SELECT name, unit, category FROM inventory_items WHERE id = $1`,
+        [data.itemId]
+      );
+      if (itemRows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('المادة غير موجودة');
+      }
+      const itemInfo = itemRows[0];
+
+      const { rows: fromProj } = await client.query(`SELECT name FROM projects WHERE id = $1`, [data.fromProjectId]);
+      const { rows: toProj } = await client.query(`SELECT name FROM projects WHERE id = $1`, [data.toProjectId]);
+      if (fromProj.length === 0 || toProj.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('أحد المشاريع غير موجود');
+      }
+      const fromProjectName = fromProj[0].name;
+      const toProjectName = toProj[0].name;
+
+      // جلب lots المتاحة في المشروع المصدر فقط، بترتيب FIFO
+      const { rows: sourceLots } = await client.query(
+        `SELECT id, supplier_id, remaining_qty, unit_cost, receipt_date 
+         FROM inventory_lots 
+         WHERE item_id = $1 AND project_id = $2 AND remaining_qty > 0 
+         ORDER BY receipt_date ASC, id ASC
+         FOR UPDATE`,
+        [data.itemId, data.fromProjectId]
+      );
+
+      const totalAvailable = sourceLots.reduce((s, l) => s + parseFloat(l.remaining_qty), 0);
+      if (totalAvailable < data.quantity) {
+        await client.query('ROLLBACK');
+        throw new Error(`الكمية المتاحة في المشروع المصدر (${totalAvailable.toFixed(2)}) أقل من الكمية المطلوب نقلها (${data.quantity})`);
+      }
+
+      let remaining = data.quantity;
+      let totalCost = 0;
+      const movedLots: Array<{ sourceLotId: number; newLotId: number; qty: number; unitCost: number }> = [];
+      const transferNoteBase = `موردة من مشروع: ${fromProjectName}${data.notes ? ' | ' + data.notes : ''}`;
+
+      for (const lot of sourceLots) {
+        if (remaining <= 0) break;
+
+        const lotRemaining = parseFloat(lot.remaining_qty);
+        const moveQty = Math.min(remaining, lotRemaining);
+        const unitCost = parseFloat(lot.unit_cost) || 0;
+        totalCost += moveQty * unitCost;
+
+        // خصم من lot المصدر
+        await client.query(
+          `UPDATE inventory_lots SET remaining_qty = remaining_qty - $1 WHERE id = $2`,
+          [moveQty, lot.id]
+        );
+
+        // إنشاء lot جديد في المشروع المقصود (يحتفظ بـ supplier_id الأصلي وunit_cost)
+        const { rows: newLotRows } = await client.query(
+          `INSERT INTO inventory_lots (item_id, supplier_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+          [data.itemId, lot.supplier_id || null, moveQty, moveQty, unitCost, data.transactionDate, data.toProjectId, transferNoteBase]
+        );
+        const newLotId = newLotRows[0].id;
+
+        // تسجيل خروج من المشروع المصدر
+        await client.query(
+          `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, from_project_id, to_project_id, reference_type, reference_id, performed_by, transaction_date, notes)
+           VALUES ($1, $2, 'OUT', $3, $4, $5, $6, $7, 'project_transfer', $8, $9, $10, $11)`,
+          [data.itemId, lot.id, moveQty, unitCost, moveQty * unitCost, data.fromProjectId, data.toProjectId, String(newLotId), data.performedBy || null, data.transactionDate, `نقل إلى مشروع: ${toProjectName}`]
+        );
+
+        // تسجيل دخول للمشروع المقصود
+        await client.query(
+          `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, from_project_id, to_project_id, reference_type, reference_id, performed_by, transaction_date, notes)
+           VALUES ($1, $2, 'IN', $3, $4, $5, $6, $7, 'project_transfer', $8, $9, $10, $11)`,
+          [data.itemId, newLotId, moveQty, unitCost, moveQty * unitCost, data.fromProjectId, data.toProjectId, String(lot.id), data.performedBy || null, data.transactionDate, transferNoteBase]
+        );
+
+        movedLots.push({ sourceLotId: lot.id, newLotId, qty: moveQty, unitCost });
+        remaining -= moveQty;
+      }
+
+      const avgUnitCost = data.quantity > 0 ? totalCost / data.quantity : 0;
+
+      // إدراج صف في سجل المشتريات للمشروع المستقبل (purchaseType مميز - بدون أثر مالي)
+      const { rows: purchaseRows } = await client.query(
+        `INSERT INTO material_purchases (
+           project_id, material_name, material_category, material_unit,
+           quantity, unit, unit_price, total_amount,
+           purchase_type, paid_amount, remaining_amount,
+           supplier_name, notes, purchase_date
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, $9, $10, $11)
+         RETURNING id`,
+        [
+          data.toProjectId,
+          itemInfo.name,
+          itemInfo.category || null,
+          itemInfo.unit,
+          data.quantity,
+          itemInfo.unit,
+          avgUnitCost,
+          'نقل مواد مستهلكة',
+          `مشروع: ${fromProjectName}`,
+          `مواد مستهلكة موردة من مشروع: ${fromProjectName}${data.notes ? ' | ' + data.notes : ''}`,
+          data.transactionDate,
+        ]
+      );
+
+      // ✅ قيود التسوية المحاسبية (Cost Reallocation) — تمنع ازدواج المصروف
+      // المرجع: AICPA Construction Contractors Guide — Job Costing WIP-to-WIP Transfer
+      // المنطق: تخفيض مصروفات المشروع المصدر بقيمة المواد المنقولة، وإضافتها كمصروف للمشروع المستلم
+      if (totalCost > 0) {
+        // 1) قيد خصم في المشروع المصدر A (يقلل مصروفاته بقيمة المتبقي المنقول)
+        await client.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, 0, $10, $11, $12)`,
+          [
+            data.fromProjectId,
+            itemInfo.name,
+            itemInfo.category || null,
+            itemInfo.unit,
+            data.quantity,
+            itemInfo.unit,
+            avgUnitCost,
+            totalCost,
+            'تسوية نقل صادر',
+            `مشروع: ${toProjectName}`,
+            `تسوية محاسبية: تخفيض مصروف بقيمة مواد منقولة إلى مشروع: ${toProjectName} (الكمية: ${data.quantity} ${itemInfo.unit})`,
+            data.transactionDate,
+          ]
+        );
+
+        // 2) قيد إضافة في المشروع المستلم B (يضيف قيمة المواد المستلمة كمصروف)
+        await client.query(
+          `INSERT INTO material_purchases (
+             project_id, material_name, material_category, material_unit,
+             quantity, unit, unit_price, total_amount,
+             purchase_type, paid_amount, remaining_amount,
+             supplier_name, notes, purchase_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, 0, $10, $11, $12)`,
+          [
+            data.toProjectId,
+            itemInfo.name,
+            itemInfo.category || null,
+            itemInfo.unit,
+            data.quantity,
+            itemInfo.unit,
+            avgUnitCost,
+            totalCost,
+            'تسوية نقل وارد',
+            `مشروع: ${fromProjectName}`,
+            `تسوية محاسبية: إضافة قيمة مواد مستلمة من مشروع: ${fromProjectName} (الكمية: ${data.quantity} ${itemInfo.unit})`,
+            data.transactionDate,
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log(`📦 [Inventory] تم نقل ${data.quantity} ${itemInfo.unit} من ${itemInfo.name} من مشروع ${fromProjectName} إلى ${toProjectName}`);
+      return { success: true, movedLots, purchaseLogId: purchaseRows[0].id };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -413,36 +642,62 @@ export class InventoryService {
   static async getCurrentStock(filters?: { category?: string; search?: string; projectId?: string }): Promise<any[]> {
     const params: any[] = [];
     let paramIdx = 1;
-    let projectCondition = '';
-    let projectConditionLot = '';
-    let projectConditionTx = '';
+    let lotProjectFilter = '';
 
+    // عند تحديد مشروع → JOIN صارم على il.project_id = $1 (لا تظهر مواد ليس لها lots بهذا المشروع)
+    // عند "جميع المشاريع" → INNER JOIN بدون فلترة + GROUP BY (item, project) ⇒ بطاقة لكل (مادة × مشروع)
     if (filters?.projectId) {
-      projectCondition = ` AND il.project_id = $${paramIdx}`;
-      projectConditionLot = ` AND il2.project_id = $${paramIdx}`;
-      projectConditionTx = ` AND (it2.to_project_id = $${paramIdx} OR it2.from_project_id = $${paramIdx})`;
+      lotProjectFilter = ` AND il.project_id = $${paramIdx}`;
       params.push(filters.projectId);
       paramIdx++;
     }
 
-    const projectConditionTxReturn = projectConditionTx.replace(/it2\./g, 'it3.');
-
-    const joinType = filters?.projectId ? 'JOIN' : 'LEFT JOIN';
-
     let query = `
       SELECT 
         ii.id, ii.name, ii.category, ii.unit, ii.sku, ii.min_quantity, ii.is_active,
+        il.project_id,
+        p.name as project_name,
         COALESCE(SUM(il.received_qty), 0) as total_received,
         COALESCE(SUM(il.remaining_qty), 0) as total_remaining,
         COALESCE(SUM(il.received_qty), 0) - COALESCE(SUM(il.remaining_qty), 0) as total_issued,
         COALESCE(SUM(il.remaining_qty * il.unit_cost), 0) as stock_value,
-        COALESCE((SELECT SUM(it2.quantity) FROM inventory_transactions it2 WHERE it2.item_id = ii.id AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')${projectConditionTx}), 0) as total_issued_gross,
-        COALESCE((SELECT SUM(it3.quantity) FROM inventory_transactions it3 WHERE it3.item_id = ii.id AND it3.type = 'RETURN'${projectConditionTxReturn}), 0) as total_returned,
-        (SELECT COUNT(DISTINCT il2.supplier_id) FROM inventory_lots il2 WHERE il2.item_id = ii.id AND il2.supplier_id IS NOT NULL${projectConditionLot}) as supplier_count,
-        MAX(il.receipt_date) as last_receipt_date,
-        (SELECT string_agg(DISTINCT p2.name, '، ') FROM inventory_lots il3 JOIN projects p2 ON p2.id = il3.project_id WHERE il3.item_id = ii.id${projectConditionLot.replace(/il2\./g, 'il3.')}) as project_name
+        COALESCE((
+          SELECT SUM(it2.quantity)
+          FROM inventory_transactions it2
+          WHERE it2.item_id = ii.id
+            AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')
+            AND (
+              il.project_id IS NULL
+              OR it2.from_project_id = il.project_id
+              OR it2.to_project_id = il.project_id
+            )
+        ), 0) as total_issued_gross,
+        COALESCE((
+          SELECT SUM(it3.quantity)
+          FROM inventory_transactions it3
+          WHERE it3.item_id = ii.id
+            AND it3.type = 'RETURN'
+            AND (
+              il.project_id IS NULL
+              OR it3.from_project_id = il.project_id
+              OR it3.to_project_id = il.project_id
+            )
+        ), 0) as total_returned,
+        COUNT(DISTINCT il.supplier_id) FILTER (WHERE il.supplier_id IS NOT NULL) as supplier_count,
+        COALESCE(
+          (
+            SELECT string_agg(DISTINCT s2.name, '، ' ORDER BY s2.name)
+            FROM inventory_lots il_s
+            JOIN suppliers s2 ON s2.id = il_s.supplier_id
+            WHERE il_s.item_id = ii.id
+              AND il_s.supplier_id IS NOT NULL
+              AND (il.project_id IS NULL OR il_s.project_id = il.project_id)
+          ),
+          '—'
+        ) as supplier_names,
+        MAX(il.receipt_date) as last_receipt_date
       FROM inventory_items ii
-      ${joinType} inventory_lots il ON il.item_id = ii.id${projectCondition}
+      JOIN inventory_lots il ON il.item_id = ii.id${lotProjectFilter}
       LEFT JOIN projects p ON p.id = il.project_id
       WHERE ii.is_active = true
     `;
@@ -456,7 +711,13 @@ export class InventoryService {
       params.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
-    query += ` GROUP BY ii.id ORDER BY ii.name ASC`;
+    if (filters?.projectId) {
+      // مشروع محدد: صف واحد لكل مادة (محصور بهذا المشروع)
+      query += ` GROUP BY ii.id, il.project_id, p.name ORDER BY ii.name ASC`;
+    } else {
+      // جميع المشاريع: صف لكل (مادة × مشروع) — بطاقة لكل ظهور
+      query += ` GROUP BY ii.id, il.project_id, p.name ORDER BY ii.name ASC, p.name ASC NULLS LAST`;
+    }
 
     const { rows } = await pool.query(query, params);
     return rows;
@@ -681,7 +942,7 @@ export class InventoryService {
         [data.name, data.category || null, data.unit, data.min_quantity || 0, itemId]
       );
 
-      if (data.adjustment_quantity !== undefined && data.adjustment_quantity !== null) {
+      if (data.adjustment_quantity !== undefined && data.adjustment_quantity !== null && !Number.isNaN(Number(data.adjustment_quantity))) {
         const targetQty = Number(data.adjustment_quantity);
         const { rows: currentRows } = await client.query(
           `SELECT COALESCE(SUM(remaining_qty), 0) as current_remaining FROM inventory_lots WHERE item_id = $1`,
@@ -689,21 +950,25 @@ export class InventoryService {
         );
         const currentRemaining = parseFloat(currentRows[0].current_remaining);
         const diff = targetQty - currentRemaining;
+        const todayStr = new Date().toISOString().slice(0, 10);
 
         if (Math.abs(diff) > 0.001) {
           if (diff > 0) {
             await client.query(
               `INSERT INTO inventory_lots (item_id, received_qty, remaining_qty, unit_cost, receipt_date, notes)
-               VALUES ($1, $2, $3, 0, NOW(), 'تسوية مخزون - زيادة')`,
-              [itemId, diff, diff]
+               VALUES ($1, $2, $3, 0, $4, 'تسوية مخزون - زيادة')`,
+              [itemId, diff, diff, todayStr]
             );
             await client.query(
               `INSERT INTO inventory_transactions (item_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
-               VALUES ($1, 'ADJUSTMENT_IN', $2, 0, 0, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
-              [itemId, diff]
+               VALUES ($1, 'ADJUSTMENT_IN', $2, 0, 0, $3, 'تسوية مخزون - تعديل الكمية', 'system')`,
+              [itemId, diff, todayStr]
             );
           } else {
             const absAdjust = Math.abs(diff);
+            if (absAdjust > currentRemaining + 0.001) {
+              throw new Error(`الكمية المتاحة (${currentRemaining}) أقل من المطلوب خصمه (${absAdjust})`);
+            }
             const { rows: lots } = await client.query(
               `SELECT id, remaining_qty, unit_cost FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
               [itemId]
@@ -719,8 +984,8 @@ export class InventoryService {
               );
               await client.query(
                 `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
-                 VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
-                [itemId, lot.id, deduct, unitCost, deduct * unitCost]
+                 VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, $6, 'تسوية مخزون - تعديل الكمية', 'system')`,
+                [itemId, lot.id, deduct, unitCost, deduct * unitCost, todayStr]
               );
               remaining -= deduct;
             }

@@ -18,10 +18,10 @@ import { useSelectedProjectContext } from "@/contexts/SelectedProjectContext";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import type { PeriodFinalReportData } from "@shared/report-types";
-import { COLORS, LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport } from "./utils";
+import { COLORS, LoadingSpinner, EmptyState, ReportTable, safeFormatDate, secureDownloadExport, buildArabicReportFileName } from "./utils";
 
 export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
-  const { selectedProjectId, isAllProjects } = useSelectedProjectContext();
+  const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
@@ -113,7 +113,13 @@ export function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     const setLoading = fmt === "xlsx" ? setIsExportingXlsx : setIsExportingPdf;
     setLoading(true);
     try {
-      await secureDownloadExport("period-final", fmt, { project_id: projectIdForApi, dateFrom, dateTo }, toast);
+      await secureDownloadExport(
+        "period-final",
+        fmt,
+        { project_id: projectIdForApi, dateFrom, dateTo },
+        toast,
+        buildArabicReportFileName({ type: "period-final", fmt, projectName: selectedProjectName, dateFrom, dateTo }),
+      );
     } finally {
       setLoading(false);
     }

@@ -241,6 +241,17 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
         }
       }
     });
+
+    // 🚀 تشغيل migrations IDB بعد فتح الاتصال
+    try {
+      const { runIdbMigrations } = await import('./migrations/migration-runner');
+      const { applied, current } = await runIdbMigrations(dbInstance);
+      if (applied.length > 0) {
+        console.log(`[IDB] Migrations applied: ${applied.join(', ')} (current=v${current})`);
+      }
+    } catch (mErr: any) {
+      console.error('[IDB] Migrations failed (continuing):', mErr?.message ?? mErr);
+    }
   } catch (error) {
     throw error;
   }

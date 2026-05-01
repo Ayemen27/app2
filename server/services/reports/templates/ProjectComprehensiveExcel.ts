@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { ProjectComprehensiveReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, formatNum, formatInt, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
@@ -219,7 +220,11 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
   }
 
   row++;
-  row = xlSignatures(ws, row, ['مدير المشروع', 'المهندس المسؤول', 'المحاسب'], [[1, 3], [4, 6], [7, 9]]);
+  row = xlSignatures(ws, row, [
+    { title: 'مدير المشروع', name: data.project.managerName },
+    { title: 'المهندس المسؤول', name: data.project.engineerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 3], [4, 6], [7, 9]]);
   row++;
   row = xlFooter(ws, row, COL_COUNT);
 

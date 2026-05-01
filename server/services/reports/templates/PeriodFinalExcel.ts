@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { PeriodFinalReportData } from '../../../../shared/report-types';
+import { currentReportHeader } from './header-context';
 import {
   COLORS, BORDER, formatNum, formatDateBR, nowDateBR,
   xlCompanyHeader, xlTitleRow, xlInfoRow, xlSectionHeader,
@@ -380,18 +381,19 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   }
 
   if (data.sections.inventoryIssued?.items?.length) {
-    row = xlSectionHeader(ws, row, 'حركة المخزون (صرف)', COL_COUNT);
+    row = xlSectionHeader(ws, row, 'حركة المخزون', COL_COUNT);
     {
       const hdr = ws.getRow(row);
-      ws.mergeCells(row, 7, row, 9);
       const headers = [
         { col: 1, text: '#' },
         { col: 2, text: 'الصنف' },
         { col: 3, text: 'الفئة' },
-        { col: 4, text: 'الوحدة' },
-        { col: 5, text: 'الكمية المصروفة' },
-        { col: 6, text: 'المتبقي' },
-        { col: 7, text: 'ملاحظات' },
+        { col: 4, text: 'النوع' },
+        { col: 5, text: 'الكمية' },
+        { col: 6, text: 'الوحدة' },
+        { col: 7, text: 'الحالة' },
+        { col: 8, text: 'المشروع / الوجهة' },
+        { col: 9, text: 'متبقي بالمشروع' },
       ];
       headers.forEach(({ col, text }) => {
         hdr.getCell(col).value = text;
@@ -400,41 +402,54 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
         hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hdr.getCell(col).border = BORDER;
       });
-      for (let c = 1; c <= COL_COUNT; c++) {
-        if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
-        if (!hdr.getCell(c).font?.bold) {
-          hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
-        }
-      }
       hdr.height = 26;
       row++;
     }
     data.sections.inventoryIssued.items.forEach((item, idx) => {
       const r = ws.getRow(row);
-      ws.mergeCells(row, 7, row, 9);
+      const isTransfer = item.transactionType === 'نقل';
+      const projectCell = isTransfer && item.targetProjectName
+        ? `${item.projectName} ← ${item.targetProjectName}`
+        : (item.projectName || '-');
       r.getCell(1).value = idx + 1;
       r.getCell(2).value = item.itemName;
       r.getCell(3).value = item.category;
-      r.getCell(4).value = item.unit;
+      r.getCell(4).value = item.transactionType;
       r.getCell(5).value = item.issuedQty;
-      r.getCell(6).value = item.remainingQty;
-      r.getCell(7).value = item.notes || '-';
+      r.getCell(6).value = item.unit;
+      r.getCell(7).value = item.status;
+      r.getCell(8).value = projectCell;
+      r.getCell(9).value = item.remainingInProject;
       for (let c = 1; c <= COL_COUNT; c++) {
-        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        const isTextCol = c === 2 || c === 3 || c === 8;
+        r.getCell(c).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
         r.getCell(c).font = { size: 10, name: 'Calibri' };
         r.getCell(c).border = BORDER;
         if (idx % 2 === 1) {
           r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
         }
       }
+      // تلوين النوع والحالة
+      if (isTransfer) {
+        r.getCell(4).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF92400E' } };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        r.getCell(7).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF92400E' } };
+      } else {
+        r.getCell(4).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF1E40AF' } };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+        r.getCell(7).font = { size: 10, name: 'Calibri', bold: true, color: { argb: 'FF991B1B' } };
+      }
+      r.getCell(5).font = { size: 10, name: 'Calibri', bold: true, color: { argb: COLORS.red } };
       r.height = 24;
       row++;
     });
     {
+      const transferCount = data.sections.inventoryIssued.items.filter(i => i.transactionType === 'نقل').length;
+      const issueCount = data.sections.inventoryIssued.items.length - transferCount;
       const r = ws.getRow(row);
       ws.mergeCells(row, 1, row, 4);
       ws.mergeCells(row, 6, row, 9);
-      r.getCell(1).value = `إجمالي الأصناف: ${data.sections.inventoryIssued.totalItems}`;
+      r.getCell(1).value = `إجمالي ${data.sections.inventoryIssued.totalItems} حركة • صرف: ${issueCount} • نقل: ${transferCount}`;
       r.getCell(5).value = data.sections.inventoryIssued.totalIssuedQty;
       for (let c = 1; c <= COL_COUNT; c++) {
         r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
@@ -443,6 +458,15 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
         r.getCell(c).border = BORDER;
       }
       r.height = 28;
+      row++;
+    }
+    {
+      const noteRow = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 9);
+      noteRow.getCell(1).value = 'ملاحظة: المواد المنقولة بين المشاريع لا تُحتسب ضمن "المشتريات الجديدة" — هي حركة مخزنية فقط بدون أثر مالي.';
+      noteRow.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF6B7280' }, name: 'Calibri' };
+      noteRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
+      noteRow.height = 18;
       row++;
     }
     row++;
@@ -505,7 +529,11 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   }
 
   row += 2;
-  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, 3], [4, 6], [7, 9]]);
+  row = xlSignatures(ws, row, [
+    { title: 'المهندس', name: data.project.engineerName },
+    { title: 'المدير', name: data.project.managerName },
+    { title: 'المحاسب', name: currentReportHeader().accountant_name || undefined },
+  ], [[1, 3], [4, 6], [7, 9]]);
 
   row += 2;
   row = xlFooter(ws, row, COL_COUNT);

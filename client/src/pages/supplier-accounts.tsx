@@ -42,6 +42,7 @@ export default function SupplierAccountsPage() {
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { setFloatingAction } = useFloatingButton();
   const { selectedProjectId, getProjectIdForApi } = useSelectedProject();
@@ -347,6 +348,65 @@ export default function SupplierAccountsPage() {
     setIsRefreshing(false);
   }, []);
 
+  const handleExportPdf = useCallback(async () => {
+    if (purchases.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      
+      const data = purchases.map((purchase, index) => {
+        const projectName = projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد';
+        return {
+          index: index + 1,
+          date: formatDate(purchase.invoiceDate || purchase.purchaseDate),
+          materialName: purchase.materialName || 'غير محدد',
+          projectName,
+          totalAmount: formatCurrency(purchase.totalAmount),
+          paidAmount: formatCurrency(purchase.paidAmount || "0"),
+          remainingAmount: formatCurrency(purchase.remainingAmount || "0"),
+        };
+      });
+
+      const infoItems = [
+        { label: "إجمالي المشتريات", value: purchases.length },
+        { label: "إجمالي المبالغ", value: formatCurrency(totals.totalAmount) },
+        { label: "المدفوع", value: formatCurrency(totals.paidAmount) },
+        { label: "المتبقي", value: formatCurrency(totals.remainingAmount) },
+      ];
+
+      if (selectedSupplier) {
+        infoItems.unshift({ label: "المورد", value: selectedSupplier.name });
+      }
+
+      const success = await generateTablePDF({
+        reportTitle: "كشف حساب المورد",
+        subtitle: selectedSupplier ? `المورد: ${selectedSupplier.name}` : 'جميع الموردين',
+        infoItems,
+        columns: [
+          { header: "م", key: "index", width: 5 },
+          { header: "التاريخ", key: "date", width: 13 },
+          { header: "المادة", key: "materialName", width: 20 },
+          { header: "المشروع", key: "projectName", width: 18 },
+          { header: "الإجمالي", key: "totalAmount", width: 14 },
+          { header: "المدفوع", key: "paidAmount", width: 14 },
+          { header: "المتبقي", key: "remainingAmount", width: 14 },
+        ],
+        data,
+        filename: selectedSupplier 
+          ? `كشف_حساب_${selectedSupplier.name}_${new Date().toISOString().split('T')[0]}`
+          : `كشف_حساب_جميع_الموردين_${new Date().toISOString().split('T')[0]}`,
+        orientation: "portrait",
+      });
+      
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: "فشل في تصدير PDF", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [purchases, projects, totals, selectedSupplier, toast]);
+
   useEffect(() => {
     if (selectedSupplierId && dateRange) {
       setDateFrom(dateRange.minDate);
@@ -508,8 +568,18 @@ export default function SupplierAccountsPage() {
         isRefreshing={isRefreshing}
         actions={[
           {
+            key: "export-pdf",
+            icon: FileText,
+            label: "تصدير PDF",
+            onClick: handleExportPdf,
+            variant: "outline",
+            loading: isExportingPdf,
+            disabled: purchases.length === 0,
+            tooltip: "تصدير إلى ملف PDF",
+          },
+          {
             key: 'export',
-            label: 'تصدير',
+            label: 'تصدير Excel',
             icon: Download,
             onClick: exportToExcel,
             disabled: purchases.length === 0,

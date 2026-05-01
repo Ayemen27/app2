@@ -7,6 +7,7 @@
 import { formatCurrency } from '@/lib/utils';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { getBranding, hexNoHash, ensureBrandingLoaded } from '@/lib/report-branding';
+import { buildExcelLetterhead, buildExcelLetterheadFooter } from '@/lib/excel-exports';
 
 /**
  * 🖼️ يضيف شعار الشركة إلى ورقة Excel من data URL.
@@ -258,28 +259,27 @@ function applyRowStyle(row: any, style: any, startCol: number, endCol: number) {
   }
 }
 
+/**
+ * 🏛️ ترويسة موحَّدة عبر كل تقارير Excel — مطابقة لترويسة الـ PDF.
+ * تستدعي buildExcelLetterhead (الذي يضع: شعار الشركة من الإعدادات + اسمها +
+ * شريط accent + بيانات الاتصال + شريط عنوان التقرير + تاريخ الاستخراج)،
+ * ثم تضيف صف subtitle اختيارياً إذا مُرّر.
+ */
 async function addAlFatihiHeader(
   worksheet: any,
   title: string,
   subtitle: string,
   columnCount: number
 ): Promise<number> {
-  let currentRow = 1;
+  // الترويسة الموحدة (شعار + اسم شركة + accent + بيانات اتصال + عنوان التقرير + تاريخ)
+  let currentRow = await buildExcelLetterhead(
+    worksheet.workbook,
+    worksheet,
+    columnCount,
+    title
+  );
 
-  worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
-  const companyRow = worksheet.getRow(currentRow);
-  companyRow.getCell(1).value = COMPANY_INFO.name;
-  applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
-  companyRow.height = 20;
-  currentRow++;
-
-  worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
-  const titleRow = worksheet.getRow(currentRow);
-  titleRow.getCell(1).value = title;
-  applyStyle(titleRow.getCell(1), EXCEL_STYLES.headerSecondary);
-  titleRow.height = 20;
-  currentRow++;
-
+  // صف subtitle اختياري (إن وجد)
   if (subtitle) {
     worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
     const subtitleRow = worksheet.getRow(currentRow);
@@ -605,7 +605,8 @@ export async function createProfessionalReport(options: ProfessionalReportOption
     { title: 'توقيع المدير العام' }
   ];
   currentRow = addSignatureSection(worksheet, currentRow, sigs, colCount);
-  addReportFooter(worksheet, currentRow, colCount);
+  // 🏛️ تذييل letterhead موحَّد (مطابق لـ PDF)
+  buildExcelLetterheadFooter(worksheet, currentRow + 1, colCount);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return await downloadExcelFile(buffer as ArrayBuffer, options.fileName);

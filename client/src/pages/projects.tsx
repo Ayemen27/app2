@@ -640,6 +640,7 @@ export default function ProjectsPage() {
       status: project.status,
       engineerId: project.engineerId || null,
       project_type_id: project.project_type_id || null,
+      managerName: (project as any).managerName || null,
     });
     setIsEditDialogOpen(true);
   };
@@ -1194,6 +1195,26 @@ export default function ProjectsPage() {
                       </FormItem>
                     );
                   }}
+                />
+              )}
+              {isAdmin && (
+                <FormField
+                  control={editForm.control}
+                  name="managerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>اسم المدير / المشرف (للتوقيع)</FormLabel>
+                      <FormControl>
+                        <Input
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          placeholder="اسم المدير كما يظهر في التقارير"
+                          data-testid="input-manager-name-edit"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               )}
               <FormField

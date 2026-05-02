@@ -75,6 +75,21 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
   }
 
   (data.fundTransfers || []).forEach((f: any) => {
+    // ترحيل من مشروع آخر (نوع خاص باللون الأصفر)
+    const isProjectTransfer = f.transferType === 'ترحيل من مشروع';
+    if (isProjectTransfer) {
+      const desc = f.transferNumber && f.transferNumber !== '-' ? f.transferNumber : (f.notes || '');
+      txs.push({
+        type: 'transfer_from_project',
+        category: 'ترحيل بين مشاريع',
+        amount: parseFloat(f.amount || '0'),
+        description: `ترحيل من مشروع: ${f.senderName || 'مشروع آخر'}`,
+        recipientName: f.senderName,
+        notes: desc,
+      });
+      return;
+    }
+    // عهدة عادية
     const noteParts: string[] = [];
     if (f.transferType && f.transferType !== '-') noteParts.push(`نوع: ${f.transferType}`);
     if (f.transferNumber && f.transferNumber !== '-') noteParts.push(`رقم الحوالة: ${f.transferNumber}`);

@@ -61,7 +61,7 @@ export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
     const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData, projectFundTransfersOutData] = await Promise.all([
       // 🧑‍🔧 نجلب اسم المهندس المسؤول عبر JOIN مع جدول المستخدمين
-      // أولوية: first_name+last_name ← full_name ← email ← اسم عامل (إذا كان engineer_id يشير لعامل)
+      // أولوية: first_name+last_name ← full_name ← email (نتعامل مع workers في lookup منفصل بعد ذلك)
       db
         .select({
           id: projects.id,
@@ -72,8 +72,7 @@ export class ReportDataService {
           engineerName: sql<string | null>`COALESCE(
             NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''),
             ${users.full_name},
-            ${users.email},
-            (SELECT w.name FROM workers w WHERE w.id = ${projects.engineerId} LIMIT 1)
+            ${users.email}
           )`,
         })
         .from(projects)
@@ -308,7 +307,20 @@ export class ReportDataService {
       };
     });
 
-    const proj = projectInfo[0];
+    let proj = projectInfo[0];
+
+    // 🔍 إذا لم يُحلّ اسم المهندس عبر جدول users (مستخدم بدون اسم أو المعرف يشير لعامل)
+    // → نبحث في جدول workers مباشرةً
+    if (proj && !proj.engineerName && proj.engineerId) {
+      const workerRow = await db
+        .select({ name: workers.name })
+        .from(workers)
+        .where(eq(workers.id, proj.engineerId))
+        .limit(1);
+      if (workerRow[0]?.name) {
+        proj = { ...proj, engineerName: workerRow[0].name };
+      }
+    }
 
     const attendance: AttendanceRecord[] = attendanceData.map((a: any) => {
       const dw = safeNum(a.dailyWage);
@@ -1202,7 +1214,13 @@ export class ReportDataService {
       ORDER BY sp.payment_date
     `, [projectId, dateFrom, dateTo]);
 
-    const proj = projectInfo[0];
+    let proj = projectInfo[0];
+
+    // 🔍 fallback: إذا لم يُحلّ اسم المهندس من users → ابحث في workers
+    if (proj && !proj.engineerName && proj.engineerId) {
+      const workerRow = await db.select({ name: workers.name }).from(workers).where(eq(workers.id, proj.engineerId)).limit(1);
+      if (workerRow[0]?.name) proj = { ...proj, engineerName: workerRow[0].name };
+    }
 
     const attendanceSummary = attendanceSummaryRows.map((r: any) => ({
       date: r.date,
@@ -1880,8 +1898,14 @@ export class ReportDataService {
         .leftJoin(users, eq(users.id, projects.engineerId))
         .where(eq(projects.id, projectId))
         .limit(1);
-      const proj = projectInfo[0];
+      let proj = projectInfo[0];
       if (!proj) throw new Error('المشروع غير موجود');
+
+      // 🔍 fallback: إذا لم يُحلّ اسم المهندس من users → ابحث في workers
+      if (!proj.engineerName && proj.engineerId) {
+        const workerRow = await db.select({ name: workers.name }).from(workers).where(eq(workers.id, proj.engineerId)).limit(1);
+        if (workerRow[0]?.name) proj = { ...proj, engineerName: workerRow[0].name };
+      }
 
       const autoDateResult = await client.query(`
         SELECT MIN(d)::text AS min_date, MAX(d)::text AS max_date FROM (

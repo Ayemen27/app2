@@ -170,13 +170,18 @@ export async function exportTransactionsToExcelTemplate2(
 
   let running = 0;
 
-  ordered.forEach((t, idx) => {
+  const MATERIAL_DEFERRED_BG = 'FFF3F0FC';
+
+  ordered.forEach((t: any, idx) => {
     const isOpening        = t.category === 'رصيد سابق';
     const isNegOpening     = isOpening && t.type === 'expense';
     const isTransferProj   = t.type === 'transfer_from_project';
     const isRegIncome      = !isOpening && t.type === 'income' && !isTransferProj;
-    const isMaterial       = t.category === 'مشتريات مواد';
+    const isDeferredMat    = t.type === 'deferred' && t.category === 'مشتريات مواد';
+    const isMaterial       = t.category === 'مشتريات مواد' && !isDeferredMat;
     const amt              = t.amount || 0;
+    // للمواد الآجل: المبلغ المعروض من _displayAmount، لكن الرصيد لا يتأثر (amt=0)
+    const displayAmt       = t._displayAmount != null ? t._displayAmount : amt;
 
     if (isOpening && !isNegOpening) running += amt;
     else if (isOpening && isNegOpening) running -= amt;
@@ -191,14 +196,16 @@ export async function exportTransactionsToExcelTemplate2(
     else if (isNegOpening)            bg = RED_MUTED;
     else if (isTransferProj)          bg = TRANSFER_BG;
     else if (isRegIncome)             bg = INCOME_BG;
+    else if (isDeferredMat)           bg = MATERIAL_DEFERRED_BG;
     else if (isMaterial)              bg = MATERIAL_BG;
     else                              bg = idx % 2 === 0 ? WHITE : GREY;
 
     const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
+    const acctLabel = isDeferredMat ? 'مشتريات (آجل)' : getAccountTypeLabel(t.type, t.category);
 
     const rowData = [
-      amt,
-      getAccountTypeLabel(t.type, t.category),
+      displayAmt,
+      acctLabel,
       getEntryName(t),
       t.workDays ?? null,
       running,
@@ -209,15 +216,20 @@ export async function exportTransactionsToExcelTemplate2(
       const cell = row.getCell(ci + 1);
       cell.value = val;
       const isRunningNeg = ci === 4 && running < 0;
+      const isDeferredAmt = ci === 0 && isDeferredMat;
       style(cell, {
         bg,
         bold: isOpening,
-        fc: isRunningNeg ? 'FFCC0000' : undefined,
+        fc: isDeferredAmt ? 'FF7C6F9E' : (isRunningNeg ? 'FFCC0000' : undefined),
         size: 10,
         fmt: (ci === 0 || ci === 4) && typeof val === 'number' ? '#,##0' : undefined,
         align: ci === 2 || ci === 5 ? 'right' : 'center',
         wrap: ci === 5,
       });
+      if (isDeferredAmt) {
+        const existingFont = cell.font || {};
+        cell.font = { ...existingFont, italic: true };
+      }
     });
 
     r++;

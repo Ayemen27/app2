@@ -230,10 +230,12 @@ export function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[])
     });
     (report.materials || []).forEach((m: any) => {
       const isCash = (m.purchaseType || 'نقد') === 'نقد' || m.purchaseType === 'نقداً';
-      if (!isCash) return;
       const paid = parseFloat(m.paidAmount || '0');
       const total = parseFloat(m.totalAmount || '0');
-      txs.push({ id: m.id, date: m.date || dateStr, type: 'expense', category: 'مشتريات مواد', amount: paid > 0 ? paid : total, description: `شراء ${m.materialName || 'مادة'}`, notes: m.notes || m.materialName || m.supplier || m.supplierName || '' });
+      const displayAmt = paid > 0 ? paid : total;
+      const baseNotes = m.notes || m.materialName || m.supplier || m.supplierName || '';
+      const notesWithType = !isCash ? (baseNotes ? `${baseNotes} | آجل` : 'آجل') : baseNotes;
+      txs.push({ id: m.id, date: m.date || dateStr, type: isCash ? 'expense' : 'deferred', category: 'مشتريات مواد', amount: isCash ? displayAmt : 0, description: `شراء ${m.materialName || 'مادة'}`, notes: notesWithType, ...(!isCash && displayAmt > 0 ? { _displayAmount: displayAmt } : {}) });
     });
     (report.transport || []).forEach((t: any) => {
       txs.push({ id: t.id, date: t.date || dateStr, type: 'expense', category: 'مواصلات', amount: parseFloat(t.amount || '0'), description: t.description || 'مصروف مواصلات', notes: t.notes || t.description || '' });

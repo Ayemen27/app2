@@ -105,25 +105,29 @@ export async function exportDailyReportPdfTemplate2(
 
   let running = 0;
 
-  const rows = ordered.map((t, idx) => {
+  const rows = (ordered as any[]).map((t, idx) => {
     const isOpening    = t.category === 'رصيد سابق';
     const isNegOpening = isOpening && t.type === 'expense';
     const amt          = t.amount || 0;
+    const isDeferred   = t.type === 'deferred' && t.category === 'مشتريات مواد';
+    const displayAmt   = t._displayAmount != null ? t._displayAmount : amt;
 
     if (isOpening && !isNegOpening) running += amt;
     else if (isNegOpening)          running -= amt;
     else if (t.type === 'income' || t.type === 'transfer_from_project') running += amt;
     else running -= amt;
 
-    const bg      = getRowBg(t, idx);
-    const fontW   = isOpening ? 'bold' : 'normal';
+    const bg       = isDeferred ? '#f3f0fc' : getRowBg(t, idx);
+    const fontW    = isOpening ? 'bold' : 'normal';
     const runColor = running < 0 ? '#c0392b' : '#145226';
     const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
+    const acctType = isDeferred ? 'مشتريات (آجل)' : getAccountType(t.type, t.category);
+    const amtStyle = isDeferred ? 'color:#7c6f9e;font-style:italic;' : `font-weight:${fontW};`;
 
     return `
       <tr style="background:${bg};">
-        <td style="font-weight:${fontW};text-align:center;">${fmt(amt)}</td>
-        <td style="text-align:center;">${getAccountType(t.type, t.category)}</td>
+        <td style="${amtStyle}text-align:center;">${displayAmt > 0 ? fmt(displayAmt) : '—'}</td>
+        <td style="text-align:center;">${acctType}</td>
         <td style="text-align:right;">${getEntryName(t)}</td>
         <td style="text-align:center;">${t.workDays ?? ''}</td>
         <td style="text-align:center;font-weight:bold;color:${runColor};">${fmt(running)}</td>
@@ -194,7 +198,8 @@ export async function exportDailyReportPdfTemplate2(
     <span class="legend-item"><span class="legend-box" style="background:#FEE2E2;"></span> رصيد مرحل سالب</span>
     <span class="legend-item"><span class="legend-box" style="background:#EFF6FF;"></span> دخل (عهدة/أموال واردة)</span>
     <span class="legend-item"><span class="legend-box" style="background:#FEF3C7;"></span> ترحيل بين مشاريع</span>
-    <span class="legend-item"><span class="legend-box" style="background:#EDE9FE;"></span> مشتريات مواد</span>
+    <span class="legend-item"><span class="legend-box" style="background:#EDE9FE;"></span> مشتريات مواد (نقد)</span>
+    <span class="legend-item"><span class="legend-box" style="background:#f3f0fc;border-color:#b0a0d0;"></span> مشتريات مواد (آجل — لا تُخصم من الرصيد)</span>
   </div>
   <table>
     <thead>

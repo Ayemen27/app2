@@ -112,7 +112,8 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
           <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#fce4e4' }} /> رصيد مرحل سالب</span>
           <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#daeaf5' }} /> دخل / عهدة</span>
           <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#fff0cc' }} /> ترحيل مشاريع</span>
-          <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#eee8f8' }} /> مشتريات مواد</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#eee8f8' }} /> مشتريات مواد (نقد)</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border" style={{ background: '#f3f0fc', borderColor: '#b0a0d0' }} /> مشتريات مواد (آجل)</span>
         </div>
       </Card>
 
@@ -138,19 +139,27 @@ export function SingleDayReport({ report, searchValue }: { report: DailyReportDa
                   </td>
                 </tr>
               )}
-              {rows.map((t, idx) => {
-                const colors = getRowColors(t.type, t.category, t.isNegOpening);
-                const bg = colors
-                  ? (isDark ? colors.bgDark : colors.bg)
-                  : (idx % 2 === 0 ? 'transparent' : (isDark ? 'rgba(255,255,255,0.025)' : '#fafafa'));
+              {rows.map((t: any, idx) => {
+                const isDeferred = t.type === 'deferred' && t.category === 'مشتريات مواد';
+                const displayAmt = t._displayAmount != null ? t._displayAmount : t.amount;
+                const colors = isDeferred
+                  ? null
+                  : getRowColors(t.type, t.category, t.isNegOpening);
+                const bg = isDeferred
+                  ? (isDark ? 'rgba(168,85,247,0.08)' : '#f3f0fc')
+                  : colors
+                    ? (isDark ? colors.bgDark : colors.bg)
+                    : (idx % 2 === 0 ? 'transparent' : (isDark ? 'rgba(255,255,255,0.025)' : '#fafafa'));
                 const runColor = t.running < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400';
                 const fontW = t.isOpening ? 'font-bold' : '';
                 const name = getEntryName(t);
-                const acctType = getAccountTypeLabel(t.type, t.category);
+                const acctType = isDeferred ? 'مشتريات (آجل)' : getAccountTypeLabel(t.type, t.category);
                 const notesVal = t.notes || (t.description && t.description !== name ? t.description : '') || '';
                 return (
                   <tr key={idx} className={`transition-colors ${fontW}`} style={{ background: bg }} data-testid={`row-tx-${idx}`}>
-                    <td className="px-2 py-2 border text-center tabular-nums" data-testid={`text-amount-${idx}`}>{fmt(t.amount)}</td>
+                    <td className={`px-2 py-2 border text-center tabular-nums${isDeferred ? ' text-purple-600 dark:text-purple-400 italic' : ''}`} data-testid={`text-amount-${idx}`}>
+                      {displayAmt > 0 ? fmt(displayAmt) : (isDeferred ? '—' : fmt(t.amount))}
+                    </td>
                     <td className="px-2 py-2 border text-center text-xs">{acctType}</td>
                     <td className="px-2 py-2 border text-right" data-testid={`text-name-${idx}`}>{name}</td>
                     <td className="px-2 py-2 border text-center tabular-nums">{t.workDays != null ? t.workDays : ''}</td>

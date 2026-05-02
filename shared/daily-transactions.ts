@@ -105,15 +105,22 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
 
   (data.materials || []).forEach((m: any) => {
     const isCash = (m.purchaseType || 'نقد') === 'نقد' || m.purchaseType === 'نقداً';
-    if (!isCash) return;
     const paid = parseFloat(m.paidAmount || '0');
     const total = parseFloat(m.totalAmount || '0');
+    const displayAmt = paid > 0 ? paid : total;
+    // المواد الآجل: تظهر في الجدول لكن لا تُخصم من الرصيد النقدي (المبلغ=0)
+    const baseNotes = m.notes || m.materialName || m.supplier || m.supplierName || '';
+    const notesWithType = !isCash
+      ? (baseNotes ? `${baseNotes} | آجل` : 'آجل')
+      : baseNotes;
     txs.push({
-      type: 'expense',
+      type: isCash ? 'expense' : 'deferred',
       category: 'مشتريات مواد',
-      amount: paid > 0 ? paid : total,
+      amount: isCash ? displayAmt : 0,
       description: `شراء ${m.materialName || 'مادة'}`,
-      notes: m.notes || m.materialName || m.supplier || m.supplierName || '',
+      notes: notesWithType,
+      // نخزن المبلغ الحقيقي لعرضه في الجدول حتى لو لم يخصم من الرصيد
+      ...((!isCash && displayAmt > 0) ? { _displayAmount: displayAmt } as any : {}),
     });
   });
 

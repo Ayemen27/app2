@@ -55,10 +55,13 @@ export function generateDailyReportTemplate2HTML(data: DailyReportData, dateStr:
 
   let running = 0;
 
-  const rows = ordered.map((t, idx) => {
+  const rows = ordered.map((t: any, idx) => {
     const isOpening    = t.category === 'رصيد سابق';
     const isNegOpening = isOpening && t.type === 'expense';
     const amt          = t.amount || 0;
+    // للمواد الآجل: المبلغ المعروض هو _displayAmount لكن لا يُخصم من الرصيد
+    const displayAmt   = t._displayAmount != null ? t._displayAmount : amt;
+    const isDeferred   = t.type === 'deferred' && t.category === 'مشتريات مواد';
 
     if (isOpening && !isNegOpening) running += amt;
     else if (isNegOpening)          running -= amt;
@@ -66,15 +69,20 @@ export function generateDailyReportTemplate2HTML(data: DailyReportData, dateStr:
     else running -= amt;
 
     const colors   = getRowColors(t.type, t.category, isNegOpening);
-    const bgStyle  = colors ? `background:${colors.bg};` : (idx % 2 === 0 ? '' : 'background:#f5f5f5;');
+    // المواد الآجل: لون مميز أفتح
+    const bgStyle  = isDeferred
+      ? 'background:#f3f0fc;'
+      : colors ? `background:${colors.bg};` : (idx % 2 === 0 ? '' : 'background:#f5f5f5;');
     const fontW    = isOpening ? 'font-weight:bold;' : '';
     const runColor = running < 0 ? '#c0392b' : '#145226';
     const notesVal = t.notes || (t.description && t.description !== getEntryName(t) ? t.description : '') || '';
     const name     = getEntryName(t);
-    const acctType = getAccountTypeLabel(t.type, t.category);
+    const acctType = isDeferred ? 'مشتريات (آجل)' : getAccountTypeLabel(t.type, t.category);
+    // للآجل: عرض المبلغ الحقيقي بلون رمادي (غير مخصوم)
+    const amtStyle = isDeferred ? 'color:#7c6f9e;font-style:italic;' : '';
 
     return `<tr style="${bgStyle}${fontW}">
-      <td style="text-align:center;">${fmt(amt)}</td>
+      <td style="text-align:center;${amtStyle}">${displayAmt > 0 ? fmt(displayAmt) : '—'}</td>
       <td style="text-align:center;">${acctType}</td>
       <td style="text-align:right;">${name}</td>
       <td style="text-align:center;">${t.workDays != null ? t.workDays : ''}</td>
@@ -95,7 +103,8 @@ ${pdfHeader(`كشف مصروفات مشروع ${projectName} الموافق ${gF
   <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#fce4e4;vertical-align:middle;margin-left:3px;"></span> رصيد مرحل سالب</span>
   <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#daeaf5;vertical-align:middle;margin-left:3px;"></span> دخل (عهدة/أموال واردة)</span>
   <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#fff0cc;vertical-align:middle;margin-left:3px;"></span> ترحيل بين مشاريع</span>
-  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#eee8f8;vertical-align:middle;margin-left:3px;"></span> مشتريات مواد</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#eee8f8;vertical-align:middle;margin-left:3px;"></span> مشتريات مواد (نقد)</span>
+  <span style="margin-left:12px;"><span style="display:inline-block;width:10px;height:10px;border:1px solid #aaa;background:#f3f0fc;vertical-align:middle;margin-left:3px;"></span> مشتريات مواد (آجل — لا تُخصم من الرصيد)</span>
 </div>
 <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
   <thead>

@@ -19,7 +19,8 @@ export interface DailyTx {
 export function getAccountTypeLabel(type: string, category: string): string {
   if (category === 'رصيد سابق') return 'مرحل';
   if (type === 'income') return 'دخل';
-  if (type === 'transfer_from_project') return 'دخل';
+  if (type === 'transfer_from_project') return 'ترحيل بين مشاريع';
+  if (category === 'ترحيل بين مشاريع') return 'ترحيل بين مشاريع';
   if (category === 'أجور عمال') return 'أجور العمال';
   if (category === 'مواصلات') return 'مواصلات';
   if (category === 'حوالات عمال') return 'تنزيلات العمال';
@@ -46,6 +47,7 @@ export function getRowColors(type: string, category: string, isNeg: boolean): Ro
   if (category === 'رصيد سابق' && !isNeg) return { bg: '#d6ead7', bgDark: 'rgba(34,197,94,0.15)' };
   if (category === 'رصيد سابق' && isNeg)  return { bg: '#fce4e4', bgDark: 'rgba(239,68,68,0.15)' };
   if (type === 'transfer_from_project')   return { bg: '#fff0cc', bgDark: 'rgba(234,179,8,0.15)' };
+  if (category === 'ترحيل بين مشاريع')   return { bg: '#fff0cc', bgDark: 'rgba(234,179,8,0.15)' };
   if (type === 'income')                  return { bg: '#daeaf5', bgDark: 'rgba(59,130,246,0.15)' };
   if (category === 'مشتريات مواد')        return { bg: '#eee8f8', bgDark: 'rgba(168,85,247,0.15)' };
   return null;
@@ -168,6 +170,17 @@ export function buildDailyTransactions(data: DailyReportData, dateStr: string): 
       workerName: wt.workerName || wt.worker_name || 'غير محدد',
       workerType: wt.workerType || wt.worker_type || undefined,
       notes: wt.notes || wt.description || '',
+    });
+  });
+
+  // ترحيل صادر من هذا المشروع إلى مشروع آخر (يُعرض باللون الأصفر كمصروف)
+  (data.projectTransfersOut || []).forEach((pt: any) => {
+    txs.push({
+      type: 'expense',
+      category: 'ترحيل بين مشاريع',
+      amount: parseFloat(pt.amount || '0'),
+      description: `ترحيل إلى مشروع: ${pt.toProjectName || 'مشروع آخر'}`,
+      notes: pt.description || '',
     });
   });
 

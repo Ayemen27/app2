@@ -61,7 +61,7 @@ export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
     const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData, projectFundTransfersOutData] = await Promise.all([
       // 🧑‍🔧 نجلب اسم المهندس المسؤول عبر JOIN مع جدول المستخدمين
-      // (full_name → first_name+last_name → email كنسخة احتياطية)
+      // أولوية: first_name+last_name ← full_name ← email ← اسم عامل (إذا كان engineer_id يشير لعامل)
       db
         .select({
           id: projects.id,
@@ -69,7 +69,12 @@ export class ReportDataService {
           location: projects.location,
           managerName: projects.managerName,
           engineerId: projects.engineerId,
-          engineerName: sql<string | null>`COALESCE(${users.full_name}, NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''), ${users.email})`,
+          engineerName: sql<string | null>`COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''),
+            ${users.full_name},
+            ${users.email},
+            (SELECT w.name FROM workers w WHERE w.id = ${projects.engineerId} LIMIT 1)
+          )`,
         })
         .from(projects)
         .leftJoin(users, eq(users.id, projects.engineerId))
@@ -958,7 +963,24 @@ export class ReportDataService {
       fundTransfersRows,
       workerTransfersRows,
     ] = await Promise.all([
-      db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
+      db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          location: projects.location,
+          managerName: projects.managerName,
+          engineerId: projects.engineerId,
+          engineerName: sql<string | null>`COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''),
+            ${users.full_name},
+            ${users.email},
+            (SELECT w.name FROM workers w WHERE w.id = ${projects.engineerId} LIMIT 1)
+          )`,
+        })
+        .from(projects)
+        .leftJoin(users, eq(users.id, projects.engineerId))
+        .where(eq(projects.id, projectId))
+        .limit(1),
 
       db
         .select({
@@ -1837,7 +1859,27 @@ export class ReportDataService {
   async getProjectComprehensiveReport(projectId: string, dateFrom: string, dateTo: string): Promise<import('../../../shared/report-types').ProjectComprehensiveReportData> {
     const client = await pool.connect();
     try {
-      const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      const projectInfo = await db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          location: projects.location,
+          managerName: projects.managerName,
+          engineerId: projects.engineerId,
+          budget: projects.budget,
+          startDate: projects.startDate,
+          status: projects.status,
+          engineerName: sql<string | null>`COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', ${users.first_name}, ${users.last_name})), ''),
+            ${users.full_name},
+            ${users.email},
+            (SELECT w.name FROM workers w WHERE w.id = ${projects.engineerId} LIMIT 1)
+          )`,
+        })
+        .from(projects)
+        .leftJoin(users, eq(users.id, projects.engineerId))
+        .where(eq(projects.id, projectId))
+        .limit(1);
       const proj = projectInfo[0];
       if (!proj) throw new Error('المشروع غير موجود');
 

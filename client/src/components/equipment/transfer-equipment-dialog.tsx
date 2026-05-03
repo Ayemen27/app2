@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
@@ -27,11 +26,15 @@ interface Equipment {
   purchaseDate?: string;
   purchasePrice?: string;
   currentProjectId?: string | null;
+  project_id?: string | null;
+  quantity?: number;
+  unit?: string;
   imageUrl?: string;
 }
 
 const transferSchema = z.object({
   toProjectId: z.string().nullable(),
+  quantity: z.coerce.number().int().min(1, "الكمية يجب أن تكون 1 على الأقل"),
   reason: z.string().min(1, "سبب النقل مطلوب"),
   performedBy: z.string().min(1, "اسم من قام بالنقل مطلوب"),
   notes: z.string().optional(),
@@ -53,10 +56,18 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
+  const getEffectiveProjectId = () => {
+    if (!equipment) return null;
+    return equipment.currentProjectId ?? equipment.project_id ?? null;
+  };
+
+  const maxQuantity = equipment?.quantity ?? 1;
+
   const form = useForm<TransferFormData>({
     resolver: zodResolver(transferSchema),
     defaultValues: {
       toProjectId: null,
+      quantity: maxQuantity,
       reason: "",
       performedBy: "",
       notes: "",
@@ -68,13 +79,14 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
     if (open) {
       form.reset({
         toProjectId: null,
+        quantity: equipment?.quantity ?? 1,
         reason: "",
         performedBy: "",
         notes: "",
         transferDate: new Date().toISOString().slice(0, 10),
       });
     }
-  }, [open]);
+  }, [open, equipment]);
 
   const transferMutation = useMutation({
     mutationFn: (data: TransferFormData) => 
@@ -111,12 +123,15 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
 
   const getCurrentLocationName = () => {
     if (!equipment) return "";
-    if (!equipment.currentProjectId) return "المستودع";
-    const project = Array.isArray(projects) ? projects.find(p => p.id === equipment.currentProjectId) : undefined;
+    const projectId = getEffectiveProjectId();
+    if (!projectId) return "المستودع";
+    const project = Array.isArray(projects) ? projects.find(p => p.id === projectId) : undefined;
     return project ? project.name : "مشروع غير معروف";
   };
 
   if (!equipment) return null;
+
+  const effectiveProjectId = getEffectiveProjectId();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,11 +190,11 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
               control={form.control}
               name="toProjectId"
               render={({ field }) => {
-                const isCurrentlyInWarehouse = !equipment?.currentProjectId;
+                const isCurrentlyInWarehouse = !effectiveProjectId;
                 const projectOptions: SelectOption[] = [
                   ...(isCurrentlyInWarehouse ? [] : [{ value: "warehouse", label: "المستودع" }]),
                   ...projects
-                    .filter(p => p.id !== equipment?.currentProjectId)
+                    .filter(p => p.id !== effectiveProjectId)
                     .map((project) => ({
                       value: project.id,
                       label: project.name,
@@ -203,6 +218,31 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                   </FormItem>
                 );
               }}
+            />
+
+            <FormField
+              control={form.control}
+              name="quantity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm">
+                    الكمية المنقولة *
+                    <span className="text-gray-500 font-normal mr-1">(المتاح: {maxQuantity} {equipment.unit || ''})</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={maxQuantity}
+                      className="h-9 text-sm"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      data-testid="input-transfer-quantity"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <CompactFieldGroup columns={2}>

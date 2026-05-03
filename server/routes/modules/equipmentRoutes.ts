@@ -397,9 +397,33 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       ...(movementDate ? { movementDate } : {}),
     }).returning();
 
-    await db.update(equipment)
-      .set({ project_id: toProjectId || null })
-      .where(eq(equipment.id, id));
+    if (transferQty < item.quantity) {
+      // نقل جزئي: تقليل الكمية في الأصل الأصلي وإنشاء سجل جديد في الوجهة
+      await db.update(equipment)
+        .set({ quantity: item.quantity - transferQty })
+        .where(eq(equipment.id, id));
+
+      const newCode = `${item.code || ('EQ-' + String(id).padStart(5, '0'))}-T${Date.now().toString().slice(-5)}`;
+      await db.insert(equipment).values({
+        name: item.name,
+        code: newCode,
+        type: item.type || null,
+        unit: item.unit || 'قطعة',
+        quantity: transferQty,
+        status: item.status || 'active',
+        condition: item.condition || 'excellent',
+        description: item.description || null,
+        purchaseDate: item.purchaseDate || null,
+        purchasePrice: item.purchasePrice || null,
+        project_id: toProjectId || null,
+        imageUrl: item.imageUrl || null,
+      });
+    } else {
+      // نقل كامل: تحديث المشروع الحالي للأصل
+      await db.update(equipment)
+        .set({ project_id: toProjectId || null })
+        .where(eq(equipment.id, id));
+    }
 
     // إدراج صف في سجل المشتريات للمشروع المستقبل (للتوثيق - بدون أثر مالي)
     let purchaseLogId: string | null = null;

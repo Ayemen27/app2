@@ -228,7 +228,7 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
 
     const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = validationResult.data;
 
-    if (type !== undefined && type !== null && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
+    if (type !== undefined && type !== null && type !== '' && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
       return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
     }
     if (eqStatus !== undefined && eqStatus !== null && typeof eqStatus === 'string' && eqStatus.trim().length === 0) {

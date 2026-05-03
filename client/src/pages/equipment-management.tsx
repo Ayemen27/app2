@@ -1591,7 +1591,7 @@ export function EquipmentManagement() {
                 updateEquipmentMutation.mutate({
                   id: selectedEquipment.id,
                   name: editEquipmentForm.name,
-                  type: editEquipmentForm.type,
+                  type: editEquipmentForm.type || null,
                   unit: editEquipmentForm.unit,
                   quantity: parseInt(editEquipmentForm.quantity) || 1,
                   description: editEquipmentForm.description,

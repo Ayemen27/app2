@@ -271,6 +271,34 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
       .where(eq(equipment.id, id))
       .returning();
 
+    // مزامنة تلقائية مع سجل المشتريات المرتبط (إن وجد)
+    const finalName = updated.name;
+    const finalQty = updated.quantity;
+    const finalUnit = updated.unit || 'قطعة';
+    const finalPrice = updated.purchasePrice ? parseFloat(updated.purchasePrice as any) : null;
+    const finalTotal = finalPrice !== null ? finalPrice * finalQty : null;
+
+    const syncFields: string[] = ['material_name = $2', 'quantity = $3', 'material_unit = $4'];
+    const syncValues: any[] = [id, finalName, finalQty, finalUnit];
+
+    if (finalPrice !== null) {
+      syncFields.push(`unit_price = $${syncValues.length + 1}`);
+      syncValues.push(finalPrice.toFixed(2));
+    }
+    if (finalTotal !== null) {
+      syncFields.push(`total_amount = $${syncValues.length + 1}`);
+      syncValues.push(finalTotal.toFixed(2));
+    }
+
+    const syncResult = await pool.query(
+      `UPDATE material_purchases SET ${syncFields.join(', ')} WHERE equipment_id = $1`,
+      syncValues
+    );
+
+    if ((syncResult.rowCount ?? 0) > 0) {
+      console.log(`🔗 [Equipment] تمت مزامنة ${syncResult.rowCount} سجل مشتريات مع المعدة "${finalName}" (ID: ${id})`);
+    }
+
     console.log(`✅ [Equipment] تم تحديث معدة: ${updated.name} (ID: ${id})`);
 
     res.json({

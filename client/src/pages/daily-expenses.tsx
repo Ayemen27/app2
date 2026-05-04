@@ -3923,7 +3923,7 @@ function DailyExpensesContent() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {editingAttendanceId ? (
                 <>
                   <Button 
@@ -3948,7 +3948,7 @@ function DailyExpensesContent() {
                         team_name: selectedTeamNames.length > 0 ? JSON.stringify(selectedTeamNames) : null,
                       });
                     }}
-                    className="bg-primary h-9 flex-1"
+                    className="bg-primary h-9 w-full text-sm"
                     disabled={updateWorkerAttendanceMutation.isPending}
                     data-testid="button-save-edit-worker-attendance"
                   >
@@ -3972,7 +3972,7 @@ function DailyExpensesContent() {
                       setSelectedCrewTypes([]);
                     }}
                     variant="outline"
-                    className="h-9"
+                    className="h-9 w-full text-sm"
                     data-testid="button-cancel-edit-worker-attendance"
                   >
                     إلغاء
@@ -3982,7 +3982,7 @@ function DailyExpensesContent() {
                 <>
                   <Button 
                     onClick={handleQuickAddAttendance}
-                    className="bg-primary h-9 flex-1"
+                    className="bg-primary h-9 w-full text-sm"
                     disabled={addWorkerAttendanceMutation.isPending}
                     data-testid="button-add-worker-attendance"
                   >
@@ -3990,7 +3990,7 @@ function DailyExpensesContent() {
                       <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
                     ) : (
                       <>
-                        <Plus className="h-4 w-4 ml-1" />
+                        <Plus className="h-4 w-4 ml-1 shrink-0" />
                         إضافة الحضور السريع
                       </>
                     )}
@@ -3998,7 +3998,7 @@ function DailyExpensesContent() {
                   <Button
                     onClick={handleCopyYesterdayAttendance}
                     variant="outline"
-                    className="h-9 border-amber-400 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex-shrink-0"
+                    className="h-9 w-full text-sm border-amber-400 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                     disabled={isCopyingYesterday}
                     title="تكرار حضور الأمس"
                     data-testid="button-copy-yesterday-attendance"
@@ -4007,7 +4007,7 @@ function DailyExpensesContent() {
                       <div className="h-4 w-4 animate-spin rounded-full border border-amber-600 border-t-transparent" />
                     ) : (
                       <>
-                        <RefreshCw className="h-4 w-4 ml-1" />
+                        <RefreshCw className="h-4 w-4 ml-1 shrink-0" />
                         تكرار الأمس
                       </>
                     )}

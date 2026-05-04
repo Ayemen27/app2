@@ -596,12 +596,16 @@ function DailyExpensesContent() {
       for (const att of toAdd) {
         try {
           const workDaysNum = parseFloat(att.workDays || "1");
+          const dailyWageStr = att.dailyWage?.toString() || "0";
           const paidAmountNum = parseFloat(att.paidAmount || att.actualWage || "0");
+          const totalPayStr = att.actualWage?.toString() || att.totalPay?.toString() || "0";
           await apiRequest("/api/worker-attendance", "POST", {
             worker_id: att.worker_id,
             project_id: selectedProjectId,
             attendanceDate: baseDate,
             workDays: workDaysNum,
+            dailyWage: dailyWageStr,
+            totalPay: totalPayStr,
             paidAmount: paidAmountNum.toString(),
             workDescription: att.workDescription || att.notes || "أيام عمل",
             notes: att.notes || null,

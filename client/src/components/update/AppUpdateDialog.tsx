@@ -13,6 +13,8 @@ import {
   Sparkles,
   PackageCheck,
   HardDrive,
+  ShieldAlert,
+  Settings,
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import {
@@ -21,6 +23,7 @@ import {
   cancelDownload,
   checkLocalApk,
   cleanOldApkCache,
+  clearApkPathCache,
   type ApkDownloadProgress,
 } from "@/services/apkUpdater";
 
@@ -31,6 +34,7 @@ type UpdateState =
   | "downloading"
   | "ready_to_install"
   | "installing"
+  | "permission_required"
   | "retrying"
   | "copied"
   | "failed";
@@ -115,14 +119,14 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     setUsingCache(false);
 
     try {
-      // ── الخطوة 1: فحص الكاش المحلي أولاً ──────────────────────────
+      // ── الخطوة 1: فحص الكاش المحلي أولاً ──────────────────────────────
       setState("checking_local");
       const localApk = await checkLocalApk(info.latest.versionName);
 
       if (cancelledRef.current) return;
 
       if (localApk.exists && localApk.path) {
-        // الملف موجود محلياً وصالح → تخطّي التحميل
+        // الملف موجود محلياً وصالح → تخطّي التحميل كلياً
         setUsingCache(true);
         setCachedSize(localApk.size ?? 0);
         setApkPath(localApk.path);
@@ -131,8 +135,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
         return;
       }
 
-      // ── الخطوة 2: لا يوجد كاش → تحميل جديد ──────────────────────
-      // تنظيف الملفات القديمة قبل البدء
+      // ── الخطوة 2: لا يوجد كاش → تحميل جديد ────────────────────────────
       await cleanOldApkCache(info.latest.versionName);
 
       setState("preparing");
@@ -150,6 +153,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
           },
         },
         info.latest.versionName,
+        // المسار يُحفظ تلقائياً داخل downloadApk بعد نجاح التحميل
       );
 
       if (cancelledRef.current) return;
@@ -176,16 +180,29 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     }
   }, [downloadUrl, info.latest.versionName, handleBrowserFallback]);
 
-  const handleInstall = useCallback(async () => {
-    if (!apkPath) return;
+  // ── التثبيت ────────────────────────────────────────────────────────────────
+  // المشكلة الجذرية لـ "التطبيق ليس مثبتاً":
+  // أندرويد يُرجع requiresPermission:true لكن الكود القديم كان يتجاهله
+  const doInstall = useCallback(async (path: string) => {
     setState("installing");
     try {
-      await installApk(apkPath);
+      const result = await installApk(path);
+
+      if (result?.requiresPermission) {
+        // المستخدم لم يمنح صلاحية "تثبيت تطبيقات من مصادر خارجية"
+        setState("permission_required");
+        return;
+      }
+      // نجح فتح المثبّت — لا نغيّر الحالة، المستخدم يتعامل مع نافذة أندرويد
     } catch (err: any) {
       setErrorMsg(err?.message || "فشل فتح المثبّت");
       setState("failed");
     }
-  }, [apkPath]);
+  }, []);
+
+  const handleInstall = useCallback(() => doInstall(apkPath), [apkPath, doInstall]);
+
+  const handleRetryInstall = useCallback(() => doInstall(apkPath), [apkPath, doInstall]);
 
   const handleUpdate = useCallback(async () => {
     if (nativeReady) {
@@ -199,6 +216,8 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     setState("retrying");
     setErrorMsg("");
     setUsingCache(false);
+    // امسح الكاش المحفوظ — الملف قد يكون تالفاً
+    clearApkPathCache();
     await new Promise((r) => setTimeout(r, 400));
     await handleUpdate();
   }, [handleUpdate]);
@@ -236,6 +255,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     downloading: "جاري التحميل...",
     ready_to_install: usingCache ? "الملف متوفر محلياً" : "اكتمل التحميل",
     installing: "فتح المثبّت...",
+    permission_required: "مطلوب منح صلاحية التثبيت",
     retrying: "إعادة المحاولة...",
     copied: "تم نسخ الرابط",
     failed: "فشل التحميل",
@@ -252,11 +272,15 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
         data-testid="update-dialog"
       >
         <div className="p-6 space-y-4">
+
+          {/* ── الترويسة ─────────────────────────────────────────────────── */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
               <div
                 className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                  isForced
+                  state === "permission_required"
+                    ? "bg-orange-500/10 dark:bg-orange-500/20"
+                    : isForced
                     ? "bg-red-500/10 dark:bg-red-500/20"
                     : state === "ready_to_install" && usingCache
                     ? "bg-amber-500/10 dark:bg-amber-500/20"
@@ -265,7 +289,9 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
                     : "bg-blue-500/10 dark:bg-blue-500/20"
                 }`}
               >
-                {isForced ? (
+                {state === "permission_required" ? (
+                  <ShieldAlert className="w-6 h-6 text-orange-500" />
+                ) : isForced ? (
                   <AlertTriangle className="w-6 h-6 text-red-500" />
                 ) : state === "ready_to_install" && usingCache ? (
                   <HardDrive className="w-6 h-6 text-amber-500" />
@@ -278,11 +304,17 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               <div>
                 <h3
                   className={`text-base font-bold ${
-                    isForced ? "text-red-600 dark:text-red-400" : "text-foreground"
+                    state === "permission_required"
+                      ? "text-orange-600 dark:text-orange-400"
+                      : isForced
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-foreground"
                   }`}
                   data-testid="text-update-title"
                 >
-                  {state === "ready_to_install" && usingCache
+                  {state === "permission_required"
+                    ? "مطلوب صلاحية التثبيت"
+                    : state === "ready_to_install" && usingCache
                     ? "الملف جاهز للتثبيت"
                     : showInstallButton
                     ? "جاهز للتثبيت"
@@ -296,24 +328,47 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </div>
             </div>
 
-            {!isForced && !isProcessing && state !== "ready_to_install" && (
-              <button
-                onClick={onDismiss}
-                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
-                data-testid="button-dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+            {!isForced &&
+              !isProcessing &&
+              state !== "ready_to_install" &&
+              state !== "permission_required" && (
+                <button
+                  onClick={onDismiss}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  data-testid="button-dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
           </div>
 
-          {isForced && (
+          {/* ── تحذير إجباري ──────────────────────────────────────────────── */}
+          {isForced && state !== "permission_required" && (
             <p className="text-xs text-red-500 dark:text-red-400 font-medium" data-testid="text-force-warning">
               لا يمكن استخدام التطبيق بالإصدار الحالي v{info.current.versionName}
             </p>
           )}
 
-          {/* بطاقة الكاش المحلي */}
+          {/* ── بطاقة: يحتاج صلاحية تثبيت التطبيقات ─────────────────────── */}
+          {state === "permission_required" && (
+            <div
+              className="space-y-3 p-4 rounded-xl bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/20"
+              data-testid="permission-required-card"
+            >
+              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                يحتاج التطبيق صلاحية تثبيت التطبيقات من مصادر خارجية
+              </p>
+              <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside leading-relaxed">
+                <li>افتح <span className="font-semibold text-foreground">الإعدادات</span> على جهازك</li>
+                <li>اختر <span className="font-semibold text-foreground">التطبيقات</span> ثم <span className="font-semibold text-foreground">AXION</span></li>
+                <li>فعّل <span className="font-semibold text-foreground">تثبيت تطبيقات غير معروفة</span></li>
+                <li>عد هنا واضغط <span className="font-semibold text-foreground">إعادة محاولة التثبيت</span></li>
+              </ol>
+            </div>
+          )}
+
+          {/* ── بطاقة الكاش المحلي ────────────────────────────────────────── */}
           {state === "ready_to_install" && usingCache && (
             <div
               className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400"
@@ -333,6 +388,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
+          {/* ── ملاحظات الإصدار ───────────────────────────────────────────── */}
           {info.latest.releaseNotes && state === "idle" && (
             <div
               className="bg-muted/50 rounded-xl p-3 text-right max-h-[160px] overflow-y-auto"
@@ -348,16 +404,18 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
+          {/* ── شريط التقدم ───────────────────────────────────────────────── */}
           {(isProcessing || state === "ready_to_install") && (
             <div className="space-y-2" data-testid="progress-section">
               {state !== "checking_local" && (
                 <Progress value={progress} className="h-2" />
               )}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid="text-progress-label">
-                  {state === "checking_local" && (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  )}
+                <span
+                  className="text-xs text-muted-foreground flex items-center gap-1.5"
+                  data-testid="text-progress-label"
+                >
+                  {state === "checking_local" && <Loader2 className="w-3 h-3 animate-spin" />}
                   {stateLabel[state]}
                 </span>
                 {state !== "checking_local" && (
@@ -374,6 +432,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
+          {/* ── رسالة الخطأ ───────────────────────────────────────────────── */}
           {state === "failed" && (
             <div
               className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
@@ -386,6 +445,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
+          {/* ── رسالة نسخ الرابط ──────────────────────────────────────────── */}
           {state === "copied" && (
             <div
               className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400"
@@ -396,6 +456,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </div>
           )}
 
+          {/* ── الأزرار ───────────────────────────────────────────────────── */}
           <div className="flex flex-col gap-2 pt-1">
             {!downloadUrl && (
               <p className="text-xs text-amber-500 font-medium text-center" data-testid="text-no-download">
@@ -403,13 +464,40 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </p>
             )}
 
-            {showInstallButton && (
+            {/* زر: إعادة محاولة التثبيت (بعد منح الصلاحية) */}
+            {state === "permission_required" && (
+              <>
+                <Button
+                  onClick={handleRetryInstall}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  data-testid="button-retry-install"
+                >
+                  <PackageCheck className="w-4 h-4" />
+                  <span>إعادة محاولة التثبيت</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    try {
+                      // فتح إعدادات التطبيق في أندرويد
+                      window.open('app-settings:', '_system');
+                    } catch {}
+                  }}
+                  className="w-full"
+                  data-testid="button-open-settings"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>فتح إعدادات الجهاز</span>
+                </Button>
+              </>
+            )}
+
+            {/* زر: تثبيت الآن */}
+            {showInstallButton && state !== "permission_required" && (
               <Button
                 onClick={handleInstall}
                 className={`w-full text-white ${
-                  usingCache
-                    ? "bg-amber-600 hover:bg-amber-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
+                  usingCache ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
                 data-testid="button-install-now"
               >
@@ -418,22 +506,27 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
-            {downloadUrl && state !== "failed" && state !== "ready_to_install" && (
-              <Button
-                onClick={handleUpdate}
-                disabled={isProcessing}
-                className="w-full"
-                data-testid="button-update-now"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                <span>{isProcessing ? stateLabel[state] : "تحديث الآن"}</span>
-              </Button>
-            )}
+            {/* زر: تحديث الآن (بدء التحميل) */}
+            {downloadUrl &&
+              state !== "failed" &&
+              state !== "ready_to_install" &&
+              state !== "permission_required" && (
+                <Button
+                  onClick={handleUpdate}
+                  disabled={isProcessing}
+                  className="w-full"
+                  data-testid="button-update-now"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>{isProcessing ? stateLabel[state] : "تحديث الآن"}</span>
+                </Button>
+              )}
 
+            {/* زر: إلغاء التحميل */}
             {state === "downloading" && (
               <Button
                 variant="outline"
@@ -446,6 +539,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
+            {/* زر: إعادة المحاولة (بعد فشل التحميل) */}
             {downloadUrl && state === "failed" && (
               <Button
                 onClick={handleRetry}
@@ -457,33 +551,38 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
-            {downloadUrl && state !== "ready_to_install" && state !== "installing" && state !== "checking_local" && (
-              <Button
-                variant="outline"
-                onClick={handleCopy}
-                disabled={isProcessing}
-                className="w-full"
-                data-testid="button-copy-link"
-              >
-                {state === "copied" ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-                <span>{state === "copied" ? "تم النسخ" : "نسخ رابط التحميل"}</span>
-              </Button>
-            )}
+            {/* زر: نسخ رابط التحميل */}
+            {downloadUrl &&
+              state !== "ready_to_install" &&
+              state !== "installing" &&
+              state !== "checking_local" &&
+              state !== "permission_required" && (
+                <Button
+                  variant="outline"
+                  onClick={handleCopy}
+                  disabled={isProcessing}
+                  className="w-full"
+                  data-testid="button-copy-link"
+                >
+                  {state === "copied" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{state === "copied" ? "تم النسخ" : "نسخ رابط التحميل"}</span>
+                </Button>
+              )}
 
-            {!isForced && !isProcessing && state !== "ready_to_install" && (
-              <Button
-                variant="ghost"
-                onClick={onDismiss}
-                className="w-full"
-                data-testid="button-update-later"
-              >
-                <span>لاحقاً</span>
-              </Button>
-            )}
+            {/* زر: لاحقاً */}
+            {!isForced &&
+              !isProcessing &&
+              state !== "ready_to_install" &&
+              state !== "permission_required" && (
+                <Button
+                  variant="ghost"
+                  onClick={onDismiss}
+                  className="w-full"
+                  data-testid="button-update-later"
+                >
+                  <span>لاحقاً</span>
+                </Button>
+              )}
           </div>
         </div>
       </div>

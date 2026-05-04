@@ -608,11 +608,11 @@ function DailyExpensesContent() {
             totalPay: totalPayStr,
             paidAmount: paidAmountNum.toString(),
             workDescription: att.workDescription || att.notes || "أيام عمل",
-            notes: att.notes || null,
-            well_id: att.well_id || null,
-            well_ids: att.well_ids || null,
-            crew_type: att.crew_type || null,
-            team_name: att.team_name || null,
+            notes: att.notes || undefined,
+            well_id: att.well_id || undefined,
+            well_ids: att.well_ids || undefined,
+            crew_type: att.crew_type || undefined,
+            team_name: att.team_name || undefined,
             confirmOverpayment: true,
           });
           successCount++;

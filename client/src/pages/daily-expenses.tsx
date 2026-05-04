@@ -548,9 +548,12 @@ function DailyExpensesContent() {
       return;
     }
     const baseDate = selectedDate || getCurrentDate();
-    const d = new Date(baseDate);
+    const d = new Date(baseDate + "T12:00:00");
     d.setDate(d.getDate() - 1);
-    const yesterdayDate = d.toISOString().split("T")[0];
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const yesterdayDate = `${yyyy}-${mm}-${dd}`;
 
     setIsCopyingYesterday(true);
     try {
@@ -566,8 +569,8 @@ function DailyExpensesContent() {
 
       if (yesterdayAttendance.length === 0) {
         toast({
-          title: "لا يوجد حضور",
-          description: "لا يوجد حضور مسجل في اليوم السابق",
+          title: "لا يوجد حضور للأمس",
+          description: `لا يوجد حضور مسجل بتاريخ ${yesterdayDate}`,
           variant: "destructive",
         });
         return;
@@ -589,38 +592,51 @@ function DailyExpensesContent() {
       }
 
       let successCount = 0;
+      let skippedCount = 0;
       for (const att of toAdd) {
         try {
-          const dailyWageNum = parseFloat(att.dailyWage || "0");
           const workDaysNum = parseFloat(att.workDays || "1");
-          const actualWage = dailyWageNum * workDaysNum;
+          const paidAmountNum = parseFloat(att.paidAmount || att.actualWage || "0");
           await apiRequest("/api/worker-attendance", "POST", {
             worker_id: att.worker_id,
             project_id: selectedProjectId,
             attendanceDate: baseDate,
             workDays: workDaysNum,
-            dailyWage: dailyWageNum.toString(),
-            actualWage: actualWage.toString(),
-            totalPay: actualWage.toString(),
-            paidAmount: actualWage.toString(),
-            remainingAmount: "0",
+            paidAmount: paidAmountNum.toString(),
             workDescription: att.workDescription || att.notes || "أيام عمل",
             notes: att.notes || null,
             well_id: att.well_id || null,
             well_ids: att.well_ids || null,
             crew_type: att.crew_type || null,
             team_name: att.team_name || null,
-            paymentType: "full",
+            confirmOverpayment: true,
           });
           successCount++;
-        } catch (_) {}
+        } catch (err: any) {
+          if (err?.status === 409) {
+            skippedCount++;
+          }
+        }
       }
 
       refreshAllData();
-      toast({
-        title: "تم التكرار بنجاح",
-        description: `تم تسجيل حضور ${successCount} عامل من اليوم السابق`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: "تم التكرار بنجاح",
+          description: `تم تسجيل حضور ${successCount} عامل${skippedCount > 0 ? ` (تم تخطي ${skippedCount} مكرر)` : ""}`,
+        });
+      } else if (skippedCount > 0) {
+        toast({
+          title: "الكل مسجل بالفعل",
+          description: `${skippedCount} عامل موجودين مسبقاً في هذا اليوم`,
+        });
+      } else {
+        toast({
+          title: "لم يتم الإضافة",
+          description: "حدث خطأ أثناء تسجيل الحضور، يرجى المحاولة مرة أخرى",
+          variant: "destructive",
+        });
+      }
     } catch {
       toast({
         title: "خطأ",

@@ -741,7 +741,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const refreshTokenValue = storeGetRefreshToken();
-      if (!refreshTokenValue) {
+
+      // في وضع الكوكي (ويب): الخادم يقرأ refreshToken من الكوكي HttpOnly تلقائياً
+      // في وضع Bearer (موبايل): نحتاج refresh token من localStorage
+      const cookieMode = isWebCookieMode();
+      if (!refreshTokenValue && !cookieMode) {
         return false;
       }
 
@@ -767,7 +771,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
               'x-request-nonce': crypto.randomUUID(),
               'x-request-timestamp': new Date().toISOString(),
             },
-            body: JSON.stringify({ refreshToken: refreshTokenValue }),
+            // في وضع الكوكي لا نُرسل body — الخادم يقرأ الكوكي مباشرة
+            ...(refreshTokenValue ? { body: JSON.stringify({ refreshToken: refreshTokenValue }) } : {}),
             signal: controller.signal,
           });
 

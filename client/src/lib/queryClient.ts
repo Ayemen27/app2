@@ -188,19 +188,24 @@ export async function apiRequest(
 
     if (response.status === 401) {
       if (import.meta.env.DEV) console.log('[apiRequest] 401 Unauthorized - Checking tokens...');
-      
-      const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : getValidToken("refreshToken");
-      if (refreshTokenValue && isValidJwt(refreshTokenValue) && retryCount === 0) {
+
+      // في وضع الكوكي (ويب): الخادم يقرأ refreshToken من الكوكي HttpOnly تلقائياً
+      // في وضع Bearer (موبايل): نحتاج refresh token من localStorage
+      const isWebCookie = !shouldUseBearerAuth();
+      const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : null;
+      const canAttemptRefresh = isWebCookie || (refreshTokenValue != null && isValidJwt(refreshTokenValue));
+
+      if (canAttemptRefresh && retryCount === 0) {
         try {
           const apiBase = ENV.getApiBaseUrl();
           const refreshUrl = `${apiBase}/api/auth/refresh`;
           
-          if (import.meta.env.DEV) console.log('[apiRequest] Attempting silent refresh...');
+          if (import.meta.env.DEV) console.log('[apiRequest] Attempting silent refresh...', { isWebCookie });
           const refreshResponse = await fetch(refreshUrl, {
             method: 'POST',
             credentials: getFetchCredentials(),
             headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
-            body: JSON.stringify({ refreshToken: refreshTokenValue })
+            ...(refreshTokenValue ? { body: JSON.stringify({ refreshToken: refreshTokenValue }) } : {}),
           });
 
           if (refreshResponse.ok) {
@@ -418,8 +423,14 @@ export const getQueryFn: <T>(options: {
         if (!res.ok) {
           if (res.status === 401 && retryCount === 0) {
             if (import.meta.env.DEV) console.log('[QueryClient] 401 - attempting token refresh...');
-            const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : getValidToken("refreshToken");
-            if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
+
+            // في وضع الكوكي (ويب): الخادم يقرأ refreshToken من الكوكي HttpOnly
+            // في وضع Bearer (موبايل): نحتاج refresh token من localStorage
+            const isWebCookie = !shouldUseBearerAuth();
+            const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : null;
+            const canAttemptRefresh = isWebCookie || (refreshTokenValue != null && isValidJwt(refreshTokenValue));
+
+            if (canAttemptRefresh) {
               try {
                 const refreshApiBase = ENV.getApiBaseUrl();
                 const refreshUrl = `${refreshApiBase}/api/auth/refresh`;
@@ -427,23 +438,24 @@ export const getQueryFn: <T>(options: {
                   method: 'POST',
                   credentials: getFetchCredentials(),
                   headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
-                  body: JSON.stringify({ refreshToken: refreshTokenValue })
+                  ...(refreshTokenValue ? { body: JSON.stringify({ refreshToken: refreshTokenValue }) } : {}),
                 });
                 if (refreshRes.ok) {
                   const refreshData = await refreshRes.json();
-                  const newToken = refreshData.data?.accessToken || refreshData.accessToken;
-                  const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
+                  const newToken = refreshData.data?.accessToken || refreshData.accessToken || refreshData.tokens?.accessToken;
+                  const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken || refreshData.tokens?.refreshToken;
                   if (newToken) {
                     if (import.meta.env.DEV) console.log('[QueryClient] Token refreshed successfully, retrying...');
-                    storeTokens(newToken, newRefresh || refreshTokenValue);
+                    if (refreshTokenValue) storeTokens(newToken, newRefresh || refreshTokenValue);
                     return makeQueryRequest(retryCount + 1);
                   }
                 }
+                if (import.meta.env.DEV) console.warn('[QueryClient] Refresh attempt returned non-OK or no token');
               } catch (refreshErr) {
-                console.error('[QueryClient] Token refresh failed:', refreshErr);
+                if (import.meta.env.DEV) console.warn('[QueryClient] Token refresh request failed:', refreshErr);
               }
             }
-            console.error('[QueryClient] Unauthorized (401) - refresh failed');
+            if (import.meta.env.DEV) console.warn('[QueryClient] Unauthorized (401) - session expired');
             throw new Error(`Authentication Error (401)`);
           }
           if (res.status === 401) {

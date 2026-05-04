@@ -1,5 +1,6 @@
 import { ENV } from "@/lib/env";
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bell, X, CheckCircle, AlertTriangle, Info, MessageCircle, Zap, Clock, User, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -247,11 +248,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
   return (
     <>
-      {isOpen && (
+      {isOpen && createPortal(
         <div
-          className="fixed inset-0 z-[99998] bg-black/40 md:hidden"
+          className="fixed inset-0 bg-black/50 md:hidden"
+          style={{ zIndex: 99998 }}
           onClick={() => setIsOpen(false)}
-        />
+        />,
+        document.body
       )}
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>

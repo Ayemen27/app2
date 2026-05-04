@@ -1680,7 +1680,7 @@ export default function MaterialPurchase() {
                     },
                     {
                       label: "الكمية",
-                      value: `${purchase.quantity} ${purchase.materialUnit || purchase.unit}`,
+                      value: `${purchase.quantity} ${purchase.materialUnit || purchase.unit || ''}`.trim(),
                       icon: Package,
                       color: "warning",
                       emphasis: true,

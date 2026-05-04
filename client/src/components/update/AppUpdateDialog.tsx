@@ -12,17 +12,21 @@ import {
   ArrowDownToLine,
   Sparkles,
   PackageCheck,
+  HardDrive,
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import {
   downloadApk,
   installApk,
   cancelDownload,
+  checkLocalApk,
+  cleanOldApkCache,
   type ApkDownloadProgress,
 } from "@/services/apkUpdater";
 
 type UpdateState =
   | "idle"
+  | "checking_local"
   | "preparing"
   | "downloading"
   | "ready_to_install"
@@ -67,6 +71,8 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
   const [total, setTotal] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [apkPath, setApkPath] = useState<string>("");
+  const [cachedSize, setCachedSize] = useState<number>(0);
+  const [usingCache, setUsingCache] = useState(false);
   const isForced = info.forceUpdate === true;
   const downloadUrl = info.latest.downloadUrl;
   const nativeReady = Capacitor.isNativePlatform();
@@ -106,18 +112,45 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     setProgress(0);
     setDownloaded(0);
     setTotal(0);
-    setState("preparing");
+    setUsingCache(false);
 
     try {
-      const result = await downloadApk(downloadUrl, {
-        onProgress: (p: ApkDownloadProgress) => {
-          if (cancelledRef.current) return;
-          setState("downloading");
-          setProgress(Math.min(99, Math.round(p.percent)));
-          setDownloaded(p.downloaded);
-          setTotal(p.total);
+      // ── الخطوة 1: فحص الكاش المحلي أولاً ──────────────────────────
+      setState("checking_local");
+      const localApk = await checkLocalApk(info.latest.versionName);
+
+      if (cancelledRef.current) return;
+
+      if (localApk.exists && localApk.path) {
+        // الملف موجود محلياً وصالح → تخطّي التحميل
+        setUsingCache(true);
+        setCachedSize(localApk.size ?? 0);
+        setApkPath(localApk.path);
+        setProgress(100);
+        setState("ready_to_install");
+        return;
+      }
+
+      // ── الخطوة 2: لا يوجد كاش → تحميل جديد ──────────────────────
+      // تنظيف الملفات القديمة قبل البدء
+      await cleanOldApkCache(info.latest.versionName);
+
+      setState("preparing");
+      await new Promise((r) => setTimeout(r, 200));
+
+      const result = await downloadApk(
+        downloadUrl,
+        {
+          onProgress: (p: ApkDownloadProgress) => {
+            if (cancelledRef.current) return;
+            setState("downloading");
+            setProgress(Math.min(99, Math.round(p.percent)));
+            setDownloaded(p.downloaded);
+            setTotal(p.total);
+          },
         },
-      });
+        info.latest.versionName,
+      );
 
       if (cancelledRef.current) return;
       setProgress(100);
@@ -141,7 +174,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
         setState("failed");
       }
     }
-  }, [downloadUrl, handleBrowserFallback]);
+  }, [downloadUrl, info.latest.versionName, handleBrowserFallback]);
 
   const handleInstall = useCallback(async () => {
     if (!apkPath) return;
@@ -165,6 +198,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
   const handleRetry = useCallback(async () => {
     setState("retrying");
     setErrorMsg("");
+    setUsingCache(false);
     await new Promise((r) => setTimeout(r, 400));
     await handleUpdate();
   }, [handleUpdate]);
@@ -183,16 +217,24 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
     setProgress(0);
     setDownloaded(0);
     setTotal(0);
+    setUsingCache(false);
   }, []);
 
-  const isProcessing = state === "preparing" || state === "downloading" || state === "retrying" || state === "installing";
+  const isProcessing =
+    state === "checking_local" ||
+    state === "preparing" ||
+    state === "downloading" ||
+    state === "retrying" ||
+    state === "installing";
+
   const showInstallButton = state === "ready_to_install" && nativeReady;
 
   const stateLabel: Record<UpdateState, string> = {
     idle: "",
+    checking_local: "جاري فحص الملفات المحلية...",
     preparing: "جاري التجهيز...",
     downloading: "جاري التحميل...",
-    ready_to_install: "اكتمل التحميل",
+    ready_to_install: usingCache ? "الملف متوفر محلياً" : "اكتمل التحميل",
     installing: "فتح المثبّت...",
     retrying: "إعادة المحاولة...",
     copied: "تم نسخ الرابط",
@@ -216,11 +258,17 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
                 className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                   isForced
                     ? "bg-red-500/10 dark:bg-red-500/20"
+                    : state === "ready_to_install" && usingCache
+                    ? "bg-amber-500/10 dark:bg-amber-500/20"
+                    : showInstallButton
+                    ? "bg-emerald-500/10 dark:bg-emerald-500/20"
                     : "bg-blue-500/10 dark:bg-blue-500/20"
                 }`}
               >
                 {isForced ? (
                   <AlertTriangle className="w-6 h-6 text-red-500" />
+                ) : state === "ready_to_install" && usingCache ? (
+                  <HardDrive className="w-6 h-6 text-amber-500" />
                 ) : showInstallButton ? (
                   <PackageCheck className="w-6 h-6 text-emerald-500" />
                 ) : (
@@ -234,7 +282,9 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
                   }`}
                   data-testid="text-update-title"
                 >
-                  {showInstallButton
+                  {state === "ready_to_install" && usingCache
+                    ? "الملف جاهز للتثبيت"
+                    : showInstallButton
                     ? "جاهز للتثبيت"
                     : isForced
                     ? "تحديث إجباري مطلوب"
@@ -263,6 +313,26 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             </p>
           )}
 
+          {/* بطاقة الكاش المحلي */}
+          {state === "ready_to_install" && usingCache && (
+            <div
+              className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400"
+              data-testid="text-cache-notice"
+            >
+              <HardDrive className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="text-xs font-medium leading-relaxed">
+                <span>تم العثور على الملف محلياً</span>
+                {cachedSize > 0 && (
+                  <span className="text-amber-600 dark:text-amber-500 mr-1">
+                    ({formatBytes(cachedSize)})
+                  </span>
+                )}
+                <br />
+                <span className="font-normal opacity-80">لن يتم استهلاك بيانات الإنترنت</span>
+              </div>
+            </div>
+          )}
+
           {info.latest.releaseNotes && state === "idle" && (
             <div
               className="bg-muted/50 rounded-xl p-3 text-right max-h-[160px] overflow-y-auto"
@@ -280,16 +350,23 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
 
           {(isProcessing || state === "ready_to_install") && (
             <div className="space-y-2" data-testid="progress-section">
-              <Progress value={progress} className="h-2" />
+              {state !== "checking_local" && (
+                <Progress value={progress} className="h-2" />
+              )}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground" data-testid="text-progress-label">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid="text-progress-label">
+                  {state === "checking_local" && (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  )}
                   {stateLabel[state]}
                 </span>
-                <span className="text-xs font-mono text-muted-foreground" data-testid="text-progress-percent">
-                  {progress}%
-                </span>
+                {state !== "checking_local" && (
+                  <span className="text-xs font-mono text-muted-foreground" data-testid="text-progress-percent">
+                    {progress}%
+                  </span>
+                )}
               </div>
-              {total > 0 && (
+              {total > 0 && !usingCache && (
                 <div className="text-[11px] font-mono text-muted-foreground text-center" data-testid="text-bytes">
                   {formatBytes(downloaded)} / {formatBytes(total)}
                 </div>
@@ -329,11 +406,15 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
             {showInstallButton && (
               <Button
                 onClick={handleInstall}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                className={`w-full text-white ${
+                  usingCache
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
                 data-testid="button-install-now"
               >
                 <PackageCheck className="w-4 h-4" />
-                <span>تثبيت الآن</span>
+                <span>{usingCache ? "تثبيت (من الذاكرة المحلية)" : "تثبيت الآن"}</span>
               </Button>
             )}
 
@@ -376,7 +457,7 @@ export function AppUpdateDialog({ info, onDismiss, onUpdateNow, onCopyLink }: Ap
               </Button>
             )}
 
-            {downloadUrl && state !== "ready_to_install" && state !== "installing" && (
+            {downloadUrl && state !== "ready_to_install" && state !== "installing" && state !== "checking_local" && (
               <Button
                 variant="outline"
                 onClick={handleCopy}

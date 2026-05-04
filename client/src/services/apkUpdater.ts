@@ -36,13 +36,84 @@ interface ApkUpdaterPlugin {
 const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater');
 
 export function isApkUpdaterAvailable(): boolean {
-  // لا نستخدم isPluginAvailable() — تُرجع false في Capacitor 8 حتى للإضافات الموجودة.
-  // ApkUpdater مُدمجة في APK دائماً، نكتفي بفحص المنصة الأصلية.
   try {
     return Capacitor.isNativePlatform();
   } catch {
     return false;
   }
+}
+
+/**
+ * اسم ملف APK ثابت وحتمي بناءً على رقم الإصدار.
+ * يضمن أن نفس الإصدار دائماً يُحفظ في نفس المسار → لا إعادة تحميل.
+ */
+export function getApkFileName(versionName: string): string {
+  const safeVersion = (versionName || 'unknown').replace(/[^0-9.a-zA-Z_-]/g, '_');
+  return `AXION_v${safeVersion}_update.apk`;
+}
+
+/**
+ * يفحص وجود ملف APK محلياً بنفس رقم الإصدار المطلوب.
+ * يستخدم @capacitor/filesystem للفحص الحقيقي على الجهاز.
+ *
+ * العائد:
+ *   - { exists: true, path } → الملف موجود وصالح
+ *   - { exists: false }      → يجب التحميل
+ */
+export async function checkLocalApk(versionName: string): Promise<{ exists: boolean; path?: string; size?: number }> {
+  if (!Capacitor.isNativePlatform()) return { exists: false };
+
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const fileName = getApkFileName(versionName);
+
+    const stat = await Filesystem.stat({
+      path: fileName,
+      directory: Directory.Cache,
+    });
+
+    const size = (stat as any).size ?? 0;
+
+    if (size < 1024 * 1024) {
+      return { exists: false };
+    }
+
+    const { uri } = await Filesystem.getUri({
+      path: fileName,
+      directory: Directory.Cache,
+    });
+
+    return { exists: true, path: uri, size };
+  } catch {
+    return { exists: false };
+  }
+}
+
+/**
+ * يحذف ملفات APK القديمة من الكاش لتحرير المساحة.
+ * يُنفَّذ بعد نجاح التثبيت أو قبل بدء تحميل إصدار جديد.
+ */
+export async function cleanOldApkCache(currentVersionName: string): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { files } = await Filesystem.readdir({
+      path: '',
+      directory: Directory.Cache,
+    });
+
+    const currentFileName = getApkFileName(currentVersionName);
+
+    for (const file of files) {
+      const name = typeof file === 'string' ? file : (file as any).name;
+      if (name && name.startsWith('AXION_') && name.endsWith('_update.apk') && name !== currentFileName) {
+        try {
+          await Filesystem.deleteFile({ path: name, directory: Directory.Cache });
+        } catch {}
+      }
+    }
+  } catch {}
 }
 
 export interface DownloadAndInstallCallbacks {
@@ -54,8 +125,12 @@ export interface DownloadAndInstallCallbacks {
 export async function downloadApk(
   url: string,
   callbacks: DownloadAndInstallCallbacks = {},
+  versionName?: string,
 ): Promise<ApkDownloadResult> {
-  const fileName = `AXION_update_${Date.now()}.apk`;
+  const fileName = versionName
+    ? getApkFileName(versionName)
+    : `AXION_update_${Date.now()}.apk`;
+
   const handles: PluginListenerHandle[] = [];
 
   const cleanup = async () => {

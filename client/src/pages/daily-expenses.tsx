@@ -228,6 +228,7 @@ function DailyExpensesContent() {
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
   const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
   const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
+  const [isCopyingYesterday, setIsCopyingYesterday] = useState(false);
   const [showGuardTransferDialog, setShowGuardTransferDialog] = useState(false);
   const [guardTransferData, setGuardTransferData] = useState<FinancialGuardData | null>(null);
   const [showGuardPurchaseDialog, setShowGuardPurchaseDialog] = useState(false);
@@ -535,6 +536,100 @@ function DailyExpensesContent() {
     };
 
     addWorkerAttendanceMutation.mutate(attendanceData);
+  };
+
+  const handleCopyYesterdayAttendance = async () => {
+    if (!selectedProjectId || selectedProjectId === "all" || isAllProjects) {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن تكرار الحضور عند اختيار 'جميع المشاريع'",
+        variant: "destructive",
+      });
+      return;
+    }
+    const baseDate = selectedDate || getCurrentDate();
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() - 1);
+    const yesterdayDate = d.toISOString().split("T")[0];
+
+    setIsCopyingYesterday(true);
+    try {
+      const response = await apiRequest(
+        `/api/worker-attendance?project_id=${selectedProjectId}&date=${yesterdayDate}`,
+        "GET"
+      );
+      const yesterdayAttendance: any[] = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      if (yesterdayAttendance.length === 0) {
+        toast({
+          title: "لا يوجد حضور",
+          description: "لا يوجد حضور مسجل في اليوم السابق",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const todayWorkerIds = new Set(
+        (attendanceData as any[]).map((a: any) => String(a.worker_id))
+      );
+      const toAdd = yesterdayAttendance.filter(
+        (a: any) => !todayWorkerIds.has(String(a.worker_id))
+      );
+
+      if (toAdd.length === 0) {
+        toast({
+          title: "الكل مسجل بالفعل",
+          description: "جميع عمال اليوم السابق تم تسجيل حضورهم اليوم",
+        });
+        return;
+      }
+
+      let successCount = 0;
+      for (const att of toAdd) {
+        try {
+          const dailyWageNum = parseFloat(att.dailyWage || "0");
+          const workDaysNum = parseFloat(att.workDays || "1");
+          const actualWage = dailyWageNum * workDaysNum;
+          await apiRequest("/api/worker-attendance", "POST", {
+            worker_id: att.worker_id,
+            project_id: selectedProjectId,
+            attendanceDate: baseDate,
+            workDays: workDaysNum,
+            dailyWage: dailyWageNum.toString(),
+            actualWage: actualWage.toString(),
+            totalPay: actualWage.toString(),
+            paidAmount: actualWage.toString(),
+            remainingAmount: "0",
+            workDescription: att.workDescription || att.notes || "أيام عمل",
+            notes: att.notes || null,
+            well_id: att.well_id || null,
+            well_ids: att.well_ids || null,
+            crew_type: att.crew_type || null,
+            team_name: att.team_name || null,
+            paymentType: "full",
+          });
+          successCount++;
+        } catch (_) {}
+      }
+
+      refreshAllData();
+      toast({
+        title: "تم التكرار بنجاح",
+        description: `تم تسجيل حضور ${successCount} عامل من اليوم السابق`,
+      });
+    } catch {
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء جلب بيانات اليوم السابق",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCopyingYesterday(false);
+    }
   };
 
   // جلب معلومات المواد مع معالجة آمنة للأخطاء
@@ -3864,21 +3959,40 @@ function DailyExpensesContent() {
                   </Button>
                 </>
               ) : (
-                <Button 
-                  onClick={handleQuickAddAttendance}
-                  className="bg-primary h-9 flex-1"
-                  disabled={addWorkerAttendanceMutation.isPending}
-                  data-testid="button-add-worker-attendance"
-                >
-                  {addWorkerAttendanceMutation.isPending ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 ml-1" />
-                      إضافة الحضور السريع
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button 
+                    onClick={handleQuickAddAttendance}
+                    className="bg-primary h-9 flex-1"
+                    disabled={addWorkerAttendanceMutation.isPending}
+                    data-testid="button-add-worker-attendance"
+                  >
+                    {addWorkerAttendanceMutation.isPending ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 ml-1" />
+                        إضافة الحضور السريع
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleCopyYesterdayAttendance}
+                    variant="outline"
+                    className="h-9 border-amber-400 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex-shrink-0"
+                    disabled={isCopyingYesterday}
+                    title="تكرار حضور الأمس"
+                    data-testid="button-copy-yesterday-attendance"
+                  >
+                    {isCopyingYesterday ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border border-amber-600 border-t-transparent" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 ml-1" />
+                        تكرار الأمس
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
             </div>
 

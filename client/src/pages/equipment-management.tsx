@@ -2101,8 +2101,10 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
   const selectedItem = stockItems.find(i => String(i.id) === itemId);
 
   const handleSubmit = () => {
-    if (!itemId || !quantity || !fromProjectId) return;
-    onSubmit({ itemId, quantity, fromProjectId, transactionDate, notes: notes || undefined });
+    const qty = parseFloat(quantity);
+    if (!itemId || !quantity || !fromProjectId || isNaN(qty) || qty <= 0) return;
+    // quantity يجب أن تكون number لا string — Zod يرفض z.number().positive() إذا أُرسلت كـ string
+    onSubmit({ itemId, quantity: qty, fromProjectId, transactionDate, notes: notes || undefined });
     setItemId(''); setQuantity(''); setFromProjectId(''); setNotes('');
   };
 

@@ -236,7 +236,15 @@ export async function apiRequest(
               };
               
               const retryResponse = await fetch(url, retryConfig);
-              if (!retryResponse.ok) throw new Error("فشل الطلب بعد تجديد الرمز");
+              if (!retryResponse.ok) {
+                // استخرج رسالة الخطأ الحقيقية من الخادم بدلاً من رسالة عامة
+                let retryErrMsg = `خطأ ${retryResponse.status}`;
+                try {
+                  const errData = await retryResponse.json();
+                  retryErrMsg = errData?.message || errData?.error || errData?.errors?.join(', ') || retryErrMsg;
+                } catch {}
+                throw new Error(retryErrMsg);
+              }
               return await retryResponse.json();
             }
           } else {

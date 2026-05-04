@@ -246,6 +246,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   };
 
   return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[99998] bg-black/40 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
@@ -437,5 +444,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         )}
       </PopoverContent>
     </Popover>
+    </>
   );
 }
